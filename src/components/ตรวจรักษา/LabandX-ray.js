@@ -85,16 +85,13 @@ const LabandXray = () => {
 
         {/* Vitals Form Section */}
         <Grid item xs={12} sm={6} sx={{pt:'2px'}}>
-            {/* <Button variant="contained" size="large"sx={{ display: "block", textAlign: "left" ,bgcolor:'#5698E0',borderRadius: "16px 16px 0 0"}}>Diag & Vital Sign</Button> */}
-          {/* <Card sx={{ textAlign: "center", p: 2 }}>
-            <CardContent sx={{ textAlign: "center", p: 2 }}> */}
-              {/* <Typography variant="h6" sx={{ mb: 2 }}>Diag & Vital Sign</Typography> */}
               <Grid container spacing={2}>
 
-              <Typography variant="body1" sx={{ml:'20px',pt:'18px',pl:'1px',mb:10}}></Typography>
+              {/* <Typography variant="body1" sx={{ml:'20px',pt:'18px',pl:'1px',mb:10}}></Typography> */}
                             <FormGroup sx={{ml:'20px',pt:'10px',pl:'1px'}}>
-                            <FormControlLabel control={<Checkbox defaultChecked />} label="Chest X-ray" />
-                            <FormControlLabel control={<Checkbox defaultChecked />} label="X-ray" />
+                            <Typography variant="body1" sx={{ml:'-2px',pt:'18px',pl:'1px',mb:1}}>Rediological Examination</Typography>
+                            <FormControlLabel control={<Checkbox />} label="Chest X-ray" />
+                            <FormControlLabel control={<Checkbox  />} label="X-ray" />
                             {/* <FormControlLabel control={<Checkbox defaultChecked />} label="LAB" /> */}
                             </FormGroup>
                 {/* <Typography sx={{ml:'20px',pt:'1px'}}>Chief  complaint</Typography> */}
@@ -107,7 +104,7 @@ const LabandXray = () => {
                             },}}/>
                 <Typography variant="body1" sx={{ml:'20px',pt:'18px',pl:'1px',mb:5}}></Typography>
               <FormGroup sx={{ml:'20px',pt:'10px',pl:'1px'}}>
-                            <FormControlLabel control={<Checkbox defaultChecked />} label="Ultrasound" />
+                            <FormControlLabel control={<Checkbox  />} label="Ultrasound" />
                             </FormGroup>
                 {/* <Typography sx={{ml:'20px',pt:'1px'}}>Chief  complaint</Typography> */}
                 <TextField fullWidth multiline rows={3} label=""   
@@ -118,20 +115,18 @@ const LabandXray = () => {
                             fontSize: '18px', // ขนาดตัวอักษร
                             },}}/>
                             <>                  </>
-                {/* <Typography sx={{ml:'20px',pt:'1px',mt:2,}}>Laboratary investigation</Typography> */}
-                <Typography variant="body1" sx={{ml:'20px',pt:'18px',pl:'1px',mb:10}}></Typography>
+               
                             <FormGroup sx={{ml:'20px',pt:'10px',pl:'1px'}}>
-                            <FormControlLabel control={<Checkbox defaultChecked />} label="CBC" />
-                            <FormControlLabel control={<Checkbox defaultChecked />} label="BUN,C" />
-                            <FormControlLabel control={<Checkbox defaultChecked />} label="Lipid" />
-                            <FormControlLabel control={<Checkbox defaultChecked />} label="FBS" />
-                            <FormControlLabel control={<Checkbox defaultChecked />} label="DTX" />
-                            <FormControlLabel control={<Checkbox defaultChecked />} label="Other" />
+                            <Typography sx={{ml:'-2px',pt:'1px',mt:2,}}>Laboratary investigation</Typography>
+                            <FormControlLabel control={<Checkbox  />} label="CBC" />
+                            <FormControlLabel control={<Checkbox  />} label="BUN,C" />
+                            <FormControlLabel control={<Checkbox />} label="Lipid" />
+                            <FormControlLabel control={<Checkbox  />} label="FBS" />
+                            <FormControlLabel control={<Checkbox  />} label="DTX" />
+                            <FormControlLabel control={<Checkbox  />} label="Other" /><TextField size="small" sx={{borderRadius:'5px'}}/>
                             </FormGroup>
 
-                {/* <Grid item xs={12} textAlign="right">
-                  <Button variant="contained" sx={{ backgroundColor: "#BCD8FF", color: "#5BA9FF", fontSize: "1rem",width:'100px', font:'Lato',fontWeight:600 }}>ถัดไป</Button>
-                </Grid> */}
+                
               </Grid>
             {/* </CardContent>
           </Card> */}

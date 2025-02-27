@@ -159,12 +159,12 @@ const Medicalhistory = () => {
                             },}}/>
                             <Typography variant="body1" sx={{ml:'20px',pt:'18px',pl:'1px',mb:20}}>Ix:</Typography>
                             <FormGroup sx={{ml:'20px',pt:'10px',pl:'1px'}}>
-                            <FormControlLabel control={<Checkbox defaultChecked />} label="N/A" />
-                            <FormControlLabel control={<Checkbox defaultChecked />} label="Imaging" />
-                            <FormControlLabel control={<Checkbox defaultChecked />} label="LAB" />
+                            <FormControlLabel control={<Checkbox  />} label="N/A" />
+                            <FormControlLabel control={<Checkbox  />} label="Imaging" />
+                            <FormControlLabel control={<Checkbox  />} label="LAB" />
                             </FormGroup>
 
-                {/* <Typography sx={{ml:'2px',pt:'60px',mt:10,pl:'1px'}}>Plan</Typography> */}
+                <Typography sx={{ml:'-140px',pt:'60px',mt:15,pl:'1px'}}>Plan</Typography>
                            <TextField fullWidth multiline rows={3} label=""   
                             sx={{ml:'20px',pt:'0px', width: '100%',
                             '& .MuiOutlinedInput-root': {

@@ -68,7 +68,7 @@ const demoTheme = createTheme({
     },
 });
 
-function Restaurant() {
+function Clinic() {
     const [pathname, setPathname] = React.useState('/Dashboard');
     const [currentTitle, setCurrentTitle] = React.useState('');
     const navigate = useNavigate();
@@ -77,9 +77,13 @@ function Restaurant() {
     const NAVIGATION = [
         
         {
+            kind: 'divider',
+          },
+        
+        {
             segment: 'Dashboard',
             title: 'Dashboard',
-            icon: <BarChartIcon sx={{ color: 'white' }}/>,
+            icon: <BarChartIcon sx={{ color: '#FFFFFF' }}/>,
         },
         {
             segment: 'PatientRegistration',
@@ -106,7 +110,7 @@ function Restaurant() {
           },
         {
             segment: 'Paymentanddispensingmedicine',
-            title: 'ชำาระเงิน/จ่ายยา',
+            title: 'ชำระเงิน/จ่ายยา',
             icon: <AccountBalanceIcon  sx={{ color: 'white' }}/>,
         },
         {
@@ -159,7 +163,7 @@ function Restaurant() {
     const findMenuTitle = (path) => {
         const segment = path.substring(1);
         const mainMenu = NAVIGATION.find(item => item.segment === segment);
-        return mainMenu ? mainMenu.title : 'Beginning Inventory'; // default
+        return mainMenu ? mainMenu.title : 'Dashboard'; // default
     };
 
     const renderContent = () => {
@@ -195,7 +199,7 @@ function Restaurant() {
     const SidebarFooter = ({ mini }) => {
         return (
             <Box sx={{ p: 2, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                {/* <Button
+                <Button
                     variant="text"
                     startIcon={!mini && <ArrowBackIcon />}
                     onClick={() => {
@@ -210,7 +214,7 @@ function Restaurant() {
                     }}
                 >
                     {mini ? <ArrowBackIcon /> : 'Back to Dashboard'}
-                </Button> */}
+                </Button>
             </Box>
         );
         
@@ -288,4 +292,4 @@ function Restaurant() {
     );
 }
 
-export default Restaurant;
+export default Clinic;

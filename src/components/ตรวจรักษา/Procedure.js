@@ -123,7 +123,7 @@ const Procedure = () => {
                                 {/* Table data will go here */}
                                 <tr >
                                 <td style={{ padding: '12px 5px' }}> <Checkbox sx={{mr:8}} />{ 1}</td>
-                                <td style={{ padding: '12px 16px' }}>Paracetamol</td>
+                                <td style={{ padding: '12px 16px' }}></td>
                                 </tr>
                             </tbody>
                         </table>
