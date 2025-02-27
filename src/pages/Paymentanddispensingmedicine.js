@@ -23,7 +23,7 @@ const Paymentanddispensingmedicine = () => {
         lineHeight: '2',     // เพิ่มความสูงของบรรทัด
         textShadow: '1px 1px 2px rgba(0, 0, 0, 0.1)' // เพิ่มเงาให้ตัวหนังสือ
         }}>
-            ชำาระเงิน/จ่ายยา
+            ชำระเงิน/จ่ายยา
         </Typography>
 
           <Tabs
