@@ -1,5 +1,5 @@
 import React from "react";
-import { Container, Tabs, Tab, Card, CardContent, Typography } from "@mui/material";
+import { Tabs, Tab, Card, CardContent, Typography, Box } from "@mui/material";
 import GeneralInfoTab from '../components/patientregistration/GeneralInfoTab';
 import ContactInfoTab from '../components/patientregistration/ContactInfoTab';
 import HealthHistoryTab from '../components/patientregistration/HealthHistoryTab';
@@ -12,15 +12,15 @@ const PatientRegistration = () => {
   };
 
   return (
-    <Container maxWidth={false} sx={{ mt: 4, maxWidth: "1400px" }}>
-       <Typography sx={{
-              fontWeight: '600',
-              fontSize: '24px',
-              fontFamily: 'Instrument Sans',
-              letterSpacing: '1.5px', // เพิ่มระยะห่างระหว่างตัวอักษร
-              lineHeight: '2',     // เพิ่มความสูงของบรรทัด
-              textShadow: '1px 1px 2px rgba(0, 0, 0, 0.1)' // เพิ่มเงาให้ตัวหนังสือ
-              }}>
+    <Box sx={{ width: "100%", pt: 2 }}>
+      <Typography sx={{
+        fontWeight: '600',
+        fontSize: '24px',
+        fontFamily: 'Instrument Sans',
+        letterSpacing: '1.5px',
+        lineHeight: '2',
+        textShadow: '1px 1px 2px rgba(0, 0, 0, 0.1)'
+      }}>
         ลงทะเบียนผู้ป่วย
       </Typography>
       <Tabs
@@ -44,24 +44,23 @@ const PatientRegistration = () => {
           "& .MuiTabs-indicator": {
             display: "none",
           },
-          maxWidth: "500px" ,
-          
+          // maxWidth: "500px",
+          width: 'auto'
         }}
       >
-        <Tab label="ข้อมูลทั่วไป" /> 
-        <Tab label="ข้อมูลติดต่อ"  />
+        <Tab label="ข้อมูลทั่วไป" />
+        <Tab label="ข้อมูลติดต่อ" />
         <Tab label="ประวัติสุขภาพ" />
-        {/* sx={{  fontSize: '16px' }} */}
       </Tabs>
 
-      <Card>
+      <Card sx={{ width: "100%", mt: 2 }}>
         <CardContent>
           {tabIndex === 0 && <GeneralInfoTab />}
           {tabIndex === 1 && <ContactInfoTab />}
           {tabIndex === 2 && <HealthHistoryTab />}
         </CardContent>
       </Card>
-    </Container>
+    </Box>
   );
 };
 

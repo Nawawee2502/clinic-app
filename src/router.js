@@ -48,11 +48,11 @@
 
 
 
-import { Route, Routes, BrowserRouter, Navigate } from "react-router-dom";
+import { Route, Routes, BrowserRouter, Navigate, Outlet } from "react-router-dom";
 import { useSelector } from "react-redux";
 import LoginPage from "./pages/Login";
 import Signup from "./pages/Signup";
-import Dashboard from "./components/Dashboard";
+import Dashboard from "./pages/Dashboard";
 import Patientregistration from "./pages/Patientregistration";
 import AppBarWithProps from "./pages/AppBarWithProps";
 import ตรวจรักษา from './pages/ตรวจรักษา';
@@ -76,62 +76,77 @@ const PublicRoute = ({ children }) => {
   const userData = localStorage.getItem('userData2');
 
   if (isAuthenticated || userData) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/clinic/dashboard" replace />;
   }
 
   return children;
+};
+
+// คอมโพเนนต์สำหรับ layout ที่มี AppBar และ Sidebar
+const ProtectedLayout = () => {
+  return (
+    <ProtectedRoute>
+      <AppBarWithProps>
+        <Outlet /> {/* ตรงนี้จะแสดงเนื้อหาของ route ที่ match */}
+      </AppBarWithProps>
+    </ProtectedRoute>
+  );
 };
 
 const Router = () => {
   return (
     <BrowserRouter>
       <Routes>
+        {/* Public routes */}
         <Route path="/" element={
           <PublicRoute>
             <LoginPage />
           </PublicRoute>
         } />
-        <Route path="/patientregistration" element={
-          <ProtectedRoute>
-            <Patientregistration />
-          </ProtectedRoute>
-        } />
-         <Route path="/ตรวจรักษา" element={
-          <ProtectedRoute>
-            <ตรวจรักษา />
-          </ProtectedRoute>
-        } />
-        <Route path="/Medicalstock" element={
-          <ProtectedRoute>
-            <Medicalstock />
-          </ProtectedRoute>
-        } />
-        <Route path="/dashboard" element={
-          <ProtectedRoute>
-            <Dashboard />
-          </ProtectedRoute>
-        } />
-        <Route path="/clinic" element={
-          <ProtectedRoute>
-            <AppBarWithProps />
-          </ProtectedRoute>
-        } />
+
         <Route path="/login" element={
-          <ProtectedRoute>
+          <PublicRoute>
             <LoginPage />
-          </ProtectedRoute>
+          </PublicRoute>
         } />
+
         <Route path="/signup" element={
-          <ProtectedRoute>
-            <Signup/>
-          </ProtectedRoute>
+          <PublicRoute>
+            <Signup />
+          </PublicRoute>
         } />
-        <Route path="/cerwork" element={
+
+        {/* Protected routes with AppBar and Sidebar */}
+        <Route path="/clinic" element={<ProtectedLayout />}>
+          <Route index element={<Navigate to="/clinic/dashboard" replace />} />
+          <Route path="dashboard" element={<Dashboard />} />
+          <Route path="patientregistration" element={<Patientregistration />} />
+          <Route path="ตรวจรักษา" element={<ตรวจรักษา />} />
+          <Route path="medicalstock" element={<Medicalstock />} />
+          <Route path="cerwork" element={<Cerwork />} />
+          {/* <Route path="personnel" element={<Personnel />} /> */}
+          {/* <Route path="finance" element={<Financialandaccounting />} /> */}
+          {/* <Route path="report" element={<Report />} /> */}
+          {/* <Route path="rights" element={<Rightsmanagementsystem />} /> */}
+        </Route>
+
+        {/* Logout route */}
+        <Route path="/logout" element={
           <ProtectedRoute>
-            <Cerwork/>
+            <Navigate to="/login" replace />
           </ProtectedRoute>
         } />
 
+        {/* Legacy paths - redirect to new structure */}
+        <Route path="/dashboard" element={<Navigate to="/clinic/dashboard" replace />} />
+        <Route path="/patientregistration" element={<Navigate to="/clinic/patientregistration" replace />} />
+        <Route path="/ตรวจรักษา" element={<Navigate to="/clinic/ตรวจรักษา" replace />} />
+        <Route path="/Medicalstock" element={<Navigate to="/clinic/medicalstock" replace />} />
+        <Route path="/cerwork" element={<Navigate to="/clinic/cerwork" replace />} />
+        <Route path="/Personnel" element={<Navigate to="/clinic/personnel" replace />} />
+        <Route path="/Financialandaccounting" element={<Navigate to="/clinic/finance" replace />} />
+        <Route path="/Report" element={<Navigate to="/clinic/report" replace />} />
+        <Route path="/Rightsmanagementsystem" element={<Navigate to="/clinic/rights" replace />} />
       </Routes>
     </BrowserRouter>
   );

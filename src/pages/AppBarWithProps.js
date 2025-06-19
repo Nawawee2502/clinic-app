@@ -1,13 +1,26 @@
+// Fix for Clinic.jsx to address rendering issues
 import * as React from 'react';
-import { Grid, TextField, Button, MenuItem, Avatar, Typography, Box,Card,CardContent,Container,Divider } from "@mui/material";
+import {
+    Grid,
+    TextField,
+    Button,
+    MenuItem,
+    Avatar,
+    Typography,
+    Box,
+    Card,
+    CardContent,
+    Container,
+    Divider,
+    IconButton,
+    Tooltip
+} from "@mui/material";
 import PropTypes from 'prop-types';
-import { createTheme } from '@mui/material/styles';
+import { createTheme, ThemeProvider } from '@mui/material/styles';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import { AppProvider } from '@toolpad/core/AppProvider';
-import { DashboardLayout } from '@toolpad/core/DashboardLayout';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import AddCardIcon from '@mui/icons-material/AddCard';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import MoveToInboxIcon from '@mui/icons-material/MoveToInbox';
@@ -23,43 +36,68 @@ import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
 import SettingsIcon from '@mui/icons-material/Settings';
 import LogoutIcon from '@mui/icons-material/Logout';
-import LoginPage from "./Login";
-import Dashboard from '../components/Dashboard';
-import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn';
-import PatientRegistration from './Patientregistration';
-import ตรวจรักษา from './ตรวจรักษา';
-import Drugandmedical from './Drugandmedical';
-import Financialandaccounting from './Financialandaccounting';
-import Personnel from './Personnel';
-import Report from './Report';
-import Rightsmanagementsystem from './Rightsmanagementsystem';
-import History from './History';
-import Paymentanddispensingmedicine from './Paymentanddispensingmedicine';
-import { Padding } from '@mui/icons-material';
+import KeyboardArrowLeftIcon from '@mui/icons-material/KeyboardArrowLeft';
+import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
+import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
+import MenuIcon from '@mui/icons-material/Menu';
 
+// Remove unnecessary imports that might be causing errors
+// import { AppProvider } from '@toolpad/core/AppProvider';
+// import { DashboardLayout } from '@toolpad/core/DashboardLayout';
+// import { Padding } from '@mui/icons-material';
+
+// กำหนดธีมให้ตรงกับ Design
 const demoTheme = createTheme({
-    breakpoints: {
-        values: {
-            xs: 0,
-            sm: 600,
-            md: 600,
-            lg: 1200,
-            xl: 1536,
+    palette: {
+        primary: {
+            main: '#78B0F9',
         },
+        secondary: {
+            main: '#34A853',
+        },
+        background: {
+            default: '#f9fafb',
+        },
+    },
+    typography: {
+        fontFamily: [
+            'Inter',
+            'Roboto',
+            'Arial',
+            'sans-serif',
+        ].join(','),
     },
     components: {
         MuiAppBar: {
             styleOverrides: {
                 root: {
-                    '& .MuiToolbar-root': {
-                        justifyContent: 'space-between',
-                        '& .MuiTypography-root': {
-                            position: 'absolute',
-                            left: '50%',
-                            transform: 'translateX(-50%)',
-                            fontWeight: 'bold',
-                            color: 'black',
-                            
+                    backgroundColor: 'white',
+                    color: 'black',
+                    boxShadow: '0px 1px 4px rgba(0, 0, 0, 0.1)',
+                },
+            },
+        },
+        MuiDrawer: {
+            styleOverrides: {
+                paper: {
+                    backgroundColor: '#78B0F9',
+                    borderRight: '1px solid #6ea1f7',
+                },
+            },
+        },
+        MuiListItemButton: {
+            styleOverrides: {
+                root: {
+                    borderRadius: '8px',
+                    margin: '4px 8px',
+                    '&.Mui-selected': {
+                        backgroundColor: 'rgba(26, 93, 180, 0.8)',
+                        color: 'white',
+                        '&:hover': {
+                            backgroundColor: 'rgba(26, 93, 180, 0.9)',
+                        },
+                        '& .MuiListItemIcon-root': {
+                            color: 'white',
                         },
                     },
                 },
@@ -68,228 +106,295 @@ const demoTheme = createTheme({
     },
 });
 
-function Clinic() {
-    const [pathname, setPathname] = React.useState('/Dashboard');
-    const [currentTitle, setCurrentTitle] = React.useState('');
-    const navigate = useNavigate();
+// คอมโพเนนต์ CustomAppBar 
+const CustomAppBar = ({ userName = "Abu Fahim", userEmail = "hello@fahim.com", isSidebarOpen, toggleSidebar }) => {
+    return (
+        <Box
+            sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                py: 1.5,
+                px: 3,
+                borderBottom: '1px solid #e0e0e0',
+                bgcolor: 'white',
+                position: 'fixed',
+                left: isSidebarOpen ? '240px' : 0,
+                right: 0,
+                top: 0,
+                zIndex: 1100,
+                height: '64px',
+                transition: 'left 0.3s'
+            }}
+        >
+            {/* Left: Menu Button */}
+            <IconButton
+                onClick={toggleSidebar}
+                sx={{ color: '#4285F4' }}
+            >
+                <MenuIcon />
+            </IconButton>
 
-    // ตัวอย่างเมนู
-    const NAVIGATION = [
-        
-        {
-            kind: 'divider',
-          },
-        
-        {
-            segment: 'Dashboard',
-            title: 'Dashboard',
-            icon: <BarChartIcon sx={{ color: '#FFFFFF' }}/>,
-        },
-        {
-            segment: 'PatientRegistration',
-            title: 'ลงทะเบียนผู้ป่วย',
-            icon: <AddCardIcon />,
-        },
-        {
-            segment: 'History',
-            title: 'ซักประวิติ',
-            icon: <AssignmentTurnedInIcon />,
-        },
-        {
-            segment: 'checkandtreat',
-            title: 'ตรวจรักษา',
-            icon: <MoveToInboxIcon />,
-        },
-        {
-            segment: 'Laboratoryexaminationsystem',
-            title: 'ระบบห้องตรวจปฏิบัติการ',
-            icon: <ScienceIcon/>, // ไอคอนใหม่
-        },
-        {
-            kind: 'divider',
-          },
-        {
-            segment: 'Paymentanddispensingmedicine',
-            title: 'ชำระเงิน/จ่ายยา',
-            icon: <AccountBalanceIcon  sx={{ color: 'white' }}/>,
-        },
-        {
-            segment: 'Personnel',
-            title: 'ระบบบุคลากร',
-            icon: <PeopleAltIcon/>,
-        },
-        {
-            segment: 'Drugandmedical',
-            title: 'ระบบคลังยา/เวชภัณฑ์',
-            icon: <InsertDriveFileIcon />,
-        },
-        {
-            segment: 'Financialandaccounting',
-            title: 'ระบบการเงิน/บัญชี',
-            icon: <PaymentIcon/>, // ไอคอนใหม่
-        },
-        {
-            segment: 'Report',
-            title: 'รายงานสำหรับผู้บริหาร',
-            icon: <DescriptionIcon sx={{ color: 'white' }}/>,
-        },
-        {
-            segment: 'Rightsmanagementsystem',
-            title: 'ระบบจัดการสิทธิ',
-            icon: <PersonOutlineIcon />,
-        },
-        {
-            kind: 'divider',
-            // icon: <Divider sx={{ bgcolor: '#BCD8FF', marginY: 1 }} /> 
-          },
-        {
-            segment: 'Setting',
-            title: 'การตั้งค่า',
-            icon: <SettingsIcon />,
-        },
-        {
-            segment: 'Logout',
-            title: 'ออกจากระบบ',
-            icon: <LogoutIcon/>, // ไอคอนใหม่
-        },
-       
-    ];
+            {/* Right: Controls */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                {/* Notifications */}
+                <Tooltip title="Notifications">
+                    <IconButton>
+                        <Badge badgeContent={3} color="error">
+                            <NotificationsIcon sx={{ color: '#4285F4' }} />
+                        </Badge>
+                    </IconButton>
+                </Tooltip>
 
-    const handleDashboard = () => {
-        navigate('/dashboard');
-        setCurrentTitle('Dashboard');
-    };
+                {/* User Profile */}
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                    <Avatar
+                        alt={userName}
+                        sx={{ width: 36, height: 36 }}
+                    />
+                    <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
+                        <Typography variant="subtitle2" fontWeight="bold">
+                            {userName}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                            {userEmail}
+                        </Typography>
+                    </Box>
+                </Box>
 
-    const findMenuTitle = (path) => {
-        const segment = path.substring(1);
-        const mainMenu = NAVIGATION.find(item => item.segment === segment);
-        return mainMenu ? mainMenu.title : 'Dashboard'; // default
-    };
-
-    const renderContent = () => {
-        switch (pathname) {
-            case '/Dashboard':
-                return <Dashboard />;
-            case '/PatientRegistration':
-                return <PatientRegistration />;
-             case '/History':
-                return <History />;
-            case '/checkandtreat':
-                return <ตรวจรักษา />;
-            case '/Drugandmedical':
-                return <Drugandmedical />;
-            case '/Financialandaccounting':
-                return <Financialandaccounting />;
-            case '/Personnel':
-                return <Personnel />;
-            case '/Report':
-                return <Report />;
-            case '/Rightsmanagementsystem':
-                return <Rightsmanagementsystem />;   
-            case '/Paymentanddispensingmedicine':
-                return <Paymentanddispensingmedicine />; 
-            case "/Logout":
-                navigate("/login"); 
-                
-            default:
-                return null;
-        }
-    };
-
-    const SidebarFooter = ({ mini }) => {
-        return (
-            <Box sx={{ p: 2, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                <Button
-                    variant="text"
-                    startIcon={!mini && <ArrowBackIcon />}
-                    onClick={() => {
-                        navigate('/dashboard');
-                        setCurrentTitle('Dashboard');
-                    }}
+                {/* More Options */}
+                <IconButton
                     sx={{
-                        minWidth: 0,
-                        p: mini ? 1 : 2,
-                        color: 'text.secondary',
-                        '&:hover': { color: 'primary.main' }
+                        bgcolor: '#4285F4',
+                        color: 'white',
+                        borderRadius: 2,
+                        width: 32,
+                        height: 32,
+                        '&:hover': { bgcolor: '#3b77db' }
                     }}
                 >
-                    {mini ? <ArrowBackIcon /> : 'Back to Dashboard'}
-                </Button>
+                    <MoreHorizIcon fontSize="small" />
+                </IconButton>
             </Box>
-        );
-        
-    };
+        </Box>
+    );
+};
 
-    SidebarFooter.propTypes = {
-        mini: PropTypes.bool.isRequired,
-    };
-
-    const router = React.useMemo(() => ({
-        pathname,
-        searchParams: new URLSearchParams(),
-        navigate: (path) => {
-            setPathname(String(path));
-            setCurrentTitle(findMenuTitle(String(path)));
+const CustomSidebar = ({ activeMenu, onMenuClick, isOpen }) => {
+    // สำคัญ: แก้ไขเส้นทางให้ตรงกับ Router.js
+    const menuItems = [
+        {
+            title: 'Dashboard',
+            path: '/clinic/dashboard',
+            icon: <DashboardIcon />
         },
-    }), [pathname]);
+        {
+            title: 'ลงทะเบียนผู้ป่วย',
+            path: '/clinic/patientregistration',
+            icon: <AddCardIcon />
+        },
+        {
+            title: 'ตรวจรักษา',
+            path: '/clinic/ตรวจรักษา',
+            icon: <MoveToInboxIcon />
+        },
+        {
+            title: 'ระบบห้องตรวจปฏิบัติการ',
+            path: '/clinic/laboratory',
+            icon: <ScienceIcon />
+        },
+        {
+            title: 'ชำระเงิน /จ่ายยา',
+            path: '/clinic/payment',
+            icon: <Inventory2OutlinedIcon />
+        },
+        {
+            title: 'ระบบบุคลากร',
+            path: '/clinic/personnel',
+            icon: <PeopleAltIcon />
+        },
+        {
+            title: 'ระบบคลังยา/เวชภัณฑ์',
+            path: '/clinic/medicalstock',
+            icon: <InsertDriveFileIcon />
+        },
+        {
+            title: 'ระบบการเงิน/บัญชี',
+            path: '/clinic/finance',
+            icon: <PaymentIcon />
+        },
+        {
+            title: 'รายงานสำหรับผู้บริหาร',
+            path: '/clinic/report',
+            icon: <DescriptionIcon />
+        },
+        {
+            title: 'ระบบการจัดการสิทธิ',
+            path: '/clinic/rights',
+            icon: <PersonOutlineIcon />
+        },
+        {
+            title: 'การตั้งค่า',
+            path: '/clinic/settings',
+            icon: <SettingsIcon />
+        },
+        {
+            title: 'ออกจากระบบ',
+            path: '/logout',
+            icon: <LogoutIcon />
+        }
+    ];
 
     return (
-        <AppProvider
-            navigation={NAVIGATION}
-            router={router}
-            theme={demoTheme}
-            branding={{
-                logo: (
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                        {/* <img
-                            src="/logo1.png"
-                            alt="Logo 1"
-                            style={{ width: '52.78px', height: '36' }}
-                        />
-                        <img
-                            src="/logo2.png"
-                            alt="Logo 2"
-                            style={{ width: '190.55 px', height: '20px' }}
-                        /> */}
-                       
-                        <NotificationsIcon sx={{ color: '#5BA9FF', fontSize: 28, cursor: 'pointer', ml: 190, mr: 2 }} />
-                        <Avatar
-                            alt="User Avatar"
-                            src="https://via.placeholder.com/150"
-                            sx={{ width: 40, height: 40, margin: "0 auto",marginRight:'10px' }}
-                            
-                        />
-                       <h sx={{ color: '#5BA9FF',fontFamily: 'Poppins, sans-serif', fontSize: 16, display: 'block' ,mr: 2  }}>
-                        Abu Fahim
-                        <br />
-                        hello@fahim.com
-                        </h>
-                        <Button sx={{bgcolor:'#5BA9FF',marginLeft:'25px',width:'40px', height: '50px',borderRadius:'15px' }}>
-                        <MoreHorizIcon sx={{color:'#FFFFFF', }}/>
-                        </Button>
-                    </Box>
-                ),
-                // title: currentTitle,
-                title: '',
-                
-                
+        <Box
+            sx={{
+                width: isOpen ? 240 : 0,
+                bgcolor: '#FFFFFF',
+                height: '100vh',
+                borderRight: '1px solid #E5E7FB',
+                display: 'flex',
+                flexDirection: 'column',
+                position: 'fixed',
+                left: 0,
+                top: 0,
+                overflowY: 'auto',
+                transition: 'width 0.3s',
+                overflow: isOpen ? 'auto' : 'hidden',
+                zIndex: 1200
             }}
-            
         >
-
-            <DashboardLayout defaultSidebarCollapsed slots={{ sidebarFooter: SidebarFooter }}
-             sx={{
-                '& .Mui-selected': {
-                background: 'linear-gradient(60deg, #5BA9FF, #BCD8FF)', // สีเมื่อเลือก
-                  color: 'black', // สีตัวหนังสือเมื่อเลือก
-                }
-              }}
+            {/* Logo */}
+            <Box
+                sx={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    // py: 3,
+                    // mb: 2,
+                    opacity: isOpen ? 1 : 0,
+                    transition: 'opacity 0.2s',
+                    borderBottom: '1px solid rgba(229, 231, 251, 0.5)'
+                }}
             >
-                
-                {renderContent()}
-            </DashboardLayout>
-        </AppProvider>
-    );
-}
+                <img
+                    src='/logo5.png'
+                    style={{
+                        width: '174px',
+                        height: '174px'
+                    }}
+                />
+            </Box>
 
-export default Clinic;
+            {/* Menu Items */}
+            <Box sx={{ flexGrow: 1, px: 1, opacity: isOpen ? 1 : 0, transition: 'opacity 0.2s' }}>
+                {menuItems.map((item, index) => (
+                    <Button
+                        key={item.title}
+                        startIcon={item.icon}
+                        onClick={() => onMenuClick(item.path)}
+                        sx={{
+                            justifyContent: 'flex-start',
+                            textAlign: 'left',
+                            py: 1.5,
+                            px: 2,
+                            mb: 0.5,
+                            borderRadius: 1,
+                            width: '100%',
+                            color: activeMenu === item.path ? '#fff' : 'rgba(0, 48, 143, 0.9)',
+                            bgcolor: activeMenu === item.path ? 'rgba(26, 93, 180, 0.8)' : 'transparent',
+                            '&:hover': {
+                                bgcolor: 'rgba(26, 93, 180, 0.5)',
+                            },
+                            '& .MuiButton-startIcon': {
+                                color: activeMenu === item.path ? '#fff' : 'rgba(0, 48, 143, 0.9)',
+                                marginRight: '12px'
+                            },
+                            fontWeight: activeMenu === item.path ? 'bold' : 'normal',
+                            position: 'relative',
+                            '&::after': (index >= 2 && index <= 9) ? {
+                                content: '""',
+                                position: 'absolute',
+                                right: '16px',
+                                width: '0',
+                                height: '0',
+                                borderLeft: '5px solid transparent',
+                                borderRight: '5px solid transparent',
+                                borderTop: activeMenu === item.path
+                                    ? '5px solid white'
+                                    : '5px solid rgba(0, 48, 143, 0.9)',
+                            } : {}
+                        }}
+                    >
+                        {item.title}
+                    </Button>
+                ))}
+            </Box>
+        </Box>
+    );
+};
+
+// AppBarWithProps component accepts children
+const AppBarWithProps = ({ children }) => {
+    const navigate = useNavigate();
+    const location = useLocation();
+    const [sidebarOpen, setSidebarOpen] = React.useState(true);
+
+    // ใช้ pathname จาก location ของ react-router
+    const pathname = location.pathname;
+
+    // Toggle sidebar function
+    const toggleSidebar = () => {
+        setSidebarOpen(!sidebarOpen);
+    };
+
+    const handleMenuClick = (path) => {
+        navigate(path); // ใช้ navigate ของ react-router-dom
+    };
+
+    return (
+        <ThemeProvider theme={demoTheme}>
+            <Box sx={{ display: 'flex' }}>
+                {/* Custom Sidebar */}
+                <CustomSidebar
+                    activeMenu={pathname}
+                    onMenuClick={handleMenuClick}
+                    isOpen={sidebarOpen}
+                />
+
+                {/* Main Content */}
+                <Box
+                    component="main"
+                    sx={{
+                        flexGrow: 1,
+                        width: '100%',
+                        marginLeft: sidebarOpen ? '240px' : '0px',
+                        paddingTop: '64px',
+                        bgcolor: '#f9fafb',
+                        minHeight: '100vh',
+                        overflow: 'auto',
+                        transition: 'margin-left 0.3s',
+                    }}
+                >
+                    {/* Custom AppBar */}
+                    <CustomAppBar
+                        isSidebarOpen={sidebarOpen}
+                        toggleSidebar={toggleSidebar}
+                    />
+
+                    {/* Page Content */}
+                    <Box sx={{ p: 5 }}>
+                        {children}
+                    </Box>
+                </Box>
+            </Box>
+        </ThemeProvider>
+    );
+};
+
+// Define PropTypes for AppBarWithProps
+AppBarWithProps.propTypes = {
+    children: PropTypes.node,
+};
+
+export { AppBarWithProps };
+export default AppBarWithProps;
