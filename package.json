@@ -8,14 +8,11 @@
     "@emotion/styled": "^11.14.0",
     "@fontsource/prompt": "^5.1.1",
     "@mui/icons-material": "^5.14.19",
-    "@mui/lab": "^7.0.0-beta.14",
     "@mui/material": "^5.14.20",
-    "@mui/x-date-pickers": "^8.7.0",
     "@reduxjs/toolkit": "^2.5.1",
     "@testing-library/jest-dom": "^5.14.1",
     "@testing-library/react": "^14.0.0",
     "@testing-library/user-event": "^14.4.3",
-    "ajv": "^8.17.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-redux": "^9.2.0",
@@ -49,9 +46,5 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
-  },
-  "devDependencies": {
-    "@pmmmwh/react-refresh-webpack-plugin": "^0.5.10",
-    "react-refresh": "^0.14.0"
   }
 }
