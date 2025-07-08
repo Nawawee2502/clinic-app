@@ -2,25 +2,22 @@
   "name": "clinic",
   "version": "0.1.0",
   "private": true,
-  "main": "public/electron.js",
   "homepage": "./",
   "dependencies": {
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.0",
     "@fontsource/prompt": "^5.1.1",
-    "@mui/icons-material": "^6.4.4",
-    "@mui/material": "^6.4.4",
+    "@mui/icons-material": "^5.14.19",
+    "@mui/material": "^5.14.20",
     "@reduxjs/toolkit": "^2.5.1",
     "@testing-library/jest-dom": "^5.14.1",
-    "@testing-library/react": "^13.0.0",
-    "@testing-library/user-event": "^13.2.1",
-    "@toolpad/core": "^0.12.0",
+    "@testing-library/react": "^14.0.0",
+    "@testing-library/user-event": "^14.4.3",
     "ajv": "^8.17.1",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
     "react-redux": "^9.2.0",
-    "react-router-dom": "^7.1.5",
-    "react-script": "^2.0.5",
+    "react-router-dom": "^6.20.1",
     "react-scripts": "^5.0.1",
     "recharts": "^2.15.3",
     "redux": "^5.0.1",
@@ -30,16 +27,8 @@
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
-    "build-demo": "npm run build && node scripts/create-demo.js",
     "test": "react-scripts test",
-    "eject": "react-scripts eject",
-    "electron": "electron .",
-    "electron-dev": "concurrently \"npm start\" \"wait-on http://localhost:3000 && electron .\"",
-    "electron-build": "npm run build && electron-builder",
-    "dist": "npm run build && electron-builder --publish=never",
-    "dist-mac": "npm run build && electron-builder --mac",
-    "dist-win": "npm run build && electron-builder --win",
-    "dist-all": "npm run build && electron-builder --mac --win"
+    "eject": "react-scripts eject"
   },
   "eslintConfig": {
     "extends": [
@@ -60,53 +49,7 @@
     ]
   },
   "devDependencies": {
-    "@pmmmwh/react-refresh-webpack-plugin": "^0.6.0",
-    "concurrently": "^9.1.2",
-    "electron": "^36.4.0",
-    "electron-builder": "^26.0.12",
-    "electron-is-dev": "^3.0.1",
-    "react-refresh": "^0.17.0",
-    "wait-on": "^8.0.3"
-  },
-  "build": {
-    "appId": "com.clinic.app",
-    "productName": "Clinic Management System",
-    "directories": {
-      "output": "dist"
-    },
-    "files": [
-      "build/**/*",
-      "public/electron.js",
-      "node_modules/**/*"
-    ],
-    "mac": {
-      "category": "public.app-category.medical",
-      "target": "dmg"
-    },
-    "win": {
-      "target": [
-        {
-          "target": "nsis",
-          "arch": [
-            "x64"
-          ]
-        },
-        {
-          "target": "portable",
-          "arch": [
-            "x64"
-          ]
-        }
-      ]
-    },
-    "linux": {
-      "target": "AppImage"
-    },
-    "portable": {
-      "artifactName": "ClinicManagement-Portable.exe"
-    },
-    "dmg": {
-      "artifactName": "ClinicManagement-${version}.dmg"
-    }
+    "@pmmmwh/react-refresh-webpack-plugin": "^0.5.10",
+    "react-refresh": "^0.14.0"
   }
 }
