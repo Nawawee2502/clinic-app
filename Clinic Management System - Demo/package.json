@@ -1,8 +1,0 @@
-{
-  "name": "clinic-demo",
-  "version": "1.0.0",
-  "description": "Clinic Management System Demo",
-  "scripts": {
-    "start": "npx serve -s . -p 8000"
-  }
-}
