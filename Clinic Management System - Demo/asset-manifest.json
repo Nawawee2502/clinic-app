@@ -1,0 +1,29 @@
+{
+  "files": {
+    "main.css": "./static/css/main.a1d1d896.css",
+    "main.js": "./static/js/main.fb99bb54.js",
+    "static/media/prompt-latin-400-italic.woff2": "./static/media/prompt-latin-400-italic.f7e1043384c2c26fd514.woff2",
+    "static/media/prompt-latin-ext-400-italic.woff2": "./static/media/prompt-latin-ext-400-italic.3aaf3397047c09e63dd3.woff2",
+    "static/media/prompt-latin-400-normal.woff2": "./static/media/prompt-latin-400-normal.03568dfaabfa694e7a08.woff2",
+    "static/media/prompt-latin-ext-400-normal.woff2": "./static/media/prompt-latin-ext-400-normal.717fc72c75c07806e9bf.woff2",
+    "static/media/prompt-latin-400-italic.woff": "./static/media/prompt-latin-400-italic.7a912f425087f578cb67.woff",
+    "static/media/prompt-thai-400-italic.woff2": "./static/media/prompt-thai-400-italic.f21f55c77db06a8b9a99.woff2",
+    "static/media/prompt-latin-ext-400-italic.woff": "./static/media/prompt-latin-ext-400-italic.d0c0f7ede3996fc1dc41.woff",
+    "static/media/prompt-latin-400-normal.woff": "./static/media/prompt-latin-400-normal.a41e362b6eee632e591f.woff",
+    "static/media/prompt-thai-400-normal.woff2": "./static/media/prompt-thai-400-normal.d0099dced32e7a5c5beb.woff2",
+    "static/media/prompt-latin-ext-400-normal.woff": "./static/media/prompt-latin-ext-400-normal.be31f604b3c434f9bd31.woff",
+    "static/media/prompt-thai-400-italic.woff": "./static/media/prompt-thai-400-italic.65129ef690cf027b35f0.woff",
+    "static/media/prompt-vietnamese-400-italic.woff2": "./static/media/prompt-vietnamese-400-italic.1f5fb264c870bcf0b856.woff2",
+    "static/media/prompt-vietnamese-400-normal.woff2": "./static/media/prompt-vietnamese-400-normal.68d14b8a66db1db3d189.woff2",
+    "static/media/prompt-thai-400-normal.woff": "./static/media/prompt-thai-400-normal.0b72a648358e88d69910.woff",
+    "static/media/prompt-vietnamese-400-italic.woff": "./static/media/prompt-vietnamese-400-italic.1a1af9552efa02ee0e7d.woff",
+    "static/media/prompt-vietnamese-400-normal.woff": "./static/media/prompt-vietnamese-400-normal.a48ea987ec13013fb855.woff",
+    "index.html": "./index.html",
+    "main.a1d1d896.css.map": "./static/css/main.a1d1d896.css.map",
+    "main.fb99bb54.js.map": "./static/js/main.fb99bb54.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.a1d1d896.css",
+    "static/js/main.fb99bb54.js"
+  ]
+}

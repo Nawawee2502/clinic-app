@@ -30,14 +30,17 @@
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
+    "build-demo": "npm run build && node scripts/create-demo.js",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "electron": "electron .",
     "electron-dev": "concurrently \"npm start\" \"wait-on http://localhost:3000 && electron .\"",
     "electron-build": "npm run build && electron-builder",
-    "dist": "npm run build && electron-builder --publish=never"
+    "dist": "npm run build && electron-builder --publish=never",
+    "dist-mac": "npm run build && electron-builder --mac",
+    "dist-win": "npm run build && electron-builder --win",
+    "dist-all": "npm run build && electron-builder --mac --win"
   },
-
   "eslintConfig": {
     "extends": [
       "react-app",
@@ -81,11 +84,29 @@
       "target": "dmg"
     },
     "win": {
-      "target": "nsis",
-      "icon": "public/icon.ico"
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
     },
     "linux": {
       "target": "AppImage"
+    },
+    "portable": {
+      "artifactName": "ClinicManagement-Portable.exe"
+    },
+    "dmg": {
+      "artifactName": "ClinicManagement-${version}.dmg"
     }
   }
 }

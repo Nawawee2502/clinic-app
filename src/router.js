@@ -1,54 +1,4 @@
-// import { Route, Routes, BrowserRouter, Navigate } from "react-router-dom";
-// import { useSelector } from "react-redux";
-// import LoginPage from "./pages/Login";
-// import Dashboard from "./pages/Dashboard";
-
-// const ProtectedRoute = ({ children }) => {
-//   const isAuthenticated = useSelector((state) => state.authentication.token);
-//   const userData = localStorage.getItem("userData2");
-
-//   return isAuthenticated || userData ? children : <Navigate to="/" replace />;
-// };
-
-// const PublicRoute = ({ children }) => {
-//   const isAuthenticated = useSelector((state) => state.authentication.token);
-//   const userData = localStorage.getItem("userData2");
-
-//   return isAuthenticated || userData ? <Navigate to="/dashboard" replace /> : children;
-// };
-
-// const Router = () => {
-//   return (
-//     <BrowserRouter>
-//       <Routes>
-//         <Route
-//           path="/"
-//           element={
-//             <PublicRoute>
-//               <LoginPage />
-//             </PublicRoute>
-//           }
-//         />
-//         <Route
-//           path="/dashboard"
-//           element={
-//             <ProtectedRoute>
-//               <Dashboard />
-//             </ProtectedRoute>
-//           }
-//         />
-//       </Routes>
-//     </BrowserRouter>
-//   );
-// };
-
-// export default Router;
-
-
-
-
-
-import { Route, Routes, BrowserRouter, Navigate, Outlet } from "react-router-dom";
+import { Route, Routes, HashRouter, Navigate, Outlet } from "react-router-dom";
 import { useSelector } from "react-redux";
 import LoginPage from "./pages/Login";
 import Signup from "./pages/Signup";
@@ -58,7 +8,6 @@ import AppBarWithProps from "./pages/AppBarWithProps";
 import ตรวจรักษา from './pages/ตรวจรักษา';
 import Medicalstock from './pages/Drugandmedical';
 import Cerwork from "./components/ตรวจรักษา/cerwork";
-
 
 const ProtectedRoute = ({ children }) => {
   const isAuthenticated = useSelector((state) => state.authentication.token);
@@ -95,7 +44,7 @@ const ProtectedLayout = () => {
 
 const Router = () => {
   return (
-    <BrowserRouter>
+    <HashRouter> {/* เปลี่ยนจาก BrowserRouter เป็น HashRouter */}
       <Routes>
         {/* Public routes */}
         <Route path="/" element={
@@ -148,7 +97,7 @@ const Router = () => {
         <Route path="/Report" element={<Navigate to="/clinic/report" replace />} />
         <Route path="/Rightsmanagementsystem" element={<Navigate to="/clinic/rights" replace />} />
       </Routes>
-    </BrowserRouter>
+    </HashRouter>
   );
 };
 
