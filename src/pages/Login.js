@@ -11,7 +11,7 @@ const Login = () => {
   const handleClick = () => {
     // เพิ่มข้อมูลใน localStorage เพื่อจำลองการล็อกอินสำเร็จ
     localStorage.setItem('userData2', JSON.stringify({ username: 'admin' }));
-    navigate("/clinic"); // ไปที่หน้า /clinic
+    navigate("/clinic/dashboard"); // เปลี่ยนจาก "/clinic" เป็น "/clinic/dashboard"
   };
 
   return (
@@ -34,7 +34,7 @@ const Login = () => {
             <Button variant="contained" color="primary" fullWidth sx={{ bgcolor: '#5698E0', height: 50, borderRadius: 3 }} onClick={handleClick}>
               Login
             </Button>
-            <Typography sx={{ textAlign: 'center' }}>I don’t have an account?<Link href="/signup" sx={{ ml: 1 }}>Login</Link></Typography>
+            <Typography sx={{ textAlign: 'center' }}>I don’t have an account?<Link href="/signup" sx={{ ml: 1 }}>sign up</Link></Typography>
           </div>
         </CardContent>
         {/* </Card> */}
