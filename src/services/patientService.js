@@ -1,34 +1,11 @@
-// services/patientService.js
-
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000/api';
+// services/patientService.js - แก้ไข API_BASE_URL
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
 
 class PatientService {
-
-    // สร้างผู้ป่วยใหม่
-    static async createPatient(patientData) {
-        try {
-            const response = await fetch(`${API_BASE_URL}/patients`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(patientData)
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            return await response.json();
-        } catch (error) {
-            console.error('Error creating patient:', error);
-            throw error;
-        }
-    }
-
-    // ดึงข้อมูลผู้ป่วยทั้งหมด
+    // ดึงข้อมูลผู้ป่วยทั้งหมด (จาก DB จริง)
     static async getAllPatients() {
         try {
+            console.log('🔗 Calling API:', `${API_BASE_URL}/patients`);
             const response = await fetch(`${API_BASE_URL}/patients`);
 
             if (!response.ok) {
@@ -42,13 +19,15 @@ class PatientService {
         }
     }
 
-    // ดึงข้อมูลผู้ป่วยตาม HN
+    // ดึงข้อมูลผู้ป่วยตาม HN (จาก DB จริง)
     static async getPatientByHN(hn) {
         try {
+            console.log('🔗 Calling API:', `${API_BASE_URL}/patients/${hn}`);
             const response = await fetch(`${API_BASE_URL}/patients/${hn}`);
 
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                const errorData = await response.json();
+                throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
             }
 
             return await response.json();
@@ -58,9 +37,10 @@ class PatientService {
         }
     }
 
-    // ค้นหาผู้ป่วย
+    // ค้นหาผู้ป่วย (จาก DB จริง)
     static async searchPatients(searchTerm) {
         try {
+            console.log('🔗 Calling API:', `${API_BASE_URL}/patients/search/${encodeURIComponent(searchTerm)}`);
             const response = await fetch(`${API_BASE_URL}/patients/search/${encodeURIComponent(searchTerm)}`);
 
             if (!response.ok) {
@@ -74,9 +54,173 @@ class PatientService {
         }
     }
 
+    // สร้างผู้ป่วยใหม่
+    static async createPatient(patientData) {
+        try {
+            console.log('🔗 Calling API:', `${API_BASE_URL}/patients`);
+            const response = await fetch(`${API_BASE_URL}/patients`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(patientData)
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('Error creating patient:', error);
+            throw error;
+        }
+    }
+
+    // เชื่อมข้อมูลผู้ป่วยกับ Vital Signs จาก Treatment
+    static async getPatientWithVitals(hncode) {
+        try {
+            console.log('🔍 Getting patient with vitals for HN:', hncode);
+
+            // ดึงข้อมูลผู้ป่วย
+            const patientResponse = await this.getPatientByHN(hncode);
+
+            if (!patientResponse.success) {
+                throw new Error('Patient not found');
+            }
+
+            const patient = patientResponse.data;
+            console.log('✅ Patient data loaded:', patient.HNCODE);
+
+            // ลองดึงข้อมูล Treatment ล่าสุด (ถ้ามี)
+            try {
+                const TreatmentService = await import('./treatmentService');
+                console.log('🔍 Fetching latest treatment for patient...');
+
+                const treatmentResponse = await TreatmentService.default.getTreatmentsByPatient(hncode, { limit: 1 });
+
+                if (treatmentResponse.success && treatmentResponse.data.length > 0) {
+                    const latestTreatment = treatmentResponse.data[0];
+                    console.log('✅ Latest treatment found:', latestTreatment.VNO);
+
+                    // ดึงรายละเอียดการรักษาล่าสุด
+                    const detailResponse = await TreatmentService.default.getTreatmentByVNO(latestTreatment.VNO);
+
+                    if (detailResponse.success) {
+                        const treatmentDetail = detailResponse.data.treatment;
+                        console.log('✅ Treatment details loaded');
+
+                        // รวมข้อมูล Vital Signs เข้ากับข้อมูลผู้ป่วย
+                        return {
+                            ...patient,
+                            WEIGHT1: treatmentDetail.WEIGHT1 || patient.WEIGHT1,
+                            HIGHT1: treatmentDetail.HIGHT1 || patient.HIGH1,
+                            BT1: treatmentDetail.BT1,
+                            BP1: treatmentDetail.BP1,
+                            BP2: treatmentDetail.BP2,
+                            RR1: treatmentDetail.RR1,
+                            PR1: treatmentDetail.PR1,
+                            SPO2: treatmentDetail.SPO2,
+                            SYMPTOM: treatmentDetail.SYMPTOM,
+                            VNO: treatmentDetail.VNO
+                        };
+                    }
+                } else {
+                    console.log('⚠️ No treatment history found for patient');
+                }
+            } catch (treatmentError) {
+                console.log('⚠️ Could not load treatment history:', treatmentError.message);
+                // ไม่ throw error เพื่อให้ส่งคืนข้อมูลผู้ป่วยได้
+            }
+
+            // ส่งคืนข้อมูลผู้ป่วยอย่างเดียว
+            console.log('✅ Returning patient data without vitals');
+            return patient;
+
+        } catch (error) {
+            console.error('Error getting patient with vitals:', error);
+            throw error;
+        }
+    }
+
+    // ดึงข้อมูลผู้ป่วยจากคิววันนี้ (เชื่อมกับ QueueService)
+    static async getTodayPatientsFromQueue() {
+        try {
+            // Import QueueService dynamically to avoid circular dependency
+            const QueueService = await import('./queueService');
+            const queueResponse = await QueueService.default.getTodayQueue();
+
+            if (!queueResponse.success) {
+                throw new Error('Failed to fetch today queue');
+            }
+
+            // แปลงข้อมูลจากคิวให้เป็นรูปแบบที่ component ใช้งานได้
+            const patientsWithQueue = queueResponse.data.map(queueItem => ({
+                // ข้อมูลคิว
+                queueNumber: queueItem.QUEUE_NUMBER,
+                queueTime: queueItem.QUEUE_TIME,
+                queueStatus: queueItem.STATUS,
+                queueType: queueItem.TYPE,
+                queueId: queueItem.QUEUE_ID,
+
+                // ข้อมูลผู้ป่วย
+                HNCODE: queueItem.HNCODE,
+                PRENAME: queueItem.PRENAME,
+                NAME1: queueItem.NAME1,
+                SURNAME: queueItem.SURNAME,
+                AGE: queueItem.AGE,
+                SEX: queueItem.SEX,
+                TEL1: queueItem.TEL1,
+
+                // ข้อมูล VN ถ้ามี
+                VNO: queueItem.VNO,
+                TREATMENT_STATUS: queueItem.TREATMENT_STATUS,
+
+                // อาการเบื้องต้น
+                SYMPTOM: queueItem.CHIEF_COMPLAINT,
+
+                // Avatar placeholder
+                avatar: this.generateAvatarUrl(queueItem.SEX, queueItem.NAME1),
+
+                // ข้อมูลสำหรับ Vital Signs (ยังไม่มี จะได้จาก Treatment)
+                WEIGHT1: null,
+                HIGHT1: null,
+                BT1: null,
+                BP1: null,
+                BP2: null,
+                RR1: null,
+                PR1: null,
+                SPO2: null
+            }));
+
+            return {
+                success: true,
+                data: patientsWithQueue,
+                count: patientsWithQueue.length
+            };
+
+        } catch (error) {
+            console.error('Error fetching today patients from queue:', error);
+            throw error;
+        }
+    }
+
+    // ดึงข้อมูลนัดหมายวันนี้
+    static async getTodayAppointments() {
+        try {
+            const QueueService = await import('./queueService');
+            return await QueueService.default.getTodayAppointments();
+        } catch (error) {
+            console.error('Error fetching today appointments:', error);
+            throw error;
+        }
+    }
+
     // อัพเดทข้อมูลผู้ป่วย
     static async updatePatient(hn, patientData) {
         try {
+            console.log('🔗 Calling API:', `${API_BASE_URL}/patients/${hn}`);
             const response = await fetch(`${API_BASE_URL}/patients/${hn}`, {
                 method: 'PUT',
                 headers: {
@@ -86,7 +230,8 @@ class PatientService {
             });
 
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                const errorData = await response.json();
+                throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
             }
 
             return await response.json();
@@ -99,12 +244,14 @@ class PatientService {
     // ลบผู้ป่วย
     static async deletePatient(hn) {
         try {
+            console.log('🔗 Calling API:', `${API_BASE_URL}/patients/${hn}`);
             const response = await fetch(`${API_BASE_URL}/patients/${hn}`, {
                 method: 'DELETE'
             });
 
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                const errorData = await response.json();
+                throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
             }
 
             return await response.json();
@@ -117,6 +264,7 @@ class PatientService {
     // ดึงสถิติผู้ป่วย
     static async getPatientStats() {
         try {
+            console.log('🔗 Calling API:', `${API_BASE_URL}/patients/stats/basic`);
             const response = await fetch(`${API_BASE_URL}/patients/stats/basic`);
 
             if (!response.ok) {
@@ -133,6 +281,7 @@ class PatientService {
     // ดึงผู้ป่วยตามจังหวัด
     static async getPatientsByProvince(provinceCode) {
         try {
+            console.log('🔗 Calling API:', `${API_BASE_URL}/patients/province/${provinceCode}`);
             const response = await fetch(`${API_BASE_URL}/patients/province/${provinceCode}`);
 
             if (!response.ok) {
@@ -143,6 +292,29 @@ class PatientService {
         } catch (error) {
             console.error('Error fetching patients by province:', error);
             throw error;
+        }
+    }
+
+    // สร้าง Avatar URL อัตโนมัติ
+    static generateAvatarUrl(sex, name) {
+        const maleAvatars = [
+            'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face',
+            'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face',
+            'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&h=150&fit=crop&crop=face'
+        ];
+
+        const femaleAvatars = [
+            'https://images.unsplash.com/photo-1494790108755-2616b612b567?w=150&h=150&fit=crop&crop=face',
+            'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face',
+            'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&h=150&fit=crop&crop=face'
+        ];
+
+        if (sex === 'หญิง' || sex === 'นาง' || sex === 'นางสาว') {
+            const index = name ? name.length % femaleAvatars.length : 0;
+            return femaleAvatars[index];
+        } else {
+            const index = name ? name.length % maleAvatars.length : 0;
+            return maleAvatars[index];
         }
     }
 
@@ -243,7 +415,7 @@ class PatientService {
         };
     }
 
-    // สร้าง HN อัตโนมัติ (ถ้าต้องการ)
+    // สร้าง HN อัตโนมัติ
     static generateHN() {
         const now = new Date();
         const year = now.getFullYear().toString().slice(-2);
@@ -252,6 +424,153 @@ class PatientService {
         const time = now.getTime().toString().slice(-4);
 
         return `HN${year}${month}${day}${time}`;
+    }
+
+    // สร้างรายการ dropdown สำหรับเลือกผู้ป่วย
+    static formatForDropdown(patients) {
+        return patients.map(patient => ({
+            value: patient.HNCODE,
+            label: `${patient.HNCODE} - ${patient.PRENAME || ''} ${patient.NAME1} ${patient.SURNAME || ''}`.trim(),
+            data: patient
+        }));
+    }
+
+    // ส่งออกข้อมูลเป็น CSV
+    static exportToCSV(patients) {
+        const headers = [
+            'HN', 'เลขบัตรประชาชน', 'คำนำหน้า', 'ชื่อ', 'นามสกุล', 'เพศ', 'อายุ',
+            'เบอร์โทร', 'อีเมล', 'ที่อยู่', 'อาชีพ', 'สัญชาติ', 'ศาสนา'
+        ];
+
+        const rows = patients.map(p => [
+            p.HNCODE,
+            p.IDNO,
+            p.PRENAME,
+            p.NAME1,
+            p.SURNAME,
+            p.SEX,
+            p.AGE,
+            p.TEL1,
+            p.EMAIL1,
+            p.ADDR1,
+            p.OCCUPATION1,
+            p.NATIONAL1,
+            p.RELIGION1
+        ]);
+
+        const csvContent = [headers, ...rows]
+            .map(row => row.map(field => `"${field || ''}"`).join(','))
+            .join('\n');
+
+        return csvContent;
+    }
+
+    // ดาวน์โหลดไฟล์ CSV
+    static downloadCSV(patients, filename = 'patients') {
+        const csvContent = this.exportToCSV(patients);
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+
+        link.setAttribute('href', url);
+        link.setAttribute('download', `${filename}-${new Date().toISOString().slice(0, 10)}.csv`);
+        link.style.visibility = 'hidden';
+
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    // สร้างนัดหมายใหม่
+    static async createAppointment(appointmentData) {
+        try {
+            console.log('🔗 Calling API:', `${API_BASE_URL}/appointments`);
+            const response = await fetch(`${API_BASE_URL}/appointments`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(appointmentData)
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('Error creating appointment:', error);
+            throw error;
+        }
+    }
+
+    // แก้ไขนัดหมาย
+    static async updateAppointment(appointmentId, appointmentData) {
+        try {
+            console.log('🔗 Calling API:', `${API_BASE_URL}/appointments/${appointmentId}`);
+            const response = await fetch(`${API_BASE_URL}/appointments/${appointmentId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(appointmentData)
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('Error updating appointment:', error);
+            throw error;
+        }
+    }
+
+    // ลบนัดหมาย
+    static async deleteAppointment(appointmentId) {
+        try {
+            console.log('🔗 Calling API:', `${API_BASE_URL}/appointments/${appointmentId}`);
+            const response = await fetch(`${API_BASE_URL}/appointments/${appointmentId}`, {
+                method: 'DELETE'
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('Error deleting appointment:', error);
+            throw error;
+        }
+    }
+
+    // อัพเดทสถานะนัดหมาย
+    static async updateAppointmentStatus(appointmentId, status) {
+        try {
+            console.log('🔗 Calling API:', `${API_BASE_URL}/appointments/${appointmentId}/status`);
+            const response = await fetch(`${API_BASE_URL}/appointments/${appointmentId}/status`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ status })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('Error updating appointment status:', error);
+            throw error;
+        }
     }
 }
 
