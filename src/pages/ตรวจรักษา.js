@@ -83,7 +83,6 @@ import WalkInPatientSystem from "../components/ตรวจรักษา/WalkI
 
 // Component ระบบนัดหมายแบบเต็มรูปแบบ
 const AppointmentManagementSystem = ({ appointments, setAppointments, onCheckIn, onRefresh }) => {
-  // ... (เก็บโค้ดเดิมไว้เหมือนเดิม)
   const navigate = useNavigate();
   const [openDialog, setOpenDialog] = useState(false);
   const [editingAppointment, setEditingAppointment] = useState(null);
@@ -98,22 +97,16 @@ const AppointmentManagementSystem = ({ appointments, setAppointments, onCheckIn,
     notes: ''
   });
 
-  // สร้าง VN Number ตามรูปแบบ VN(ปี พศ)(เดือน)(วัน)(runno 4 หลัก)
+  // สร้าง VN Number ตามรูปแบบ VN[ปี พศ 2 หลัก][เดือน][วัน][runno 3 หลัก] เช่น VN680809001
   const generateVNNumber = (date = new Date()) => {
+    return TreatmentService.generateVNO(date);
+  };
+
+  // แปลงวันที่เป็น พ.ศ. สำหรับการแสดงผล
+  const getBuddhistYear = (dateString) => {
+    const date = new Date(dateString);
     const buddhistYear = date.getFullYear() + 543;
-    const year = buddhistYear.toString();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-
-    // หา runno สำหรับวันที่นั้น
-    const dateString = `${year}${month}${day}`;
-    const todayAppointments = appointments.filter(apt =>
-      apt.vnNumber && apt.vnNumber.includes(dateString)
-    );
-
-    const runno = String(todayAppointments.length + 1).padStart(4, '0');
-
-    return `VN${year}${month}${day}${runno}`;
+    return buddhistYear;
   };
 
   const getTodayDate = () => {
@@ -123,11 +116,13 @@ const AppointmentManagementSystem = ({ appointments, setAppointments, onCheckIn,
 
   const formatThaiDate = (dateString) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('th-TH', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
+    const buddhistYear = date.getFullYear() + 543;
+    const monthNames = [
+      'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+      'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
+    ];
+
+    return `${date.getDate()} ${monthNames[date.getMonth()]} ${buddhistYear}`;
   };
 
   // ค้นหาผู้ป่วยสำหรับ Autocomplete
@@ -213,7 +208,6 @@ const AppointmentManagementSystem = ({ appointments, setAppointments, onCheckIn,
     }));
   };
 
-
   const handleSaveAppointment = async () => {
     if (!selectedPatient || !formData.appointmentDate || !formData.appointmentTime) {
       alert('กรุณาเลือกผู้ป่วย วันที่ และเวลานัด');
@@ -248,9 +242,9 @@ const AppointmentManagementSystem = ({ appointments, setAppointments, onCheckIn,
           alert('ไม่สามารถแก้ไขนัดหมายได้: ' + response.message);
         }
       } else {
-        // เพิ่มนัดหมายใหม่
+        // ✅ เพิ่มนัดหมายใหม่ - ใช้ TreatmentService
         const appointmentDate = new Date(formData.appointmentDate);
-        const vnNumber = generateVNNumber(appointmentDate);
+        const vnNumber = TreatmentService.generateVNO(appointmentDate);
 
         const appointmentData = {
           APPOINTMENT_DATE: formData.appointmentDate,
@@ -263,7 +257,7 @@ const AppointmentManagementSystem = ({ appointments, setAppointments, onCheckIn,
           REASON: formData.reason,
           DOCTOR_NAME: formData.doctorName,
           NOTES: formData.notes,
-          vnNumber: vnNumber,
+          // ✅ ลบ vnNumber ออก ให้ Backend สร้างเอง
           status: 'รอนัด'
         };
 
@@ -272,11 +266,12 @@ const AppointmentManagementSystem = ({ appointments, setAppointments, onCheckIn,
         if (response.success) {
           const newAppointment = {
             APPOINTMENT_ID: response.data.appointmentId || Date.now(),
-            ...appointmentData
+            ...appointmentData,
+            vnNumber: response.data.VN_NUMBER // ✅ ใช้ VN ที่ Backend ส่งกลับมา
           };
 
           setAppointments(prev => [...prev, newAppointment]);
-          alert(`นัดหมายสำเร็จ! VN Number: ${vnNumber}`);
+          alert(`นัดหมายสำเร็จ! VN Number: ${response.data.VN_NUMBER}`); // ✅ แสดง VN ที่ถูกต้อง
           onRefresh();
         } else {
           alert('ไม่สามารถสร้างนัดหมายได้: ' + response.message);
@@ -457,7 +452,7 @@ const AppointmentManagementSystem = ({ appointments, setAppointments, onCheckIn,
                 <TableCell sx={{ fontWeight: 'bold', fontSize: '16px' }}>VN Number</TableCell>
                 <TableCell sx={{ fontWeight: 'bold', fontSize: '16px' }}>HN</TableCell>
                 <TableCell sx={{ fontWeight: 'bold', fontSize: '16px' }}>ชื่อ-นามสกุล</TableCell>
-                <TableCell sx={{ fontWeight: 'bold', fontSize: '16px' }}>วันที่นัด</TableCell>
+                <TableCell sx={{ fontWeight: 'bold', fontSize: '16px' }}>วันที่นัด (พ.ศ.)</TableCell>
                 <TableCell sx={{ fontWeight: 'bold', fontSize: '16px' }}>เวลา</TableCell>
                 <TableCell sx={{ fontWeight: 'bold', fontSize: '16px' }}>เหตุผล</TableCell>
                 <TableCell sx={{ fontWeight: 'bold', fontSize: '16px' }}>แพทย์</TableCell>
@@ -492,7 +487,9 @@ const AppointmentManagementSystem = ({ appointments, setAppointments, onCheckIn,
                     </Box>
                   </TableCell>
                   <TableCell>
-                    <Typography variant="body2">{formatThaiDate(appointment.APPOINTMENT_DATE)}</Typography>
+                    <Typography variant="body2" sx={{ color: 'primary.main', fontWeight: 'bold' }}>
+                      {formatThaiDate(appointment.APPOINTMENT_DATE)}
+                    </Typography>
                   </TableCell>
                   <TableCell>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -596,6 +593,9 @@ const AppointmentManagementSystem = ({ appointments, setAppointments, onCheckIn,
             <Typography variant="body1">
               <strong>VN Number ที่จะได้รับ:</strong> {previewVNNumber}
             </Typography>
+            <Typography variant="body2" color="text.secondary">
+              รูปแบบ: VN[ปีพ.ศ. 2 หลัก][เดือน][วัน][เลขรันนิ่ง 3 หลัก] (เช่น VN680809001)
+            </Typography>
           </Alert>
 
           <Grid container spacing={3}>
@@ -667,6 +667,9 @@ const AppointmentManagementSystem = ({ appointments, setAppointments, onCheckIn,
                 required
                 InputLabelProps={{ shrink: true }}
                 variant="outlined"
+                helperText={formData.appointmentDate ?
+                  `วันที่ที่เลือก: ${formatThaiDate(formData.appointmentDate)}` :
+                  'เลือกวันที่นัดหมาย'}
               />
             </Grid>
 
@@ -994,6 +997,20 @@ const ตรวจรักษา = () => {
   const goToNextTab = () => {
     if (tabIndex < 11) {
       setTabIndex(tabIndex + 1);
+    }
+  };
+
+  const goToSpecificTab = (targetTabIndex) => {
+    setTabIndex(targetTabIndex);
+  };
+
+  const handleDiagnosisSaveSuccess = (skipToTab) => {
+    if (skipToTab) {
+      // ถ้าส่ง skipToTab มา ให้ไปแท็บที่ระบุ
+      setTabIndex(skipToTab);
+    } else {
+      // ถ้าไม่ส่งมา ให้ไปแท็บถัดไปปกติ
+      goToNextTab();
     }
   };
 
@@ -1422,8 +1439,12 @@ const ตรวจรักษา = () => {
                 <CardContent>
                   {tabIndex === 0 && <Todaypatientinformation currentPatient={currentPatient} onSaveSuccess={goToNextTab} />}
                   {tabIndex === 1 && <Medicalhistory currentPatient={currentPatient} onSaveSuccess={goToNextTab} />}
-                  {tabIndex === 2 && <ตรวจวินิจฉัย currentPatient={currentPatient} onSaveSuccess={goToNextTab} />}
-                  {tabIndex === 3 && <LabandXray currentPatient={currentPatient} />}
+                  {tabIndex === 2 && (
+                    <ตรวจวินิจฉัย
+                      currentPatient={currentPatient}
+                      onSaveSuccess={handleDiagnosisSaveSuccess}
+                    />
+                  )}                  {tabIndex === 3 && <LabandXray currentPatient={currentPatient} />}
                   {tabIndex === 4 && <DxandTreatment currentPatient={currentPatient} />}
                   {tabIndex === 5 && <Ordermedicine currentPatient={currentPatient} />}
                   {tabIndex === 6 && <Procedure currentPatient={currentPatient} />}

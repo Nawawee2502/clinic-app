@@ -21,10 +21,27 @@ import TreatmentService from "../../services/treatmentService";
 import PatientService from "../../services/patientService";
 
 const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
+  // ฟังก์ชันแปลงวันที่เป็น พ.ศ.
+  const getBuddhistDate = (date = new Date()) => {
+    const buddhist = new Date(date);
+    const buddhistYear = buddhist.getFullYear() + 543;
+    const month = String(buddhist.getMonth() + 1).padStart(2, '0');
+    const day = String(buddhist.getDate()).padStart(2, '0');
+    return `${buddhistYear}-${month}-${day}`;
+  };
+
+  // ฟังก์ชันแปลงวันที่จาก พ.ศ. กลับเป็น ค.ศ. สำหรับ input
+  const getChristianDate = (buddhistDateString) => {
+    if (!buddhistDateString) return '';
+    const [year, month, day] = buddhistDateString.split('-');
+    const christianYear = parseInt(year) - 543;
+    return `${christianYear}-${month}-${day}`;
+  };
+
   // State สำหรับข้อมูล Vital Signs
   const [vitals, setVitals] = useState({
     VNO: '',
-    RDATE: new Date().toISOString().split('T')[0],
+    RDATE: getBuddhistDate(), // ใช้วันที่ พ.ศ.
     WEIGHT1: '',
     HIGHT1: '',
     BT1: '',
@@ -55,15 +72,21 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
 
     try {
       setLoading(true);
-      
+
       // ดึงข้อมูลผู้ป่วยพร้อม Vital Signs ล่าสุด
       const patientWithVitals = await PatientService.getPatientWithVitals(currentPatient.HNCODE);
       setPatientHistory(patientWithVitals);
 
+      // ✅ สร้าง VN Number ใหม่ (พ.ศ. รูปแบบ)
+      const generateVNNumber = () => {
+        return TreatmentService.generateVNO();
+      };
+
       // ตั้งค่า Vitals
       setVitals(prev => ({
         ...prev,
-        VNO: currentPatient.VNO || TreatmentService.generateVNO(),
+        VNO: currentPatient.VNO || generateVNNumber(),
+        RDATE: getBuddhistDate(), // วันที่ปัจจุบันเป็น พ.ศ.
         WEIGHT1: patientWithVitals.WEIGHT1 || currentPatient.WEIGHT1 || '',
         HIGHT1: patientWithVitals.HIGHT1 || currentPatient.HIGHT1 || '',
         BT1: patientWithVitals.BT1 || currentPatient.BT1 || '',
@@ -78,9 +101,14 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
     } catch (error) {
       console.error('Error loading patient data:', error);
       // ใช้ข้อมูลจาก currentPatient แทน
+      const generateVNNumber = () => {
+        return TreatmentService.generateVNO();
+      };
+
       setVitals(prev => ({
         ...prev,
-        VNO: currentPatient.VNO || TreatmentService.generateVNO(),
+        VNO: currentPatient.VNO || generateVNNumber(),
+        RDATE: getBuddhistDate(),
         WEIGHT1: currentPatient.WEIGHT1 || '',
         HIGHT1: currentPatient.HIGHT1 || '',
         BT1: currentPatient.BT1 || '',
@@ -100,7 +128,7 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
   useEffect(() => {
     if (vitals.WEIGHT1 && vitals.HIGHT1) {
       const bmi = TreatmentService.calculateBMI(
-        parseFloat(vitals.WEIGHT1), 
+        parseFloat(vitals.WEIGHT1),
         parseFloat(vitals.HIGHT1)
       );
       setBmiInfo(bmi);
@@ -119,10 +147,20 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
     }));
   };
 
+  // จัดการเปลี่ยนวันที่ (แปลงจาก ค.ศ. input เป็น พ.ศ.)
+  const handleDateChange = (christianDateValue) => {
+    if (christianDateValue) {
+      const buddhistDate = getBuddhistDate(new Date(christianDateValue));
+      handleVitalsChange('RDATE', buddhistDate);
+    } else {
+      handleVitalsChange('RDATE', '');
+    }
+  };
+
   const handleSave = async () => {
     const requiredFields = ['WEIGHT1', 'HIGHT1', 'BT1', 'BP1', 'BP2', 'RR1', 'PR1', 'SPO2'];
     const missingFields = requiredFields.filter(field => !vitals[field]);
-    
+
     if (missingFields.length > 0) {
       alert('กรุณากรอกข้อมูล Vital Signs ให้ครบถ้วน');
       return;
@@ -131,14 +169,18 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
     try {
       setSaving(true);
 
+      // แปลงวันที่จาก พ.ศ. เป็น ค.ศ. สำหรับการส่ง API
+      const christianDate = getChristianDate(vitals.RDATE);
+
       // จัดรูปแบบข้อมูลสำหรับส่ง API
       const treatmentData = TreatmentService.formatTreatmentData({
         ...vitals,
-        VNO: TreatmentService.generateVNO(),
+        RDATE: christianDate, // ส่งเป็น ค.ศ.
+        VNO: vitals.VNO,
         HNNO: currentPatient.HNCODE,
         QUEUE_ID: currentPatient.queueId,
         EMP_CODE: 'DOC001'
-    });
+      });
 
       // บันทึกข้อมูล
       let response;
@@ -172,6 +214,21 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
       alert('เกิดข้อผิดพลาดในการบันทึกข้อมูล: ' + error.message);
     } finally {
       setSaving(false);
+    }
+  };
+
+  // ฟังก์ชันแสดงวันที่ในรูปแบบไทย
+  const formatThaiDate = (buddhistDateString) => {
+    if (!buddhistDateString) return '';
+    try {
+      const [year, month, day] = buddhistDateString.split('-');
+      const monthNames = [
+        'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+        'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
+      ];
+      return `${parseInt(day)} ${monthNames[parseInt(month) - 1]} ${year}`;
+    } catch (error) {
+      return buddhistDateString;
     }
   };
 
@@ -222,20 +279,20 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
               <Typography variant="body2" color="text.secondary">
                 อายุ {currentPatient.AGE} ปี • {currentPatient.SEX}
               </Typography>
-              
+
               {/* Queue Info */}
               <Box sx={{ mt: 1 }}>
-                <Chip 
-                  label={`คิว ${currentPatient.queueNumber}`} 
-                  color="primary" 
-                  size="small" 
+                <Chip
+                  label={`คิว ${currentPatient.queueNumber}`}
+                  color="primary"
+                  size="small"
                   sx={{ mr: 1 }}
                 />
-                <Chip 
-                  label={currentPatient.queueStatus} 
+                <Chip
+                  label={currentPatient.queueStatus}
                   color={
                     currentPatient.queueStatus === 'รอตรวจ' ? 'warning' :
-                    currentPatient.queueStatus === 'กำลังตรวจ' ? 'info' : 'success'
+                      currentPatient.queueStatus === 'กำลังตรวจ' ? 'info' : 'success'
                   }
                   size="small"
                 />
@@ -251,7 +308,17 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
               </Grid>
               <Grid item xs={6}>
                 <Typography variant="body2" fontWeight="bold">VN</Typography>
-                <Typography variant="body2">{vitals.VNO}</Typography>
+                <Typography variant="body2" sx={{
+                  color: 'primary.main',
+                  fontWeight: 'bold',
+                  bgcolor: '#e3f2fd',
+                  px: 1,
+                  py: 0.5,
+                  borderRadius: 1,
+                  textAlign: 'center'
+                }}>
+                  {vitals.VNO}
+                </Typography>
               </Grid>
               <Grid item xs={12}>
                 <Typography variant="body2" fontWeight="bold">เลขบัตรประชาชน</Typography>
@@ -265,6 +332,12 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
                 <Typography variant="body2" fontWeight="bold">เวลาคิว</Typography>
                 <Typography variant="body2">{currentPatient.queueTime}</Typography>
               </Grid>
+              {/* <Grid item xs={12}>
+                <Typography variant="body2" fontWeight="bold">วันที่รับบริการ</Typography>
+                <Typography variant="body2" sx={{ color: 'primary.main', fontWeight: 'bold' }}>
+                  {formatThaiDate(vitals.RDATE)}
+                </Typography>
+              </Grid> */}
             </Grid>
 
             {/* BMI Display */}
@@ -273,7 +346,7 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
                 <Divider sx={{ my: 2 }} />
                 <Box sx={{ textAlign: 'center' }}>
                   <Typography variant="body2" fontWeight="bold" gutterBottom>BMI</Typography>
-                  <Chip 
+                  <Chip
                     label={`${bmiInfo.value} (${bmiInfo.category})`}
                     color={bmiInfo.category === 'ปกติ' ? 'success' : 'warning'}
                     size="small"
@@ -333,7 +406,9 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
                     sx={{
                       '& .MuiOutlinedInput-root': {
                         borderRadius: '10px',
-                        bgcolor: '#f5f5f5'
+                        bgcolor: '#e3f2fd',
+                        fontWeight: 'bold',
+                        color: '#1976d2'
                       },
                     }}
                   />
@@ -345,8 +420,8 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
                   </Typography>
                   <TextField
                     type="date"
-                    value={vitals.RDATE}
-                    onChange={(e) => handleVitalsChange('RDATE', e.target.value)}
+                    value={getChristianDate(vitals.RDATE)} // แปลงเป็น ค.ศ. สำหรับ input
+                    onChange={(e) => handleDateChange(e.target.value)}
                     size="small"
                     fullWidth
                     sx={{
@@ -569,7 +644,8 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
 };
 
 TodayPatientInformation.propTypes = {
-  currentPatient: PropTypes.object
+  currentPatient: PropTypes.object,
+  onSaveSuccess: PropTypes.func
 };
 
 export default TodayPatientInformation;

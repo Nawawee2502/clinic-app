@@ -1,7 +1,103 @@
-// services/treatmentService.js - แก้ไข API_BASE_URL
+// services/treatmentService.js - แก้ไข VN Number ให้เป็น พ.ศ.
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
 
 class TreatmentService {
+
+    // ✅ สร้าง VNO อัตโนมัติ - แก้ไขให้เป็น พ.ศ. รูปแบบ VN680809001
+    static generateVNO(date = new Date()) {
+        const buddhistYear = date.getFullYear() + 543;
+        const year = buddhistYear.toString().slice(-2); // เอาแค่ 2 หลัก เช่น 2568 -> 68
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+
+        // ✅ รูปแบบใหม่: VN[ปี พ.ศ. 2 หลัก][เดือน][วัน][เลขรันนิ่ง 3 หลัก]
+        // สร้างเลขรันนิ่ง 3 หลัก (001-999)
+        const runningNumber = String(Math.floor(Math.random() * 999) + 1).padStart(3, '0');
+
+        return `VN${year}${month}${day}${runningNumber}`;
+    }
+
+    // ✅ แปลงวันที่เป็นรูปแบบไทย - แก้ไขให้แสดง พ.ศ.
+    static formatThaiDate(dateString) {
+        if (!dateString) return '';
+
+        const date = new Date(dateString);
+        const thaiMonths = [
+            'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+            'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
+        ];
+
+        const day = date.getDate();
+        const month = thaiMonths[date.getMonth()];
+        const year = date.getFullYear() + 543; // ✅ แปลงเป็น พ.ศ.
+
+        return `${day} ${month} ${year}`;
+    }
+
+    // ✅ เพิ่มฟังก์ชันแปลงวันที่จาก พ.ศ. เป็น ค.ศ.
+    static convertBuddhistToChristian(buddhistDateString) {
+        if (!buddhistDateString) return '';
+        try {
+            const [year, month, day] = buddhistDateString.split('-');
+            const christianYear = parseInt(year) - 543;
+            return `${christianYear}-${month}-${day}`;
+        } catch (error) {
+            console.error('Error converting Buddhist date:', error);
+            return buddhistDateString;
+        }
+    }
+
+    // ✅ เพิ่มฟังก์ชันแปลงวันที่จาก ค.ศ. เป็น พ.ศ.
+    static convertChristianToBuddhist(christianDateString) {
+        if (!christianDateString) return '';
+        try {
+            const [year, month, day] = christianDateString.split('-');
+            const buddhistYear = parseInt(year) + 543;
+            return `${buddhistYear}-${month}-${day}`;
+        } catch (error) {
+            console.error('Error converting Christian date:', error);
+            return christianDateString;
+        }
+    }
+
+    // ✅ ตรวจสอบรูปแบบ VN Number ใหม่
+    static isValidVNO(vno) {
+        // รูปแบบใหม่: VN + 2 หลักปี พ.ศ. + 2 หลักเดือน + 2 หลักวัน + 3 หลักรันนิ่ง = VN + 9 หลัก
+        const vnPattern = /^VN\d{9}$/;
+        return vnPattern.test(vno);
+    }
+
+    // ✅ สกัดข้อมูลวันที่จาก VN Number
+    static extractDateFromVNO(vno) {
+        if (!this.isValidVNO(vno)) {
+            return null;
+        }
+
+        try {
+            const dateString = vno.substring(2); // เอาส่วนหลัง VN
+            const year = '25' + dateString.substring(0, 2); // เติม 25 หน้า เช่น 68 -> 2568
+            const month = dateString.substring(2, 4);
+            const day = dateString.substring(4, 6);
+            const runningNumber = dateString.substring(6, 9); // เลขรันนิ่ง 3 หลัก
+
+            // แปลงเป็น ค.ศ. สำหรับ JavaScript Date
+            const christianYear = parseInt(year) - 543;
+
+            return {
+                buddhistYear: parseInt(year),
+                christianYear: christianYear,
+                month: parseInt(month),
+                day: parseInt(day),
+                runningNumber: parseInt(runningNumber),
+                dateString: `${christianYear}-${month}-${day}`,
+                buddhistDateString: `${year}-${month}-${day}`,
+                vnoFormat: 'VN[YY][MM][DD][NNN]'
+            };
+        } catch (error) {
+            console.error('Error extracting date from VNO:', error);
+            return null;
+        }
+    }
 
     // สร้างการรักษาใหม่
     static async createTreatment(treatmentData) {
@@ -235,9 +331,9 @@ class TreatmentService {
             }
         });
 
-        // ตรวจสอบรูปแบบ VNO
-        if (data.VNO && !/^\d{10,15}$/.test(data.VNO)) {
-            errors.push('Visit Number ต้องเป็นตัวเลข 10-15 หลัก');
+        // ✅ ตรวจสอบรูปแบบ VNO ใหม่
+        if (data.VNO && !this.isValidVNO(data.VNO)) {
+            errors.push('Visit Number ต้องเป็นรูปแบบ VN + 12 หลัก');
         }
 
         // ตรวจสอบรูปแบบวันที่
@@ -298,19 +394,6 @@ class TreatmentService {
             labTests: data.labTests || [],
             radioTests: data.radioTests || []
         };
-    }
-
-    // สร้าง VNO อัตโนมัติ
-    static generateVNO() {
-        const now = new Date();
-        const year = now.getFullYear().toString();
-        const month = (now.getMonth() + 1).toString().padStart(2, '0');
-        const day = now.getDate().toString().padStart(2, '0');
-        const hour = now.getHours().toString().padStart(2, '0');
-        const minute = now.getMinutes().toString().padStart(2, '0');
-        const second = now.getSeconds().toString().padStart(2, '0');
-
-        return `${year}${month}${day}${hour}${minute}${second}`;
     }
 
     // ดึงรายการสถานะการรักษา
@@ -414,23 +497,6 @@ class TreatmentService {
             // Summary
             summary: treatment.summary
         };
-    }
-
-    // แปลงวันที่เป็นรูปแบบไทย
-    static formatThaiDate(dateString) {
-        if (!dateString) return '';
-
-        const date = new Date(dateString);
-        const thaiMonths = [
-            'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
-            'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
-        ];
-
-        const day = date.getDate();
-        const month = thaiMonths[date.getMonth()];
-        const year = date.getFullYear() + 543;
-
-        return `${day} ${month} ${year}`;
     }
 
     // กรองและเรียงลำดับข้อมูล

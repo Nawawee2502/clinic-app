@@ -43,6 +43,7 @@ import {
 // import QueueService from '../services/queueService';
 import PatientService from '../../services/patientService';
 import QueueService from '../../services/queueService';
+import TreatmentService from '../../services/treatmentService';
 
 const WalkInPatientSystem = ({
     open,
@@ -123,18 +124,17 @@ const WalkInPatientSystem = ({
         setError('');
 
         try {
-            // ✅ FIXED: Use the correct method name and data structure
+            // ✅ ไม่ส่ง VNO ไป ให้ Backend สร้างเอง
             const queueData = {
                 HNCODE: selectedPatient.HNCODE,
                 CHIEF_COMPLAINT: symptom.trim(),
-                CREATED_BY: 'WALK_IN_SYSTEM' // or current user
+                CREATED_BY: 'WALK_IN_SYSTEM'
+                // ✅ ลบ VNO ออก ให้ Backend สร้างเอง
             };
 
-            // ✅ FIXED: Use createWalkInQueue instead of addWalkInToQueue
             const response = await QueueService.createWalkInQueue(queueData);
 
             if (response.success) {
-                // ส่งข้อมูลกลับไปยัง parent component
                 if (onPatientAdded) {
                     const patientData = {
                         queueId: response.data.QUEUE_ID,
@@ -149,17 +149,16 @@ const WalkInPatientSystem = ({
                         SEX: selectedPatient.SEX,
                         TEL1: selectedPatient.TEL1,
                         SYMPTOM: symptom.trim(),
-                        VNO: response.data.VNO,
+                        VNO: response.data.VNO, // ✅ ใช้ VNO ที่ Backend ส่งกลับมา
                         TYPE: 'walk-in'
                     };
 
                     onPatientAdded(patientData);
                 }
 
-                // แสดงข้อความสำเร็จ
+                // ✅ แสดง VN Number ที่ถูกต้อง
                 alert(`เพิ่มเข้าคิวสำเร็จ!\nหมายเลขคิว: ${response.data.QUEUE_NUMBER}\nVN Number: ${response.data.VNO}`);
 
-                // รีเซ็ตฟอร์ม
                 handleReset();
                 onClose();
             } else {

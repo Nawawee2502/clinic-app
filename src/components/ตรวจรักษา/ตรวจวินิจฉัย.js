@@ -1,20 +1,20 @@
 import React, { useState, useEffect } from "react";
-import { 
-  Container, 
-  Grid, 
-  TextField, 
-  Button, 
-  Card, 
-  CardContent, 
-  Typography, 
-  Avatar, 
-  Tabs, 
-  Tab, 
-  Divider, 
-  Box, 
-  Checkbox, 
-  FormGroup, 
-  FormControlLabel, 
+import {
+  Container,
+  Grid,
+  TextField,
+  Button,
+  Card,
+  CardContent,
+  Typography,
+  Avatar,
+  Tabs,
+  Tab,
+  Divider,
+  Box,
+  Checkbox,
+  FormGroup,
+  FormControlLabel,
   LinearProgress,
   CircularProgress,
   Alert,
@@ -61,7 +61,7 @@ const ตรวจวินิจฉัย = ({ currentPatient, onSaveSuccess })
       // ถ้ามี VNO ให้ดึงข้อมูลการรักษาปัจจุบัน
       if (currentPatient.VNO) {
         const response = await TreatmentService.getTreatmentByVNO(currentPatient.VNO);
-        
+
         if (response.success) {
           const treatment = response.data;
           setCurrentTreatment(treatment);
@@ -93,10 +93,10 @@ const ตรวจวินิจฉัย = ({ currentPatient, onSaveSuccess })
 
       // โหลดประวัติผู้ป่วย
       const historyResponse = await TreatmentService.getTreatmentsByPatient(
-        currentPatient.HNCODE, 
+        currentPatient.HNCODE,
         { limit: 5 }
       );
-      
+
       if (historyResponse.success) {
         setPatientHistory(historyResponse.data);
       }
@@ -118,16 +118,37 @@ const ตรวจวินิจฉัย = ({ currentPatient, onSaveSuccess })
 
   // จัดการการเปลี่ยนแปลง Investigation
   const handleInvestigationChange = (field, checked) => {
-    setDiagnosisData(prev => ({
-      ...prev,
-      investigations: {
-        ...prev.investigations,
-        [field]: checked
+    setDiagnosisData(prev => {
+      let newInvestigations = { ...prev.investigations };
+
+      if (field === 'na') {
+        // ถ้าเลือก N/A ให้ยกเลิกการเลือกอื่นๆ
+        if (checked) {
+          newInvestigations = {
+            na: true,
+            imaging: false,
+            lab: false
+          };
+        } else {
+          newInvestigations.na = false;
+        }
+      } else {
+        // ถ้าเลือก imaging หรือ lab ให้ยกเลิก N/A
+        if (checked) {
+          newInvestigations.na = false;
+        }
+        newInvestigations[field] = checked;
       }
-    }));
+
+      return {
+        ...prev,
+        investigations: newInvestigations
+      };
+    });
   };
 
   // บันทึกข้อมูลการวินิจฉัย
+  // แก้ไขในฟังก์ชัน handleSave ของคอมโพเนนต์ ตรวจวินิจฉัย
   const handleSave = async () => {
     try {
       setSaving(true);
@@ -164,7 +185,7 @@ const ตรวจวินิจฉัย = ({ currentPatient, onSaveSuccess })
         SYMPTOM: diagnosisData.CHIEF_COMPLAINT,
         QUEUE_ID: currentPatient.queueId,
         STATUS1: 'กำลังตรวจ',
-        
+
         diagnosis: diagnosisPayload,
         investigations: selectedInvestigations
       };
@@ -180,11 +201,18 @@ const ตรวจวินิจฉัย = ({ currentPatient, onSaveSuccess })
 
       if (response.success) {
         alert('บันทึกข้อมูลการตรวจวินิจฉัยสำเร็จ!');
-        
+
         // รีเฟรชข้อมูล
         loadDiagnosisData();
+
         if (onSaveSuccess) {
-          onSaveSuccess(); // เพิ่มบรรทัดนี้
+          // ✅ ถ้าเลือก N/A ให้ไปหน้า DX โดยตรง (index 4)
+          if (diagnosisData.investigations.na) {
+            onSaveSuccess(4); // ส่ง 4 เพื่อไปแท็บ DX เลย
+          } else {
+            // ถ้าไม่เลือก N/A ให้ไปหน้าถัดไปปกติ
+            onSaveSuccess();
+          }
         }
       } else {
         alert('ไม่สามารถบันทึกข้อมูลได้: ' + response.message);
@@ -200,37 +228,37 @@ const ตรวจวินิจฉัย = ({ currentPatient, onSaveSuccess })
 
   // ข้อมูล Vital Signs สำหรับแสดงผล
   const vitalsData = [
-    { 
-      label: "Blood Pressure", 
-      value: currentPatient.BP1 && currentPatient.BP2 
+    {
+      label: "Blood Pressure",
+      value: currentPatient.BP1 && currentPatient.BP2
         ? Math.round(((currentPatient.BP1 + currentPatient.BP2) / 220) * 100)
-        : 0, 
-      display: currentPatient.BP1 && currentPatient.BP2 
+        : 0,
+      display: currentPatient.BP1 && currentPatient.BP2
         ? `${currentPatient.BP1}/${currentPatient.BP2} mmHg`
         : 'ไม่มีข้อมูล'
     },
-    { 
-      label: "Heart Rate", 
-      value: currentPatient.PR1 
+    {
+      label: "Heart Rate",
+      value: currentPatient.PR1
         ? Math.round((currentPatient.PR1 / 120) * 100)
-        : 0, 
-      display: currentPatient.PR1 
+        : 0,
+      display: currentPatient.PR1
         ? `${currentPatient.PR1} bpm`
         : 'ไม่มีข้อมูล'
     },
     {
       label: "Temperature",
-      value: currentPatient.BT1 
+      value: currentPatient.BT1
         ? Math.round(((currentPatient.BT1 - 35) / 7) * 100)
         : 0,
-      display: currentPatient.BT1 
+      display: currentPatient.BT1
         ? `${currentPatient.BT1}°C`
         : 'ไม่มีข้อมูล'
     },
     {
       label: "SpO2",
       value: currentPatient.SPO2 || 0,
-      display: currentPatient.SPO2 
+      display: currentPatient.SPO2
         ? `${currentPatient.SPO2}%`
         : 'ไม่มีข้อมูล'
     }
@@ -329,7 +357,7 @@ const ตรวจวินิจฉัย = ({ currentPatient, onSaveSuccess })
           </Card>
 
           <Divider sx={{ pt: 2 }} />
-          
+
           {/* Vitals Cards */}
           <Grid container spacing={2} sx={{ mb: 3 }}>
             {vitalsData.map((item, index) => (
@@ -414,9 +442,9 @@ const ตรวจวินิจฉัย = ({ currentPatient, onSaveSuccess })
                 <Typography sx={{ mb: 1, fontWeight: 'bold', mt: 2 }}>
                   Present Illness
                 </Typography>
-                <TextField 
-                  fullWidth 
-                  multiline 
+                <TextField
+                  fullWidth
+                  multiline
                   rows={4}
                   placeholder="อธิบายประวัติความเจ็บป่วยปัจจุบัน, การเริ่มต้นของอาการ, ลักษณะอาการ, ปัจจัยที่ทำให้ดีขึ้นหรือแย่ลง"
                   value={diagnosisData.PRESENT_ILL}
@@ -425,7 +453,7 @@ const ตรวจวินิจฉัย = ({ currentPatient, onSaveSuccess })
                     '& .MuiOutlinedInput-root': {
                       borderRadius: '10px',
                     },
-                  }} 
+                  }}
                 />
               </Grid>
 
@@ -434,9 +462,9 @@ const ตรวจวินิจฉัย = ({ currentPatient, onSaveSuccess })
                 <Typography sx={{ mb: 1, fontWeight: 'bold', mt: 2 }}>
                   Physical Examination
                 </Typography>
-                <TextField 
-                  fullWidth 
-                  multiline 
+                <TextField
+                  fullWidth
+                  multiline
                   rows={4}
                   placeholder="ผลการตรวจร่างกาย, การตรวจระบบต่างๆ, การประเมินสัญญาณชีพ"
                   value={diagnosisData.PHYSICAL_EXAM}
@@ -445,7 +473,7 @@ const ตรวจวินิจฉัย = ({ currentPatient, onSaveSuccess })
                     '& .MuiOutlinedInput-root': {
                       borderRadius: '10px',
                     },
-                  }} 
+                  }}
                 />
               </Grid>
 
@@ -456,34 +484,34 @@ const ตรวจวินิจฉัย = ({ currentPatient, onSaveSuccess })
                     Investigation (การตรวจเพิ่มเติม):
                   </Typography>
                   <FormGroup sx={{ ml: 2 }}>
-                    <FormControlLabel 
+                    <FormControlLabel
                       control={
-                        <Checkbox 
+                        <Checkbox
                           checked={diagnosisData.investigations.na}
                           onChange={(e) => handleInvestigationChange('na', e.target.checked)}
                         />
-                      } 
-                      label="N/A (ไม่ต้องตรวจเพิ่มเติม)" 
+                      }
+                      label="N/A (ไม่ต้องตรวจเพิ่มเติม)"
                     />
-                    <FormControlLabel 
+                    <FormControlLabel
                       control={
-                        <Checkbox 
+                        <Checkbox
                           checked={diagnosisData.investigations.imaging}
                           onChange={(e) => handleInvestigationChange('imaging', e.target.checked)}
                           disabled={diagnosisData.investigations.na}
                         />
-                      } 
-                      label="Imaging (X-ray, CT, MRI, Ultrasound)" 
+                      }
+                      label="Imaging (X-ray, CT, MRI, Ultrasound)"
                     />
-                    <FormControlLabel 
+                    <FormControlLabel
                       control={
-                        <Checkbox 
+                        <Checkbox
                           checked={diagnosisData.investigations.lab}
                           onChange={(e) => handleInvestigationChange('lab', e.target.checked)}
                           disabled={diagnosisData.investigations.na}
                         />
-                      } 
-                      label="Laboratory (เจาะเลือด, ตรวจปัสสาวะ)" 
+                      }
+                      label="Laboratory (เจาะเลือด, ตรวจปัสสาวะ)"
                     />
                   </FormGroup>
                 </Box>
@@ -494,9 +522,9 @@ const ตรวจวินิจฉัย = ({ currentPatient, onSaveSuccess })
                 <Typography sx={{ mb: 1, fontWeight: 'bold', mt: 2 }}>
                   Plan (แผนการรักษา)
                 </Typography>
-                <TextField 
-                  fullWidth 
-                  multiline 
+                <TextField
+                  fullWidth
+                  multiline
                   rows={3}
                   placeholder="แผนการรักษา, การให้ยา, การนัดติดตาม, คำแนะนำสำหรับผู้ป่วย"
                   value={diagnosisData.PLAN1}
@@ -505,23 +533,23 @@ const ตรวจวินิจฉัย = ({ currentPatient, onSaveSuccess })
                     '& .MuiOutlinedInput-root': {
                       borderRadius: '10px',
                     },
-                  }} 
+                  }}
                 />
               </Grid>
 
               {/* Save Button */}
               <Grid item xs={12} sx={{ textAlign: "right", mt: 2 }}>
-                <Button 
-                  variant="contained" 
+                <Button
+                  variant="contained"
                   onClick={handleSave}
                   disabled={saving}
                   startIcon={saving ? <CircularProgress size={20} /> : <SaveIcon />}
-                  sx={{ 
-                    backgroundColor: "#5698E0", 
-                    color: "#FFFFFF", 
-                    fontSize: "1rem", 
-                    width: '200px', 
-                    height: '50px', 
+                  sx={{
+                    backgroundColor: "#5698E0",
+                    color: "#FFFFFF",
+                    fontSize: "1rem",
+                    width: '200px',
+                    height: '50px',
                     fontWeight: 600,
                     '&:hover': {
                       backgroundColor: "#4285d1"

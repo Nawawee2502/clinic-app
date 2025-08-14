@@ -131,7 +131,8 @@ const ContactInfoTab = ({ onNext, onPrev, patientData, updatePatientData }) => {
     setSelectedCardTumbol(newValue);
 
     updatePatientData({
-      CARD_TUMBOL_CODE: newValue ? newValue.TUMBOL_CODE : ''
+      CARD_TUMBOL_CODE: newValue ? newValue.TUMBOL_CODE : '',
+      CARD_ZIPCODE: newValue && newValue.zipcode ? newValue.zipcode : patientData.CARD_ZIPCODE || ''
     });
   };
 
@@ -177,7 +178,8 @@ const ContactInfoTab = ({ onNext, onPrev, patientData, updatePatientData }) => {
     setSelectedTumbol(newValue);
 
     updatePatientData({
-      TUMBOL_CODE: newValue ? newValue.TUMBOL_CODE : ''
+      TUMBOL_CODE: newValue ? newValue.TUMBOL_CODE : '',
+      ZIPCODE: newValue && newValue.zipcode ? newValue.zipcode : patientData.ZIPCODE || ''
     });
   };
 
@@ -204,7 +206,7 @@ const ContactInfoTab = ({ onNext, onPrev, patientData, updatePatientData }) => {
         TUMBOL_CODE: patientData.CARD_TUMBOL_CODE,
         AMPHER_CODE: patientData.CARD_AMPHER_CODE,
         PROVINCE_CODE: patientData.CARD_PROVINCE_CODE,
-        ZIPCODE: patientData.CARD_ZIPCODE
+        ZIPCODE: patientData.CARD_ZIPCODE // ใช้ zipcode จากบัตรประชาชน
       });
     } else {
       // รีเซ็ตค่าเมื่อยกเลิก checkbox
@@ -213,6 +215,15 @@ const ContactInfoTab = ({ onNext, onPrev, patientData, updatePatientData }) => {
       setSelectedTumbol(null);
       setAmphers([]);
       setTumbols([]);
+
+      // เคลียร์ข้อมูลที่อยู่ปัจจุบัน
+      updatePatientData({
+        ADDR1: '',
+        TUMBOL_CODE: '',
+        AMPHER_CODE: '',
+        PROVINCE_CODE: '',
+        ZIPCODE: ''
+      });
     }
   };
 

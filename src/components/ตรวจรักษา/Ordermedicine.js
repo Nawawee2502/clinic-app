@@ -22,12 +22,31 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
         usage: '',
         beforeAfter: '',
         quantity: '',
+        unit: '', // เพิ่มหน่วยนับ
         time: ''
     });
 
     const [medicineList, setMedicineList] = useState([]);
     const [savedMedicines, setSavedMedicines] = useState([]);
     const [drugOptions, setDrugOptions] = useState([]);
+
+    // เพิ่ม options สำหรับหน่วยนับยา
+    const [unitOptions] = useState([
+        { code: 'TAB', name: 'เม็ด' },
+        { code: 'CAP', name: 'แคปซูล' },
+        { code: 'BOT', name: 'ขวด' },
+        { code: 'AMP', name: 'แอมปูล' },
+        { code: 'VIAL', name: 'ไวออล' },
+        { code: 'TUBE', name: 'หลอด' },
+        { code: 'SACHET', name: 'ซอง' },
+        { code: 'BOX', name: 'กล่อง' },
+        { code: 'SPRAY', name: 'สเปรย์' },
+        { code: 'DROP', name: 'หยด' },
+        { code: 'ML', name: 'มิลลิลิตร' },
+        { code: 'G', name: 'กรัม' },
+        { code: 'PACK', name: 'แพ็ค' }
+    ]);
+
     const [usageOptions] = useState([
         'รับประทาน',
         'ฉีด',
@@ -65,6 +84,7 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
                     drugName: drug.GENERIC_NAME,
                     drugCode: drug.DRUG_CODE,
                     quantity: drug.QTY,
+                    unit: drug.UNIT_CODE || 'TAB', // เพิ่มหน่วยนับ
                     usage: drug.NOTE1 || '',
                     beforeAfter: '',
                     time: drug.TIME1 || ''
@@ -85,16 +105,20 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
             if (response.ok) {
                 const data = await response.json();
                 setDrugOptions(data);
+            } else {
+                throw new Error('API not available');
             }
         } catch (error) {
             console.error('Error loading drug options:', error);
-            // ข้อมูลจำลอง
+            // ข้อมูลจำลอง - ตอนนี้ยังไม่ได้เชื่อม DB จริง
             setDrugOptions([
-                { DRUG_CODE: 'MED001', GENERIC_NAME: 'Paracetamol 500mg', TRADE_NAME: 'Tylenol' },
-                { DRUG_CODE: 'MED002', GENERIC_NAME: 'Amoxicillin 250mg', TRADE_NAME: 'Amoxil' },
-                { DRUG_CODE: 'MED003', GENERIC_NAME: 'Omeprazole 20mg', TRADE_NAME: 'Losec' },
-                { DRUG_CODE: 'MED004', GENERIC_NAME: 'Salbutamol 100mcg', TRADE_NAME: 'Ventolin' },
-                { DRUG_CODE: 'MED005', GENERIC_NAME: 'Metformin 500mg', TRADE_NAME: 'Glucophage' }
+                { DRUG_CODE: 'MED001', GENERIC_NAME: 'Paracetamol 500mg', TRADE_NAME: 'Tylenol', DEFAULT_UNIT: 'TAB' },
+                { DRUG_CODE: 'MED002', GENERIC_NAME: 'Amoxicillin 250mg', TRADE_NAME: 'Amoxil', DEFAULT_UNIT: 'CAP' },
+                { DRUG_CODE: 'MED003', GENERIC_NAME: 'Omeprazole 20mg', TRADE_NAME: 'Losec', DEFAULT_UNIT: 'CAP' },
+                { DRUG_CODE: 'MED004', GENERIC_NAME: 'Salbutamol 100mcg', TRADE_NAME: 'Ventolin', DEFAULT_UNIT: 'SPRAY' },
+                { DRUG_CODE: 'MED005', GENERIC_NAME: 'Metformin 500mg', TRADE_NAME: 'Glucophage', DEFAULT_UNIT: 'TAB' },
+                { DRUG_CODE: 'MED006', GENERIC_NAME: 'Eye Drop Chloramphenicol', TRADE_NAME: 'Chlorsig', DEFAULT_UNIT: 'BOT' },
+                { DRUG_CODE: 'MED007', GENERIC_NAME: 'Betamethasone Cream', TRADE_NAME: 'Betnovate', DEFAULT_UNIT: 'TUBE' }
             ]);
         }
     };
@@ -106,9 +130,16 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
         }));
     };
 
+    const handleDrugSelect = (newValue) => {
+        handleMedicineChange('drugCode', newValue?.DRUG_CODE || '');
+        handleMedicineChange('drugName', newValue?.GENERIC_NAME || '');
+        // ตั้งหน่วยเริ่มต้นตามยาที่เลือก
+        handleMedicineChange('unit', newValue?.DEFAULT_UNIT || 'TAB');
+    };
+
     const handleAddMedicine = () => {
-        if (!medicineData.drugName || !medicineData.quantity) {
-            alert('กรุณากรอกชื่อยาและจำนวน');
+        if (!medicineData.drugName || !medicineData.quantity || !medicineData.unit) {
+            alert('กรุณากรอกชื่อยา จำนวน และหน่วยนับ');
             return;
         }
 
@@ -135,6 +166,7 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
             usage: '',
             beforeAfter: '',
             quantity: '',
+            unit: '',
             time: ''
         });
     };
@@ -147,6 +179,7 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
             usage: medicine.usage,
             beforeAfter: medicine.beforeAfter,
             quantity: medicine.quantity,
+            unit: medicine.unit,
             time: medicine.time
         });
         setEditingIndex(index);
@@ -157,6 +190,11 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
             const updatedMedicines = savedMedicines.filter((_, i) => i !== index);
             setSavedMedicines(updatedMedicines);
         }
+    };
+
+    const getUnitName = (unitCode) => {
+        const unit = unitOptions.find(u => u.code === unitCode);
+        return unit ? unit.name : unitCode;
     };
 
     const handleSave = async () => {
@@ -172,7 +210,7 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
             const drugs = savedMedicines.map(medicine => ({
                 DRUG_CODE: medicine.drugCode,
                 QTY: parseFloat(medicine.quantity),
-                UNIT_CODE: 'UNIT001', // หน่วยเริ่มต้น
+                UNIT_CODE: medicine.unit, // ใช้หน่วยที่เลือก
                 UNIT_PRICE: 0, // ราคาต่อหน่วย
                 AMT: 0, // จำนวนเงิน
                 NOTE1: medicine.usage,
@@ -289,25 +327,6 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
                 {/* Medicine Form Section */}
                 <Grid item xs={12} sm={7}>
                     <Grid container spacing={2}>
-                        {/* Add Medicine Button */}
-                        <Grid item xs={12} sx={{ textAlign: "right", mb: 1 }}>
-                            <Button
-                                variant="contained"
-                                onClick={handleAddMedicine}
-                                startIcon={<AddIcon />}
-                                sx={{
-                                    bgcolor: '#5698E0',
-                                    color: '#FFFFFF',
-                                    width: 130,
-                                    '&:hover': {
-                                        bgcolor: '#4285d1'
-                                    }
-                                }}
-                            >
-                                {editingIndex >= 0 ? 'แก้ไข' : 'เพิ่ม'}
-                            </Button>
-                        </Grid>
-
                         {/* Drug Name */}
                         <Grid item xs={6}>
                             <Typography sx={{ fontWeight: "400", fontSize: "16px", mb: 1 }}>
@@ -317,10 +336,7 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
                                 options={drugOptions}
                                 getOptionLabel={(option) => option.GENERIC_NAME || ''}
                                 value={drugOptions.find(opt => opt.DRUG_CODE === medicineData.drugCode) || null}
-                                onChange={(event, newValue) => {
-                                    handleMedicineChange('drugCode', newValue?.DRUG_CODE || '');
-                                    handleMedicineChange('drugName', newValue?.GENERIC_NAME || '');
-                                }}
+                                onChange={(event, newValue) => handleDrugSelect(newValue)}
                                 renderInput={(params) => (
                                     <TextField
                                         {...params}
@@ -367,8 +383,52 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
                             </FormControl>
                         </Grid>
 
+                        {/* Quantity */}
+                        <Grid item xs={4}>
+                            <Typography sx={{ fontWeight: '400', fontSize: '16px', mb: 1 }}>
+                                จำนวน *
+                            </Typography>
+                            <TextField
+                                size="small"
+                                type="number"
+                                placeholder="จำนวน"
+                                value={medicineData.quantity}
+                                onChange={(e) => handleMedicineChange('quantity', e.target.value)}
+                                sx={{
+                                    width: '100%',
+                                    '& .MuiOutlinedInput-root': {
+                                        borderRadius: '10px',
+                                    },
+                                }}
+                            />
+                        </Grid>
+
+                        {/* Unit */}
+                        <Grid item xs={4}>
+                            <Typography sx={{ fontWeight: '400', fontSize: '16px', mb: 1 }}>
+                                หน่วยนับ *
+                            </Typography>
+                            <FormControl fullWidth size="small">
+                                <Select
+                                    value={medicineData.unit}
+                                    onChange={(e) => handleMedicineChange('unit', e.target.value)}
+                                    displayEmpty
+                                    sx={{
+                                        borderRadius: '10px',
+                                    }}
+                                >
+                                    <MenuItem value="">เลือกหน่วย</MenuItem>
+                                    {unitOptions.map((option) => (
+                                        <MenuItem key={option.code} value={option.code}>
+                                            {option.name}
+                                        </MenuItem>
+                                    ))}
+                                </Select>
+                            </FormControl>
+                        </Grid>
+
                         {/* Before/After */}
-                        <Grid item xs={6}>
+                        <Grid item xs={4}>
                             <Typography sx={{ fontWeight: '400', fontSize: '16px', mb: 1 }}>
                                 ก่อน/หลังอาหาร
                             </Typography>
@@ -389,26 +449,6 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
                             </FormControl>
                         </Grid>
 
-                        {/* Quantity */}
-                        <Grid item xs={6}>
-                            <Typography sx={{ fontWeight: '400', fontSize: '16px', mb: 1 }}>
-                                จำนวน *
-                            </Typography>
-                            <TextField
-                                size="small"
-                                type="number"
-                                placeholder="จำนวน"
-                                value={medicineData.quantity}
-                                onChange={(e) => handleMedicineChange('quantity', e.target.value)}
-                                sx={{
-                                    width: '100%',
-                                    '& .MuiOutlinedInput-root': {
-                                        borderRadius: '10px',
-                                    },
-                                }}
-                            />
-                        </Grid>
-
                         {/* Time */}
                         <Grid item xs={12}>
                             <Typography sx={{ fontWeight: '400', fontSize: '16px', mb: 1 }}>
@@ -426,6 +466,24 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
                                     },
                                 }}
                             />
+                        </Grid>
+                        {/* Add Medicine Button */}
+                        <Grid item xs={12} sx={{ textAlign: "right", mb: 1 }}>
+                            <Button
+                                variant="contained"
+                                onClick={handleAddMedicine}
+                                startIcon={<AddIcon />}
+                                sx={{
+                                    bgcolor: '#5698E0',
+                                    color: '#FFFFFF',
+                                    width: 130,
+                                    '&:hover': {
+                                        bgcolor: '#4285d1'
+                                    }
+                                }}
+                            >
+                                {editingIndex >= 0 ? 'แก้ไข' : 'เพิ่ม'}
+                            </Button>
                         </Grid>
                     </Grid>
                 </Grid>
@@ -449,6 +507,7 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
                                             </TableCell>
                                             <TableCell sx={{ fontWeight: 'bold' }}>ชื่อยา</TableCell>
                                             <TableCell sx={{ fontWeight: 'bold' }}>จำนวน</TableCell>
+                                            <TableCell sx={{ fontWeight: 'bold' }}>หน่วย</TableCell>
                                             <TableCell sx={{ fontWeight: 'bold' }}>วิธีใช้</TableCell>
                                             <TableCell sx={{ fontWeight: 'bold' }}>ก่อน/หลัง</TableCell>
                                             <TableCell sx={{ fontWeight: 'bold' }}>เวลา</TableCell>
@@ -459,7 +518,7 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
                                     <TableBody>
                                         {savedMedicines.length === 0 ? (
                                             <TableRow>
-                                                <TableCell colSpan={8} sx={{ textAlign: 'center', py: 4 }}>
+                                                <TableCell colSpan={9} sx={{ textAlign: 'center', py: 4 }}>
                                                     <Typography color="text.secondary">
                                                         ยังไม่มีรายการยา
                                                     </Typography>
@@ -474,6 +533,7 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
                                                     </TableCell>
                                                     <TableCell>{medicine.drugName}</TableCell>
                                                     <TableCell>{medicine.quantity}</TableCell>
+                                                    <TableCell>{getUnitName(medicine.unit)}</TableCell>
                                                     <TableCell>{medicine.usage}</TableCell>
                                                     <TableCell>{medicine.beforeAfter}</TableCell>
                                                     <TableCell>{medicine.time}</TableCell>
@@ -526,7 +586,7 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
                                 }
                             }}
                         >
-                            {saving ? 'กำลังบันทึก...' : 'บันทึกและไปหน้าถัดไป'}
+                            {saving ? 'กำลังบันทึก...' : 'บันทึก'}
                         </Button>
 
                         <Button

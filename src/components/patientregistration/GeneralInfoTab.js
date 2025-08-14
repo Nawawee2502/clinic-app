@@ -10,7 +10,8 @@ import {
   Card,
   Divider,
   IconButton,
-  Tooltip
+  Tooltip,
+  Autocomplete
 } from "@mui/material";
 import AutorenewIcon from '@mui/icons-material/Autorenew';
 
@@ -21,10 +22,36 @@ const GeneralInfoTab = ({ onNext, patientData, updatePatientData }) => {
   const [selectedMonth, setSelectedMonth] = useState('');
   const [selectedYear, setSelectedYear] = useState('');
 
+  // Default values
+  const defaultValues = {
+    เชื้อชาติ: 'ไทย',
+    สัญชาติ: 'ไทย',
+    ศาสนา: 'พุทธ',
+    สถานภาพ: 'โสด'
+  };
+
+  // Options สำหรับคำนำหน้าชื่อ
+  const prenameOptions = [
+    'นาย', 'นาง', 'นางสาว', 'เด็กชาย', 'เด็กหญิง',
+    'ดร.', 'ศ.ดร.', 'รศ.ดร.', 'ผศ.ดร.', 'อาจารย์',
+    'คุณหมอ', 'พยาบาล', 'ครู', 'อาจารย์ใหญ่', 'ผู้อำนวยการ'
+  ];
+
   // Auto-generate HN เมื่อ component โหลดครั้งแรก
   useEffect(() => {
     if (!patientData.HNCODE) {
       generateHN();
+    }
+
+    // ตั้งค่า default values ถ้ายังไม่มีข้อมูล
+    const updates = {};
+    if (!patientData.ORIGIN1) updates.ORIGIN1 = defaultValues.เชื้อชาติ;
+    if (!patientData.NATIONAL1) updates.NATIONAL1 = defaultValues.สัญชาติ;
+    if (!patientData.RELIGION1) updates.RELIGION1 = defaultValues.ศาสนา;
+    if (!patientData.STATUS1) updates.STATUS1 = defaultValues.สถานภาพ;
+
+    if (Object.keys(updates).length > 0) {
+      updatePatientData(updates);
     }
   }, [patientData.HNCODE]); // เพิ่ม dependency
 
@@ -38,6 +65,23 @@ const GeneralInfoTab = ({ onNext, patientData, updatePatientData }) => {
     }
   }, [patientData.BDATE]);
 
+  // เมื่อเปลี่ยนเพศ ให้เปลี่ยนคำนำหน้าชื่อด้วย
+  useEffect(() => {
+    if (patientData.SEX && !patientData.PRENAME) {
+      let defaultPrename = '';
+      if (patientData.SEX === 'ชาย') {
+        defaultPrename = 'นาย';
+      } else if (patientData.SEX === 'หญิง') {
+        defaultPrename = 'นางสาว';
+      }
+
+      if (defaultPrename) {
+        updatePatientData({ PRENAME: defaultPrename });
+      }
+    }
+  }, [patientData.SEX]);
+
+  // ฟังก์ชันสำหรับสร้าง HN อัตโนมัติ
   // ฟังก์ชันสำหรับสร้าง HN อัตโนมัติ
   const generateHN = async () => {
     try {
@@ -47,29 +91,39 @@ const GeneralInfoTab = ({ onNext, patientData, updatePatientData }) => {
       const response = await fetch(`${API_BASE_URL}/patients`);
       const result = await response.json();
 
+      // รับปีปัจจุบัน (พ.ศ.) เอาเฉพาะ 2 หลักท้าย
+      const currentYear = new Date().getFullYear() + 543; // แปลงเป็น พ.ศ.
+      const yearSuffix = currentYear.toString().slice(-2); // เอา 2 หลักท้าย เช่น 68 จาก 2568
+
       let nextNumber = 1;
 
       if (result.success && result.data && result.data.length > 0) {
-        // หา HN ที่เป็นรูปแบบ HN##### และหาตัวเลขสูงสุด
-        const numericHNs = result.data
+        // หา HN ที่เป็นรูปแบบ HN[ปี][####] ของปีปัจจุบัน
+        const currentYearHNs = result.data
           .map(patient => patient.HNCODE)
-          .filter(hn => /^HN\d{5}$/.test(hn)) // เฉพาะ HN ที่เป็นรูปแบบ HN#####
-          .map(hn => parseInt(hn.substring(2))) // เอาเฉพาะตัวเลขหลัง HN
+          .filter(hn => {
+            // ตรวจสอบรูปแบบ HN[ปี][4หลัก] เช่น HN680001
+            const pattern = new RegExp(`^HN${yearSuffix}\\d{4}$`);
+            return pattern.test(hn);
+          })
+          .map(hn => parseInt(hn.substring(4))) // เอาเฉพาะ 4 หลักท้าย
           .filter(num => !isNaN(num));
 
-        if (numericHNs.length > 0) {
-          nextNumber = Math.max(...numericHNs) + 1;
+        if (currentYearHNs.length > 0) {
+          nextNumber = Math.max(...currentYearHNs) + 1;
         }
       }
 
-      // สร้าง HN ใหม่แบบ HN##### เช่น HN00001, HN00002
-      const newHN = `HN${nextNumber.toString().padStart(5, '0')}`;
+      // สร้าง HN ใหม่แบบ HN[ปี][runno] เช่น HN680001
+      const newHN = `HN${yearSuffix}${nextNumber.toString().padStart(4, '0')}`;
       updatePatientData({ HNCODE: newHN });
 
     } catch (error) {
       console.error('Error generating HN:', error);
       // ถ้าเกิดข้อผิดพลาด ให้ใช้ timestamp แทน
-      const fallbackHN = `HN${Date.now().toString().slice(-5).padStart(5, '0')}`;
+      const currentYear = new Date().getFullYear() + 543;
+      const yearSuffix = currentYear.toString().slice(-2);
+      const fallbackHN = `HN${yearSuffix}${Date.now().toString().slice(-4).padStart(4, '0')}`;
       updatePatientData({ HNCODE: fallbackHN });
     }
   };
@@ -197,6 +251,28 @@ const GeneralInfoTab = ({ onNext, patientData, updatePatientData }) => {
     updatePatientData({ [field]: value });
   };
 
+  // Handle การเปลี่ยนเพศพร้อมอัพเดทคำนำหน้าชื่อ
+  const handleSexChange = (event) => {
+    const sex = event.target.value;
+    let prename = '';
+
+    if (sex === 'ชาย') {
+      prename = 'นาย';
+    } else if (sex === 'หญิง') {
+      prename = 'นางสาว';
+    }
+
+    updatePatientData({
+      SEX: sex,
+      PRENAME: prename
+    });
+  };
+
+  // Handle การเปลี่ยนคำนำหน้าชื่อ (สำหรับ Autocomplete)
+  const handlePrenameChange = (event, newValue) => {
+    updatePatientData({ PRENAME: newValue || '' });
+  };
+
   // ฟังก์ชันสำหรับ validate ข้อมูลก่อน next
   const handleNext = () => {
     // ตรวจสอบข้อมูลที่จำเป็น
@@ -261,6 +337,7 @@ const GeneralInfoTab = ({ onNext, patientData, updatePatientData }) => {
           แก้ไขรูปภาพ
         </Button>
       </div>
+
 
       {/* Form Section */}
       <Card sx={{
@@ -334,8 +411,24 @@ const GeneralInfoTab = ({ onNext, patientData, updatePatientData }) => {
               size="small"
               fullWidth
               value={patientData.IDNO || ''}
-              onChange={handleInputChange('IDNO')}
-              inputProps={{ maxLength: 17 }} // รองรับ format x-xxxx-xxxxx-xx-x
+              onChange={(e) => {
+                // ลบตัวอักษรที่ไม่ใช่ตัวเลขออก
+                const numericValue = e.target.value.replace(/[^0-9]/g, '');
+                // จำกัดที่ 13 ตัว
+                const limitedValue = numericValue.slice(0, 13);
+                handleInputChange('IDNO')({ target: { value: limitedValue } });
+              }}
+              onKeyPress={(e) => {
+                // ป้องกันไม่ให้พิมพ์อักขระที่ไม่ใช่ตัวเลข
+                if (!/[0-9]/.test(e.key) && !['Backspace', 'Delete', 'Tab', 'Escape', 'Enter', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+                  e.preventDefault();
+                }
+              }}
+              inputProps={{
+                maxLength: 13,
+                inputMode: 'numeric', // แสดง keyboard ตัวเลขบนมือถือ
+                pattern: "[0-9]*"
+              }}
               sx={{
                 mt: 1,
                 '& .MuiOutlinedInput-root': {
@@ -349,27 +442,28 @@ const GeneralInfoTab = ({ onNext, patientData, updatePatientData }) => {
             <Typography sx={{ fontWeight: '400', fontSize: '16px', textAlign: "left" }}>
               คำนำหน้า
             </Typography>
-            <TextField
-              select
-              label="คำนำหน้า"
+            <Autocomplete
+              freeSolo
               size="small"
-              fullWidth
+              options={prenameOptions}
               value={patientData.PRENAME || ''}
-              onChange={handleInputChange('PRENAME')}
-              sx={{
-                mt: 1,
-                '& .MuiOutlinedInput-root': {
-                  borderRadius: '10px',
-                },
+              onChange={handlePrenameChange}
+              onInputChange={(event, newInputValue) => {
+                updatePatientData({ PRENAME: newInputValue });
               }}
-            >
-              <MenuItem value="">เลือกคำนำหน้า</MenuItem>
-              <MenuItem value="นาย">นาย</MenuItem>
-              <MenuItem value="นาง">นาง</MenuItem>
-              <MenuItem value="นางสาว">นางสาว</MenuItem>
-              <MenuItem value="เด็กชาย">เด็กชาย</MenuItem>
-              <MenuItem value="เด็กหญิง">เด็กหญิง</MenuItem>
-            </TextField>
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  placeholder="เลือกหรือพิมพ์คำนำหน้า"
+                  sx={{
+                    mt: 1,
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: '10px',
+                    },
+                  }}
+                />
+              )}
+            />
           </Grid>
 
           <Grid item xs={12} sm={3}>
@@ -420,7 +514,7 @@ const GeneralInfoTab = ({ onNext, patientData, updatePatientData }) => {
               size="small"
               fullWidth
               value={patientData.SEX || ''}
-              onChange={handleInputChange('SEX')}
+              onChange={handleSexChange}
               sx={{
                 mt: 1,
                 '& .MuiOutlinedInput-root': {
