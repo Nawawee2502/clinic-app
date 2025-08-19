@@ -1,87 +1,211 @@
-import React, { useState } from "react";
-import { Container, Grid, TextField, Button, Card, div, CardContent, Typography, Avatar, InputAdornment, MenuItem, Tabs, Tab, Divider, Box, Checkbox, IconButton, FormGroup, FormControlLabel, LinearProgress, Grid2, colors } from "@mui/material";
-// import { DatePicker } from "@mui/lab";
+import React, { useState, useEffect } from "react";
+import {
+  Container,
+  Grid,
+  TextField,
+  Button,
+  Card,
+  CardContent,
+  Typography,
+  Avatar,
+  InputAdornment,
+  MenuItem,
+  Divider,
+  Box,
+  IconButton,
+  Alert,
+  CircularProgress,
+  Snackbar,
+  FormControl,
+  InputLabel,
+  Select,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  Chip
+} from "@mui/material";
 import SaveIcon from '@mui/icons-material/Save';
-import SearchIcon from '@mui/icons-material/Search';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
-import AddIcon from '@mui/icons-material/Add';
-import { CheckBox } from "@mui/icons-material";
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
-import NavigateBeforeIcon from '@mui/icons-material/NavigateBefore';
-import NavigateNextIcon from '@mui/icons-material/NavigateNext';
+import EventIcon from '@mui/icons-material/Event';
+import PersonIcon from '@mui/icons-material/Person';
+import RefreshIcon from '@mui/icons-material/Refresh';
 
-const Appointment = () => {
-  const [currentWeek, setCurrentWeek] = useState(0);
+// Import Services
+import PatientService from "../../services/patientService";
+import TreatmentService from "../../services/treatmentService";
 
-  const days = ["จันทร์", "อังคาร", "พุธ", "พฤหัส", "ศุกร์"];
-  const dates = [12, 13, 14, 15, 16];
-  const amount = "10 เคส";
+const Appointment = ({ currentPatient }) => {
+  const [loading, setLoading] = useState(false);
+  const [selectedDate, setSelectedDate] = useState('');
+  const [appointmentTime, setAppointmentTime] = useState('');
+  const [reason, setReason] = useState('');
+  const [notes, setNotes] = useState('');
+  const [doctorName, setDoctorName] = useState('');
+  const [existingAppointments, setExistingAppointments] = useState([]);
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success'
+  });
 
-  const handleNext = () => {
-    setCurrentWeek((prev) => prev + 1);
-  };
-
-  const handlePrevious = () => {
-    setCurrentWeek((prev) => (prev > 0 ? prev - 1 : 0));
-  };
-
-
-
-  // ข้อมูลจำลอง (Array)
-  const patients = [
-    {
-      hn: "000001",
-      citizenId: "1909085467809",
-      firstName: "แอนดิสัน",
-      lastName: "ลูปิน",
-      age: "20 ปี 9 เดือน",
-    },
-    {
-      hn: "000002",
-      citizenId: "2909085467810",
-      firstName: "สมชาย",
-      lastName: "ใจดี",
-      age: "25 ปี 3 เดือน",
-    },
+  const monthNames = [
+    'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+    'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
   ];
-  // เก็บ index คนไข้ที่เลือก (ตัวอย่างเลือกคนแรก)
-  const [selectedIndex, setSelectedIndex] = useState(0);
-  const patient = patients[selectedIndex];
 
-  const [selectedTab, setSelectedTab] = useState(0);
+  // Load existing appointments for current patient
+  useEffect(() => {
+    if (currentPatient) {
+      loadPatientAppointments();
+    }
+  }, [currentPatient]);
 
-  const handleTabChange = (event, newValue) => {
-    setSelectedTab(newValue);
+  const loadPatientAppointments = async () => {
+    if (!currentPatient?.HNCODE) return;
+
+    try {
+      const response = await PatientService.getPatientAppointments(currentPatient.HNCODE);
+      if (response.success) {
+        setExistingAppointments(response.data);
+      }
+    } catch (error) {
+      console.error('Error loading appointments:', error);
+    }
   };
+
+  const showSnackbar = (message, severity = 'success') => {
+    setSnackbar({ open: true, message, severity });
+  };
+
+  const handleDateSelect = (fullDate) => {
+    setSelectedDate(fullDate);
+  };
+
+  const formatThaiDate = (dateString) => {
+    const date = new Date(dateString);
+    const buddhistYear = date.getFullYear() + 543;
+    return `${date.getDate()} ${monthNames[date.getMonth()]} ${buddhistYear}`;
+  };
+
+  const handleSaveAppointment = async () => {
+    if (!currentPatient) {
+      showSnackbar('ไม่พบข้อมูลผู้ป่วย', 'error');
+      return;
+    }
+
+    if (!selectedDate || !appointmentTime || !reason) {
+      showSnackbar('กรุณากรอกข้อมูลให้ครบถ้วน (วันที่, เวลา, เหตุผล)', 'error');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const appointmentData = {
+        APPOINTMENT_DATE: selectedDate,
+        APPOINTMENT_TIME: appointmentTime,
+        HNCODE: currentPatient.HNCODE,
+        PRENAME: currentPatient.PRENAME,
+        NAME1: currentPatient.NAME1,
+        SURNAME: currentPatient.SURNAME,
+        PHONE: currentPatient.TEL1,
+        REASON: reason,
+        DOCTOR_NAME: doctorName,
+        NOTES: notes,
+        status: 'ยืนยันแล้ว'
+      };
+
+      const response = await PatientService.createAppointment(appointmentData);
+
+      if (response.success) {
+        showSnackbar(`สร้างนัดหมายสำเร็จ! VN Number: ${response.data.VN_NUMBER}`, 'success');
+
+        // Reset form
+        setSelectedDate('');
+        setAppointmentTime('');
+        setReason('');
+        setNotes('');
+        setDoctorName('');
+
+        // Reload appointments
+        loadPatientAppointments();
+      } else {
+        showSnackbar('ไม่สามารถสร้างนัดหมายได้: ' + response.message, 'error');
+      }
+    } catch (error) {
+      console.error('Error saving appointment:', error);
+      showSnackbar('เกิดข้อผิดพลาดในการบันทึกนัดหมาย', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteAppointment = async (appointmentId) => {
+    if (window.confirm('คุณต้องการลบนัดหมายนี้หรือไม่?')) {
+      try {
+        const response = await PatientService.deleteAppointment(appointmentId);
+
+        if (response.success) {
+          showSnackbar('ลบนัดหมายสำเร็จ', 'success');
+          loadPatientAppointments();
+        } else {
+          showSnackbar('ไม่สามารถลบนัดหมายได้: ' + response.message, 'error');
+        }
+      } catch (error) {
+        console.error('Error deleting appointment:', error);
+        showSnackbar('เกิดข้อผิดพลาดในการลบนัดหมาย', 'error');
+      }
+    }
+  };
+
+  if (!currentPatient) {
+    return (
+      <Box sx={{ textAlign: 'center', py: 4 }}>
+        <Alert severity="warning">
+          กรุณาเลือกผู้ป่วยจากคิวก่อนทำการนัดหมาย
+        </Alert>
+      </Box>
+    );
+  }
 
   return (
-    <Box sx={{ mt: 4 }}>
-
-      <Grid container spacing={2}>
+    <Box sx={{ mt: 2 }}>
+      <Grid container spacing={3}>
         {/* Patient Profile Section */}
         <Grid item xs={12} sm={5}>
-          <Card sx={{ p: 3, mb: 3, border: 'none', boxShadow: 1 }}>
+          <Card sx={{ p: 3, mb: 3, border: 'none', boxShadow: 3 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+              <PersonIcon color="primary" />
+              <Typography variant="h6" color="primary">
+                ข้อมูลผู้ป่วย
+              </Typography>
+            </Box>
+
             <Grid container spacing={3} alignItems="center">
               <Grid item xs={12} sm={6}>
                 <Avatar
-                  src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face"
-                  sx={{ width: 120, height: 120, mx: "auto" }}
-                />
-                <Box
-                  sx={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'center',
-                    alignItems: 'center'
-                  }}>
+                  sx={{ width: 120, height: 120, mx: "auto", bgcolor: '#1976d2', fontSize: '2rem' }}
+                >
+                  {currentPatient.NAME1?.charAt(0)}
+                </Avatar>
+                <Box sx={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  mt: 2
+                }}>
                   <Typography variant="h5" fontWeight="600" sx={{ mb: 1 }}>
-                    Demi Wilkinson
+                    {currentPatient.PRENAME}{currentPatient.NAME1} {currentPatient.SURNAME}
                   </Typography>
                   <Typography variant="body1" color="text.secondary">
-                    อายุ 22 ปี 9 เดือน
+                    อายุ {currentPatient.AGE} ปี
                   </Typography>
                 </Box>
               </Grid>
@@ -100,7 +224,7 @@ const Appointment = () => {
                     borderRadius: 1,
                     textAlign: 'center'
                   }}>
-                    VN021202
+                    VN: {currentPatient.vnNumber || currentPatient.VNO || 'N/A'}
                   </Typography>
                   <Typography variant="body1" fontWeight="600" sx={{
                     bgcolor: '#E9F2FF',
@@ -109,133 +233,239 @@ const Appointment = () => {
                     borderRadius: 1,
                     textAlign: 'center'
                   }}>
-                    HN000001
+                    HN: {currentPatient.HNCODE}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center' }}>
+                    📱 {currentPatient.TEL1}
                   </Typography>
                 </Box>
               </Grid>
             </Grid>
           </Card>
-          {/* <Divider sx={{pt:2}}/> */}
 
+          {/* Existing Appointments */}
+          {existingAppointments.length > 0 && (
+            <Card sx={{ mb: 3 }}>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                  <EventIcon color="primary" />
+                  <Typography variant="h6" color="primary">
+                    นัดหมายที่มีอยู่
+                  </Typography>
+                  <IconButton size="small" onClick={loadPatientAppointments}>
+                    <RefreshIcon />
+                  </IconButton>
+                </Box>
+
+                <TableContainer component={Paper} sx={{ maxHeight: 300 }}>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>วันที่</TableCell>
+                        <TableCell>เวลา</TableCell>
+                        <TableCell>เหตุผล</TableCell>
+                        <TableCell>สถานะ</TableCell>
+                        <TableCell>จัดการ</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {existingAppointments.map((appointment, index) => (
+                        <TableRow key={appointment.APPOINTMENT_ID || index}>
+                          <TableCell>
+                            <Typography variant="body2">
+                              {formatThaiDate(appointment.APPOINTMENT_DATE)}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>{appointment.APPOINTMENT_TIME}</TableCell>
+                          <TableCell>{appointment.REASON}</TableCell>
+                          <TableCell>
+                            <Chip
+                              label={appointment.status || 'รอนัด'}
+                              color={appointment.status === 'ยืนยันแล้ว' ? 'success' : 'default'}
+                              size="small"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <IconButton
+                              size="small"
+                              color="error"
+                              onClick={() => handleDeleteAppointment(appointment.APPOINTMENT_ID)}
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </CardContent>
+            </Card>
+          )}
         </Grid>
 
-        {/* Vitals Form Section */}
-        <Grid item xs={12} sm={7} sx={{ pt: '2px' }}>
-          <Grid container spacing={2}>
+        {/* Appointment Form Section */}
+        <Grid item xs={12} sm={7}>
+          <Card sx={{ mb: 3 }}>
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
+                <CalendarTodayIcon color="primary" />
+                <Typography variant="h6" color="primary">
+                  สร้างนัดหมายใหม่
+                </Typography>
+              </Box>
 
+              {/* Date Selection */}
+              <Grid container spacing={2}>
+                <Grid item xs={12}>
+                  <Typography sx={{ fontWeight: "400", fontSize: "16px", mb: 1 }}>
+                    เลือกวันที่นัด
+                  </Typography>
+                  <TextField
+                    type="date"
+                    value={selectedDate}
+                    onChange={(e) => handleDateSelect(e.target.value)}
+                    fullWidth
+                    InputLabelProps={{ shrink: true }}
+                    sx={{
+                      "& .MuiOutlinedInput-root": {
+                        borderRadius: "10px",
+                      },
+                    }}
+                    helperText={selectedDate ? `วันที่เลือก: ${formatThaiDate(selectedDate)}` : ''}
+                  />
+                </Grid>
+
+                <Grid item xs={12} md={6}>
+                  <Typography sx={{ fontWeight: "400", fontSize: "16px", mb: 1 }}>
+                    เวลานัด
+                  </Typography>
+                  <TextField
+                    type="time"
+                    value={appointmentTime}
+                    onChange={(e) => setAppointmentTime(e.target.value)}
+                    fullWidth
+                    InputLabelProps={{ shrink: true }}
+                    sx={{
+                      "& .MuiOutlinedInput-root": {
+                        borderRadius: "10px",
+                      },
+                    }}
+                  />
+                </Grid>
+
+                <Grid item xs={12} md={6}>
+                  <Typography sx={{ fontWeight: "400", fontSize: "16px", mb: 1 }}>
+                    แพทย์ผู้รักษา
+                  </Typography>
+                  <FormControl fullWidth>
+                    <Select
+                      value={doctorName}
+                      onChange={(e) => setDoctorName(e.target.value)}
+                      displayEmpty
+                      sx={{ borderRadius: "10px" }}
+                    >
+                      <MenuItem value="">เลือกแพทย์</MenuItem>
+                      <MenuItem value="นพ.สุดา รักษาดี">👩‍⚕️ นพ.สุดา รักษาดี</MenuItem>
+                      <MenuItem value="นพ.สมชาย ใจดี">👨‍⚕️ นพ.สมชาย ใจดี</MenuItem>
+                      <MenuItem value="นพ.สมหญิง รักษาดี">👩‍⚕️ นพ.สมหญิง รักษาดี</MenuItem>
+                      <MenuItem value="นพ.ประเสริฐ เก่งมาก">👨‍⚕️ นพ.ประเสริฐ เก่งมาก</MenuItem>
+                      <MenuItem value="นพ.วิชัย ช่วยคน">👨‍⚕️ นพ.วิชัย ช่วยคน</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+              </Grid>
+            </CardContent>
+          </Card>
+
+
+
+          {/* Reason and Notes */}
+          <Grid container spacing={2}>
+            <Grid item xs={12}>
+              <Typography sx={{ mb: 1, fontWeight: 500 }}>เหตุผลการนัด *</Typography>
+              <FormControl fullWidth>
+                <Select
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  displayEmpty
+                  sx={{ borderRadius: "10px" }}
+                >
+                  <MenuItem value="">เลือกเหตุผลการนัด</MenuItem>
+                  <MenuItem value="ตรวจสุขภาพทั่วไป">🩺 ตรวจสุขภาพทั่วไป</MenuItem>
+                  <MenuItem value="ตรวจติดตาม">📋 ตรวจติดตาม</MenuItem>
+                  <MenuItem value="รับผลแลป">🧪 รับผลแลป</MenuItem>
+                  <MenuItem value="รับยา">💊 รับยา</MenuItem>
+                  <MenuItem value="ฉีดวัคซีน">💉 ฉีดวัคซีน</MenuItem>
+                  <MenuItem value="ตรวจฟัน">🦷 ตรวจฟัน</MenuItem>
+                  <MenuItem value="ตรวจตา">👁️ ตรวจตา</MenuItem>
+                  <MenuItem value="อื่นๆ">📝 อื่นๆ</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
 
             <Grid item xs={12}>
-              <Typography sx={{ fontWeight: "400", fontSize: "16px", textAlign: "left" }}>
-                วันที่นัด
-              </Typography>
+              <Typography sx={{ mb: 1, fontWeight: 500 }}>หมายเหตุ</Typography>
               <TextField
-                size="lg"
-                placeholder="เลือกวันที่นัด"
+                fullWidth
+                multiline
+                rows={3}
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="หมายเหตุเพิ่มเติมเกี่ยวกับการนัด..."
                 sx={{
-                  mt: "8px",
-                  width: "100%",
-                  "& .MuiOutlinedInput-root": {
-                    borderRadius: "10px",
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: '10px',
                   },
-                }}
-                InputProps={{
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <CalendarTodayIcon color="action" />
-                    </InputAdornment>
-                  ),
                 }}
               />
             </Grid>
-
           </Grid>
 
-          {/* </Grid>
-        <Grid item xs={40} sm={12} sx={{mt:10}}> */}
-          <Divider sx={{ borderColor: '#5698E0', borderWidth: 3, mt: 3, borderRadius: '10px 10px 0px 0px' }} />
-          <Card sx={{}}>
-            <CardContent>
-              {/* <>Order ยา</> */}
-              <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", mb: 2 }} >
-                <Button size="small" sx={{ borderRadius: '50px', bgcolor: '#F0F5FF', fontSize: "0.7rem", padding: "8px 8px", minWidth: "unset", mr: 2 }} startIcon={<NavigateBeforeIcon />} >
-
-                </Button>
-                {/* <span sx={{textAlign:'center',fontWeight:800,color:'#5698E0',fontSize:'24px'}}>มกราคม</span> */}
-                <Typography sx={{ textAlign: 'center', fontWeight: 800, color: '#5698E0', fontSize: '24px' }}>มกราคม</Typography>
-                <Button size="small" sx={{ borderRadius: '50px', bgcolor: '#F0F5FF', fontSize: "0.7rem", padding: "8px 8px", minWidth: "unset", ml: 2, }} endIcon={<NavigateNextIcon />}></Button>
-              </Box>
-
-              <table style={{ width: '100%', marginTop: '24px', border: '1px solid #AFEEEE', textAlign: 'center' }}>
-                <thead style={{ background: "linear-gradient(to bottom, #5BA9FF 0%, #F0F5FF 100%)", height: 80, border: '1px solid #AFEEEE' }}>
-                  <tr>
-                    {/* <th style={{ padding: '12px 16px', textAlign: 'left', color:'#696969' }}><Checkbox /></th> */}
-                    {/* <th style={{ padding: '12px 16px', textAlign: 'left', color:'#696969',width:150 }}> <Checkbox sx={{mr:2}} />ลำดับ</th>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left', color:'#696969',width:150 }}> <Checkbox sx={{mr:2}} />ลำดับ</th> */}
-                    <th style={{ padding: '12px 16px', textAlign: 'center', color: '#2B69AC', width: 150 }}><div>จันทร์</div><div>12</div></th>
-                    <th style={{ padding: '12px 16px', textAlign: 'center', color: '#2B69AC', width: 150 }}><div>อังคาร</div><div>13</div></th>
-                    <th style={{ padding: '12px 16px', textAlign: 'center', color: '#2B69AC', width: 150 }}><div>พุธ</div><div>14</div></th>
-                    <th style={{ padding: '12px 16px', textAlign: 'center', color: '#2B69AC', width: 150 }}><div>พฤหัส</div><div>15</div></th>
-                    <th style={{ padding: '12px 16px', textAlign: 'center', color: '#2B69AC', width: 150 }}><div>ศุกร์</div><div>16</div></th>
-                  </tr>
-                  <tr>
-                    {/* <td colSpan="15">
-                                        <Divider sx={{ width: '100%', color: '#754C27', border: '1px solid #754C27' }} />
-                                    </td> */}
-                  </tr>
-                </thead>
-                <tbody style={{ width: "100%", borderCollapse: "collapse", border: "1px solid black" }}>
-                  {/* Table data will go here */}
-                  <tr >
-                    {/* <td style={{ padding: '12px 5px' }}> <Checkbox sx={{mr:8}} />{ 1}</td> */}
-                    <td style={{ padding: '12px 16px', height: 60, }}>10 เคส</td>
-                    <td style={{ padding: '12px 16px' }}>10 เคส</td>
-                    <td style={{ padding: '12px 16px' }}>10 เคส</td>
-                    <td style={{ padding: '12px 16px' }}>10 เคส</td>
-                    <td style={{ padding: '12px 16px' }}>10 เคส</td>
-                  </tr>
-                </tbody>
-              </table>
-
-
-              <Box sx={{ mt: 4 }}>
-                <Button sx={{ textAlign: 'left', border: '1px solid #DCDCDC', borderRadius: 2 }} onClick={handlePrevious} startIcon={<ArrowBackIcon C />} disabled={currentWeek === 0}>
-                  Previous
-                </Button>
-                <Button sx={{ textAlign: 'right', ml: 45, border: '1px solid #DCDCDC', borderRadius: 2 }} onClick={handleNext} endIcon={<ArrowForwardIcon />}>Next</Button>
-              </Box>
-
-            </CardContent>
-          </Card>
-          <Typography sx={{ mt: 3, mb: 1 }}>เหตุที่นัด</Typography>
-          <TextField
-            fullWidth multiline rows={3} label=""
-            sx={{
-              width: '100%',
-              '& .MuiOutlinedInput-root': {
-                borderRadius: '10px',
-                height: '80px', // เพิ่มความสูงของ input
-                fontSize: '18px', // ขนาดตัวอักษร
-              },
-            }} />
-          <Typography sx={{ mt: 3, mb: 1 }}>หมายเหตุ</Typography>
-          <TextField
-            fullWidth multiline rows={3} label=""
-            sx={{
-              width: '100%',
-              '& .MuiOutlinedInput-root': {
-                borderRadius: '10px',
-                height: '80px', // เพิ่มความสูงของ input
-                fontSize: '18px', // ขนาดตัวอักษร
-              },
-            }} />
-
-        </Grid>
-        <Grid item xs={12} textAlign="right">
-          <Button variant="contained" sx={{ backgroundColor: "red", color: "#FFFFFF", fontSize: "1rem", width: '100px', height: '50px', font: 'Lato', fontWeight: 600, mt: 1, mr: 5, borderRadius: 3 }}>ยกเลิก</Button>
-          <Button variant="contained" sx={{ backgroundColor: "#5698E0", color: "#FFFFFF", fontSize: "1rem", width: '150px', height: '50px', font: 'Lato', fontWeight: 600, mt: 1, mr: 5 }}><SaveIcon />บันทึกข้อมูล</Button>
-          <Button variant="contained" sx={{ backgroundColor: "#FFFFFF", color: "#5698E0", fontSize: "1rem", width: '150px', height: '50px', font: 'Lato', fontWeight: 600, mt: 1, mr: 5, border: '1px solid #2196F3', '&:hover': { backgroundColor: '#f0f0f0' } }}>พิมพ์ใบนัด</Button>
+          {/* Action Buttons */}
+          <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
+            <Button
+              variant="outlined"
+              color="error"
+              sx={{ minWidth: 100 }}
+              onClick={() => {
+                setSelectedDate('');
+                setAppointmentTime('');
+                setReason('');
+                setNotes('');
+                setDoctorName('');
+              }}
+            >
+              ยกเลิก
+            </Button>
+            <Button
+              variant="contained"
+              startIcon={loading ? <CircularProgress size={20} /> : <SaveIcon />}
+              onClick={handleSaveAppointment}
+              disabled={loading || !selectedDate || !appointmentTime || !reason}
+              sx={{ minWidth: 150 }}
+            >
+              {loading ? 'กำลังบันทึก...' : 'บันทึกนัดหมาย'}
+            </Button>
+          </Box>
         </Grid>
       </Grid>
+
+      {/* Snackbar */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        <Alert
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };
