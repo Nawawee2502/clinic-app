@@ -66,48 +66,16 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
     }
   }, [currentPatient]);
 
-  // โหลดข้อมูลผู้ป่วยพร้อม Vital Signs ล่าสุด
+  // ✅ แก้ไข: โหลดข้อมูลผู้ป่วยพร้อม Vital Signs ล่าสุด
   const loadPatientData = async () => {
     if (!currentPatient) return;
 
     try {
       setLoading(true);
 
-      // ดึงข้อมูลผู้ป่วยพร้อม Vital Signs ล่าสุด
-      const patientWithVitals = await PatientService.getPatientWithVitals(currentPatient.HNCODE);
-      setPatientHistory(patientWithVitals);
-
-      // ✅ สร้าง VN Number ใหม่ (พ.ศ. รูปแบบ)
-      const generateVNNumber = () => {
-        return TreatmentService.generateVNO();
-      };
-
-      // ตั้งค่า Vitals
-      setVitals(prev => ({
-        ...prev,
-        VNO: currentPatient.VNO || generateVNNumber(),
-        RDATE: getBuddhistDate(), // วันที่ปัจจุบันเป็น พ.ศ.
-        WEIGHT1: patientWithVitals.WEIGHT1 || currentPatient.WEIGHT1 || '',
-        HIGHT1: patientWithVitals.HIGHT1 || currentPatient.HIGHT1 || '',
-        BT1: patientWithVitals.BT1 || currentPatient.BT1 || '',
-        BP1: patientWithVitals.BP1 || currentPatient.BP1 || '',
-        BP2: patientWithVitals.BP2 || currentPatient.BP2 || '',
-        RR1: patientWithVitals.RR1 || currentPatient.RR1 || '',
-        PR1: patientWithVitals.PR1 || currentPatient.PR1 || '',
-        SPO2: patientWithVitals.SPO2 || currentPatient.SPO2 || '',
-        SYMPTOM: currentPatient.SYMPTOM || ''
-      }));
-
-    } catch (error) {
-      console.error('Error loading patient data:', error);
-      // ใช้ข้อมูลจาก currentPatient แทน
-      const generateVNNumber = () => {
-        return TreatmentService.generateVNO();
-      };
-
-      setVitals(prev => ({
-        ...prev,
-        VNO: currentPatient.VNO || generateVNNumber(),
+      // ✅ ใช้ข้อมูลจาก currentPatient ก่อน (มาจากคิว)
+      const initialVitals = {
+        VNO: currentPatient.VNO || TreatmentService.generateVNO(),
         RDATE: getBuddhistDate(),
         WEIGHT1: currentPatient.WEIGHT1 || '',
         HIGHT1: currentPatient.HIGHT1 || '',
@@ -118,7 +86,82 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
         PR1: currentPatient.PR1 || '',
         SPO2: currentPatient.SPO2 || '',
         SYMPTOM: currentPatient.SYMPTOM || ''
-      }));
+      };
+
+      console.log('🩺 Initial vitals from currentPatient:', initialVitals);
+      setVitals(initialVitals);
+
+      // ✅ พยายามดึงข้อมูลล่าสุดจาก Treatment table
+      if (currentPatient.VNO) {
+        try {
+          const treatmentResponse = await TreatmentService.getTreatmentByVN(currentPatient.VNO);
+          if (treatmentResponse.success && treatmentResponse.data) {
+            console.log('✅ Found treatment data:', treatmentResponse.data);
+
+            // ใช้ข้อมูลจาก Treatment ถ้ามี
+            const treatmentVitals = {
+              VNO: treatmentResponse.data.VNO || initialVitals.VNO,
+              RDATE: getBuddhistDate(new Date(treatmentResponse.data.RDATE || Date.now())),
+              WEIGHT1: treatmentResponse.data.WEIGHT1 || initialVitals.WEIGHT1,
+              HIGHT1: treatmentResponse.data.HIGHT1 || initialVitals.HIGHT1,
+              BT1: treatmentResponse.data.BT1 || initialVitals.BT1,
+              BP1: treatmentResponse.data.BP1 || initialVitals.BP1,
+              BP2: treatmentResponse.data.BP2 || initialVitals.BP2,
+              RR1: treatmentResponse.data.RR1 || initialVitals.RR1,
+              PR1: treatmentResponse.data.PR1 || initialVitals.PR1,
+              SPO2: treatmentResponse.data.SPO2 || initialVitals.SPO2,
+              SYMPTOM: treatmentResponse.data.SYMPTOM || initialVitals.SYMPTOM
+            };
+
+            console.log('🔄 Updated vitals from treatment:', treatmentVitals);
+            setVitals(treatmentVitals);
+          }
+        } catch (error) {
+          console.log('⚠️ No treatment data found, using currentPatient data');
+        }
+      }
+
+      // ✅ ลองดึงข้อมูลจาก Patient Service (สำรอง)
+      try {
+        const patientWithVitals = await PatientService.getPatientWithVitals(currentPatient.HNCODE);
+        if (patientWithVitals && Object.keys(patientWithVitals).length > 0) {
+          setPatientHistory(patientWithVitals);
+          console.log('📊 Patient history loaded:', patientWithVitals);
+
+          // อัพเดตเฉพาะข้อมูลที่ยังไม่มี
+          setVitals(prev => ({
+            ...prev,
+            WEIGHT1: prev.WEIGHT1 || patientWithVitals.WEIGHT1 || '',
+            HIGHT1: prev.HIGHT1 || patientWithVitals.HIGHT1 || '',
+            BT1: prev.BT1 || patientWithVitals.BT1 || '',
+            BP1: prev.BP1 || patientWithVitals.BP1 || '',
+            BP2: prev.BP2 || patientWithVitals.BP2 || '',
+            RR1: prev.RR1 || patientWithVitals.RR1 || '',
+            PR1: prev.PR1 || patientWithVitals.PR1 || '',
+            SPO2: prev.SPO2 || patientWithVitals.SPO2 || ''
+          }));
+        }
+      } catch (error) {
+        console.log('⚠️ Could not load patient history:', error.message);
+      }
+
+    } catch (error) {
+      console.error('❌ Error loading patient data:', error);
+
+      // ใช้ข้อมูลจาก currentPatient เป็นหลัก
+      setVitals({
+        VNO: currentPatient.VNO || TreatmentService.generateVNO(),
+        RDATE: getBuddhistDate(),
+        WEIGHT1: currentPatient.WEIGHT1 || '',
+        HIGHT1: currentPatient.HIGHT1 || '',
+        BT1: currentPatient.BT1 || '',
+        BP1: currentPatient.BP1 || '',
+        BP2: currentPatient.BP2 || '',
+        RR1: currentPatient.RR1 || '',
+        PR1: currentPatient.PR1 || '',
+        SPO2: currentPatient.SPO2 || '',
+        SYMPTOM: currentPatient.SYMPTOM || ''
+      });
     } finally {
       setLoading(false);
     }
@@ -136,8 +179,14 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
       setBmiInfo(null);
     }
 
-    const vitalWarnings = TreatmentService.checkAbnormalVitals(vitals);
-    setWarnings(vitalWarnings);
+    // ตรวจสอบ Vital Signs ผิดปกติ
+    try {
+      const vitalWarnings = TreatmentService.checkAbnormalVitals(vitals);
+      setWarnings(vitalWarnings || []);
+    } catch (error) {
+      console.log('Could not check vital warnings:', error);
+      setWarnings([]);
+    }
   }, [vitals]);
 
   const handleVitalsChange = (field, value) => {
@@ -157,6 +206,7 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
     }
   };
 
+  // ✅ แก้ไข: การบันทึกข้อมูล
   const handleSave = async () => {
     const requiredFields = ['WEIGHT1', 'HIGHT1', 'BT1', 'BP1', 'BP2', 'RR1', 'PR1', 'SPO2'];
     const missingFields = requiredFields.filter(field => !vitals[field]);
@@ -173,38 +223,59 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
       const christianDate = getChristianDate(vitals.RDATE);
 
       // จัดรูปแบบข้อมูลสำหรับส่ง API
-      const treatmentData = TreatmentService.formatTreatmentData({
-        ...vitals,
-        RDATE: christianDate, // ส่งเป็น ค.ศ.
+      const treatmentData = {
         VNO: vitals.VNO,
-        HNNO: currentPatient.HNCODE,
         QUEUE_ID: currentPatient.queueId,
-        EMP_CODE: 'DOC001'
-      });
+        HNNO: currentPatient.HNCODE,
+        RDATE: christianDate, // ส่งเป็น ค.ศ.
+
+        // Vital Signs
+        WEIGHT1: parseFloat(vitals.WEIGHT1),
+        HIGHT1: parseFloat(vitals.HIGHT1),
+        BT1: parseFloat(vitals.BT1),
+        BP1: parseInt(vitals.BP1),
+        BP2: parseInt(vitals.BP2),
+        RR1: parseInt(vitals.RR1),
+        PR1: parseInt(vitals.PR1),
+        SPO2: parseInt(vitals.SPO2),
+        SYMPTOM: vitals.SYMPTOM,
+
+        // ข้อมูลพื้นฐาน
+        EMP_CODE: 'DOC001',
+        STATUS1: 'ทำงานอยู่'
+      };
+
+      console.log('💾 Saving treatment data:', treatmentData);
 
       // บันทึกข้อมูล
       let response;
-      if (currentPatient.VNO && currentPatient.VNO !== vitals.VNO) {
-        // อัพเดทข้อมูลเดิม
-        response = await TreatmentService.updateTreatment(currentPatient.VNO, treatmentData);
+
+      // ✅ ตรวจสอบว่ามี VNO อยู่แล้วหรือไม่
+      if (currentPatient.VNO && currentPatient.VNO === vitals.VNO) {
+        console.log('🔄 Updating existing treatment...');
+        response = await TreatmentService.updateTreatment(vitals.VNO, treatmentData);
       } else {
-        // สร้างใหม่
+        console.log('➕ Creating new treatment...');
         response = await TreatmentService.createTreatmentWithQueue(treatmentData, currentPatient.queueId);
       }
 
       if (response.success) {
         alert('บันทึกข้อมูล Vital Signs สำเร็จ!');
-        if (onSaveSuccess) {
-          onSaveSuccess(); // เพิ่มบรรทัดนี้
-        }
-        // อัพเดตสถานะคิวเป็น "กำลังตรวจ"
+
+        // ✅ อัพเดตสถานะคิวเป็น "กำลังตรวจ"
         if (currentPatient.queueStatus === 'รอตรวจ') {
           try {
             const QueueService = await import('../../services/queueService');
             await QueueService.default.updateQueueStatus(currentPatient.queueId, 'กำลังตรวจ');
+            console.log('✅ Queue status updated to กำลังตรวจ');
           } catch (error) {
             console.error('Error updating queue status:', error);
           }
+        }
+
+        // ✅ เรียก callback เพื่อไปแท็บถัดไป
+        if (onSaveSuccess) {
+          onSaveSuccess();
         }
       } else {
         alert('ไม่สามารถบันทึกข้อมูลได้: ' + response.message);
@@ -332,12 +403,6 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
                 <Typography variant="body2" fontWeight="bold">เวลาคิว</Typography>
                 <Typography variant="body2">{currentPatient.queueTime}</Typography>
               </Grid>
-              {/* <Grid item xs={12}>
-                <Typography variant="body2" fontWeight="bold">วันที่รับบริการ</Typography>
-                <Typography variant="body2" sx={{ color: 'primary.main', fontWeight: 'bold' }}>
-                  {formatThaiDate(vitals.RDATE)}
-                </Typography>
-              </Grid> */}
             </Grid>
 
             {/* BMI Display */}
@@ -390,6 +455,13 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
             >
               <LocalHospitalIcon sx={{ mr: 1 }} />
               <Typography variant="h6">Vital Signs & Diagnosis</Typography>
+              {/* ✅ แสดงสถานะข้อมูล */}
+              <Chip
+                label={vitals.WEIGHT1 ? "มีข้อมูล" : "ยังไม่มีข้อมูล"}
+                color={vitals.WEIGHT1 ? "success" : "warning"}
+                size="small"
+                sx={{ ml: 'auto', bgcolor: 'rgba(255,255,255,0.2)' }}
+              />
             </Box>
 
             <Box sx={{ p: 3 }}>
@@ -420,7 +492,7 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
                   </Typography>
                   <TextField
                     type="date"
-                    value={getChristianDate(vitals.RDATE)} // แปลงเป็น ค.ศ. สำหรับ input
+                    value={getChristianDate(vitals.RDATE)}
                     onChange={(e) => handleDateChange(e.target.value)}
                     size="small"
                     fullWidth
@@ -447,6 +519,7 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
                     sx={{
                       '& .MuiOutlinedInput-root': {
                         borderRadius: '10px',
+                        bgcolor: vitals.WEIGHT1 ? '#f0f8ff' : 'inherit'
                       },
                     }}
                   />
@@ -467,6 +540,7 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
                     sx={{
                       '& .MuiOutlinedInput-root': {
                         borderRadius: '10px',
+                        bgcolor: vitals.HIGHT1 ? '#f0f8ff' : 'inherit'
                       },
                     }}
                   />
@@ -487,6 +561,7 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
                     sx={{
                       '& .MuiOutlinedInput-root': {
                         borderRadius: '10px',
+                        bgcolor: vitals.BT1 ? '#f0f8ff' : 'inherit'
                       },
                     }}
                   />
@@ -507,6 +582,7 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
                     sx={{
                       '& .MuiOutlinedInput-root': {
                         borderRadius: '10px',
+                        bgcolor: vitals.SPO2 ? '#f0f8ff' : 'inherit'
                       },
                     }}
                   />
@@ -527,6 +603,7 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
                     sx={{
                       '& .MuiOutlinedInput-root': {
                         borderRadius: '10px',
+                        bgcolor: vitals.BP1 ? '#f0f8ff' : 'inherit'
                       },
                     }}
                   />
@@ -547,6 +624,7 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
                     sx={{
                       '& .MuiOutlinedInput-root': {
                         borderRadius: '10px',
+                        bgcolor: vitals.BP2 ? '#f0f8ff' : 'inherit'
                       },
                     }}
                   />
@@ -567,6 +645,7 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
                     sx={{
                       '& .MuiOutlinedInput-root': {
                         borderRadius: '10px',
+                        bgcolor: vitals.RR1 ? '#f0f8ff' : 'inherit'
                       },
                     }}
                   />
@@ -587,6 +666,7 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
                     sx={{
                       '& .MuiOutlinedInput-root': {
                         borderRadius: '10px',
+                        bgcolor: vitals.PR1 ? '#f0f8ff' : 'inherit'
                       },
                     }}
                   />
@@ -606,6 +686,7 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
                     sx={{
                       '& .MuiOutlinedInput-root': {
                         borderRadius: '10px',
+                        bgcolor: vitals.SYMPTOM ? '#f0f8ff' : 'inherit'
                       },
                     }}
                   />

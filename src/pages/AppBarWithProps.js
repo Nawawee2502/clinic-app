@@ -195,7 +195,7 @@ const CustomSidebar = ({ activeMenu, onMenuClick, isOpen }) => {
         },
         {
             title: 'ตรวจรักษา',
-            path: '/clinic/ตรวจรักษา',
+            path: '/clinic/treatment',
             icon: <MoveToInboxIcon />
         },
         {
@@ -300,7 +300,7 @@ const CustomSidebar = ({ activeMenu, onMenuClick, isOpen }) => {
                             mb: 0.5,
                             borderRadius: 1,
                             width: '100%',
-                            color: activeMenu === item.path ? '#fff' : 'rgba(0, 48, 143, 0.9)',
+                            color: activeMenu === item.path ? '#fff' : 'rgba(53, 70, 105, 0.9)',
                             bgcolor: activeMenu === item.path ? 'rgba(26, 93, 180, 0.8)' : 'transparent',
                             '&:hover': {
                                 bgcolor: 'rgba(26, 93, 180, 0.5)',
@@ -311,7 +311,7 @@ const CustomSidebar = ({ activeMenu, onMenuClick, isOpen }) => {
                             },
                             fontWeight: activeMenu === item.path ? 'bold' : 'normal',
                             position: 'relative',
-                            '&::after': (index >= 2 && index <= 9) ? {
+                            '&::after': (index >= 3 && index <= 9) ? {
                                 content: '""',
                                 position: 'absolute',
                                 right: '16px',

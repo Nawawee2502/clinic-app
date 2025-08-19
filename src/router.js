@@ -70,7 +70,7 @@ const Router = () => {
           <Route index element={<Navigate to="/clinic/dashboard" replace />} />
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="patientregistration" element={<Patientregistration />} />
-          <Route path="ตรวจรักษา" element={<ตรวจรักษา />} />
+          <Route path="treatment" element={<ตรวจรักษา />} />
           <Route path="medicalstock" element={<Medicalstock />} />
           <Route path="cerwork" element={<Cerwork />} />
           {/* <Route path="personnel" element={<Personnel />} /> */}
