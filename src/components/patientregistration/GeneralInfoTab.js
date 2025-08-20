@@ -37,6 +37,19 @@ const GeneralInfoTab = ({ onNext, patientData, updatePatientData }) => {
     'คุณหมอ', 'พยาบาล', 'ครู', 'อาจารย์ใหญ่', 'ผู้อำนวยการ'
   ];
 
+  // ✅ ฟังก์ชันกำหนดเพศจากคำนำหน้า
+  const getGenderFromPrefix = (prefix) => {
+    const malePrefix = ['นาย', 'เด็กชาย'];
+    const femalePrefix = ['นาง', 'นางสาว', 'เด็กหญิง'];
+
+    if (malePrefix.includes(prefix)) {
+      return 'ชาย';
+    } else if (femalePrefix.includes(prefix)) {
+      return 'หญิง';
+    }
+    return ''; // ไม่เปลี่ยนเพศสำหรับคำนำหน้าที่เป็นกลาง เช่น ดร.
+  };
+
   // Auto-generate HN เมื่อ component โหลดครั้งแรก
   useEffect(() => {
     if (!patientData.HNCODE) {
@@ -53,7 +66,7 @@ const GeneralInfoTab = ({ onNext, patientData, updatePatientData }) => {
     if (Object.keys(updates).length > 0) {
       updatePatientData(updates);
     }
-  }, [patientData.HNCODE]); // เพิ่ม dependency
+  }, [patientData.HNCODE]);
 
   // อัพเดท dropdown เมื่อ BDATE เปลี่ยน (สำหรับกรณีโหลดข้อมูลจากภายนอก)
   useEffect(() => {
@@ -81,8 +94,6 @@ const GeneralInfoTab = ({ onNext, patientData, updatePatientData }) => {
     }
   }, [patientData.SEX]);
 
-  // ฟังก์ชันสำหรับสร้าง HN อัตโนมัติ
-  // ฟังก์ชันสำหรับสร้าง HN อัตโนมัติ
   const generateHN = async () => {
     try {
       const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000/api';
@@ -268,9 +279,21 @@ const GeneralInfoTab = ({ onNext, patientData, updatePatientData }) => {
     });
   };
 
-  // Handle การเปลี่ยนคำนำหน้าชื่อ (สำหรับ Autocomplete)
+  // ✅ Handle การเปลี่ยนคำนำหน้าชื่อพร้อมอัพเดทเพศอัตโนมัติ
   const handlePrenameChange = (event, newValue) => {
-    updatePatientData({ PRENAME: newValue || '' });
+    const prefix = newValue || '';
+    const autoGender = getGenderFromPrefix(prefix);
+
+    console.log(`🔄 คำนำหน้า: "${prefix}" → เพศ: "${autoGender}"`);
+
+    const updates = { PRENAME: prefix };
+
+    // ✅ ถ้าระบบระบุเพศได้จากคำนำหน้า ให้อัพเดทเพศด้วย
+    if (autoGender) {
+      updates.SEX = autoGender;
+    }
+
+    updatePatientData(updates);
   };
 
   // ฟังก์ชันสำหรับ validate ข้อมูลก่อน next
@@ -337,7 +360,6 @@ const GeneralInfoTab = ({ onNext, patientData, updatePatientData }) => {
           แก้ไขรูปภาพ
         </Button>
       </div>
-
 
       {/* Form Section */}
       <Card sx={{
@@ -449,7 +471,16 @@ const GeneralInfoTab = ({ onNext, patientData, updatePatientData }) => {
               value={patientData.PRENAME || ''}
               onChange={handlePrenameChange}
               onInputChange={(event, newInputValue) => {
-                updatePatientData({ PRENAME: newInputValue });
+                // ✅ เมื่อพิมพ์เข้าไปใน field ให้เช็คเพศด้วย
+                const autoGender = getGenderFromPrefix(newInputValue);
+                const updates = { PRENAME: newInputValue };
+
+                if (autoGender) {
+                  updates.SEX = autoGender;
+                  console.log(`⌨️ พิมพ์คำนำหน้า: "${newInputValue}" → เพศ: "${autoGender}"`);
+                }
+
+                updatePatientData(updates);
               }}
               renderInput={(params) => (
                 <TextField
@@ -459,6 +490,7 @@ const GeneralInfoTab = ({ onNext, patientData, updatePatientData }) => {
                     mt: 1,
                     '& .MuiOutlinedInput-root': {
                       borderRadius: '10px',
+                      bgcolor: patientData.PRENAME ? '#f0f8ff' : 'inherit'
                     },
                   }}
                 />
@@ -519,6 +551,7 @@ const GeneralInfoTab = ({ onNext, patientData, updatePatientData }) => {
                 mt: 1,
                 '& .MuiOutlinedInput-root': {
                   borderRadius: '10px',
+                  bgcolor: patientData.SEX ? '#f0f8ff' : 'inherit'
                 },
               }}
             >

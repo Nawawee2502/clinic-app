@@ -46,17 +46,114 @@ const ตรวจวินิจฉัย = ({ currentPatient, onSaveSuccess })
   const [currentTreatment, setCurrentTreatment] = useState(null);
   const [patientHistory, setPatientHistory] = useState(null);
 
+  // ✅ ใช้ข้อมูล vitals จาก currentPatient ทันที (copy จาก TodayPatientInformation)
+  const [vitals, setVitals] = useState({
+    WEIGHT1: '',
+    HIGHT1: '',
+    BT1: '',
+    BP1: '',
+    BP2: '',
+    RR1: '',
+    PR1: '',
+    SPO2: ''
+  });
+
   // โหลดข้อมูลเมื่อ currentPatient เปลี่ยน
   useEffect(() => {
     if (currentPatient) {
-      loadDiagnosisData();
+      loadPatientData();
     }
   }, [currentPatient]);
+
+  // ✅ COPY เป๊ะๆ จากหน้า TodayPatientInformation - ฟังก์ชันโหลดข้อมูลเพิ่มเติม
+  const loadPatientData = async () => {
+    if (!currentPatient) return;
+
+    try {
+      setLoading(true);
+
+      // ✅ ใช้ข้อมูลจาก currentPatient ก่อน (มาจากคิว)
+      const initialVitals = {
+        WEIGHT1: currentPatient.WEIGHT1 || '',
+        HIGHT1: currentPatient.HIGHT1 || '',
+        BT1: currentPatient.BT1 || '',
+        BP1: currentPatient.BP1 || '',
+        BP2: currentPatient.BP2 || '',
+        RR1: currentPatient.RR1 || '',
+        PR1: currentPatient.PR1 || '',
+        SPO2: currentPatient.SPO2 || ''
+      };
+
+      console.log('🩺 Diagnosis - Initial vitals from currentPatient:', initialVitals);
+      setVitals(initialVitals);
+
+      // ✅ พยายามดึงข้อมูลล่าสุดจาก Treatment table
+      if (currentPatient.VNO) {
+        try {
+          const treatmentResponse = await TreatmentService.getTreatmentByVN(currentPatient.VNO);
+          if (treatmentResponse.success && treatmentResponse.data) {
+            console.log('✅ Diagnosis - Found treatment data:', treatmentResponse.data);
+
+            // ใช้ข้อมูลจาก Treatment ถ้ามี
+            const treatmentVitals = {
+              WEIGHT1: treatmentResponse.data.WEIGHT1 || initialVitals.WEIGHT1,
+              HIGHT1: treatmentResponse.data.HIGHT1 || initialVitals.HIGHT1,
+              BT1: treatmentResponse.data.BT1 || initialVitals.BT1,
+              BP1: treatmentResponse.data.BP1 || initialVitals.BP1,
+              BP2: treatmentResponse.data.BP2 || initialVitals.BP2,
+              RR1: treatmentResponse.data.RR1 || initialVitals.RR1,
+              PR1: treatmentResponse.data.PR1 || initialVitals.PR1,
+              SPO2: treatmentResponse.data.SPO2 || initialVitals.SPO2
+            };
+
+            console.log('🔄 Diagnosis - Updated vitals from treatment:', treatmentVitals);
+            setVitals(treatmentVitals);
+          }
+        } catch (error) {
+          console.log('⚠️ Diagnosis - No treatment data found, using currentPatient data');
+        }
+      }
+
+      // ✅ ลองดึงข้อมูลจาก Patient Service (สำรอง)
+      try {
+        const PatientService = await import('../../services/patientService');
+        const patientWithVitals = await PatientService.default.getPatientWithVitals(currentPatient.HNCODE);
+        if (patientWithVitals && Object.keys(patientWithVitals).length > 0) {
+          console.log('📊 Diagnosis - Patient history loaded:', patientWithVitals);
+
+          // อัพเดตเฉพาะข้อมูลที่ยังไม่มี
+          setVitals(prev => ({
+            WEIGHT1: prev.WEIGHT1 || patientWithVitals.WEIGHT1 || '',
+            HIGHT1: prev.HIGHT1 || patientWithVitals.HIGHT1 || '',
+            BT1: prev.BT1 || patientWithVitals.BT1 || '',
+            BP1: prev.BP1 || patientWithVitals.BP1 || '',
+            BP2: prev.BP2 || patientWithVitals.BP2 || '',
+            RR1: prev.RR1 || patientWithVitals.RR1 || '',
+            PR1: prev.PR1 || patientWithVitals.PR1 || '',
+            SPO2: prev.SPO2 || patientWithVitals.SPO2 || ''
+          }));
+        }
+      } catch (error) {
+        console.log('⚠️ Diagnosis - Could not load patient history:', error.message);
+      }
+
+      loadDiagnosisData();
+
+    } catch (error) {
+      console.error('❌ Diagnosis - Error loading patient data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // โหลดข้อมูลการตรวจวินิจฉัย
   const loadDiagnosisData = async () => {
     try {
-      setLoading(true);
+      // ✅ ใช้อาการเบื้องต้นจาก currentPatient ก่อน
+      setDiagnosisData(prev => ({
+        ...prev,
+        CHIEF_COMPLAINT: currentPatient.SYMPTOM || ''
+      }));
 
       // ถ้ามี VNO ให้ดึงข้อมูลการรักษาปัจจุบัน
       if (currentPatient.VNO) {
@@ -70,41 +167,32 @@ const ตรวจวินิจฉัย = ({ currentPatient, onSaveSuccess })
           if (treatment.diagnosis) {
             setDiagnosisData(prev => ({
               ...prev,
-              CHIEF_COMPLAINT: treatment.diagnosis.CHIEF_COMPLAINT || currentPatient.SYMPTOM || '',
+              CHIEF_COMPLAINT: treatment.diagnosis.CHIEF_COMPLAINT || prev.CHIEF_COMPLAINT,
               PRESENT_ILL: treatment.diagnosis.PRESENT_ILL || '',
               PHYSICAL_EXAM: treatment.diagnosis.PHYSICAL_EXAM || '',
               PLAN1: treatment.diagnosis.PLAN1 || ''
             }));
-          } else {
-            // ถ้าไม่มีข้อมูลการวินิจฉัย ให้ใช้อาการเบื้องต้นจากคิว
-            setDiagnosisData(prev => ({
-              ...prev,
-              CHIEF_COMPLAINT: currentPatient.SYMPTOM || ''
-            }));
           }
         }
-      } else {
-        // ถ้าไม่มี VNO ให้ใช้อาการเบื้องต้นจากคิว
-        setDiagnosisData(prev => ({
-          ...prev,
-          CHIEF_COMPLAINT: currentPatient.SYMPTOM || ''
-        }));
       }
 
       // โหลดประวัติผู้ป่วย
-      const historyResponse = await TreatmentService.getTreatmentsByPatient(
-        currentPatient.HNCODE,
-        { limit: 5 }
-      );
+      try {
+        const historyResponse = await TreatmentService.getTreatmentsByPatient(
+          currentPatient.HNCODE,
+          { limit: 5 }
+        );
 
-      if (historyResponse.success) {
-        setPatientHistory(historyResponse.data);
+        if (historyResponse.success) {
+          setPatientHistory(historyResponse.data);
+        }
+      } catch (historyError) {
+        console.log('⚠️ Could not load patient history:', historyError);
       }
 
     } catch (error) {
       console.error('Error loading diagnosis data:', error);
-    } finally {
-      setLoading(false);
+      console.log('⚠️ Using currentPatient data due to API error');
     }
   };
 
@@ -148,7 +236,6 @@ const ตรวจวินิจฉัย = ({ currentPatient, onSaveSuccess })
   };
 
   // บันทึกข้อมูลการวินิจฉัย
-  // แก้ไขในฟังก์ชัน handleSave ของคอมโพเนนต์ ตรวจวินิจฉัย
   const handleSave = async () => {
     try {
       setSaving(true);
@@ -226,41 +313,53 @@ const ตรวจวินิจฉัย = ({ currentPatient, onSaveSuccess })
     }
   };
 
-  // ข้อมูล Vital Signs สำหรับแสดงผล
+  // ✅ ข้อมูล Vital Signs ใช้จาก vitals state ที่โหลดจาก currentPatient แล้ว
   const vitalsData = [
     {
       label: "Blood Pressure",
-      value: currentPatient.BP1 && currentPatient.BP2
-        ? Math.round(((currentPatient.BP1 + currentPatient.BP2) / 220) * 100)
-        : 0,
-      display: currentPatient.BP1 && currentPatient.BP2
-        ? `${currentPatient.BP1}/${currentPatient.BP2} mmHg`
-        : 'ไม่มีข้อมูล'
+      value: vitals.BP1 && vitals.BP2
+        ? `${vitals.BP1}/${vitals.BP2}`
+        : 'ไม่มีข้อมูล',
+      display: vitals.BP1 && vitals.BP2
+        ? `${vitals.BP1}/${vitals.BP2} mmHg`
+        : 'ไม่มีข้อมูล',
+      progressValue: vitals.BP1 && vitals.BP2
+        ? Math.round(((parseFloat(vitals.BP1) + parseFloat(vitals.BP2)) / 220) * 100)
+        : 0
     },
     {
       label: "Heart Rate",
-      value: currentPatient.PR1
-        ? Math.round((currentPatient.PR1 / 120) * 100)
-        : 0,
-      display: currentPatient.PR1
-        ? `${currentPatient.PR1} bpm`
-        : 'ไม่มีข้อมูล'
+      value: vitals.PR1
+        ? `${vitals.PR1}`
+        : 'ไม่มีข้อมูล',
+      display: vitals.PR1
+        ? `${vitals.PR1} bpm`
+        : 'ไม่มีข้อมูล',
+      progressValue: vitals.PR1
+        ? Math.round((parseFloat(vitals.PR1) / 120) * 100)
+        : 0
     },
     {
       label: "Temperature",
-      value: currentPatient.BT1
-        ? Math.round(((currentPatient.BT1 - 35) / 7) * 100)
-        : 0,
-      display: currentPatient.BT1
-        ? `${currentPatient.BT1}°C`
-        : 'ไม่มีข้อมูล'
+      value: vitals.BT1
+        ? `${vitals.BT1}°C`
+        : 'ไม่มีข้อมูล',
+      display: vitals.BT1
+        ? `${vitals.BT1}°C`
+        : 'ไม่มีข้อมูล',
+      progressValue: vitals.BT1
+        ? Math.round(((parseFloat(vitals.BT1) - 35) / 7) * 100)
+        : 0
     },
     {
       label: "SpO2",
-      value: currentPatient.SPO2 || 0,
-      display: currentPatient.SPO2
-        ? `${currentPatient.SPO2}%`
-        : 'ไม่มีข้อมูล'
+      value: vitals.SPO2
+        ? `${vitals.SPO2}%`
+        : 'ไม่มีข้อมูล',
+      display: vitals.SPO2
+        ? `${vitals.SPO2}%`
+        : 'ไม่มีข้อมูล',
+      progressValue: vitals.SPO2 ? parseFloat(vitals.SPO2) : 0
     }
   ];
 
@@ -268,17 +367,6 @@ const ตรวจวินิจฉัย = ({ currentPatient, onSaveSuccess })
     return (
       <Box sx={{ textAlign: 'center', py: 4 }}>
         <Typography>ไม่พบข้อมูลผู้ป่วย</Typography>
-      </Box>
-    );
-  }
-
-  if (loading) {
-    return (
-      <Box sx={{ textAlign: 'center', py: 4 }}>
-        <CircularProgress />
-        <Typography variant="body2" sx={{ mt: 2 }}>
-          กำลังโหลดข้อมูลการวินิจฉัย...
-        </Typography>
       </Box>
     );
   }
@@ -358,7 +446,7 @@ const ตรวจวินิจฉัย = ({ currentPatient, onSaveSuccess })
 
           <Divider sx={{ pt: 2 }} />
 
-          {/* Vitals Cards */}
+          {/* Vitals Cards - ✅ แสดงข้อมูลทันที */}
           <Grid container spacing={2} sx={{ mb: 3 }}>
             {vitalsData.map((item, index) => (
               <Grid item xs={12} sm={6} key={index}>
@@ -366,13 +454,13 @@ const ตรวจวินิจฉัย = ({ currentPatient, onSaveSuccess })
                   <Typography variant="body1" fontWeight="600" sx={{ mb: 2 }}>
                     {item.label}
                   </Typography>
-                  <Typography variant="body2" color="textSecondary" sx={{ mb: 1 }}>
-                    {item.value}%
+                  <Typography variant="h4" fontWeight="700" sx={{ mb: 1, color: '#1976d2' }}>
+                    {item.value}
                   </Typography>
                   <Box sx={{ mb: 2 }}>
                     <LinearProgress
                       variant="determinate"
-                      value={item.value}
+                      value={Math.min(Math.max(item.progressValue, 0), 100)}
                       sx={{
                         height: 8,
                         borderRadius: 4,
@@ -383,7 +471,7 @@ const ตรวจวินิจฉัย = ({ currentPatient, onSaveSuccess })
                       }}
                     />
                   </Box>
-                  <Typography variant="body1" fontWeight="600">
+                  <Typography variant="body2" color="textSecondary">
                     {item.display}
                   </Typography>
                 </Card>
@@ -418,6 +506,15 @@ const ตรวจวินิจฉัย = ({ currentPatient, onSaveSuccess })
               การตรวจวินิจฉัย (Diagnosis)
             </Typography>
 
+            {loading && (
+              <Box sx={{ textAlign: 'center', py: 2, mb: 2 }}>
+                <CircularProgress size={24} />
+                <Typography variant="body2" sx={{ mt: 1 }}>
+                  กำลังโหลดข้อมูลการวินิจฉัย...
+                </Typography>
+              </Box>
+            )}
+
             <Grid container spacing={2}>
               {/* Chief Complaint */}
               <Grid item xs={12}>
@@ -432,6 +529,7 @@ const ตรวจวินิจฉัย = ({ currentPatient, onSaveSuccess })
                   sx={{
                     '& .MuiOutlinedInput-root': {
                       borderRadius: '10px',
+                      bgcolor: diagnosisData.CHIEF_COMPLAINT ? '#f0f8ff' : 'inherit'
                     },
                   }}
                 />
@@ -452,6 +550,7 @@ const ตรวจวินิจฉัย = ({ currentPatient, onSaveSuccess })
                   sx={{
                     '& .MuiOutlinedInput-root': {
                       borderRadius: '10px',
+                      bgcolor: diagnosisData.PRESENT_ILL ? '#f0f8ff' : 'inherit'
                     },
                   }}
                 />
@@ -472,6 +571,7 @@ const ตรวจวินิจฉัย = ({ currentPatient, onSaveSuccess })
                   sx={{
                     '& .MuiOutlinedInput-root': {
                       borderRadius: '10px',
+                      bgcolor: diagnosisData.PHYSICAL_EXAM ? '#f0f8ff' : 'inherit'
                     },
                   }}
                 />
@@ -532,6 +632,7 @@ const ตรวจวินิจฉัย = ({ currentPatient, onSaveSuccess })
                   sx={{
                     '& .MuiOutlinedInput-root': {
                       borderRadius: '10px',
+                      bgcolor: diagnosisData.PLAN1 ? '#f0f8ff' : 'inherit'
                     },
                   }}
                 />
@@ -598,7 +699,8 @@ const ตรวจวินิจฉัย = ({ currentPatient, onSaveSuccess })
 };
 
 ตรวจวินิจฉัย.propTypes = {
-  currentPatient: PropTypes.object
+  currentPatient: PropTypes.object,
+  onSaveSuccess: PropTypes.func
 };
 
 export default ตรวจวินิจฉัย;

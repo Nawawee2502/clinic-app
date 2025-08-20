@@ -582,10 +582,19 @@ const ContactInfoTab = ({ onNext, onPrev, patientData, updatePatientData }) => {
             </Typography>
             <TextField
               size="small"
-              placeholder="เบอร์โทรศัพท์"
+              placeholder="เบอร์โทรศัพท์ (10 หลัก)"
               fullWidth
               value={patientData.TEL1 || ''}
-              onChange={handleInputChange('TEL1')}
+              onChange={(event) => {
+                const value = event.target.value;
+                // อนุญาตเฉพาะตัวเลขและจำกัดที่ 10 หลัก
+                const numericValue = value.replace(/[^0-9]/g, '').slice(0, 10);
+                updatePatientData({ TEL1: numericValue });
+              }}
+              inputProps={{
+                maxLength: 10,
+                pattern: '[0-9]*',
+              }}
               sx={{
                 mt: 1,
                 '& .MuiOutlinedInput-root': {
