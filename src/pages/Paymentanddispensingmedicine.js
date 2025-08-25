@@ -316,73 +316,167 @@ const Paymentanddispensingmedicine = () => {
             height: '100vh',
             overflow: 'hidden',
             display: 'flex',
-            flexDirection: 'column'
+            flexDirection: 'column',
+            borderRadius: '16px',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
+            border: '1px solid rgba(255,255,255,0.2)'
           }}>
-            {/* Queue Header */}
+            {/* Queue Header - Modern Glass Effect */}
             <Box sx={{
-              background: 'linear-gradient(135deg, #1976d2 0%, #1565c0 100%)',
+              background: 'linear-gradient(135deg, #2B69AC 0%, #5698E0 100%)',
               color: 'white',
-              p: 1.5,
+              p: 2.5,
               textAlign: 'center',
-              flexShrink: 0
+              flexShrink: 0,
+              position: 'relative',
+              '&::before': {
+                content: '""',
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                background: 'rgba(255,255,255,0.1)',
+                backdropFilter: 'blur(10px)',
+                borderRadius: '16px 16px 0 0'
+              }
             }}>
-              <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1, fontSize: '14px' }}>
-                🏥 คิวตรวจรักษาวันนี้
-              </Typography>
-              <IconButton
-                size="small"
-                onClick={loadCompletedPatients}
-                sx={{ color: 'white' }}
-                title="รีเฟรชข้อมูล"
-              >
-                <RefreshIcon fontSize="small" />
-              </IconButton>
+              <Box sx={{ position: 'relative', zIndex: 1 }}>
+                <Typography variant="h6" sx={{
+                  fontWeight: 700,
+                  mb: 1,
+                  fontSize: '16px',
+                  textShadow: '0 2px 4px rgba(0,0,0,0.3)'
+                }}>
+                  💰 คิวชำระเงินวันนี้
+                </Typography>
+                <IconButton
+                  size="small"
+                  onClick={loadCompletedPatients}
+                  sx={{
+                    color: 'white',
+                    bgcolor: 'rgba(255,255,255,0.2)',
+                    backdropFilter: 'blur(10px)',
+                    '&:hover': {
+                      bgcolor: 'rgba(255,255,255,0.3)',
+                      transform: 'scale(1.1)'
+                    },
+                    transition: 'all 0.3s ease'
+                  }}
+                  title="รีเฟรชข้อมูล"
+                >
+                  <RefreshIcon fontSize="small" />
+                </IconButton>
+              </Box>
             </Box>
 
-            {/* Stats */}
+            {/* Stats - Modern Card */}
             <Box sx={{
-              p: 1,
-              bgcolor: '#f8f9fa',
-              textAlign: 'center',
-              fontSize: '11px',
-              borderBottom: '1px solid #e0e0e0',
-              flexShrink: 0
+              p: 2,
+              background: 'linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%)',
+              flexShrink: 0,
+              textAlign: 'center'
             }}>
-              <Typography sx={{ fontSize: '12px', fontWeight: 'bold' }}>
-                รวม {patients.length} ราย
-              </Typography>
+              <Box sx={{
+                p: 2,
+                bgcolor: 'rgba(255,255,255,0.9)',
+                borderRadius: '16px',
+                backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(255,255,255,0.3)',
+                boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
+              }}>
+                <Typography sx={{
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  color: '#64748B',
+                  mb: 0.5
+                }}>
+                  รวมทั้งหมด
+                </Typography>
+                <Typography sx={{
+                  fontSize: '28px',
+                  fontWeight: 800,
+                  color: '#2B69AC',
+                  textShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                }}>
+                  {patients.length} ราย
+                </Typography>
+              </Box>
             </Box>
 
-            {/* Navigation */}
+            {/* Navigation - Premium Look */}
             {currentPatient && (
               <Box sx={{
-                p: 1,
-                bgcolor: '#e3f2fd',
-                borderBottom: '1px solid #e0e0e0',
+                p: 2,
+                background: 'linear-gradient(135deg, #5698E0 0%, #2B69AC 100%)',
+                color: 'white',
                 flexShrink: 0
               }}>
-                <Typography sx={{ fontSize: '11px', color: '#666', mb: 1, textAlign: 'center' }}>
-                  ผู้ป่วยที่เลือก: คิว {currentPatient.queueNumber}
+                <Typography sx={{
+                  fontSize: '12px',
+                  mb: 1.5,
+                  textAlign: 'center',
+                  fontWeight: 600,
+                  textShadow: '0 1px 2px rgba(0,0,0,0.3)'
+                }}>
+                  💳 ผู้ป่วยที่เลือก: คิว {currentPatient.queueNumber}
                 </Typography>
 
-                <Box sx={{ display: 'flex', gap: 0.5 }}>
+                <Box sx={{ display: 'flex', gap: 1 }}>
                   <Button
-                    variant="outlined"
+                    variant="contained"
                     startIcon={<PrevIcon />}
                     onClick={handlePreviousPatient}
                     disabled={selectedPatientIndex === 0}
                     size="small"
-                    sx={{ fontSize: '10px', flex: 1, py: 0.5, px: 1 }}
+                    sx={{
+                      fontSize: '11px',
+                      flex: 1,
+                      py: 1,
+                      px: 1.5,
+                      bgcolor: 'rgba(255,255,255,0.2)',
+                      backdropFilter: 'blur(10px)',
+                      border: '1px solid rgba(255,255,255,0.3)',
+                      borderRadius: '10px',
+                      '&:hover': {
+                        bgcolor: 'rgba(255,255,255,0.3)',
+                        transform: 'translateY(-1px)'
+                      },
+                      '&:disabled': {
+                        bgcolor: 'rgba(255,255,255,0.1)',
+                        color: 'rgba(255,255,255,0.5)'
+                      },
+                      transition: 'all 0.3s ease'
+                    }}
                   >
                     ก่อนหน้า
                   </Button>
+
                   <Button
-                    variant="outlined"
+                    variant="contained"
                     endIcon={<NextIcon />}
                     onClick={handleNextPatient}
                     disabled={selectedPatientIndex === patients.length - 1}
                     size="small"
-                    sx={{ fontSize: '10px', flex: 1, py: 0.5, px: 1 }}
+                    sx={{
+                      fontSize: '11px',
+                      flex: 1,
+                      py: 1,
+                      px: 1.5,
+                      bgcolor: 'rgba(255,255,255,0.2)',
+                      backdropFilter: 'blur(10px)',
+                      border: '1px solid rgba(255,255,255,0.3)',
+                      borderRadius: '10px',
+                      '&:hover': {
+                        bgcolor: 'rgba(255,255,255,0.3)',
+                        transform: 'translateY(-1px)'
+                      },
+                      '&:disabled': {
+                        bgcolor: 'rgba(255,255,255,0.1)',
+                        color: 'rgba(255,255,255,0.5)'
+                      },
+                      transition: 'all 0.3s ease'
+                    }}
                   >
                     ถัดไป
                   </Button>
@@ -390,114 +484,264 @@ const Paymentanddispensingmedicine = () => {
               </Box>
             )}
 
-            {/* Patient List */}
+            {/* Patient List - Premium Scrollable */}
             <List sx={{
               flex: 1,
               overflow: 'auto',
-              p: 0,
-              minHeight: 0
+              p: 1,
+              minHeight: 0,
+              bgcolor: '#f8fafc',
+              '&::-webkit-scrollbar': {
+                width: '6px'
+              },
+              '&::-webkit-scrollbar-track': {
+                bgcolor: 'rgba(0,0,0,0.1)'
+              },
+              '&::-webkit-scrollbar-thumb': {
+                bgcolor: 'rgba(0,0,0,0.3)',
+                borderRadius: '10px'
+              }
             }}>
               {patients.length === 0 ? (
-                <Box sx={{ p: 2, textAlign: 'center' }}>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                    ไม่มีผู้ป่วยในคิววันนี้
+                <Box sx={{
+                  p: 3,
+                  textAlign: 'center',
+                  background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
+                  borderRadius: '16px',
+                  margin: 1
+                }}>
+                  <Typography variant="body1" sx={{
+                    mb: 2,
+                    color: '#64748B',
+                    fontWeight: 600
+                  }}>
+                    💸 ไม่มีผู้ป่วยในคิววันนี้
                   </Typography>
                   <Button
                     variant="contained"
                     size="small"
                     onClick={() => navigate('/clinic/ตรวจรักษา')}
-                    sx={{ fontSize: '12px' }}
+                    sx={{
+                      fontSize: '12px',
+                      borderRadius: '10px',
+                      background: 'linear-gradient(135deg, #5698E0 0%, #2B69AC 100%)',
+                      '&:hover': {
+                        transform: 'translateY(-2px)',
+                        boxShadow: '0 8px 25px rgba(86, 152, 224, 0.4)'
+                      },
+                      transition: 'all 0.3s ease'
+                    }}
                   >
                     ไปหน้าตรวจรักษา
                   </Button>
                 </Box>
               ) : (
                 patients.map((patient, index) => (
-                  <ListItemButton
+                  <Box
                     key={patient.queueId || index}
-                    selected={selectedPatientIndex === index}
-                    onClick={() => handlePatientSelect(index)}
                     sx={{
-                      borderLeft: selectedPatientIndex === index ? '5px solid #1976d2' : 'none',
-                      bgcolor: selectedPatientIndex === index ? '#1976d2' : 'transparent',
-                      color: selectedPatientIndex === index ? 'white' : 'inherit',
+                      mb: 1.5,
+                      mx: 1,
+                      borderRadius: '16px',
+                      overflow: 'hidden',
+                      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                      transform: selectedPatientIndex === index ? 'scale(1.02)' : 'scale(1)',
                       '&:hover': {
-                        bgcolor: selectedPatientIndex === index ? '#1565c0' : '#f5f5f5'
-                      },
-                      py: 1,
-                      px: 1.5,
-                      mb: 0.5,
-                      mx: 0.5,
-                      borderRadius: selectedPatientIndex === index ? 1 : 0
+                        transform: 'scale(1.02) translateY(-2px)',
+                        boxShadow: '0 12px 40px rgba(0,0,0,0.15)'
+                      }
                     }}
                   >
-                    <ListItemAvatar sx={{ minWidth: 40 }}>
-                      <Box sx={{
-                        width: 35,
-                        height: 35,
-                        borderRadius: '50%',
-                        bgcolor: selectedPatientIndex === index ? 'rgba(255,255,255,0.2)' : '#1976d2',
-                        color: 'white',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: '14px',
-                        fontWeight: 'bold'
-                      }}>
-                        {patient.queueNumber}
-                      </Box>
-                    </ListItemAvatar>
+                    <ListItemButton
+                      selected={selectedPatientIndex === index}
+                      onClick={() => handlePatientSelect(index)}
+                      sx={{
+                        background: selectedPatientIndex === index
+                          ? 'linear-gradient(135deg, #5698E0 0%, #2B69AC 100%)'
+                          : 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
+                        color: selectedPatientIndex === index ? 'white' : '#1e293b',
+                        backdropFilter: 'blur(10px)',
+                        border: selectedPatientIndex === index
+                          ? '2px solid rgba(255,255,255,0.3)'
+                          : '1px solid rgba(0,0,0,0.1)',
+                        py: 2,
+                        px: 2,
+                        borderRadius: '16px',
+                        boxShadow: selectedPatientIndex === index
+                          ? '0 8px 32px rgba(86, 152, 224, 0.3)'
+                          : '0 4px 16px rgba(0,0,0,0.1)',
+                        '&:hover': {
+                          bgcolor: selectedPatientIndex === index ? undefined : 'rgba(248, 250, 252, 0.8)'
+                        }
+                      }}
+                    >
+                      <ListItemAvatar sx={{ minWidth: 50 }}>
+                        <Box sx={{
+                          width: 42,
+                          height: 42,
+                          borderRadius: '12px',
+                          background: selectedPatientIndex === index
+                            ? 'rgba(255,255,255,0.2)'
+                            : 'linear-gradient(135deg, #5698E0 0%, #2B69AC 100%)',
+                          color: 'white',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '16px',
+                          fontWeight: 800,
+                          backdropFilter: 'blur(10px)',
+                          border: '1px solid rgba(255,255,255,0.3)',
+                          boxShadow: '0 4px 16px rgba(0,0,0,0.2)'
+                        }}>
+                          {patient.queueNumber}
+                        </Box>
+                      </ListItemAvatar>
 
-                    <ListItemText
-                      primary={
-                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <Typography variant="body2" fontWeight="bold" sx={{
-                            fontSize: '13px',
-                            color: selectedPatientIndex === index ? 'white' : 'inherit'
-                          }}>
-                            คิว {patient.queueNumber}
-                          </Typography>
-                          <Chip
-                            size="small"
-                            label={patient.paymentStatus}
-                            color={getPaymentStatusColor(patient.paymentStatus)}
-                            sx={{
+                      <ListItemText
+                        primary={
+                          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
+                            <Typography variant="body1" fontWeight={700} sx={{
+                              fontSize: '14px',
+                              color: selectedPatientIndex === index ? 'white' : '#1e293b'
+                            }}>
+                              คิว {patient.queueNumber}
+                            </Typography>
+                            <Chip
+                              size="small"
+                              label={patient.paymentStatus}
+                              color={getPaymentStatusColor(patient.paymentStatus)}
+                              sx={{
+                                fontSize: '9px',
+                                height: 22,
+                                fontWeight: 600,
+                                borderRadius: '8px',
+                                '& .MuiChip-label': { px: 1 },
+                                bgcolor: selectedPatientIndex === index ? 'rgba(255,255,255,0.2)' : undefined,
+                                color: selectedPatientIndex === index ? 'white' : undefined,
+                                backdropFilter: 'blur(10px)'
+                              }}
+                            />
+                          </Box>
+                        }
+                        secondary={
+                          <Box>
+                            <Typography variant="body1" sx={{
+                              fontWeight: 600,
+                              color: selectedPatientIndex === index ? 'white' : '#0f172a',
+                              fontSize: '13px',
+                              lineHeight: 1.4,
+                              mb: 0.5
+                            }}>
+                              {patient.PRENAME}{patient.NAME1} {patient.SURNAME}
+                            </Typography>
+                            <Typography variant="caption" display="block" sx={{
+                              fontSize: '11px',
+                              color: selectedPatientIndex === index ? 'rgba(255,255,255,0.9)' : '#64748b',
+                              fontWeight: 500,
+                              mb: 0.3
+                            }}>
+                              🏷️ VN: {patient.VNO}
+                            </Typography>
+                            <Typography variant="caption" display="block" sx={{
+                              fontSize: '11px',
+                              color: selectedPatientIndex === index ? 'rgba(255,255,255,0.8)' : '#64748b',
+                              fontWeight: 500,
+                              mb: 0.3
+                            }}>
+                              🏥 HN: {patient.HNCODE}
+                            </Typography>
+
+                            {/* แสดงยอดเงินถ้ามี */}
+                            {patient.totalAmount && (
+                              <Box sx={{
+                                mt: 0.5,
+                                p: 1,
+                                bgcolor: selectedPatientIndex === index
+                                  ? 'rgba(255,255,255,0.1)'
+                                  : 'rgba(34, 197, 94, 0.1)',
+                                borderRadius: '8px',
+                                border: '1px solid rgba(255,255,255,0.2)'
+                              }}>
+                                <Typography variant="caption" sx={{
+                                  fontSize: '11px',
+                                  color: selectedPatientIndex === index ? 'white' : '#059669',
+                                  fontWeight: 600
+                                }}>
+                                  💰 ยอดชำระ: ฿{parseFloat(patient.totalAmount || 0).toFixed(2)}
+                                </Typography>
+                              </Box>
+                            )}
+
+                            {/* แสดงข้อมูลเพิ่มเติม */}
+                            <Typography variant="caption" display="block" sx={{
                               fontSize: '10px',
-                              height: 18,
-                              '& .MuiChip-label': { px: 0.8 }
-                            }}
-                          />
-                        </Box>
-                      }
-                      secondary={
-                        <Box>
-                          <Typography variant="body2" sx={{
-                            fontWeight: 500,
-                            color: selectedPatientIndex === index ? 'white' : 'black',
-                            fontSize: '12px',
-                            lineHeight: 1.3
-                          }}>
-                            {patient.PRENAME}{patient.NAME1} {patient.SURNAME}
-                          </Typography>
-                          <Typography variant="caption" display="block" sx={{
-                            fontSize: '11px',
-                            color: selectedPatientIndex === index ? 'rgba(255,255,255,0.8)' : 'text.secondary'
-                          }}>
-                            VN: {patient.VNO}
-                          </Typography>
-                          <Typography variant="caption" display="block" sx={{
-                            fontSize: '11px',
-                            color: selectedPatientIndex === index ? 'rgba(255,255,255,0.8)' : 'text.secondary'
-                          }}>
-                            HN: {patient.HNCODE}
-                          </Typography>
-                        </Box>
-                      }
-                    />
-                  </ListItemButton>
+                              mt: 0.5,
+                              color: selectedPatientIndex === index ? 'rgba(255,255,255,0.7)' : '#9ca3af',
+                              fontWeight: 500
+                            }}>
+                              ⏰ อัพเดท: {new Date().toLocaleTimeString('th-TH', {
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </Typography>
+                          </Box>
+                        }
+                      />
+                    </ListItemButton>
+                  </Box>
                 ))
               )}
             </List>
+
+            {/* Quick Actions Footer */}
+            <Box sx={{
+              p: 1.5,
+              bgcolor: '#f1f5f9',
+              flexShrink: 0,
+              borderTop: '1px solid rgba(0,0,0,0.08)'
+            }}>
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                <Button
+                  variant="contained"
+                  size="small"
+                  sx={{
+                    flex: 1,
+                    fontSize: '10px',
+                    py: 1,
+                    background: 'linear-gradient(135deg, #5698E0 0%, #2B69AC 100%)',
+                    borderRadius: '8px',
+                    '&:hover': {
+                      transform: 'translateY(-1px)',
+                      boxShadow: '0 4px 12px rgba(86, 152, 224, 0.4)'
+                    },
+                    transition: 'all 0.3s ease'
+                  }}
+                >
+                  📊 รายงาน
+                </Button>
+
+                <Button
+                  variant="outlined"
+                  size="small"
+                  sx={{
+                    flex: 1,
+                    fontSize: '10px',
+                    py: 1,
+                    borderColor: '#5698E0',
+                    color: '#2B69AC',
+                    borderRadius: '8px',
+                    '&:hover': {
+                      bgcolor: '#E3F2FD',
+                      borderColor: '#2B69AC',
+                      transform: 'translateY(-1px)'
+                    },
+                    transition: 'all 0.3s ease'
+                  }}
+                >
+                  🖨️ พิมพ์
+                </Button>
+              </Box>
+            </Box>
           </Card>
         </Grid>
 
@@ -523,33 +767,165 @@ const Paymentanddispensingmedicine = () => {
               </CardContent>
             </Card>
           ) : (
-            <Card>
+            <Card sx={{ borderRadius: '16px' }}>
               <Tabs
                 value={tabIndex}
                 onChange={handleTabChange}
-                variant="scrollable"
-                scrollButtons="auto"
+                variant="standard"
                 sx={{
-                  backgroundColor: "#F0F5FF",
-                  "& .MuiTab-root": {
-                    color: "#6B7280",
-                    fontWeight: "bold",
-                    textAlign: "left",
-                    minHeight: 48
+                  backgroundColor: 'transparent',
+                  backgroundImage: 'linear-gradient(135deg, #5698E0 0%, #2B69AC 100%)',
+                  borderRadius: '16px',
+                  padding: '12px',
+                  boxShadow: '0 8px 32px rgba(86, 152, 224, 0.25)',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  backdropFilter: 'blur(10px)',
+                  mb: 2,
+                  '& .MuiTabs-flexContainer': {
+                    gap: '12px',
+                    justifyContent: 'flex-start',
+                    alignItems: 'stretch'
                   },
-                  "& .Mui-selected": {
-                    backgroundColor: "#D6E4FF",
-                    borderRadius: "8px",
-                    color: "#1D4ED8",
+                  '& .MuiTab-root': {
+                    color: 'rgba(255, 255, 255, 0.85)',
+                    fontWeight: 600,
+                    fontSize: '14px',
+                    textAlign: 'center',
+                    height: 6,
+                    minWidth: 160,
+                    maxWidth: 200,
+                    borderRadius: '14px',
+                    padding: '16px 20px',
+                    textTransform: 'none',
+                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                    background: 'rgba(255, 255, 255, 0.1)',
+                    backdropFilter: 'blur(10px)',
+                    border: '1px solid rgba(255, 255, 255, 0.25)',
+                    '&:hover': {
+                      background: 'rgba(255, 255, 255, 0.2)',
+                      color: 'white',
+                      transform: 'translateY(-2px)',
+                      boxShadow: '0 12px 30px rgba(0, 0, 0, 0.2)'
+                    }
                   },
-                  "& .MuiTabs-indicator": {
-                    display: "none",
+                  '& .Mui-selected': {
+                    background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%) !important',
+                    color: '#2B69AC !important',
+                    fontWeight: '700 !important',
+                    transform: 'translateY(-3px)',
+                    boxShadow: '0 12px 35px rgba(255, 255, 255, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.8)',
+                    border: '1px solid rgba(255, 255, 255, 0.9)',
+                    '&:hover': {
+                      background: 'linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%) !important',
+                      transform: 'translateY(-4px)'
+                    }
+                  },
+                  '& .MuiTabs-indicator': {
+                    display: 'none'
                   }
                 }}
               >
-                <Tab label="ชำระเงิน/จ่ายยา" icon={<PaymentIcon />} iconPosition="start" />
-                <Tab label="ใบเสร็จ" icon={<ReceiptIcon />} iconPosition="start" />
-                <Tab label="ฉลากยา" icon={<PharmacyIcon />} iconPosition="start" />
+                <Tab
+                  label={
+                    <Box sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1.5,
+                      justifyContent: 'flex-start'
+                    }}>
+                      <Box sx={{
+                        fontSize: '20px',
+                        filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))'
+                      }}>
+                        💰
+                      </Box>
+                      <Typography variant="body2" sx={{
+                        fontWeight: 'inherit',
+                        fontSize: '14px',
+                        lineHeight: 1.2,
+                        textAlign: 'left'
+                      }}>
+                        ชำระเงิน/จ่ายยา
+                      </Typography>
+                    </Box>
+                  }
+                  sx={{
+                    '& .MuiBox-root': {
+                      transition: 'all 0.3s ease'
+                    },
+                    '&:hover .MuiBox-root': {
+                      transform: 'scale(1.05)'
+                    }
+                  }}
+                />
+
+                <Tab
+                  label={
+                    <Box sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1.5,
+                      justifyContent: 'flex-start'
+                    }}>
+                      <Box sx={{
+                        fontSize: '20px',
+                        filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))'
+                      }}>
+                        🧾
+                      </Box>
+                      <Typography variant="body2" sx={{
+                        fontWeight: 'inherit',
+                        fontSize: '14px',
+                        lineHeight: 1.2,
+                        textAlign: 'left'
+                      }}>
+                        ใบเสร็จ
+                      </Typography>
+                    </Box>
+                  }
+                  sx={{
+                    '& .MuiBox-root': {
+                      transition: 'all 0.3s ease'
+                    },
+                    '&:hover .MuiBox-root': {
+                      transform: 'scale(1.05)'
+                    }
+                  }}
+                />
+
+                <Tab
+                  label={
+                    <Box sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1.5,
+                      justifyContent: 'flex-start'
+                    }}>
+                      <Box sx={{
+                        fontSize: '20px',
+                        filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))'
+                      }}>
+                        💊
+                      </Box>
+                      <Typography variant="body2" sx={{
+                        fontWeight: 'inherit',
+                        fontSize: '14px',
+                        lineHeight: 1.2,
+                        textAlign: 'left'
+                      }}>
+                        ฉลากยา
+                      </Typography>
+                    </Box>
+                  }
+                  sx={{
+                    '& .MuiBox-root': {
+                      transition: 'all 0.3s ease'
+                    },
+                    '&:hover .MuiBox-root': {
+                      transform: 'scale(1.05)'
+                    }
+                  }}
+                />
               </Tabs>
 
               <CardContent>
