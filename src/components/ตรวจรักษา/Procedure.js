@@ -1,47 +1,255 @@
-import React, { useState } from "react";
-import { Container, Grid, TextField, Button, Card, CardContent, Typography, Avatar, InputAdornment, MenuItem, Tabs, Tab, Divider, Box, Checkbox, IconButton, FormGroup, FormControlLabel, LinearProgress, Grid2 } from "@mui/material";
-// // import { DatePicker } from "@mui/lab";
+import React, { useState, useEffect } from "react";
+import {
+  Grid, TextField, Button, Card, CardContent, Typography, Avatar,
+  InputAdornment, Box, Checkbox, Autocomplete, Divider,
+  CircularProgress, Table, TableBody, TableCell, TableContainer,
+  TableHead, TableRow, Paper, IconButton, Alert, Snackbar
+} from "@mui/material";
 import SaveIcon from '@mui/icons-material/Save';
 import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
-import { CheckBox } from "@mui/icons-material";
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
+import MedicalServicesIcon from '@mui/icons-material/MedicalServices';
+import PropTypes from 'prop-types';
 
-const Procedure = () => {
+// Import Services
+import TreatmentService from "../../services/treatmentService";
 
+const Procedure = ({ currentPatient, onSaveSuccess }) => {
+  const [procedureData, setProcedureData] = useState({
+    procedureName: '',
+    procedureCode: '',
+    note: '',
+    doctorName: ''
+  });
 
+  const [savedProcedures, setSavedProcedures] = useState([]);
+  const [procedureOptions, setProcedureOptions] = useState([]);
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success'
+  });
 
-  // ข้อมูลจำลอง (Array)
-  const patients = [
-    {
-      hn: "000001",
-      citizenId: "1909085467809",
-      firstName: "แอนดิสัน",
-      lastName: "ลูปิน",
-      age: "20 ปี 9 เดือน",
-    },
-    {
-      hn: "000002",
-      citizenId: "2909085467810",
-      firstName: "สมชาย",
-      lastName: "ใจดี",
-      age: "25 ปี 3 เดือน",
-    },
-  ];
-  // เก็บ index คนไข้ที่เลือก (ตัวอย่างเลือกคนแรก)
-  const [selectedIndex, setSelectedIndex] = useState(0);
-  const patient = patients[selectedIndex];
+  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [editingIndex, setEditingIndex] = useState(-1);
 
-  const [selectedTab, setSelectedTab] = useState(0);
+  // โหลดข้อมูลเมื่อ currentPatient เปลี่ยน
+  useEffect(() => {
+    if (currentPatient?.VNO) {
+      loadProcedureData();
+    }
+    loadProcedureOptions();
+  }, [currentPatient]);
 
-  const handleTabChange = (event, newValue) => {
-    setSelectedTab(newValue);
+  const showSnackbar = (message, severity = 'success') => {
+    setSnackbar({ open: true, message, severity });
   };
 
-  return (
-    <Box sx={{ mt: 4 }}>
+  const loadProcedureData = async () => {
+    try {
+      setLoading(true);
+      const response = await TreatmentService.getTreatmentByVNO(currentPatient.VNO);
 
+      if (response.success && response.data?.procedures) {
+        const procedures = response.data.procedures.map((procedure, index) => ({
+          id: index + 1,
+          procedureName: procedure.PROCEDURE_NAME,
+          procedureCode: procedure.PROCEDURE_CODE,
+          note: procedure.NOTE1 || '',
+          doctorName: procedure.DOCTOR_NAME || ''
+        }));
+        setSavedProcedures(procedures);
+      }
+    } catch (error) {
+      console.error('Error loading procedure data:', error);
+      showSnackbar('เกิดข้อผิดพลาดในการโหลดข้อมูลหัตถการ', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadProcedureOptions = async () => {
+    try {
+      // โหลดรายการหัตถการจาก API
+      const response = await fetch('/api/procedures'); // สมมุติ API endpoint
+      if (response.ok) {
+        const data = await response.json();
+        setProcedureOptions(data);
+      } else {
+        throw new Error('API not available');
+      }
+    } catch (error) {
+      console.error('Error loading procedure options:', error);
+      // ข้อมูลจำลองหัตถการ
+      setProcedureOptions([
+        { PROCEDURE_CODE: 'PROC001', PROCEDURE_NAME: 'การเย็บแผล', CATEGORY: 'Minor Surgery' },
+        { PROCEDURE_CODE: 'PROC002', PROCEDURE_NAME: 'การตัดแผล', CATEGORY: 'Minor Surgery' },
+        { PROCEDURE_CODE: 'PROC003', PROCEDURE_NAME: 'การล้างแผล', CATEGORY: 'Wound Care' },
+        { PROCEDURE_CODE: 'PROC004', PROCEDURE_NAME: 'การใส่เข็มหยด', CATEGORY: 'IV Therapy' },
+        { PROCEDURE_CODE: 'PROC005', PROCEDURE_NAME: 'การฉีดยาเข้ากล้ามเนื้อ', CATEGORY: 'Injection' },
+        { PROCEDURE_CODE: 'PROC006', PROCEDURE_NAME: 'การฉีดยาเข้าหลอดเลือด', CATEGORY: 'Injection' },
+        { PROCEDURE_CODE: 'PROC007', PROCEDURE_NAME: 'การดูดเสมหะ', CATEGORY: 'Respiratory' },
+        { PROCEDURE_CODE: 'PROC008', PROCEDURE_NAME: 'การใส่สายปัสสาวะ', CATEGORY: 'Urinary' },
+        { PROCEDURE_CODE: 'PROC009', PROCEDURE_NAME: 'การตรวจร่างกาย', CATEGORY: 'Examination' },
+        { PROCEDURE_CODE: 'PROC010', PROCEDURE_NAME: 'การวัดความดันโลหิต', CATEGORY: 'Vital Signs' },
+        { PROCEDURE_CODE: 'PROC011', PROCEDURE_NAME: 'การปฐมพยาบาล', CATEGORY: 'First Aid' },
+        { PROCEDURE_CODE: 'PROC012', PROCEDURE_NAME: 'การทำแผล', CATEGORY: 'Wound Care' },
+        { PROCEDURE_CODE: 'PROC013', PROCEDURE_NAME: 'การตรวจหู คอ จมูก', CATEGORY: 'ENT' },
+        { PROCEDURE_CODE: 'PROC014', PROCEDURE_NAME: 'การตรวจตา', CATEGORY: 'Ophthalmology' },
+        { PROCEDURE_CODE: 'PROC015', PROCEDURE_NAME: 'การนวดหัวใจ', CATEGORY: 'Emergency' }
+      ]);
+    }
+  };
+
+  const handleProcedureChange = (field, value) => {
+    setProcedureData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const handleProcedureSelect = (newValue) => {
+    if (newValue) {
+      handleProcedureChange('procedureCode', newValue.PROCEDURE_CODE);
+      handleProcedureChange('procedureName', newValue.PROCEDURE_NAME);
+    } else {
+      handleProcedureChange('procedureCode', '');
+      handleProcedureChange('procedureName', '');
+    }
+  };
+
+  const handleAddProcedure = () => {
+    // ตรวจสอบข้อมูลที่จำเป็น
+    const errors = [];
+
+    if (!procedureData.procedureName.trim()) {
+      errors.push('ชื่อหัตถการ');
+    }
+
+    if (errors.length > 0) {
+      showSnackbar(`กรุณากรอกข้อมูลให้ครบถ้วน: ${errors.join(', ')}`, 'error');
+      return;
+    }
+
+    const newProcedure = {
+      id: editingIndex >= 0 ? savedProcedures[editingIndex].id : Date.now(),
+      procedureName: procedureData.procedureName.trim(),
+      procedureCode: procedureData.procedureCode,
+      note: procedureData.note.trim(),
+      doctorName: procedureData.doctorName.trim() || 'นพ.ผู้รักษา'
+    };
+
+    if (editingIndex >= 0) {
+      // แก้ไขหัตถการที่มีอยู่
+      const updatedProcedures = [...savedProcedures];
+      updatedProcedures[editingIndex] = newProcedure;
+      setSavedProcedures(updatedProcedures);
+      setEditingIndex(-1);
+      showSnackbar('แก้ไขรายการหัตถการสำเร็จ', 'success');
+    } else {
+      // เพิ่มหัตถการใหม่
+      setSavedProcedures(prev => [...prev, newProcedure]);
+      showSnackbar('เพิ่มรายการหัตถการสำเร็จ', 'success');
+    }
+
+    // รีเซ็ตฟอร์ม
+    resetForm();
+  };
+
+  const resetForm = () => {
+    setProcedureData({
+      procedureName: '',
+      procedureCode: '',
+      note: '',
+      doctorName: ''
+    });
+  };
+
+  const handleEditProcedure = (index) => {
+    const procedure = savedProcedures[index];
+    setProcedureData({
+      procedureName: procedure.procedureName,
+      procedureCode: procedure.procedureCode,
+      note: procedure.note,
+      doctorName: procedure.doctorName
+    });
+    setEditingIndex(index);
+    showSnackbar('เข้าสู่โหมดแก้ไข', 'info');
+  };
+
+  const handleDeleteProcedure = (index) => {
+    if (window.confirm('ต้องการลบหัตถการนี้หรือไม่?')) {
+      const updatedProcedures = savedProcedures.filter((_, i) => i !== index);
+      setSavedProcedures(updatedProcedures);
+      showSnackbar('ลบรายการหัตถการสำเร็จ', 'success');
+    }
+  };
+
+  const handleSave = async () => {
+    try {
+      setSaving(true);
+
+      if (savedProcedures.length === 0) {
+        showSnackbar('กรุณาเพิ่มรายการหัตถการอย่างน้อย 1 รายการ', 'error');
+        return;
+      }
+
+      // เตรียมข้อมูลหัตถการสำหรับบันทึก
+      const procedures = savedProcedures.map(procedure => ({
+        PROCEDURE_CODE: procedure.procedureCode,
+        NOTE1: procedure.note,
+        DOCTOR_NAME: procedure.doctorName,
+        PROCEDURE_DATE: new Date().toISOString().split('T')[0]
+      }));
+
+      const treatmentData = {
+        VNO: currentPatient.VNO,
+        HNNO: currentPatient.HNCODE,
+        procedures: procedures
+      };
+
+      const response = await TreatmentService.updateTreatment(currentPatient.VNO, treatmentData);
+
+      if (response.success) {
+        showSnackbar('บันทึกข้อมูลหัตถการสำเร็จ!', 'success');
+        if (onSaveSuccess) {
+          setTimeout(() => onSaveSuccess(), 1500);
+        }
+      } else {
+        showSnackbar('ไม่สามารถบันทึกข้อมูลได้: ' + response.message, 'error');
+      }
+    } catch (error) {
+      console.error('Error saving procedure data:', error);
+      showSnackbar('เกิดข้อผิดพลาดในการบันทึกข้อมูล: ' + error.message, 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!currentPatient) {
+    return (
+      <Box sx={{ textAlign: 'center', py: 4 }}>
+        <Alert severity="warning">ไม่พบข้อมูลผู้ป่วย</Alert>
+      </Box>
+    );
+  }
+
+  if (loading) {
+    return (
+      <Box sx={{ textAlign: 'center', py: 4 }}>
+        <CircularProgress />
+        <Typography variant="body2" sx={{ mt: 2 }}>
+          กำลังโหลดข้อมูลหัตถการ...
+        </Typography>
+      </Box>
+    );
+  }
+
+  return (
+    <Box sx={{ mt: 2 }}>
       <Grid container spacing={2}>
         {/* Patient Profile Section */}
         <Grid item xs={12} sm={5}>
@@ -49,21 +257,26 @@ const Procedure = () => {
             <Grid container spacing={3} alignItems="center">
               <Grid item xs={12} sm={6}>
                 <Avatar
-                  src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face"
+                  src={currentPatient.avatar}
                   sx={{ width: 120, height: 120, mx: "auto" }}
-                />
-                <Box
-                  sx={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'center',
-                    alignItems: 'center'
-                  }}>
+                >
+                  {!currentPatient.avatar && (
+                    <Typography variant="h4">
+                      {currentPatient.NAME1?.charAt(0) || '?'}
+                    </Typography>
+                  )}
+                </Avatar>
+                <Box sx={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'center',
+                  alignItems: 'center'
+                }}>
                   <Typography variant="h5" fontWeight="600" sx={{ mb: 1 }}>
-                    Demi Wilkinson
+                    {currentPatient.PRENAME} {currentPatient.NAME1} {currentPatient.SURNAME}
                   </Typography>
                   <Typography variant="body1" color="text.secondary">
-                    อายุ 22 ปี 9 เดือน
+                    อายุ {currentPatient.AGE} ปี • {currentPatient.SEX}
                   </Typography>
                 </Box>
               </Grid>
@@ -82,7 +295,7 @@ const Procedure = () => {
                     borderRadius: 1,
                     textAlign: 'center'
                   }}>
-                    VN021202
+                    {currentPatient.VNO || 'ยังไม่สร้าง VN'}
                   </Typography>
                   <Typography variant="body1" fontWeight="600" sx={{
                     bgcolor: '#E9F2FF',
@@ -91,82 +304,288 @@ const Procedure = () => {
                     borderRadius: 1,
                     textAlign: 'center'
                   }}>
-                    HN000001
+                    {currentPatient.HNCODE}
                   </Typography>
                 </Box>
               </Grid>
             </Grid>
           </Card>
-          {/* <Divider sx={{pt:2}}/> */}
-
         </Grid>
 
-        {/* Vitals Form Section */}
-        <Grid item xs={12} sm={7} sx={{ pt: '2px' }}>
-          <Grid container spacing={2}>
-
-
-            <Grid item xs={12}>
-              <TextField
-                size="small"
-                placeholder="ค้นหาหัตถการ"
-                sx={{
-                  mt: "8px",
-                  width: "100%",
-                  "& .MuiOutlinedInput-root": {
-                    borderRadius: "10px",
-                  },
-                }}
-                InputProps={{
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <SearchIcon color="action" />
-                    </InputAdornment>
-                  ),
-                }}
-              />
-            </Grid>
-
-          </Grid>
-
-          {/* </Grid>
-        <Grid item xs={40} sm={12} sx={{mt:10}}> */}
-          <Divider sx={{ borderColor: '#5698E0', borderWidth: 3, mt: 3,  borderRadius: '10px 10px 0px 0px' }} />
-          <Card sx={{ }}>
+        {/* Procedure Form Section */}
+        <Grid item xs={12} sm={7}>
+          {/* Search and Add Form */}
+          <Card sx={{ p: 2, mb: 2 }}>
             <CardContent>
-              <Typography sx={{ fontWeight: 800, fontSize: '24px' }}>รายการทำหัตถการ</Typography>
-              {/* <Box sx={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', mb: '12px' }}> */}
-              <table style={{ width: '100%', marginTop: '24px', border: '1px solid #AFEEEE', textAlign: 'center' }}>
-                <thead style={{ backgroundColor: "#F0F5FF", }}>
-                  <tr>
-                    {/* <th style={{ padding: '12px 16px', textAlign: 'left', color:'#696969' }}><Checkbox /></th> */}
-                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#696969', width: 150 }}> <Checkbox sx={{ mr: 2 }} />ลำดับ</th>
-                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#696969' }}>รายการทำหัตถการ</th>
-                  </tr>
-                  <tr>
-                    {/* <td colSpan="15">
-                                        <Divider sx={{ width: '100%', color: '#754C27', border: '1px solid #754C27' }} />
-                                    </td> */}
-                  </tr>
-                </thead>
-                <tbody>
-                  {/* Table data will go here */}
-                  <tr >
-                    <td style={{ padding: '12px 5px' }}> <Checkbox sx={{ mr: 8 }} />{1}</td>
-                    <td style={{ padding: '12px 16px' }}></td>
-                  </tr>
-                </tbody>
-              </table>
-              {/* </Box> */}
+              <Typography variant="h6" fontWeight="600" sx={{ mb: 2, color: '#1976d2' }}>
+                {editingIndex >= 0 ? '🔄 แก้ไขหัตถการ' : '➕ เพิ่มหัตถการ'}
+              </Typography>
+
+              <Grid container spacing={2}>
+                {/* Procedure Search */}
+                <Grid item xs={12}>
+                  <Typography sx={{ fontWeight: "400", fontSize: "16px", mb: 1 }}>
+                    ค้นหาหัตถการ *
+                  </Typography>
+                  <Autocomplete
+                    options={procedureOptions}
+                    getOptionLabel={(option) => `${option.PROCEDURE_NAME} (${option.CATEGORY})`}
+                    value={procedureOptions.find(opt => opt.PROCEDURE_CODE === procedureData.procedureCode) || null}
+                    onChange={(event, newValue) => handleProcedureSelect(newValue)}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        size="small"
+                        placeholder="พิมพ์ชื่อหัตถการที่ต้องการ"
+                        sx={{
+                          '& .MuiOutlinedInput-root': {
+                            borderRadius: '10px',
+                          },
+                        }}
+                        InputProps={{
+                          ...params.InputProps,
+                          endAdornment: (
+                            <>
+                              {params.InputProps.endAdornment}
+                              <SearchIcon color="action" />
+                            </>
+                          ),
+                        }}
+                      />
+                    )}
+                  />
+                </Grid>
+
+                {/* Doctor Name */}
+                <Grid item xs={6}>
+                  <Typography sx={{ fontWeight: '400', fontSize: '16px', mb: 1 }}>
+                    แพทย์ผู้ทำ
+                  </Typography>
+                  <TextField
+                    size="small"
+                    placeholder="ชื่อแพทย์ผู้ทำหัตถการ"
+                    value={procedureData.doctorName}
+                    onChange={(e) => handleProcedureChange('doctorName', e.target.value)}
+                    sx={{
+                      width: '100%',
+                      '& .MuiOutlinedInput-root': {
+                        borderRadius: '10px',
+                      },
+                    }}
+                  />
+                </Grid>
+
+                {/* Note */}
+                <Grid item xs={6}>
+                  <Typography sx={{ fontWeight: '400', fontSize: '16px', mb: 1 }}>
+                    หมายเหตุ
+                  </Typography>
+                  <TextField
+                    size="small"
+                    placeholder="หมายเหตุเพิ่มเติม"
+                    value={procedureData.note}
+                    onChange={(e) => handleProcedureChange('note', e.target.value)}
+                    sx={{
+                      width: '100%',
+                      '& .MuiOutlinedInput-root': {
+                        borderRadius: '10px',
+                      },
+                    }}
+                  />
+                </Grid>
+
+                {/* Add Button */}
+                <Grid item xs={12} sx={{ textAlign: "right" }}>
+                  <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
+                    {editingIndex >= 0 && (
+                      <Button
+                        variant="outlined"
+                        onClick={() => {
+                          resetForm();
+                          setEditingIndex(-1);
+                          showSnackbar('ยกเลิกการแก้ไข', 'info');
+                        }}
+                        size="small"
+                      >
+                        ยกเลิก
+                      </Button>
+                    )}
+                    <Button
+                      variant="contained"
+                      onClick={handleAddProcedure}
+                      startIcon={<AddIcon />}
+                      sx={{
+                        bgcolor: '#5698E0',
+                        color: '#FFFFFF',
+                        minWidth: 130,
+                        '&:hover': {
+                          bgcolor: '#4285d1'
+                        }
+                      }}
+                    >
+                      {editingIndex >= 0 ? 'บันทึกการแก้ไข' : 'เพิ่มหัตถการ'}
+                    </Button>
+                  </Box>
+                </Grid>
+              </Grid>
             </CardContent>
           </Card>
-        </Grid>
-        <Grid item xs={12} textAlign="right">
-          <Button variant="contained" sx={{ backgroundColor: "#5698E0", color: "#FFFFFF", fontSize: "1rem", width: '150px', height: '50px', font: 'Lato', fontWeight: 600, mt: 1 }}><SaveIcon />บันทึกข้อมูล</Button>
+
+
         </Grid>
       </Grid>
+
+      {/* Procedure List */}
+      <Card>
+        <CardContent>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+            <MedicalServicesIcon color="primary" />
+            <Typography variant="h6" fontWeight="600">
+              รายการทำหัตถการ ({savedProcedures.length} รายการ)
+            </Typography>
+          </Box>
+
+          <TableContainer component={Paper} sx={{ border: '1px solid #e0e0e0', maxHeight: 400 }}>
+            <Table stickyHeader>
+              <TableHead sx={{ bgcolor: '#F0F5FF' }}>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 'bold', width: 80 }}>
+                    <Checkbox disabled />
+                    ลำดับ
+                  </TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }}>รายการทำหัตถการ</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }}>แพทย์ผู้ทำ</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }}>หมายเหตุ</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', textAlign: 'center' }}>จัดการ</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {savedProcedures.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} sx={{ textAlign: 'center', py: 4 }}>
+                      <Typography color="text.secondary">
+                        ยังไม่มีรายการหัตถการ กรุณาเพิ่มรายการหัตถการด้านบน
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  savedProcedures.map((procedure, index) => (
+                    <TableRow
+                      key={procedure.id}
+                      sx={{
+                        '&:hover': { bgcolor: '#f5f5f5' },
+                        bgcolor: editingIndex === index ? '#fff3e0' : 'inherit'
+                      }}
+                    >
+                      <TableCell>
+                        <Checkbox />
+                        {index + 1}
+                      </TableCell>
+                      <TableCell>{procedure.procedureName}</TableCell>
+                      <TableCell>{procedure.doctorName}</TableCell>
+                      <TableCell>{procedure.note}</TableCell>
+                      <TableCell sx={{ textAlign: 'center' }}>
+                        <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
+                          <IconButton
+                            onClick={() => handleEditProcedure(index)}
+                            size="small"
+                            sx={{
+                              border: '1px solid #5698E0',
+                              borderRadius: '7px',
+                              color: '#5698E0'
+                            }}
+                          >
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                          <IconButton
+                            onClick={() => handleDeleteProcedure(index)}
+                            size="small"
+                            sx={{
+                              border: '1px solid #F62626',
+                              borderRadius: '7px',
+                              color: '#F62626'
+                            }}
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </Box>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </CardContent>
+      </Card>
+
+      {/* Save Button */}
+      <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end', mt: 2 }}>
+        <Button
+          variant="contained"
+          onClick={handleSave}
+          disabled={saving || savedProcedures.length === 0}
+          startIcon={saving ? <CircularProgress size={20} /> : <SaveIcon />}
+          sx={{
+            backgroundColor: "#5698E0",
+            color: "#FFFFFF",
+            fontSize: "1rem",
+            width: '200px',
+            height: '50px',
+            fontWeight: 600,
+            '&:hover': {
+              backgroundColor: "#4285d1"
+            },
+            '&:disabled': {
+              backgroundColor: "#e0e0e0"
+            }
+          }}
+        >
+          {saving ? 'กำลังบันทึก...' : 'บันทึกข้อมูล'}
+        </Button>
+
+        <Button
+          variant="outlined"
+          onClick={onSaveSuccess}
+          disabled={!onSaveSuccess}
+          sx={{
+            color: "#5698E0",
+            borderColor: "#5698E0",
+            fontSize: "1rem",
+            fontWeight: 600,
+            width: '120px',
+            height: '50px',
+            '&:hover': {
+              backgroundColor: "#f0f8ff"
+            }
+          }}
+        >
+          ถัดไป →
+        </Button>
+      </Box>
+
+      {/* Snackbar */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        <Alert
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
+};
+
+Procedure.propTypes = {
+  currentPatient: PropTypes.object,
+  onSaveSuccess: PropTypes.func
 };
 
 export default Procedure;

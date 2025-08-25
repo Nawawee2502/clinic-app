@@ -1,12 +1,14 @@
 // services/drugService.js
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000/api';
+// ✅ แก้ไข: ใช้ port 3001 ให้ตรงกับ patientService.js
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
 
 class DrugService {
 
     // สร้างยาใหม่
     static async createDrug(drugData) {
         try {
+            console.log('🔗 Calling API:', `${API_BASE_URL}/drugs`);
             const response = await fetch(`${API_BASE_URL}/drugs`, {
                 method: 'POST',
                 headers: {
@@ -39,6 +41,8 @@ class DrugService {
             if (params.unit_code) queryParams.append('unit_code', params.unit_code);
 
             const url = `${API_BASE_URL}/drugs${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
+            console.log('🔗 Calling API:', url);
+
             const response = await fetch(url);
 
             if (!response.ok) {
@@ -55,6 +59,7 @@ class DrugService {
     // ดึงข้อมูลยาตามรหัส
     static async getDrugByCode(drugCode) {
         try {
+            console.log('🔗 Calling API:', `${API_BASE_URL}/drugs/${drugCode}`);
             const response = await fetch(`${API_BASE_URL}/drugs/${drugCode}`);
 
             if (!response.ok) {
@@ -72,6 +77,7 @@ class DrugService {
     // ค้นหายา
     static async searchDrugs(searchTerm) {
         try {
+            console.log('🔗 Calling API:', `${API_BASE_URL}/drugs/search/${encodeURIComponent(searchTerm)}`);
             const response = await fetch(`${API_BASE_URL}/drugs/search/${encodeURIComponent(searchTerm)}`);
 
             if (!response.ok) {
@@ -88,6 +94,7 @@ class DrugService {
     // ดึงยาตามข้อบ่งใช้
     static async getDrugsByIndication(indication) {
         try {
+            console.log('🔗 Calling API:', `${API_BASE_URL}/drugs/indication/${encodeURIComponent(indication)}`);
             const response = await fetch(`${API_BASE_URL}/drugs/indication/${encodeURIComponent(indication)}`);
 
             if (!response.ok) {
@@ -104,6 +111,7 @@ class DrugService {
     // อัพเดทข้อมูลยา
     static async updateDrug(drugCode, drugData) {
         try {
+            console.log('🔗 Calling API:', `${API_BASE_URL}/drugs/${drugCode}`);
             const response = await fetch(`${API_BASE_URL}/drugs/${drugCode}`, {
                 method: 'PUT',
                 headers: {
@@ -127,6 +135,7 @@ class DrugService {
     // ลบยา
     static async deleteDrug(drugCode) {
         try {
+            console.log('🔗 Calling API:', `${API_BASE_URL}/drugs/${drugCode}`);
             const response = await fetch(`${API_BASE_URL}/drugs/${drugCode}`, {
                 method: 'DELETE'
             });
@@ -146,6 +155,7 @@ class DrugService {
     // ดึงสถิติยา
     static async getDrugStats() {
         try {
+            console.log('🔗 Calling API:', `${API_BASE_URL}/drugs/stats/summary`);
             const response = await fetch(`${API_BASE_URL}/drugs/stats/summary`);
 
             if (!response.ok) {
@@ -157,6 +167,37 @@ class DrugService {
             console.error('Error fetching drug stats:', error);
             throw error;
         }
+    }
+
+    // ✅ เพิ่ม: ฟังก์ชันสำหรับดึงข้อมูลยาจำลองเมื่อ API ไม่พร้อม
+    static getMockDrugs() {
+        return [
+            { DRUG_CODE: 'MED001', GENERIC_NAME: 'Paracetamol 500mg', TRADE_NAME: 'Tylenol', DEFAULT_UNIT: 'TAB', UNIT_CODE: 'TAB' },
+            { DRUG_CODE: 'MED002', GENERIC_NAME: 'Amoxicillin 250mg', TRADE_NAME: 'Amoxil', DEFAULT_UNIT: 'CAP', UNIT_CODE: 'CAP' },
+            { DRUG_CODE: 'MED003', GENERIC_NAME: 'Omeprazole 20mg', TRADE_NAME: 'Losec', DEFAULT_UNIT: 'CAP', UNIT_CODE: 'CAP' },
+            { DRUG_CODE: 'MED004', GENERIC_NAME: 'Salbutamol 100mcg', TRADE_NAME: 'Ventolin', DEFAULT_UNIT: 'SPRAY', UNIT_CODE: 'SPRAY' },
+            { DRUG_CODE: 'MED005', GENERIC_NAME: 'Metformin 500mg', TRADE_NAME: 'Glucophage', DEFAULT_UNIT: 'TAB', UNIT_CODE: 'TAB' },
+            { DRUG_CODE: 'MED006', GENERIC_NAME: 'Eye Drop Chloramphenicol', TRADE_NAME: 'Chlorsig', DEFAULT_UNIT: 'BOT', UNIT_CODE: 'BOT' },
+            { DRUG_CODE: 'MED007', GENERIC_NAME: 'Betamethasone Cream', TRADE_NAME: 'Betnovate', DEFAULT_UNIT: 'TUBE', UNIT_CODE: 'TUBE' },
+            { DRUG_CODE: 'MED008', GENERIC_NAME: 'Ibuprofen 400mg', TRADE_NAME: 'Brufen', DEFAULT_UNIT: 'TAB', UNIT_CODE: 'TAB' },
+            { DRUG_CODE: 'MED009', GENERIC_NAME: 'Cetirizine 10mg', TRADE_NAME: 'Zyrtec', DEFAULT_UNIT: 'TAB', UNIT_CODE: 'TAB' },
+            { DRUG_CODE: 'MED010', GENERIC_NAME: 'Loratadine 10mg', TRADE_NAME: 'Claritin', DEFAULT_UNIT: 'TAB', UNIT_CODE: 'TAB' },
+            { DRUG_CODE: 'MED011', GENERIC_NAME: 'Aspirin 100mg', TRADE_NAME: 'Cardiprin', DEFAULT_UNIT: 'TAB', UNIT_CODE: 'TAB' },
+            { DRUG_CODE: 'MED012', GENERIC_NAME: 'Simvastatin 20mg', TRADE_NAME: 'Zocor', DEFAULT_UNIT: 'TAB', UNIT_CODE: 'TAB' },
+            { DRUG_CODE: 'MED013', GENERIC_NAME: 'Amlodipine 5mg', TRADE_NAME: 'Norvasc', DEFAULT_UNIT: 'TAB', UNIT_CODE: 'TAB' },
+            { DRUG_CODE: 'MED014', GENERIC_NAME: 'Enalapril 10mg', TRADE_NAME: 'Renitec', DEFAULT_UNIT: 'TAB', UNIT_CODE: 'TAB' },
+            { DRUG_CODE: 'MED015', GENERIC_NAME: 'Furosemide 40mg', TRADE_NAME: 'Lasix', DEFAULT_UNIT: 'TAB', UNIT_CODE: 'TAB' },
+            { DRUG_CODE: 'MED016', GENERIC_NAME: 'Prednisolone 5mg', TRADE_NAME: 'Solone', DEFAULT_UNIT: 'TAB', UNIT_CODE: 'TAB' },
+            { DRUG_CODE: 'MED017', GENERIC_NAME: 'Insulin Lispro', TRADE_NAME: 'Humalog', DEFAULT_UNIT: 'VIAL', UNIT_CODE: 'VIAL' },
+            { DRUG_CODE: 'MED018', GENERIC_NAME: 'Diazepam 5mg', TRADE_NAME: 'Valium', DEFAULT_UNIT: 'TAB', UNIT_CODE: 'TAB' },
+            { DRUG_CODE: 'MED019', GENERIC_NAME: 'Ranitidine 150mg', TRADE_NAME: 'Zantac', DEFAULT_UNIT: 'TAB', UNIT_CODE: 'TAB' },
+            { DRUG_CODE: 'MED020', GENERIC_NAME: 'Clotrimazole Cream', TRADE_NAME: 'Canesten', DEFAULT_UNIT: 'TUBE', UNIT_CODE: 'TUBE' },
+            { DRUG_CODE: 'MED021', GENERIC_NAME: 'Dexamethasone Eye Drop', TRADE_NAME: 'Maxidex', DEFAULT_UNIT: 'BOT', UNIT_CODE: 'BOT' },
+            { DRUG_CODE: 'MED022', GENERIC_NAME: 'Chlorpheniramine 4mg', TRADE_NAME: 'Piriton', DEFAULT_UNIT: 'TAB', UNIT_CODE: 'TAB' },
+            { DRUG_CODE: 'MED023', GENERIC_NAME: 'Domperidone 10mg', TRADE_NAME: 'Motilium', DEFAULT_UNIT: 'TAB', UNIT_CODE: 'TAB' },
+            { DRUG_CODE: 'MED024', GENERIC_NAME: 'Loperamide 2mg', TRADE_NAME: 'Imodium', DEFAULT_UNIT: 'CAP', UNIT_CODE: 'CAP' },
+            { DRUG_CODE: 'MED025', GENERIC_NAME: 'Paracetamol Syrup', TRADE_NAME: 'Tylenol Syrup', DEFAULT_UNIT: 'BOT', UNIT_CODE: 'BOT' }
+        ];
     }
 
     // ตรวจสอบความถูกต้องของข้อมูล

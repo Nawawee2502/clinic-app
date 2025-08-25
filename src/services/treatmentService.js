@@ -228,12 +228,17 @@ class TreatmentService {
     // อัพเดทข้อมูลการรักษา
     static async updateTreatment(vno, treatmentData) {
         try {
+            // Format the data to ensure no undefined values
+            const formattedData = this.formatTreatmentData(treatmentData);
+
+            console.log('📤 Sending formatted treatment data:', formattedData);
+
             const response = await fetch(`${API_BASE_URL}/treatments/${vno}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify(treatmentData)
+                body: JSON.stringify(formattedData)
             });
 
             if (!response.ok) {
@@ -247,6 +252,7 @@ class TreatmentService {
             throw error;
         }
     }
+
 
     // อัพเดทสถานะการรักษา
     static async updateTreatmentStatus(vno, status) {
@@ -356,12 +362,15 @@ class TreatmentService {
 
     // จัดรูปแบบข้อมูลก่อนส่ง API
     static formatTreatmentData(data) {
+        // Helper function to convert undefined to null
+        const toNull = (value) => value === undefined ? null : value;
+
         return {
-            VNO: data.VNO?.trim(),
-            QUEUE_ID: data.QUEUE_ID?.trim(),
-            HNNO: data.HNNO?.trim(),
-            RDATE: data.RDATE,
-            TRDATE: data.TRDATE || data.RDATE,
+            VNO: toNull(data.VNO?.trim()),
+            QUEUE_ID: toNull(data.QUEUE_ID?.trim()),
+            HNNO: toNull(data.HNNO?.trim()),
+            RDATE: toNull(data.RDATE),
+            TRDATE: toNull(data.TRDATE) || toNull(data.RDATE),
             WEIGHT1: data.WEIGHT1 ? parseFloat(data.WEIGHT1) : null,
             HIGHT1: data.HIGHT1 ? parseFloat(data.HIGHT1) : null,
             BT1: data.BT1 ? parseFloat(data.BT1) : null,
@@ -370,29 +379,29 @@ class TreatmentService {
             RR1: data.RR1 ? parseFloat(data.RR1) : null,
             PR1: data.PR1 ? parseFloat(data.PR1) : null,
             SPO2: data.SPO2 ? parseFloat(data.SPO2) : null,
-            SYMPTOM: data.SYMPTOM?.trim(),
-            DXCODE: data.DXCODE?.trim(),
-            ICD10CODE: data.ICD10CODE?.trim(),
-            TREATMENT1: data.TREATMENT1?.trim(),
-            APPOINTMENT_DATE: data.APPOINTMENT_DATE,
-            APPOINTMENT_TDATE: data.APPOINTMENT_TDATE || data.APPOINTMENT_DATE,
-            EMP_CODE: data.EMP_CODE?.trim(),
-            EMP_CODE1: data.EMP_CODE1?.trim(),
-            STATUS1: data.STATUS1 || 'ทำงานอยู่',
+            SYMPTOM: toNull(data.SYMPTOM?.trim()),
+            DXCODE: toNull(data.DXCODE?.trim()),
+            ICD10CODE: toNull(data.ICD10CODE?.trim()),
+            TREATMENT1: toNull(data.TREATMENT1?.trim()),
+            APPOINTMENT_DATE: toNull(data.APPOINTMENT_DATE),
+            APPOINTMENT_TDATE: toNull(data.APPOINTMENT_TDATE) || toNull(data.APPOINTMENT_DATE),
+            EMP_CODE: toNull(data.EMP_CODE?.trim()),
+            EMP_CODE1: toNull(data.EMP_CODE1?.trim()),
+            STATUS1: toNull(data.STATUS1) || 'ทำงานอยู่',
 
-            // Diagnosis details
+            // Diagnosis details - Handle undefined values
             diagnosis: data.diagnosis ? {
-                CHIEF_COMPLAINT: data.diagnosis.CHIEF_COMPLAINT?.trim(),
-                PRESENT_ILL: data.diagnosis.PRESENT_ILL?.trim(),
-                PHYSICAL_EXAM: data.diagnosis.PHYSICAL_EXAM?.trim(),
-                PLAN1: data.diagnosis.PLAN1?.trim()
+                CHIEF_COMPLAINT: toNull(data.diagnosis.CHIEF_COMPLAINT?.trim()),
+                PRESENT_ILL: toNull(data.diagnosis.PRESENT_ILL?.trim()),
+                PHYSICAL_EXAM: toNull(data.diagnosis.PHYSICAL_EXAM?.trim()),
+                PLAN1: toNull(data.diagnosis.PLAN1?.trim())
             } : null,
 
-            // Arrays for related data
-            drugs: data.drugs || [],
-            procedures: data.procedures || [],
-            labTests: data.labTests || [],
-            radioTests: data.radioTests || []
+            // Arrays for related data - Ensure they're arrays, not undefined
+            drugs: Array.isArray(data.drugs) ? data.drugs : [],
+            procedures: Array.isArray(data.procedures) ? data.procedures : [],
+            labTests: Array.isArray(data.labTests) ? data.labTests : [],
+            radioTests: Array.isArray(data.radioTests) ? data.radioTests : []
         };
     }
 

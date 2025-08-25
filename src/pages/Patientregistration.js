@@ -10,7 +10,7 @@ import {
   Tabs,
   Tab,
   CardContent,
-  
+
 } from "@mui/material";
 
 // Import Components
@@ -29,6 +29,9 @@ const PatientRegistration = () => {
   const [mainView, setMainView] = useState('reception'); // reception, newPatient, appointments
   const [loading, setLoading] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+
+  // ✅ เพิ่ม state สำหรับเก็บข้อมูลผู้ป่วยที่เพิ่งลงทะเบียน
+  const [newlyRegisteredPatient, setNewlyRegisteredPatient] = useState(null);
 
   // Queue State
   const [todayQueue, setTodayQueue] = useState([]);
@@ -175,6 +178,7 @@ const PatientRegistration = () => {
     }
   };
 
+  // ✅ ปรับปรุงฟังก์ชัน handleSaveNewPatient เพื่อส่งต่อไปหน้ารับผู้ป่วย
   const handleSaveNewPatient = async () => {
     setLoading(true);
 
@@ -190,9 +194,31 @@ const PatientRegistration = () => {
       const result = await PatientService.createPatient(formattedData);
 
       if (result.success) {
-        showSnackbar(`บันทึกข้อมูลผู้ป่วยสำเร็จ! HN: ${result.data.HNCODE}`, 'success');
+        const newPatientInfo = {
+          HNCODE: result.data.HNCODE,
+          PRENAME: patientData.PRENAME,
+          NAME1: patientData.NAME1,
+          SURNAME: patientData.SURNAME,
+          AGE: patientData.AGE,
+          SEX: patientData.SEX,
+          TEL1: patientData.TEL1,
+          WEIGHT1: patientData.WEIGHT1,
+          HIGH1: patientData.HIGH1
+        };
+
+        // ✅ เก็บข้อมูลผู้ป่วยที่เพิ่งลงทะเบียน
+        setNewlyRegisteredPatient(newPatientInfo);
+
+        showSnackbar(`ลงทะเบียนผู้ป่วยสำเร็จ! HN: ${result.data.HNCODE} - กรุณากรอก Vital Signs`, 'success');
+
+        // ✅ รีเซ็ตฟอร์มและไปหน้ารับผู้ป่วย
         resetNewPatientForm();
-        setMainView('reception');
+
+        // รอ 1 วินาทีแล้วไปหน้ารับผู้ป่วย
+        setTimeout(() => {
+          setMainView('reception');
+        }, 1000);
+
       } else {
         showSnackbar(result.message || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล', 'error');
       }
@@ -246,6 +272,11 @@ const PatientRegistration = () => {
     setNewPatientTabIndex(0);
   };
 
+  // ✅ ฟังก์ชันสำหรับเคลียร์ข้อมูลผู้ป่วยที่เพิ่งลงทะเบียนหลังจากส่งคิวแล้ว
+  const handleClearNewlyRegistered = () => {
+    setNewlyRegisteredPatient(null);
+  };
+
   return (
     <Container maxWidth={false} sx={{ mt: 2, maxWidth: "1600px" }}>
       <Grid container spacing={3}>
@@ -282,6 +313,8 @@ const PatientRegistration = () => {
             <PatientReceptionSection
               onRefresh={handleRefresh}
               showSnackbar={showSnackbar}
+              newlyRegisteredPatient={newlyRegisteredPatient}
+              onClearNewlyRegistered={handleClearNewlyRegistered}
             />
           )}
 

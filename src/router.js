@@ -8,6 +8,7 @@ import AppBarWithProps from "./pages/AppBarWithProps";
 import ตรวจรักษา from './pages/ตรวจรักษา';
 import Medicalstock from './pages/Drugandmedical';
 import Cerwork from "./components/ตรวจรักษา/cerwork";
+import Paymentanddispensingmedicine from "./pages/Paymentanddispensingmedicine";
 
 const ProtectedRoute = ({ children }) => {
   const isAuthenticated = useSelector((state) => state.authentication.token);
@@ -73,6 +74,7 @@ const Router = () => {
           <Route path="treatment" element={<ตรวจรักษา />} />
           <Route path="medicalstock" element={<Medicalstock />} />
           <Route path="cerwork" element={<Cerwork />} />
+          <Route path="payment" element={<Paymentanddispensingmedicine />} />
           {/* <Route path="personnel" element={<Personnel />} /> */}
           {/* <Route path="finance" element={<Financialandaccounting />} /> */}
           {/* <Route path="report" element={<Report />} /> */}
@@ -92,6 +94,7 @@ const Router = () => {
         <Route path="/ตรวจรักษา" element={<Navigate to="/clinic/ตรวจรักษา" replace />} />
         <Route path="/Medicalstock" element={<Navigate to="/clinic/medicalstock" replace />} />
         <Route path="/cerwork" element={<Navigate to="/clinic/cerwork" replace />} />
+        <Route path="/payment" element={<Navigate to="/clinic/payment" replace />} />
         <Route path="/Personnel" element={<Navigate to="/clinic/personnel" replace />} />
         <Route path="/Financialandaccounting" element={<Navigate to="/clinic/finance" replace />} />
         <Route path="/Report" element={<Navigate to="/clinic/report" replace />} />

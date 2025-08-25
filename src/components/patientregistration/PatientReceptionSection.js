@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
     Card,
     CardContent,
@@ -15,7 +15,9 @@ import {
 } from "@mui/material";
 import {
     Queue as QueueIcon,
-    History as HistoryIcon
+    History as HistoryIcon,
+    CheckCircle as CheckIcon,
+    PersonAdd as PersonAddIcon
 } from "@mui/icons-material";
 
 // Import Services
@@ -23,7 +25,12 @@ import PatientService from "../../services/patientService";
 import QueueService from "../../services/queueService";
 import TreatmentService from "../../services/treatmentService";
 
-const PatientReceptionSection = ({ onRefresh, showSnackbar }) => {
+const PatientReceptionSection = ({
+    onRefresh,
+    showSnackbar,
+    newlyRegisteredPatient,
+    onClearNewlyRegistered
+}) => {
     const [loading, setLoading] = useState(false);
     const [patientOptions, setPatientOptions] = useState([]);
     const [selectedPatient, setSelectedPatient] = useState(null);
@@ -33,7 +40,7 @@ const PatientReceptionSection = ({ onRefresh, showSnackbar }) => {
     // Vitals State
     const [vitalsData, setVitalsData] = useState({
         WEIGHT1: '',
-        HIGHT1: '',
+        HIGH1: '',  // ✅ แก้ไขจาก HIGHT1 เป็น HIGH1
         BT1: '',
         BP1: '',
         BP2: '',
@@ -42,6 +49,23 @@ const PatientReceptionSection = ({ onRefresh, showSnackbar }) => {
         SPO2: '',
         SYMPTOM: ''
     });
+
+    // ✅ useEffect สำหรับจัดการผู้ป่วยที่เพิ่งลงทะเบียน
+    useEffect(() => {
+        if (newlyRegisteredPatient) {
+            console.log('🎯 Auto selecting newly registered patient:', newlyRegisteredPatient);
+
+            // ตั้งค่าผู้ป่วยที่เพิ่งลงทะเบียนให้เป็นผู้ป่วยที่เลือก
+            setSelectedPatient(newlyRegisteredPatient);
+            setPatientOptions([newlyRegisteredPatient]);
+
+            // โหลด Vital Signs เดิม (ถ้ามี)
+            loadPatientVitals(newlyRegisteredPatient.HNCODE);
+
+            // แสดงข้อความแจ้งเตือน
+            showSnackbar(`✅ เลือกผู้ป่วย ${newlyRegisteredPatient.PRENAME}${newlyRegisteredPatient.NAME1} ${newlyRegisteredPatient.SURNAME} เรียบร้อยแล้ว กรุณากรอก Vital Signs`, 'success');
+        }
+    }, [newlyRegisteredPatient]);
 
     // Search patients
     const handleSearchPatients = async (searchTerm) => {
@@ -73,6 +97,11 @@ const PatientReceptionSection = ({ onRefresh, showSnackbar }) => {
     const handleSelectPatient = async (patient) => {
         setSelectedPatient(patient);
 
+        // ✅ หากเป็นผู้ป่วยที่เพิ่งลงทะเบียน ให้เคลียร์สถานะ
+        if (newlyRegisteredPatient && patient?.HNCODE === newlyRegisteredPatient.HNCODE) {
+            onClearNewlyRegistered();
+        }
+
         if (patient) {
             showSnackbar(`เลือกผู้ป่วย: ${patient.PRENAME} ${patient.NAME1} ${patient.SURNAME}`, 'success');
 
@@ -82,7 +111,7 @@ const PatientReceptionSection = ({ onRefresh, showSnackbar }) => {
             // ถ้าไม่มีผู้ป่วย ให้เคลียร์ข้อมูล Vitals
             setVitalsData({
                 WEIGHT1: '',
-                HIGHT1: '',
+                HIGH1: '',  // ✅ แก้ไขจาก HIGHT1 เป็น HIGH1
                 BT1: '',
                 BP1: '',
                 BP2: '',
@@ -104,13 +133,13 @@ const PatientReceptionSection = ({ onRefresh, showSnackbar }) => {
             // วิธีที่ 1: ลองดึงจาก Patient Service ก่อน
             const patientWithVitals = await PatientService.getPatientWithVitals(hncode);
 
-            if (patientWithVitals && (patientWithVitals.WEIGHT1 || patientWithVitals.HIGHT1)) {
+            if (patientWithVitals && (patientWithVitals.WEIGHT1 || patientWithVitals.HIGH1)) {
                 console.log('✅ Found vitals from patient service:', patientWithVitals);
 
                 setVitalsData(prev => ({
                     ...prev,
                     WEIGHT1: patientWithVitals.WEIGHT1 || '',
-                    HIGHT1: patientWithVitals.HIGHT1 || '',
+                    HIGH1: patientWithVitals.HIGH1 || '',  // ✅ แก้ไขจาก HIGHT1 เป็น HIGH1
                     BT1: patientWithVitals.BT1 || '',
                     BP1: patientWithVitals.BP1 || '',
                     BP2: patientWithVitals.BP2 || '',
@@ -135,7 +164,7 @@ const PatientReceptionSection = ({ onRefresh, showSnackbar }) => {
                     setVitalsData(prev => ({
                         ...prev,
                         WEIGHT1: treatmentData.WEIGHT1 || '',
-                        HIGHT1: treatmentData.HIGHT1 || '',
+                        HIGH1: treatmentData.HIGH1 || treatmentData.HIGHT1 || '',  // ✅ รองรับทั้งสอง format
                         BT1: treatmentData.BT1 || '',
                         BP1: treatmentData.BP1 || '',
                         BP2: treatmentData.BP2 || '',
@@ -153,7 +182,7 @@ const PatientReceptionSection = ({ onRefresh, showSnackbar }) => {
             }
 
             // ถ้าไม่พบข้อมูลเลย
-            console.log('📝 No previous vitals found, starting fresh');
+            console.log('🔍 No previous vitals found, starting fresh');
             showSnackbar('ไม่พบข้อมูล Vital Signs เดิม กรุณากรอกข้อมูลใหม่', 'warning');
 
         } catch (error) {
@@ -168,7 +197,7 @@ const PatientReceptionSection = ({ onRefresh, showSnackbar }) => {
     const clearVitalsData = () => {
         setVitalsData({
             WEIGHT1: '',
-            HIGHT1: '',
+            HIGH1: '',  // ✅ แก้ไขจาก HIGHT1 เป็น HIGH1
             BT1: '',
             BP1: '',
             BP2: '',
@@ -202,7 +231,7 @@ const PatientReceptionSection = ({ onRefresh, showSnackbar }) => {
             return;
         }
 
-        const requiredVitals = ['WEIGHT1', 'HIGHT1', 'BT1', 'BP1', 'BP2', 'RR1', 'PR1', 'SPO2'];
+        const requiredVitals = ['WEIGHT1', 'HIGH1', 'BT1', 'BP1', 'BP2', 'RR1', 'PR1', 'SPO2'];  // ✅ แก้ไขจาก HIGHT1 เป็น HIGH1
         const missingVitals = requiredVitals.filter(field => !vitalsData[field]);
 
         if (missingVitals.length > 0) {
@@ -240,7 +269,7 @@ const PatientReceptionSection = ({ onRefresh, showSnackbar }) => {
 
                 // Vital Signs ที่กรอกในหน้ารับผู้ป่วย
                 WEIGHT1: parseFloat(vitalsData.WEIGHT1),
-                HIGHT1: parseFloat(vitalsData.HIGHT1),
+                HIGHT1: parseFloat(vitalsData.HIGH1),  // ✅ ใช้ HIGH1 ใน state แต่ส่งเป็น HIGHT1 ให้ API
                 BT1: parseFloat(vitalsData.BT1),
                 BP1: parseInt(vitalsData.BP1),
                 BP2: parseInt(vitalsData.BP2),
@@ -269,7 +298,7 @@ const PatientReceptionSection = ({ onRefresh, showSnackbar }) => {
             // Step 4: Reset forms
             setVitalsData({
                 WEIGHT1: '',
-                HIGHT1: '',
+                HIGH1: '',  // ✅ แก้ไขจาก HIGHT1 เป็น HIGH1
                 BT1: '',
                 BP1: '',
                 BP2: '',
@@ -303,6 +332,18 @@ const PatientReceptionSection = ({ onRefresh, showSnackbar }) => {
                         <Typography variant="h6" sx={{ mb: 2, color: '#1976d2' }}>
                             🔍 ค้นหาผู้ป่วย
                         </Typography>
+
+                        {/* ✅ แสดงข้อความพิเศษหากมีผู้ป่วยที่เพิ่งลงทะเบียน */}
+                        {newlyRegisteredPatient && (
+                            <Alert severity="success" sx={{ mb: 2, borderRadius: '10px' }}>
+                                <Typography variant="body2">
+                                    🎉 <strong>ผู้ป่วยที่เพิ่งลงทะเบียน:</strong> {newlyRegisteredPatient.PRENAME}{newlyRegisteredPatient.NAME1} {newlyRegisteredPatient.SURNAME} (HN: {newlyRegisteredPatient.HNCODE})
+                                </Typography>
+                                <Typography variant="body2" sx={{ mt: 1 }}>
+                                    ✅ ระบบได้เลือกผู้ป่วยให้อัตโนมัติแล้ว กรุณากรอก Vital Signs ด้านล่าง
+                                </Typography>
+                            </Alert>
+                        )}
 
                         <Autocomplete
                             value={selectedPatient}
@@ -452,15 +493,15 @@ const PatientReceptionSection = ({ onRefresh, showSnackbar }) => {
                                     <TextField
                                         label="ส่วนสูง (cm) *"
                                         type="number"
-                                        value={vitalsData.HIGHT1}
-                                        onChange={(e) => setVitalsData(prev => ({ ...prev, HIGHT1: e.target.value }))}
+                                        value={vitalsData.HIGH1}  // ✅ แก้ไขจาก HIGHT1 เป็น HIGH1
+                                        onChange={(e) => setVitalsData(prev => ({ ...prev, HIGH1: e.target.value }))}  // ✅ แก้ไขจาก HIGHT1 เป็น HIGH1
                                         fullWidth
                                         size="small"
                                         inputProps={{ min: 0, max: 300, step: 0.1 }}
                                         sx={{
                                             '& .MuiOutlinedInput-root': {
                                                 borderRadius: '10px',
-                                                bgcolor: vitalsData.HIGHT1 ? '#f0f8ff' : 'inherit'
+                                                bgcolor: vitalsData.HIGH1 ? '#f0f8ff' : 'inherit'  // ✅ แก้ไขจาก HIGHT1 เป็น HIGH1
                                             }
                                         }}
                                     />
@@ -624,7 +665,7 @@ const PatientReceptionSection = ({ onRefresh, showSnackbar }) => {
                 {!selectedPatient && (
                     <Alert severity="info" sx={{ borderRadius: '10px' }}>
                         <Typography variant="body1">
-                            📋 ค้นหาผู้ป่วยเดิม → ระบบจะโหลดข้อมูล Vital Signs เดิม → แก้ไขหรือกรอกเพิ่มเติม → สร้างคิว<br />
+                            📋 ค้นหาผู้ป่วยเดิม ↑ ระบบจะโหลดข้อมูล Vital Signs เดิม ↑ แก้ไขหรือกรอกเพิ่มเติม ↑ สร้างคิว<br />
                             ข้อมูล Vital Signs จะถูกส่งไปยังหน้าตรวจรักษาโดยอัตโนมัติ
                         </Typography>
                     </Alert>
