@@ -19,7 +19,12 @@ import {
   TableRow,
   Paper,
   CircularProgress,
-  Alert
+  Alert,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Chip
 } from "@mui/material";
 import PropTypes from 'prop-types';
 
@@ -29,9 +34,12 @@ import TreatmentService from "../../services/treatmentService";
 export default function MedicalHistory({ currentPatient, onSaveSuccess }) {
   const [loading, setLoading] = React.useState(false);
   const [todayTreatment, setTodayTreatment] = React.useState(null);
+  const [treatmentHistory, setTreatmentHistory] = React.useState([]);
+  const [selectedHistoryVNO, setSelectedHistoryVNO] = React.useState('today');
+  const [selectedTreatmentData, setSelectedTreatmentData] = React.useState(null);
   const [error, setError] = React.useState(null);
 
-  // ✅ COPY เป๊ะๆ จากหน้า TodayPatientInformation
+  // Vitals state - เหมือนเดิม
   const [vitals, setVitals] = React.useState({
     WEIGHT1: '',
     HIGHT1: '',
@@ -43,21 +51,20 @@ export default function MedicalHistory({ currentPatient, onSaveSuccess }) {
     SPO2: ''
   });
 
-  // ✅ COPY เป๊ะๆ จากหน้า TodayPatientInformation - รวมการโหลดข้อมูลเพิ่มเติม
   React.useEffect(() => {
     if (currentPatient) {
       loadPatientData();
+      loadTreatmentHistory();
     }
   }, [currentPatient]);
 
-  // ✅ COPY เป๊ะๆ จากหน้า TodayPatientInformation - ฟังก์ชันโหลดข้อมูลเพิ่มเติม
+  // โหลดข้อมูลผู้ป่วย - เหมือนเดิม
   const loadPatientData = async () => {
     if (!currentPatient) return;
 
     try {
       setLoading(true);
 
-      // ✅ ใช้ข้อมูลจาก currentPatient ก่อน (มาจากคิว)
       const initialVitals = {
         WEIGHT1: currentPatient.WEIGHT1 || '',
         HIGHT1: currentPatient.HIGHT1 || '',
@@ -69,17 +76,15 @@ export default function MedicalHistory({ currentPatient, onSaveSuccess }) {
         SPO2: currentPatient.SPO2 || ''
       };
 
-      console.log('🩺 Medical History - Initial vitals from currentPatient:', initialVitals);
+      console.log('Medical History - Initial vitals from currentPatient:', initialVitals);
       setVitals(initialVitals);
 
-      // ✅ พยายามดึงข้อมูลล่าสุดจาก Treatment table
       if (currentPatient.VNO) {
         try {
-          const treatmentResponse = await TreatmentService.getTreatmentByVN(currentPatient.VNO);
+          const treatmentResponse = await TreatmentService.getTreatmentByVNO(currentPatient.VNO);
           if (treatmentResponse.success && treatmentResponse.data) {
-            console.log('✅ Medical History - Found treatment data:', treatmentResponse.data);
+            console.log('Found treatment data:', treatmentResponse.data);
 
-            // ใช้ข้อมูลจาก Treatment ถ้ามี
             const treatmentVitals = {
               WEIGHT1: treatmentResponse.data.WEIGHT1 || initialVitals.WEIGHT1,
               HIGHT1: treatmentResponse.data.HIGHT1 || initialVitals.HIGHT1,
@@ -91,22 +96,20 @@ export default function MedicalHistory({ currentPatient, onSaveSuccess }) {
               SPO2: treatmentResponse.data.SPO2 || initialVitals.SPO2
             };
 
-            console.log('🔄 Medical History - Updated vitals from treatment:', treatmentVitals);
+            console.log('Updated vitals from treatment:', treatmentVitals);
             setVitals(treatmentVitals);
           }
         } catch (error) {
-          console.log('⚠️ Medical History - No treatment data found, using currentPatient data');
+          console.log('No treatment data found, using currentPatient data');
         }
       }
 
-      // ✅ ลองดึงข้อมูลจาก Patient Service (สำรอง)
       try {
         const PatientService = await import('../../services/patientService');
         const patientWithVitals = await PatientService.default.getPatientWithVitals(currentPatient.HNCODE);
         if (patientWithVitals && Object.keys(patientWithVitals).length > 0) {
-          console.log('📊 Medical History - Patient history loaded:', patientWithVitals);
+          console.log('Patient history loaded:', patientWithVitals);
 
-          // อัพเดตเฉพาะข้อมูลที่ยังไม่มี
           setVitals(prev => ({
             WEIGHT1: prev.WEIGHT1 || patientWithVitals.WEIGHT1 || '',
             HIGHT1: prev.HIGHT1 || patientWithVitals.HIGHT1 || '',
@@ -119,18 +122,42 @@ export default function MedicalHistory({ currentPatient, onSaveSuccess }) {
           }));
         }
       } catch (error) {
-        console.log('⚠️ Medical History - Could not load patient history:', error.message);
+        console.log('Could not load patient history:', error.message);
       }
 
-      // โหลดข้อมูลการรักษาเพิ่มเติม (ถ้ามี VNO)
       if (currentPatient.VNO) {
         loadTodayTreatment();
       }
 
     } catch (error) {
-      console.error('❌ Medical History - Error loading patient data:', error);
+      console.error('Error loading patient data:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // โหลดประวัติการรักษา
+  const loadTreatmentHistory = async () => {
+    if (!currentPatient?.HNCODE) return;
+
+    try {
+      console.log('Loading treatment history for HN:', currentPatient.HNCODE);
+
+      const response = await TreatmentService.getTreatmentsByPatient(currentPatient.HNCODE, {
+        page: 1,
+        limit: 20
+      });
+
+      if (response.success) {
+        console.log('Treatment history loaded:', response.data);
+        setTreatmentHistory(response.data);
+      } else {
+        console.log('No treatment history found');
+        setTreatmentHistory([]);
+      }
+    } catch (error) {
+      console.error('Error loading treatment history:', error);
+      setTreatmentHistory([]);
     }
   };
 
@@ -144,8 +171,7 @@ export default function MedicalHistory({ currentPatient, onSaveSuccess }) {
 
       if (response.success) {
         setTodayTreatment(response.data);
-        
-        // ✅ อัพเดต vitals จาก treatment data (ถ้ามี) - เหมือนหน้า TodayPatientInformation
+
         if (response.data.treatment) {
           const treatmentData = response.data.treatment;
           setVitals(prev => ({
@@ -158,20 +184,69 @@ export default function MedicalHistory({ currentPatient, onSaveSuccess }) {
             PR1: treatmentData.PR1 || prev.PR1,
             SPO2: treatmentData.SPO2 || prev.SPO2
           }));
-          console.log('✅ Medical History - Updated vitals from treatment data');
+          console.log('Updated vitals from treatment data');
         }
       } else {
-        console.log('⚠️ Medical History - No treatment data found, using currentPatient vitals');
+        console.log('No treatment data found, using currentPatient vitals');
       }
     } catch (err) {
       console.error('Error loading today treatment:', err);
-      console.log('⚠️ Medical History - Using currentPatient vitals due to API error');
+      console.log('Using currentPatient vitals due to API error');
     } finally {
       setLoading(false);
     }
   };
 
-  // ฟังก์ชันแปลงวันที่เป็นรูปแบบไทย
+  // เมื่อเลือกประวัติการรักษา
+  const handleHistoryChange = async (event) => {
+    const selectedVNO = event.target.value;
+    setSelectedHistoryVNO(selectedVNO);
+
+    if (selectedVNO === 'today') {
+      setSelectedTreatmentData(todayTreatment);
+      // กลับไปใช้ vitals ปัจจุบัน
+      const initialVitals = {
+        WEIGHT1: currentPatient.WEIGHT1 || '',
+        HIGHT1: currentPatient.HIGHT1 || '',
+        BT1: currentPatient.BT1 || '',
+        BP1: currentPatient.BP1 || '',
+        BP2: currentPatient.BP2 || '',
+        RR1: currentPatient.RR1 || '',
+        PR1: currentPatient.PR1 || '',
+        SPO2: currentPatient.SPO2 || ''
+      };
+      setVitals(initialVitals);
+    } else {
+      try {
+        setLoading(true);
+        const response = await TreatmentService.getTreatmentByVNO(selectedVNO);
+        if (response.success) {
+          setSelectedTreatmentData(response.data);
+
+          // อัพเดต vitals จากข้อมูลการรักษาที่เลือก
+          if (response.data.treatment) {
+            const historyVitals = {
+              WEIGHT1: response.data.treatment.WEIGHT1 || '',
+              HIGHT1: response.data.treatment.HIGHT1 || '',
+              BT1: response.data.treatment.BT1 || '',
+              BP1: response.data.treatment.BP1 || '',
+              BP2: response.data.treatment.BP2 || '',
+              RR1: response.data.treatment.RR1 || '',
+              PR1: response.data.treatment.PR1 || '',
+              SPO2: response.data.treatment.SPO2 || ''
+            };
+            console.log('Updated vitals from history:', historyVitals);
+            setVitals(historyVitals);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading selected treatment:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
   const formatThaiDate = (dateString) => {
     if (!dateString) return '';
     const date = new Date(dateString);
@@ -182,55 +257,31 @@ export default function MedicalHistory({ currentPatient, onSaveSuccess }) {
     });
   };
 
-  // ✅ ข้อมูล Vital Signs ใช้จาก vitals state ที่โหลดจาก currentPatient แล้ว
+  // ข้อมูล Vital Signs - เหมือนเดิม
   const vitalsData = [
     {
       label: "Blood Pressure",
-      value: vitals.BP1 && vitals.BP2
-        ? `${vitals.BP1}/${vitals.BP2}`
-        : 'ไม่มีข้อมูล',
-      display: vitals.BP1 && vitals.BP2
-        ? `${vitals.BP1}/${vitals.BP2} mmHg`
-        : 'ไม่มีข้อมูล',
-      progressValue: vitals.BP1 && vitals.BP2
-        ? Math.round(((parseFloat(vitals.BP1) + parseFloat(vitals.BP2)) / 220) * 100)
-        : 0
+      value: vitals.BP1 && vitals.BP2 ? `${vitals.BP1}/${vitals.BP2}` : 'ไม่มีข้อมูล',
+      display: vitals.BP1 && vitals.BP2 ? `${vitals.BP1}/${vitals.BP2} mmHg` : 'ไม่มีข้อมูล',
+      progressValue: vitals.BP1 && vitals.BP2 ? Math.round(((parseFloat(vitals.BP1) + parseFloat(vitals.BP2)) / 220) * 100) : 0
     },
     {
       label: "Temperature",
-      value: vitals.BT1
-        ? `${vitals.BT1}°C`
-        : 'ไม่มีข้อมูล',
-      display: vitals.BT1
-        ? `${vitals.BT1}°C`
-        : 'ไม่มีข้อมูล',
-      progressValue: vitals.BT1
-        ? Math.round(((parseFloat(vitals.BT1) - 35) / 7) * 100)
-        : 0
+      value: vitals.BT1 ? `${vitals.BT1}°C` : 'ไม่มีข้อมูล',
+      display: vitals.BT1 ? `${vitals.BT1}°C` : 'ไม่มีข้อมูล',
+      progressValue: vitals.BT1 ? Math.round(((parseFloat(vitals.BT1) - 35) / 7) * 100) : 0
     },
     {
       label: "Body Weight",
-      value: vitals.WEIGHT1
-        ? `${vitals.WEIGHT1} kg`
-        : 'ไม่มีข้อมูล',
-      display: vitals.WEIGHT1
-        ? `${vitals.WEIGHT1} kg`
-        : 'ไม่มีข้อมูล',
-      progressValue: vitals.WEIGHT1
-        ? Math.round((parseFloat(vitals.WEIGHT1) / 100) * 100)
-        : 0
+      value: vitals.WEIGHT1 ? `${vitals.WEIGHT1} kg` : 'ไม่มีข้อมูล',
+      display: vitals.WEIGHT1 ? `${vitals.WEIGHT1} kg` : 'ไม่มีข้อมูล',
+      progressValue: vitals.WEIGHT1 ? Math.round((parseFloat(vitals.WEIGHT1) / 100) * 100) : 0
     },
     {
       label: "Height",
-      value: vitals.HIGHT1
-        ? `${vitals.HIGHT1} cm`
-        : 'ไม่มีข้อมูล',
-      display: vitals.HIGHT1
-        ? `${vitals.HIGHT1} cm`
-        : 'ไม่มีข้อมูล',
-      progressValue: vitals.HIGHT1
-        ? Math.round((parseFloat(vitals.HIGHT1) / 200) * 100)
-        : 0
+      value: vitals.HIGHT1 ? `${vitals.HIGHT1} cm` : 'ไม่มีข้อมูล',
+      display: vitals.HIGHT1 ? `${vitals.HIGHT1} cm` : 'ไม่มีข้อมูล',
+      progressValue: vitals.HIGHT1 ? Math.round((parseFloat(vitals.HIGHT1) / 200) * 100) : 0
     }
   ];
 
@@ -241,6 +292,9 @@ export default function MedicalHistory({ currentPatient, onSaveSuccess }) {
       </Box>
     );
   }
+
+  // เลือกข้อมูลที่จะแสดง
+  const displayTreatmentData = selectedTreatmentData || todayTreatment;
 
   return (
     <Box sx={{ p: 3 }}>
@@ -261,13 +315,12 @@ export default function MedicalHistory({ currentPatient, onSaveSuccess }) {
                     </Typography>
                   )}
                 </Avatar>
-                <Box
-                  sx={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'center',
-                    alignItems: 'center'
-                  }}>
+                <Box sx={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'center',
+                  alignItems: 'center'
+                }}>
                   <Typography variant="h5" fontWeight="600" sx={{ mb: 1 }}>
                     {currentPatient.PRENAME} {currentPatient.NAME1} {currentPatient.SURNAME}
                   </Typography>
@@ -316,7 +369,47 @@ export default function MedicalHistory({ currentPatient, onSaveSuccess }) {
             </Grid>
           </Card>
 
-          {/* Vitals Section - ✅ แสดงข้อมูลทันที */}
+          {/* เพิ่มส่วนเลือกประวัติการรักษา */}
+          <Card sx={{ p: 2, mb: 3, bgcolor: '#f8f9fa' }}>
+            <Typography variant="h6" fontWeight="600" sx={{ mb: 2, color: '#1976d2' }}>
+              เลือกดูประวัติการรักษา
+            </Typography>
+            <FormControl fullWidth>
+              <InputLabel>เลือกวันที่รักษา</InputLabel>
+              <Select
+                value={selectedHistoryVNO}
+                label="เลือกวันที่รักษา"
+                onChange={handleHistoryChange}
+              >
+                <MenuItem value="today">
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                    <span>วันนี้ ({formatThaiDate(new Date())})</span>
+                    <Chip label="ปัจจุบัน" size="small" color="primary" />
+                  </Box>
+                </MenuItem>
+                {treatmentHistory.map((treatment) => (
+                  <MenuItem key={treatment.VNO} value={treatment.VNO}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                      <span>{formatThaiDate(treatment.RDATE)}</span>
+                      <Box>
+                        <Chip
+                          label={treatment.STATUS1}
+                          size="small"
+                          color={treatment.STATUS1 === 'ปิดแล้ว' ? 'success' : 'default'}
+                          sx={{ mr: 1 }}
+                        />
+                        <Typography variant="caption" color="text.secondary">
+                          VN: {treatment.VNO}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Card>
+
+          {/* Vitals Section - เหมือนเดิม */}
           <Grid container spacing={2} sx={{ mb: 3 }}>
             {vitalsData.map((item, index) => (
               <Grid item xs={12} sm={6} key={index}>
@@ -355,7 +448,8 @@ export default function MedicalHistory({ currentPatient, onSaveSuccess }) {
           <Box sx={{ p: 2 }}>
             {/* Today's Visit Information */}
             <Typography variant="h6" fontWeight="600" sx={{ mb: 3, color: '#1976d2' }}>
-              ข้อมูลการตรวจรักษาวันนี้
+              ข้อมูลการตรวจรักษา
+              {selectedHistoryVNO === 'today' ? 'วันนี้' : `วันที่ ${formatThaiDate(selectedTreatmentData?.treatment?.RDATE)}`}
             </Typography>
 
             {/* Vitals Information */}
@@ -403,14 +497,14 @@ export default function MedicalHistory({ currentPatient, onSaveSuccess }) {
                   HN: {currentPatient.HNCODE}
                 </Typography>
                 <Typography sx={{ mb: 1 }}>
-                  VN: {currentPatient.VNO || 'ยังไม่สร้าง'}
+                  VN: {selectedHistoryVNO === 'today' ? (currentPatient.VNO || 'ยังไม่สร้าง') : selectedHistoryVNO}
                 </Typography>
               </Grid>
             </Grid>
 
             <Divider sx={{ my: 3 }} />
 
-            {/* Treatment Details from today */}
+            {/* Treatment Details */}
             {loading && (
               <Box sx={{ textAlign: 'center', py: 2 }}>
                 <CircularProgress size={24} />
@@ -420,14 +514,14 @@ export default function MedicalHistory({ currentPatient, onSaveSuccess }) {
               </Box>
             )}
 
-            {todayTreatment && (
+            {displayTreatmentData && (
               <Grid container spacing={3}>
                 <Grid item xs={6}>
                   <Typography variant="body1" fontWeight="600" sx={{ mb: 2 }}>
                     การตรวจเพิ่มเติม:
                   </Typography>
-                  {todayTreatment.labTests?.length > 0 ? (
-                    todayTreatment.labTests.map((lab, idx) => (
+                  {displayTreatmentData.labTests?.length > 0 ? (
+                    displayTreatmentData.labTests.map((lab, idx) => (
                       <Typography key={idx} variant="body2" sx={{ mb: 1 }}>
                         • {lab.LABNAME}
                       </Typography>
@@ -438,12 +532,12 @@ export default function MedicalHistory({ currentPatient, onSaveSuccess }) {
                     </Typography>
                   )}
 
-                  {todayTreatment.radiologicalTests?.length > 0 && (
+                  {displayTreatmentData.radiologicalTests?.length > 0 && (
                     <>
                       <Typography variant="body1" fontWeight="600" sx={{ mb: 1, mt: 2 }}>
                         การตรวจทางรังสี:
                       </Typography>
-                      {todayTreatment.radiologicalTests.map((radio, idx) => (
+                      {displayTreatmentData.radiologicalTests.map((radio, idx) => (
                         <Typography key={idx} variant="body2" sx={{ mb: 1 }}>
                           • {radio.RLNAME}
                         </Typography>
@@ -456,8 +550,8 @@ export default function MedicalHistory({ currentPatient, onSaveSuccess }) {
                   <Typography variant="body1" fontWeight="600" sx={{ mb: 2 }}>
                     การรักษา/ยาที่สั่ง:
                   </Typography>
-                  {todayTreatment.drugs?.length > 0 ? (
-                    todayTreatment.drugs.map((drug, idx) => (
+                  {displayTreatmentData.drugs?.length > 0 ? (
+                    displayTreatmentData.drugs.map((drug, idx) => (
                       <Typography key={idx} variant="body2" sx={{ mb: 1 }}>
                         • {drug.GENERIC_NAME} {drug.QTY} {drug.UNIT_NAME}
                         <br />
@@ -476,7 +570,7 @@ export default function MedicalHistory({ currentPatient, onSaveSuccess }) {
             )}
           </Box>
 
-          {/* Summary Cards */}
+          {/* Summary Cards - เหมือนเดิม */}
           <Grid container spacing={2} sx={{ mt: 2 }}>
             {/* Vital Signs Summary */}
             <Grid item xs={12} md={4}>

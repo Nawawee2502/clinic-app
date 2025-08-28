@@ -896,8 +896,8 @@ const ตรวจรักษา = () => {
                     onSaveSuccess={handleDiagnosisSaveSuccess}
                   />
                 )}
-                {tabIndex === 3 && <LabandXray currentPatient={currentPatient} />}
-                {tabIndex === 4 && <DxandTreatment currentPatient={currentPatient} />}
+                {tabIndex === 3 && <LabandXray currentPatient={currentPatient} onSaveSuccess={goToNextTab} />}
+                {tabIndex === 4 && <DxandTreatment currentPatient={currentPatient} onSaveSuccess={goToNextTab} />}
                 {tabIndex === 5 && <Ordermedicine currentPatient={currentPatient} />}
                 {tabIndex === 6 && <Procedure currentPatient={currentPatient} />}
                 {tabIndex === 7 && <Appointment currentPatient={currentPatient} />}

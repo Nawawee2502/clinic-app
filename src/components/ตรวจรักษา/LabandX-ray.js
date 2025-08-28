@@ -106,18 +106,27 @@ const LabandXray = ({ currentPatient, onSaveSuccess }) => {
       const labTests = [];
       const radioTests = [];
 
-      // Radiological Tests
+      // Radiological Tests - แก้ไข: ใช้ชื่อฟิลด์ที่ถูกต้องตาม backend
       if (labData.radiological.chestXray) {
-        radioTests.push({ RLCODE: 'XR001', NOTE1: labData.radiological.xrayNote });
+        radioTests.push({
+          RLCODE: 'XR001',
+          NOTE1: labData.radiological.xrayNote || ''
+        });
       }
       if (labData.radiological.xray) {
-        radioTests.push({ RLCODE: 'XR002', NOTE1: labData.radiological.xrayNote });
+        radioTests.push({
+          RLCODE: 'XR002',
+          NOTE1: labData.radiological.xrayNote || ''
+        });
       }
       if (labData.radiological.ultrasound) {
-        radioTests.push({ RLCODE: 'US001', NOTE1: labData.radiological.ultrasoundNote });
+        radioTests.push({
+          RLCODE: 'US001',
+          NOTE1: labData.radiological.ultrasoundNote || ''
+        });
       }
 
-      // Laboratory Tests
+      // Laboratory Tests - แก้ไข: ใช้ชื่อฟิลด์ที่ถูกต้องตาม backend
       if (labData.laboratory.cbc) {
         labTests.push({ LABCODE: 'LAB001' });
       }
@@ -134,24 +143,30 @@ const LabandXray = ({ currentPatient, onSaveSuccess }) => {
         labTests.push({ LABCODE: 'LAB005' });
       }
       if (labData.laboratory.other && labData.laboratory.otherNote) {
-        labTests.push({ LABCODE: 'LAB999', NOTE1: labData.laboratory.otherNote });
+        labTests.push({
+          LABCODE: 'LAB999',
+          NOTE1: labData.laboratory.otherNote
+        });
       }
 
-      // บันทึกข้อมูล
+      // แก้ไข: ปรับโครงสร้างข้อมูลให้ตรงกับ API backend
       const treatmentData = {
         VNO: currentPatient.VNO,
         HNNO: currentPatient.HNCODE,
+        STATUS1: 'กำลังตรวจ',
         labTests: labTests,
         radioTests: radioTests
       };
 
+      console.log('Sending lab data:', treatmentData);
+
       const response = await TreatmentService.updateTreatment(currentPatient.VNO, treatmentData);
 
       if (response.success) {
-        alert('บันทึกข้อมูล Lab/X-ray สำเร็จ!');
         if (onSaveSuccess) {
-          onSaveSuccess();
+          onSaveSuccess(); // ย้ายมาก่อน alert
         }
+        alert('บันทึกข้อมูล Lab/X-ray สำเร็จ!');
       } else {
         alert('ไม่สามารถบันทึกข้อมูลได้: ' + response.message);
       }
@@ -423,7 +438,7 @@ const LabandXray = ({ currentPatient, onSaveSuccess }) => {
                     }
                   }}
                 >
-                  {saving ? 'กำลังบันทึก...' : 'บันทึกและไปหน้าถัดไป'}
+                  {saving ? 'กำลังบันทึก...' : 'บันทึกข้อมูล'}
                 </Button>
 
                 <Button

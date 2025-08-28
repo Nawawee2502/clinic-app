@@ -10,6 +10,9 @@ import PropTypes from 'prop-types';
 // Import Services
 import TreatmentService from "../../services/treatmentService";
 
+// แก้ไข API endpoints
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
+
 const DxandTreatment = ({ currentPatient, onSaveSuccess }) => {
   const [dxData, setDxData] = useState({
     dx: '',
@@ -57,27 +60,39 @@ const DxandTreatment = ({ currentPatient, onSaveSuccess }) => {
 
   const loadDxOptions = async () => {
     try {
-      // โหลดรายการ Dx จาก API
-      const response = await fetch('/api/dx'); // สมมุติ API endpoint
+      // แก้ไข: ใช้ endpoint ที่ถูกต้อง
+      const response = await fetch(`${API_BASE_URL}/diagnosis?limit=100`);
       if (response.ok) {
-        const data = await response.json();
-        setDxOptions(data);
+        const result = await response.json();
+        if (result.success) {
+          setDxOptions(result.data || []);
+        }
+      } else {
+        console.error('Failed to load dx options:', response.status);
       }
     } catch (error) {
       console.error('Error loading dx options:', error);
+      // ใส่ข้อมูล fallback
+      setDxOptions([]);
     }
   };
 
   const loadIcd10Options = async () => {
     try {
-      // โหลดรายการ ICD10 จาก API
-      const response = await fetch('/api/icd10'); // สมมุติ API endpoint
+      // แก้ไข: ใช้ endpoint ที่ถูกต้อง
+      const response = await fetch(`${API_BASE_URL}/icd10?limit=100`);
       if (response.ok) {
-        const data = await response.json();
-        setIcd10Options(data);
+        const result = await response.json();
+        if (result.success) {
+          setIcd10Options(result.data || []);
+        }
+      } else {
+        console.error('Failed to load icd10 options:', response.status);
       }
     } catch (error) {
       console.error('Error loading icd10 options:', error);
+      // ใส่ข้อมูล fallback
+      setIcd10Options([]);
     }
   };
 
@@ -97,22 +112,25 @@ const DxandTreatment = ({ currentPatient, onSaveSuccess }) => {
         return;
       }
 
+      // แก้ไข: ปรับโครงสร้างข้อมูลให้ตรงกับ API
       const treatmentData = {
         VNO: currentPatient.VNO,
         HNNO: currentPatient.HNCODE,
-        DXCODE: dxData.dxCode,
-        ICD10CODE: dxData.icd10Code,
-        TREATMENT1: dxData.treatment,
+        DXCODE: dxData.dxCode || null,
+        ICD10CODE: dxData.icd10Code || null,
+        TREATMENT1: dxData.treatment || null,
         STATUS1: 'กำลังตรวจ'
       };
+
+      console.log('Sending treatment data:', treatmentData);
 
       const response = await TreatmentService.updateTreatment(currentPatient.VNO, treatmentData);
 
       if (response.success) {
-        alert('บันทึกข้อมูล Dx และ Treatment สำเร็จ!');
         if (onSaveSuccess) {
-          onSaveSuccess();
+          onSaveSuccess(); // ย้ายมาก่อน alert
         }
+        alert('บันทึกข้อมูล Dx และ Treatment สำเร็จ!');
       } else {
         alert('ไม่สามารถบันทึกข้อมูลได้: ' + response.message);
       }
@@ -217,11 +235,11 @@ const DxandTreatment = ({ currentPatient, onSaveSuccess }) => {
               </Typography>
               <Autocomplete
                 options={dxOptions}
-                getOptionLabel={(option) => option.DXNAME_THAI || ''}
+                getOptionLabel={(option) => option.DXNAME_THAI || option.DXNAME_ENG || ''}
                 value={dxOptions.find(opt => opt.DXCODE === dxData.dxCode) || null}
                 onChange={(event, newValue) => {
                   handleDxChange('dxCode', newValue?.DXCODE || '');
-                  handleDxChange('dx', newValue?.DXNAME_THAI || '');
+                  handleDxChange('dx', newValue?.DXNAME_THAI || newValue?.DXNAME_ENG || '');
                 }}
                 renderInput={(params) => (
                   <TextField
@@ -318,7 +336,7 @@ const DxandTreatment = ({ currentPatient, onSaveSuccess }) => {
                     }
                   }}
                 >
-                  {saving ? 'กำลังบันทึก...' : 'บันทึกและไปหน้าถัดไป'}
+                  {saving ? 'กำลังบันทึก...' : 'บันทึกข้อมูล'}
                 </Button>
 
                 <Button

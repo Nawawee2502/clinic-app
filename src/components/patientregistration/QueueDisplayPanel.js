@@ -67,7 +67,7 @@ const QueueDisplayPanel = ({
                             color: '#1976d2'
                         }}>
                             <QueueIcon sx={{ mr: 1 }} />
-                            คิววันนี้ ({queueStats.total})
+                            คิววันนี้ ({queueStats?.total || 0})
                         </Typography>
                         <IconButton
                             size="small"
@@ -87,21 +87,21 @@ const QueueDisplayPanel = ({
                         textAlign: 'center'
                     }}>
                         <Box sx={{ p: 1, bgcolor: '#e3f2fd', borderRadius: 1 }}>
-                            <Typography variant="h6" color="primary">{queueStats.total}</Typography>
+                            <Typography variant="h6" color="primary">{queueStats?.total || 0}</Typography>
                             <Typography variant="caption">ทั้งหมด</Typography>
                         </Box>
                         <Box sx={{ p: 1, bgcolor: '#fff3e0', borderRadius: 1 }}>
-                            <Typography variant="h6" color="warning.main">{queueStats.waiting}</Typography>
+                            <Typography variant="h6" color="warning.main">{queueStats?.waiting || 0}</Typography>
                             <Typography variant="caption">รอตรวจ</Typography>
                         </Box>
                         <Box sx={{ p: 1, bgcolor: '#e8f5e8', borderRadius: 1 }}>
-                            <Typography variant="h6" color="success.main">{queueStats.completed}</Typography>
+                            <Typography variant="h6" color="success.main">{queueStats?.completed || 0}</Typography>
                             <Typography variant="caption">เสร็จแล้ว</Typography>
                         </Box>
                     </Box>
 
                     <List dense>
-                        {todayQueue.map((queue, index) => (
+                        {todayQueue && todayQueue.map((queue, index) => (
                             <ListItem key={queue.QUEUE_ID || queue.queueId || index} sx={{
                                 border: '1px solid #e0e0e0',
                                 borderRadius: 1,
@@ -116,25 +116,27 @@ const QueueDisplayPanel = ({
                                 </ListItemAvatar>
                                 <ListItemText
                                     primary={
-                                        <Typography variant="body2" fontWeight="bold">
-                                            {/* รองรับทั้ง API format และ mock format */}
-                                            {queue.PRENAME || queue.prename || ''}{queue.NAME1 || queue.name1 || queue.firstName} {queue.SURNAME || queue.surname || queue.lastName}
-                                        </Typography>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                            <Typography variant="body2" fontWeight="bold">
+                                                {/* รองรับทั้ง API format และ mock format */}
+                                                {queue.PRENAME || queue.prename || ''}{queue.NAME1 || queue.name1 || queue.firstName} {queue.SURNAME || queue.surname || queue.lastName}
+                                            </Typography>
+                                            <Chip
+                                                label={queue.QUEUE_STATUS || queue.queueStatus || queue.status || 'รอตรวจ'}
+                                                size="small"
+                                                color={getStatusColor(queue.QUEUE_STATUS || queue.queueStatus || queue.status || 'รอตรวจ')}
+                                                sx={{ ml: 1 }}
+                                            />
+                                        </Box>
                                     }
                                     secondary={
                                         <Box>
                                             <Typography variant="caption" display="block">
-                                                HN: {queue.HNCODE || queue.hnCode} • VN: {queue.VN_NUMBER || queue.VNO || queue.vnNumber}
+                                                HN: {queue.HNCODE || queue.hnCode || 'N/A'} • VN: {queue.VN_NUMBER || queue.VNO || queue.vnNumber || 'N/A'}
                                             </Typography>
                                             <Typography variant="caption" display="block">
                                                 เวลา: {formatTime(queue.QUEUE_TIME || queue.queueTime || queue.createdAt)}
                                             </Typography>
-                                            <Chip
-                                                label={queue.QUEUE_STATUS || queue.queueStatus || queue.status}
-                                                size="small"
-                                                color={getStatusColor(queue.QUEUE_STATUS || queue.queueStatus || queue.status)}
-                                                sx={{ mt: 0.5 }}
-                                            />
                                         </Box>
                                     }
                                 />
@@ -153,7 +155,7 @@ const QueueDisplayPanel = ({
             <Card>
                 <CardContent>
                     <Typography variant="h6" sx={{ mb: 2, color: '#1976d2' }}>
-                        📋 เมนูหลัก
+                        เมนูหลัก
                     </Typography>
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                         <Button
