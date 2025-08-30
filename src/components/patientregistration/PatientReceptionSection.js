@@ -124,32 +124,34 @@ const PatientReceptionSection = ({
     };
 
     // ✅ ฟังก์ชันโหลด Vital Signs เดิม
+    // ✅ ฟังก์ชันโหลด Vital Signs เดิม - เฉพาะน้ำหนักและส่วนสูงเท่านั้น
     const loadPatientVitals = async (hncode) => {
         setVitalsLoading(true);
 
         try {
-            console.log('🔍 Loading previous vitals for HN:', hncode);
+            console.log('🔍 Loading previous weight and height for HN:', hncode);
 
             // วิธีที่ 1: ลองดึงจาก Patient Service ก่อน
             const patientWithVitals = await PatientService.getPatientWithVitals(hncode);
 
             if (patientWithVitals && (patientWithVitals.WEIGHT1 || patientWithVitals.HIGH1)) {
-                console.log('✅ Found vitals from patient service:', patientWithVitals);
+                console.log('✅ Found weight/height from patient service:', patientWithVitals);
 
                 setVitalsData(prev => ({
                     ...prev,
                     WEIGHT1: patientWithVitals.WEIGHT1 || '',
                     HIGH1: patientWithVitals.HIGH1 || '',  // ✅ แก้ไขจาก HIGHT1 เป็น HIGH1
-                    BT1: patientWithVitals.BT1 || '',
-                    BP1: patientWithVitals.BP1 || '',
-                    BP2: patientWithVitals.BP2 || '',
-                    RR1: patientWithVitals.RR1 || '',
-                    PR1: patientWithVitals.PR1 || '',
-                    SPO2: patientWithVitals.SPO2 || '',
+                    // เคลียร์ข้อมูลอื่นๆ ให้กรอกใหม่
+                    BT1: '',
+                    BP1: '',
+                    BP2: '',
+                    RR1: '',
+                    PR1: '',
+                    SPO2: '',
                     SYMPTOM: '' // เคลียร์อาการเดิม เพื่อให้กรอกใหม่
                 }));
 
-                showSnackbar('โหลดข้อมูล Vital Signs เดิมสำเร็จ', 'info');
+                showSnackbar('โหลดข้อมูลน้ำหนักและส่วนสูงเดิมสำเร็จ', 'info');
                 return;
             }
 
@@ -158,36 +160,63 @@ const PatientReceptionSection = ({
                 const latestTreatment = await TreatmentService.getLatestTreatmentByHN(hncode);
 
                 if (latestTreatment.success && latestTreatment.data) {
-                    console.log('✅ Found vitals from latest treatment:', latestTreatment.data);
+                    console.log('✅ Found weight/height from latest treatment:', latestTreatment.data);
 
                     const treatmentData = latestTreatment.data;
                     setVitalsData(prev => ({
                         ...prev,
                         WEIGHT1: treatmentData.WEIGHT1 || '',
                         HIGH1: treatmentData.HIGH1 || treatmentData.HIGHT1 || '',  // ✅ รองรับทั้งสอง format
-                        BT1: treatmentData.BT1 || '',
-                        BP1: treatmentData.BP1 || '',
-                        BP2: treatmentData.BP2 || '',
-                        RR1: treatmentData.RR1 || '',
-                        PR1: treatmentData.PR1 || '',
-                        SPO2: treatmentData.SPO2 || '',
+                        // เคลียร์ข้อมูลอื่นๆ ให้กรอกใหม่
+                        BT1: '',
+                        BP1: '',
+                        BP2: '',
+                        RR1: '',
+                        PR1: '',
+                        SPO2: '',
                         SYMPTOM: '' // เคลียร์อาการเดิม
                     }));
 
-                    showSnackbar('โหลดข้อมูล Vital Signs จากการรักษาครั้งล่าสุดสำเร็จ', 'info');
+                    showSnackbar('โหลดข้อมูลน้ำหนักและส่วนสูงจากการรักษาครั้งล่าสุดสำเร็จ', 'info');
                     return;
                 }
             } catch (treatmentError) {
                 console.log('⚠️ No treatment data found:', treatmentError.message);
             }
 
-            // ถ้าไม่พบข้อมูลเลย
-            console.log('🔍 No previous vitals found, starting fresh');
-            showSnackbar('ไม่พบข้อมูล Vital Signs เดิม กรุณากรอกข้อมูลใหม่', 'warning');
+            // ถ้าไม่พบข้อมูลเลย - เคลียร์ทุกอย่าง
+            console.log('🔍 No previous weight/height found, starting fresh');
+            setVitalsData(prev => ({
+                ...prev,
+                WEIGHT1: '',
+                HIGH1: '',
+                BT1: '',
+                BP1: '',
+                BP2: '',
+                RR1: '',
+                PR1: '',
+                SPO2: '',
+                SYMPTOM: ''
+            }));
+            showSnackbar('ไม่พบข้อมูลน้ำหนักและส่วนสูงเดิม กรุณากรอกข้อมูลใหม่', 'warning');
 
         } catch (error) {
-            console.error('❌ Error loading patient vitals:', error);
-            showSnackbar('ไม่สามารถโหลดข้อมูล Vital Signs เดิมได้', 'error');
+            console.error('❌ Error loading patient weight/height:', error);
+            showSnackbar('ไม่สามารถโหลดข้อมูลน้ำหนักและส่วนสูงเดิมได้', 'error');
+
+            // เคลียร์ข้อมูลทั้งหมดในกรณีเกิด error
+            setVitalsData(prev => ({
+                ...prev,
+                WEIGHT1: '',
+                HIGH1: '',
+                BT1: '',
+                BP1: '',
+                BP2: '',
+                RR1: '',
+                PR1: '',
+                SPO2: '',
+                SYMPTOM: ''
+            }));
         } finally {
             setVitalsLoading(false);
         }
