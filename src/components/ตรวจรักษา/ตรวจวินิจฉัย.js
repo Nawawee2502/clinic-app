@@ -38,6 +38,13 @@ const ตรวจวินิจฉัย = ({ currentPatient, onSaveSuccess })
       na: false,
       imaging: false,
       lab: false
+    },
+    // เพิ่มข้อมูล Lab/X-ray
+    radiological: {
+      note: ''
+    },
+    laboratory: {
+      note: ''
     }
   });
 
@@ -46,7 +53,7 @@ const ตรวจวินิจฉัย = ({ currentPatient, onSaveSuccess })
   const [currentTreatment, setCurrentTreatment] = useState(null);
   const [patientHistory, setPatientHistory] = useState(null);
 
-  // ✅ ใช้ข้อมูล vitals จาก currentPatient ทันที (copy จาก TodayPatientInformation)
+  // ใช้ข้อมูล vitals จาก currentPatient ทันที (copy จาก TodayPatientInformation)
   const [vitals, setVitals] = useState({
     WEIGHT1: '',
     HIGHT1: '',
@@ -65,14 +72,14 @@ const ตรวจวินิจฉัย = ({ currentPatient, onSaveSuccess })
     }
   }, [currentPatient]);
 
-  // ✅ COPY เป๊ะๆ จากหน้า TodayPatientInformation - ฟังก์ชันโหลดข้อมูลเพิ่มเติม
+  // COPY เป๊ะๆ จากหน้า TodayPatientInformation - ฟังก์ชันโหลดข้อมูลเพิ่มเติม
   const loadPatientData = async () => {
     if (!currentPatient) return;
 
     try {
       setLoading(true);
 
-      // ✅ ใช้ข้อมูลจาก currentPatient ก่อน (มาจากคิว)
+      // ใช้ข้อมูลจาก currentPatient ก่อน (มาจากคิว)
       const initialVitals = {
         WEIGHT1: currentPatient.WEIGHT1 || '',
         HIGHT1: currentPatient.HIGHT1 || '',
@@ -87,7 +94,7 @@ const ตรวจวินิจฉัย = ({ currentPatient, onSaveSuccess })
       console.log('🩺 Diagnosis - Initial vitals from currentPatient:', initialVitals);
       setVitals(initialVitals);
 
-      // ✅ พยายามดึงข้อมูลล่าสุดจาก Treatment table
+      // พยายามดึงข้อมูลล่าสุดจาก Treatment table
       if (currentPatient.VNO) {
         try {
           const treatmentResponse = await TreatmentService.getTreatmentByVN(currentPatient.VNO);
@@ -114,7 +121,7 @@ const ตรวจวินิจฉัย = ({ currentPatient, onSaveSuccess })
         }
       }
 
-      // ✅ ลองดึงข้อมูลจาก Patient Service (สำรอง)
+      // ลองดึงข้อมูลจาก Patient Service (สำรอง)
       try {
         const PatientService = await import('../../services/patientService');
         const patientWithVitals = await PatientService.default.getPatientWithVitals(currentPatient.HNCODE);
@@ -149,7 +156,7 @@ const ตรวจวินิจฉัย = ({ currentPatient, onSaveSuccess })
   // โหลดข้อมูลการตรวจวินิจฉัย
   const loadDiagnosisData = async () => {
     try {
-      // ✅ ใช้อาการเบื้องต้นจาก currentPatient ก่อน
+      // ใช้อาการเบื้องต้นจาก currentPatient ก่อน
       setDiagnosisData(prev => ({
         ...prev,
         CHIEF_COMPLAINT: currentPatient.SYMPTOM || ''
@@ -172,6 +179,73 @@ const ตรวจวินิจฉัย = ({ currentPatient, onSaveSuccess })
               PHYSICAL_EXAM: treatment.diagnosis.PHYSICAL_EXAM || '',
               PLAN1: treatment.diagnosis.PLAN1 || ''
             }));
+          }
+
+          // โหลดข้อมูล Investigation Notes ที่บันทึกเป็น text
+          if (treatment.treatment?.INVESTIGATION_NOTES) {
+            const investigationNotes = treatment.treatment.INVESTIGATION_NOTES;
+            console.log('📝 Loading investigation notes:', investigationNotes);
+
+            let imagingNote = '';
+            let laboratoryNote = '';
+
+            // แยกข้อมูล [Imaging] และ [Laboratory] จาก INVESTIGATION_NOTES
+            const lines = investigationNotes.split('\n\n');
+            
+            lines.forEach(line => {
+              if (line.startsWith('[Imaging]')) {
+                imagingNote = line.replace('[Imaging]', '').trim();
+              } else if (line.startsWith('[Laboratory]')) {
+                laboratoryNote = line.replace('[Laboratory]', '').trim();
+              }
+            });
+
+            setDiagnosisData(prev => ({
+              ...prev,
+              investigations: {
+                ...prev.investigations,
+                imaging: imagingNote.length > 0,
+                lab: laboratoryNote.length > 0
+              },
+              radiological: {
+                note: imagingNote
+              },
+              laboratory: {
+                note: laboratoryNote
+              }
+            }));
+          }
+
+          // เก็บการโหลดจาก labTests และ radiologicalTests ไว้เป็น fallback สำหรับข้อมูลเก่า
+          const { labTests, radiologicalTests } = treatment;
+
+          if (!treatment.treatment?.INVESTIGATION_NOTES) {
+            // ถ้าไม่มี INVESTIGATION_NOTES ให้ใช้วิธีเก่า
+            if (radiologicalTests && radiologicalTests.length > 0) {
+              setDiagnosisData(prev => ({
+                ...prev,
+                investigations: {
+                  ...prev.investigations,
+                  imaging: true
+                },
+                radiological: {
+                  note: radiologicalTests[0]?.NOTE1 || ''
+                }
+              }));
+            }
+
+            if (labTests && labTests.length > 0) {
+              setDiagnosisData(prev => ({
+                ...prev,
+                investigations: {
+                  ...prev.investigations,
+                  lab: true
+                },
+                laboratory: {
+                  note: labTests[0]?.NOTE1 || ''
+                }
+              }));
+            }
           }
         }
       }
@@ -201,6 +275,17 @@ const ตรวจวินิจฉัย = ({ currentPatient, onSaveSuccess })
     setDiagnosisData(prev => ({
       ...prev,
       [field]: value
+    }));
+  };
+
+  // จัดการการเปลี่ยนแปลงข้อมูล radiological/laboratory
+  const handleLabDataChange = (section, field, value) => {
+    setDiagnosisData(prev => ({
+      ...prev,
+      [section]: {
+        ...prev[section],
+        [field]: value
+      }
     }));
   };
 
@@ -246,74 +331,97 @@ const ตรวจวินิจฉัย = ({ currentPatient, onSaveSuccess })
         return;
       }
 
-      // เตรียมข้อมูลสำหรับบันทึก
+      // เตรียมข้อมูลการวินิจฉัยแยกต่างหาก
       const diagnosisPayload = {
-        VNO: currentPatient.VNO || TreatmentService.generateVNO(),
         CHIEF_COMPLAINT: diagnosisData.CHIEF_COMPLAINT.trim(),
         PRESENT_ILL: diagnosisData.PRESENT_ILL.trim(),
         PHYSICAL_EXAM: diagnosisData.PHYSICAL_EXAM.trim(),
         PLAN1: diagnosisData.PLAN1.trim()
       };
 
-      // การตรวจที่เลือก
-      const selectedInvestigations = [];
-      if (diagnosisData.investigations.imaging) {
-        selectedInvestigations.push('IX003'); // รหัสสำหรับ Imaging
-      }
-      if (diagnosisData.investigations.lab) {
-        selectedInvestigations.push('IX001'); // รหัสสำหรับ Lab
-      }
-
-      // บันทึกข้อมูลการวินิจฉัย
+      // สร้าง treatmentData ที่เรียบง่าย
       const treatmentData = {
-        VNO: diagnosisPayload.VNO,
+        VNO: currentPatient.VNO,
         HNNO: currentPatient.HNCODE,
-        RDATE: new Date().toISOString().split('T')[0],
-        SYMPTOM: diagnosisData.CHIEF_COMPLAINT,
-        QUEUE_ID: currentPatient.queueId,
-        STATUS1: 'กำลังตรวจ',
-
-        diagnosis: diagnosisPayload,
-        investigations: selectedInvestigations
+        SYMPTOM: diagnosisData.CHIEF_COMPLAINT.trim(),
+        STATUS1: 'กำลังตรวจ'
       };
 
+      // เพิ่มข้อมูลการวินิจฉัยถ้ามี
+      if (Object.values(diagnosisPayload).some(val => val.trim())) {
+        treatmentData.diagnosis = diagnosisPayload;
+      }
+
+      // เพิ่มข้อมูล Imaging และ Laboratory เป็น text notes แทนการใช้ foreign key
+      const notes = [];
+      
+      if (diagnosisData.investigations.imaging && diagnosisData.radiological.note.trim()) {
+        notes.push(`[Imaging] ${diagnosisData.radiological.note.trim()}`);
+      }
+      
+      if (diagnosisData.investigations.lab && diagnosisData.laboratory.note.trim()) {
+        notes.push(`[Laboratory] ${diagnosisData.laboratory.note.trim()}`);
+      }
+
+      // บันทึก notes เป็น text ใน TREATMENT1
+      if (notes.length > 0) {
+        treatmentData.INVESTIGATION_NOTES = notes.join('\n\n');
+      }
+
+      console.log('📋 Sending diagnosis data to backend:', treatmentData);
+
       let response;
-      if (currentTreatment) {
+      if (currentTreatment && currentPatient.VNO) {
         // อัพเดทข้อมูลเดิม
         response = await TreatmentService.updateTreatment(currentPatient.VNO, treatmentData);
       } else {
-        // สร้างใหม่
-        response = await TreatmentService.createTreatmentWithQueue(treatmentData, currentPatient.queueId);
+        // สร้างใหม่ - เพิ่ม QUEUE_ID และ RDATE
+        const newTreatmentData = {
+          ...treatmentData,
+          QUEUE_ID: currentPatient.queueId,
+          RDATE: new Date().toISOString().split('T')[0]
+        };
+        
+        if (currentPatient.queueId) {
+          response = await TreatmentService.createTreatmentWithQueue(newTreatmentData, currentPatient.queueId);
+        } else {
+          response = await TreatmentService.createTreatment(newTreatmentData);
+        }
       }
 
-      if (response.success) {
+      if (response && response.success) {
         alert('บันทึกข้อมูลการตรวจวินิจฉัยสำเร็จ!');
 
         // รีเฟรชข้อมูล
-        loadDiagnosisData();
+        await loadDiagnosisData();
 
         if (onSaveSuccess) {
-          // ✅ ถ้าเลือก N/A ให้ไปหน้า DX โดยตรง (index 4)
-          if (diagnosisData.investigations.na) {
-            onSaveSuccess(4); // ส่ง 4 เพื่อไปแท็บ DX เลย
-          } else {
-            // ถ้าไม่เลือก N/A ให้ไปหน้าถัดไปปกติ
-            onSaveSuccess();
-          }
+          // ไปหน้า DX โดยตรง (index 4) เนื่องจากรวม Lab/X-ray แล้ว
+          onSaveSuccess(4);
         }
       } else {
-        alert('ไม่สามารถบันทึกข้อมูลได้: ' + response.message);
+        const errorMsg = response?.message || 'ไม่สามารถบันทึกข้อมูลได้';
+        alert('ไม่สามารถบันทึกข้อมูลได้: ' + errorMsg);
       }
 
     } catch (error) {
-      console.error('Error saving diagnosis:', error);
-      alert('เกิดข้อผิดพลาดในการบันทึกข้อมูล: ' + error.message);
+      console.error('❌ Error saving diagnosis:', error);
+      
+      // ให้รายละเอียดข้อผิดพลาดมากขึ้น
+      let errorMsg = 'เกิดข้อผิดพลาดในการบันทึกข้อมูล';
+      if (error.response?.data?.message) {
+        errorMsg += ': ' + error.response.data.message;
+      } else if (error.message) {
+        errorMsg += ': ' + error.message;
+      }
+      
+      alert(errorMsg);
     } finally {
       setSaving(false);
     }
   };
 
-  // ✅ ข้อมูล Vital Signs ใช้จาก vitals state ที่โหลดจาก currentPatient แล้ว
+  // ข้อมูล Vital Signs ใช้จาก vitals state ที่โหลดจาก currentPatient แล้ว
   const vitalsData = [
     {
       label: "Blood Pressure",
@@ -446,7 +554,7 @@ const ตรวจวินิจฉัย = ({ currentPatient, onSaveSuccess })
 
           <Divider sx={{ pt: 2 }} />
 
-          {/* Vitals Cards - ✅ แสดงข้อมูลทันที */}
+          {/* Vitals Cards */}
           <Grid container spacing={2} sx={{ mb: 3 }}>
             {vitalsData.map((item, index) => (
               <Grid item xs={12} sm={6} key={index}>
@@ -478,25 +586,6 @@ const ตรวจวินิจฉัย = ({ currentPatient, onSaveSuccess })
               </Grid>
             ))}
           </Grid>
-
-          {/* Previous Diagnosis History */}
-          {patientHistory && patientHistory.length > 0 && (
-            <Paper sx={{ p: 2, mb: 2 }}>
-              <Typography variant="h6" fontWeight="600" sx={{ mb: 2 }}>
-                ประวัติการวินิจฉัยล่าสุด
-              </Typography>
-              {patientHistory.slice(0, 3).map((history, index) => (
-                <Box key={history.VNO} sx={{ mb: 1, p: 1, bgcolor: '#f5f5f5', borderRadius: 1 }}>
-                  <Typography variant="body2" fontWeight="bold">
-                    {new Date(history.RDATE).toLocaleDateString('th-TH')}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {history.DXNAME_THAI || history.SYMPTOM || 'ไม่ระบุ'}
-                  </Typography>
-                </Box>
-              ))}
-            </Paper>
-          )}
         </Grid>
 
         {/* Diagnosis Form Section */}
@@ -601,8 +690,28 @@ const ตรวจวินิจฉัย = ({ currentPatient, onSaveSuccess })
                           disabled={diagnosisData.investigations.na}
                         />
                       }
-                      label="Imaging (X-ray, CT, MRI, Ultrasound)"
+                      label="Imaging"
                     />
+                    
+                    {/* Imaging TextBox */}
+                    {diagnosisData.investigations.imaging && (
+                      <TextField
+                        fullWidth
+                        multiline
+                        rows={3}
+                        placeholder="รายละเอียดการตรวจ Imaging (X-ray, CT, MRI, Ultrasound)"
+                        value={diagnosisData.radiological.note}
+                        onChange={(e) => handleLabDataChange('radiological', 'note', e.target.value)}
+                        sx={{
+                          ml: 4, mt: 1, width: 'calc(100% - 32px)',
+                          '& .MuiOutlinedInput-root': {
+                            borderRadius: '10px',
+                            bgcolor: '#f0f8ff'
+                          },
+                        }}
+                      />
+                    )}
+
                     <FormControlLabel
                       control={
                         <Checkbox
@@ -611,8 +720,27 @@ const ตรวจวินิจฉัย = ({ currentPatient, onSaveSuccess })
                           disabled={diagnosisData.investigations.na}
                         />
                       }
-                      label="Laboratory (เจาะเลือด, ตรวจปัสสาวะ)"
+                      label="Laboratory"
                     />
+
+                    {/* Laboratory TextBox */}
+                    {diagnosisData.investigations.lab && (
+                      <TextField
+                        fullWidth
+                        multiline
+                        rows={3}
+                        placeholder="รายละเอียดการตรวจ Laboratory (เจาะเลือด, ตรวจปัสสาวะ, CBC, BUN, Lipid, FBS, DTX)"
+                        value={diagnosisData.laboratory.note}
+                        onChange={(e) => handleLabDataChange('laboratory', 'note', e.target.value)}
+                        sx={{
+                          ml: 4, mt: 1, width: 'calc(100% - 32px)',
+                          '& .MuiOutlinedInput-root': {
+                            borderRadius: '10px',
+                            bgcolor: '#f0f8ff'
+                          },
+                        }}
+                      />
+                    )}
                   </FormGroup>
                 </Box>
               </Grid>
@@ -665,33 +793,6 @@ const ตรวจวินิจฉัย = ({ currentPatient, onSaveSuccess })
               </Grid>
             </Grid>
           </Paper>
-
-          {/* Current Diagnosis Status */}
-          {currentTreatment && (
-            <Paper sx={{ p: 2, mt: 2, bgcolor: '#f8f9fa' }}>
-              <Typography variant="h6" fontWeight="600" sx={{ mb: 2 }}>
-                สถานะการรักษาปัจจุบัน
-              </Typography>
-              <Grid container spacing={2}>
-                <Grid item xs={6}>
-                  <Typography variant="body2">
-                    <strong>VN:</strong> {currentTreatment.treatment?.VNO}
-                  </Typography>
-                  <Typography variant="body2">
-                    <strong>สถานะ:</strong> {currentTreatment.treatment?.STATUS1}
-                  </Typography>
-                </Grid>
-                <Grid item xs={6}>
-                  <Typography variant="body2">
-                    <strong>แพทย์ผู้รักษา:</strong> {currentTreatment.treatment?.EMP_NAME || 'ไม่ระบุ'}
-                  </Typography>
-                  <Typography variant="body2">
-                    <strong>วันที่รักษา:</strong> {new Date(currentTreatment.treatment?.RDATE).toLocaleDateString('th-TH')}
-                  </Typography>
-                </Grid>
-              </Grid>
-            </Paper>
-          )}
         </Grid>
       </Grid>
     </Box>

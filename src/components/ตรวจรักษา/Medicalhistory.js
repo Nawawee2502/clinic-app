@@ -24,7 +24,10 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  Chip
+  Chip,
+  List,
+  ListItem,
+  ListItemText
 } from "@mui/material";
 import PropTypes from 'prop-types';
 
@@ -39,7 +42,7 @@ export default function MedicalHistory({ currentPatient, onSaveSuccess }) {
   const [selectedTreatmentData, setSelectedTreatmentData] = React.useState(null);
   const [error, setError] = React.useState(null);
 
-  // Vitals state - เหมือนเดิม
+  // Vitals state - เก็บไว้เพื่อแสดงในส่วนข้อมูลการตรวจ
   const [vitals, setVitals] = React.useState({
     WEIGHT1: '',
     HIGHT1: '',
@@ -58,7 +61,7 @@ export default function MedicalHistory({ currentPatient, onSaveSuccess }) {
     }
   }, [currentPatient]);
 
-  // โหลดข้อมูลผู้ป่วย - เหมือนเดิม
+  // โหลดข้อมูลผู้ป่วย
   const loadPatientData = async () => {
     if (!currentPatient) return;
 
@@ -84,16 +87,18 @@ export default function MedicalHistory({ currentPatient, onSaveSuccess }) {
           const treatmentResponse = await TreatmentService.getTreatmentByVNO(currentPatient.VNO);
           if (treatmentResponse.success && treatmentResponse.data) {
             console.log('Found treatment data:', treatmentResponse.data);
+            setTodayTreatment(treatmentResponse.data);
+            setSelectedTreatmentData(treatmentResponse.data); // ตั้งเป็นข้อมูลเริ่มต้น
 
             const treatmentVitals = {
-              WEIGHT1: treatmentResponse.data.WEIGHT1 || initialVitals.WEIGHT1,
-              HIGHT1: treatmentResponse.data.HIGHT1 || initialVitals.HIGHT1,
-              BT1: treatmentResponse.data.BT1 || initialVitals.BT1,
-              BP1: treatmentResponse.data.BP1 || initialVitals.BP1,
-              BP2: treatmentResponse.data.BP2 || initialVitals.BP2,
-              RR1: treatmentResponse.data.RR1 || initialVitals.RR1,
-              PR1: treatmentResponse.data.PR1 || initialVitals.PR1,
-              SPO2: treatmentResponse.data.SPO2 || initialVitals.SPO2
+              WEIGHT1: treatmentResponse.data.treatment?.WEIGHT1 || initialVitals.WEIGHT1,
+              HIGHT1: treatmentResponse.data.treatment?.HIGHT1 || initialVitals.HIGHT1,
+              BT1: treatmentResponse.data.treatment?.BT1 || initialVitals.BT1,
+              BP1: treatmentResponse.data.treatment?.BP1 || initialVitals.BP1,
+              BP2: treatmentResponse.data.treatment?.BP2 || initialVitals.BP2,
+              RR1: treatmentResponse.data.treatment?.RR1 || initialVitals.RR1,
+              PR1: treatmentResponse.data.treatment?.PR1 || initialVitals.PR1,
+              SPO2: treatmentResponse.data.treatment?.SPO2 || initialVitals.SPO2
             };
 
             console.log('Updated vitals from treatment:', treatmentVitals);
@@ -102,31 +107,6 @@ export default function MedicalHistory({ currentPatient, onSaveSuccess }) {
         } catch (error) {
           console.log('No treatment data found, using currentPatient data');
         }
-      }
-
-      try {
-        const PatientService = await import('../../services/patientService');
-        const patientWithVitals = await PatientService.default.getPatientWithVitals(currentPatient.HNCODE);
-        if (patientWithVitals && Object.keys(patientWithVitals).length > 0) {
-          console.log('Patient history loaded:', patientWithVitals);
-
-          setVitals(prev => ({
-            WEIGHT1: prev.WEIGHT1 || patientWithVitals.WEIGHT1 || '',
-            HIGHT1: prev.HIGHT1 || patientWithVitals.HIGHT1 || '',
-            BT1: prev.BT1 || patientWithVitals.BT1 || '',
-            BP1: prev.BP1 || patientWithVitals.BP1 || '',
-            BP2: prev.BP2 || patientWithVitals.BP2 || '',
-            RR1: prev.RR1 || patientWithVitals.RR1 || '',
-            PR1: prev.PR1 || patientWithVitals.PR1 || '',
-            SPO2: prev.SPO2 || patientWithVitals.SPO2 || ''
-          }));
-        }
-      } catch (error) {
-        console.log('Could not load patient history:', error.message);
-      }
-
-      if (currentPatient.VNO) {
-        loadTodayTreatment();
       }
 
     } catch (error) {
@@ -161,90 +141,57 @@ export default function MedicalHistory({ currentPatient, onSaveSuccess }) {
     }
   };
 
-  // โหลดข้อมูลการรักษาวันนี้
-  const loadTodayTreatment = async () => {
+  // เมื่อคลิกเลือกประวัติการรักษา
+  const handleHistoryClick = async (treatment) => {
     try {
       setLoading(true);
-      setError(null);
+      setSelectedHistoryVNO(treatment.VNO);
 
-      const response = await TreatmentService.getTreatmentByVNO(currentPatient.VNO);
-
+      // โหลดข้อมูลรายละเอียดของการรักษาที่เลือก
+      const response = await TreatmentService.getTreatmentByVNO(treatment.VNO);
       if (response.success) {
-        setTodayTreatment(response.data);
+        setSelectedTreatmentData(response.data);
+        console.log('Selected treatment data:', response.data);
 
+        // อัปเดต vitals จากข้อมูลการรักษาที่เลือก
         if (response.data.treatment) {
-          const treatmentData = response.data.treatment;
-          setVitals(prev => ({
-            WEIGHT1: treatmentData.WEIGHT1 || prev.WEIGHT1,
-            HIGHT1: treatmentData.HIGHT1 || prev.HIGHT1,
-            BT1: treatmentData.BT1 || prev.BT1,
-            BP1: treatmentData.BP1 || prev.BP1,
-            BP2: treatmentData.BP2 || prev.BP2,
-            RR1: treatmentData.RR1 || prev.RR1,
-            PR1: treatmentData.PR1 || prev.PR1,
-            SPO2: treatmentData.SPO2 || prev.SPO2
-          }));
-          console.log('Updated vitals from treatment data');
+          const historyVitals = {
+            WEIGHT1: response.data.treatment.WEIGHT1 || '',
+            HIGHT1: response.data.treatment.HIGHT1 || '',
+            BT1: response.data.treatment.BT1 || '',
+            BP1: response.data.treatment.BP1 || '',
+            BP2: response.data.treatment.BP2 || '',
+            RR1: response.data.treatment.RR1 || '',
+            PR1: response.data.treatment.PR1 || '',
+            SPO2: response.data.treatment.SPO2 || ''
+          };
+          setVitals(historyVitals);
         }
-      } else {
-        console.log('No treatment data found, using currentPatient vitals');
       }
-    } catch (err) {
-      console.error('Error loading today treatment:', err);
-      console.log('Using currentPatient vitals due to API error');
+    } catch (error) {
+      console.error('Error loading selected treatment:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  // เมื่อเลือกประวัติการรักษา
-  const handleHistoryChange = async (event) => {
-    const selectedVNO = event.target.value;
-    setSelectedHistoryVNO(selectedVNO);
+  // คลิกกลับไปดูข้อมูลวันนี้
+  const handleTodayClick = () => {
+    setSelectedHistoryVNO('today');
+    setSelectedTreatmentData(todayTreatment);
 
-    if (selectedVNO === 'today') {
-      setSelectedTreatmentData(todayTreatment);
-      // กลับไปใช้ vitals ปัจจุบัน
-      const initialVitals = {
-        WEIGHT1: currentPatient.WEIGHT1 || '',
-        HIGHT1: currentPatient.HIGHT1 || '',
-        BT1: currentPatient.BT1 || '',
-        BP1: currentPatient.BP1 || '',
-        BP2: currentPatient.BP2 || '',
-        RR1: currentPatient.RR1 || '',
-        PR1: currentPatient.PR1 || '',
-        SPO2: currentPatient.SPO2 || ''
-      };
-      setVitals(initialVitals);
-    } else {
-      try {
-        setLoading(true);
-        const response = await TreatmentService.getTreatmentByVNO(selectedVNO);
-        if (response.success) {
-          setSelectedTreatmentData(response.data);
-
-          // อัพเดต vitals จากข้อมูลการรักษาที่เลือก
-          if (response.data.treatment) {
-            const historyVitals = {
-              WEIGHT1: response.data.treatment.WEIGHT1 || '',
-              HIGHT1: response.data.treatment.HIGHT1 || '',
-              BT1: response.data.treatment.BT1 || '',
-              BP1: response.data.treatment.BP1 || '',
-              BP2: response.data.treatment.BP2 || '',
-              RR1: response.data.treatment.RR1 || '',
-              PR1: response.data.treatment.PR1 || '',
-              SPO2: response.data.treatment.SPO2 || ''
-            };
-            console.log('Updated vitals from history:', historyVitals);
-            setVitals(historyVitals);
-          }
-        }
-      } catch (error) {
-        console.error('Error loading selected treatment:', error);
-      } finally {
-        setLoading(false);
-      }
-    }
+    // กลับไปใช้ vitals ปัจจุบัน
+    const initialVitals = {
+      WEIGHT1: currentPatient.WEIGHT1 || '',
+      HIGHT1: currentPatient.HIGHT1 || '',
+      BT1: currentPatient.BT1 || '',
+      BP1: currentPatient.BP1 || '',
+      BP2: currentPatient.BP2 || '',
+      RR1: currentPatient.RR1 || '',
+      PR1: currentPatient.PR1 || '',
+      SPO2: currentPatient.SPO2 || ''
+    };
+    setVitals(initialVitals);
   };
 
   const formatThaiDate = (dateString) => {
@@ -256,34 +203,6 @@ export default function MedicalHistory({ currentPatient, onSaveSuccess }) {
       day: '2-digit'
     });
   };
-
-  // ข้อมูล Vital Signs - เหมือนเดิม
-  const vitalsData = [
-    {
-      label: "Blood Pressure",
-      value: vitals.BP1 && vitals.BP2 ? `${vitals.BP1}/${vitals.BP2}` : 'ไม่มีข้อมูล',
-      display: vitals.BP1 && vitals.BP2 ? `${vitals.BP1}/${vitals.BP2} mmHg` : 'ไม่มีข้อมูล',
-      progressValue: vitals.BP1 && vitals.BP2 ? Math.round(((parseFloat(vitals.BP1) + parseFloat(vitals.BP2)) / 220) * 100) : 0
-    },
-    {
-      label: "Temperature",
-      value: vitals.BT1 ? `${vitals.BT1}°C` : 'ไม่มีข้อมูล',
-      display: vitals.BT1 ? `${vitals.BT1}°C` : 'ไม่มีข้อมูล',
-      progressValue: vitals.BT1 ? Math.round(((parseFloat(vitals.BT1) - 35) / 7) * 100) : 0
-    },
-    {
-      label: "Body Weight",
-      value: vitals.WEIGHT1 ? `${vitals.WEIGHT1} kg` : 'ไม่มีข้อมูล',
-      display: vitals.WEIGHT1 ? `${vitals.WEIGHT1} kg` : 'ไม่มีข้อมูล',
-      progressValue: vitals.WEIGHT1 ? Math.round((parseFloat(vitals.WEIGHT1) / 100) * 100) : 0
-    },
-    {
-      label: "Height",
-      value: vitals.HIGHT1 ? `${vitals.HIGHT1} cm` : 'ไม่มีข้อมูล',
-      display: vitals.HIGHT1 ? `${vitals.HIGHT1} cm` : 'ไม่มีข้อมูล',
-      progressValue: vitals.HIGHT1 ? Math.round((parseFloat(vitals.HIGHT1) / 200) * 100) : 0
-    }
-  ];
 
   if (!currentPatient) {
     return (
@@ -299,7 +218,7 @@ export default function MedicalHistory({ currentPatient, onSaveSuccess }) {
   return (
     <Box sx={{ p: 3 }}>
       <Grid container spacing={3}>
-        {/* Left Column - Patient Info */}
+        {/* Left Column - Patient Info & History */}
         <Grid item xs={12} md={5}>
           {/* Patient Profile Card */}
           <Card sx={{ p: 3, mb: 3, border: 'none', boxShadow: 1 }}>
@@ -369,328 +288,355 @@ export default function MedicalHistory({ currentPatient, onSaveSuccess }) {
             </Grid>
           </Card>
 
-          {/* เพิ่มส่วนเลือกประวัติการรักษา */}
-          <Card sx={{ p: 2, mb: 3, bgcolor: '#f8f9fa' }}>
+          {/* ประวัติการรักษาทั้งหมด */}
+          <Card sx={{ p: 2, mb: 3 }}>
             <Typography variant="h6" fontWeight="600" sx={{ mb: 2, color: '#1976d2' }}>
-              เลือกดูประวัติการรักษา
+              ประวัติการรักษาทั้งหมด
             </Typography>
-            <FormControl fullWidth>
-              <InputLabel>เลือกวันที่รักษา</InputLabel>
-              <Select
-                value={selectedHistoryVNO}
-                label="เลือกวันที่รักษา"
-                onChange={handleHistoryChange}
-              >
-                <MenuItem value="today">
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                    <span>วันนี้ ({formatThaiDate(new Date())})</span>
-                    <Chip label="ปัจจุบัน" size="small" color="primary" />
-                  </Box>
-                </MenuItem>
-                {treatmentHistory.map((treatment) => (
-                  <MenuItem key={treatment.VNO} value={treatment.VNO}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                      <span>{formatThaiDate(treatment.RDATE)}</span>
-                      <Box>
-                        <Chip
-                          label={treatment.STATUS1}
-                          size="small"
-                          color={treatment.STATUS1 === 'ปิดแล้ว' ? 'success' : 'default'}
-                          sx={{ mr: 1 }}
-                        />
+            <Box sx={{ 
+              maxHeight: 400, 
+              overflowY: 'auto',
+              '&::-webkit-scrollbar': {
+                width: '6px'
+              },
+              '&::-webkit-scrollbar-track': {
+                bgcolor: 'rgba(0,0,0,0.1)'
+              },
+              '&::-webkit-scrollbar-thumb': {
+                bgcolor: 'rgba(0,0,0,0.3)',
+                borderRadius: '10px'
+              }
+            }}>
+              {loading ? (
+                <Box sx={{ textAlign: 'center', py: 2 }}>
+                  <CircularProgress size={24} />
+                </Box>
+              ) : (
+                <List sx={{ p: 0 }}>
+                  {/* วันนี้ */}
+                  <ListItem 
+                    sx={{
+                      border: '1px solid #e0e0e0',
+                      borderRadius: 2,
+                      mb: 1,
+                      bgcolor: selectedHistoryVNO === 'today' ? '#e3f2fd' : '#fff',
+                      cursor: 'pointer',
+                      '&:hover': {
+                        bgcolor: '#f5f5f5'
+                      }
+                    }}
+                    onClick={handleTodayClick}
+                  >
+                    <ListItemText
+                      primary={
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <Typography variant="body1" fontWeight="600">
+                            {formatThaiDate(new Date())}
+                          </Typography>
+                          <Box>
+                            <Chip label="วันนี้" size="small" color="primary" sx={{ mr: 1 }} />
+                            <Typography variant="body2" fontWeight="500" color="primary.main" component="span">
+                              {todayTreatment?.treatment?.DXNAME_THAI || displayTreatmentData?.treatment?.DXNAME_THAI || 'ไม่ระบุการวินิจฉัย'}
+                            </Typography>
+                          </Box>
+                        </Box>
+                      }
+                      secondary={
                         <Typography variant="caption" color="text.secondary">
-                          VN: {treatment.VNO}
+                          VN: {currentPatient.VNO || 'ยังไม่สร้าง VN'} • สถานะ: {currentPatient.queueStatus}
                         </Typography>
-                      </Box>
-                    </Box>
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Card>
+                      }
+                    />
+                  </ListItem>
 
-          {/* Vitals Section - เหมือนเดิม */}
-          <Grid container spacing={2} sx={{ mb: 3 }}>
-            {vitalsData.map((item, index) => (
-              <Grid item xs={12} sm={6} key={index}>
-                <Card sx={{ p: 2, bgcolor: "#E9F2FF", height: 140, boxShadow: 'none' }}>
-                  <Typography variant="body1" fontWeight="600" sx={{ mb: 2 }}>
-                    {item.label}
-                  </Typography>
-                  <Typography variant="h4" fontWeight="700" sx={{ mb: 1, color: '#1976d2' }}>
-                    {item.value}
-                  </Typography>
-                  <Box sx={{ mb: 2 }}>
-                    <LinearProgress
-                      variant="determinate"
-                      value={Math.min(Math.max(item.progressValue, 0), 100)}
+                  {/* ประวัติการรักษาเก่า */}
+                  {treatmentHistory.map((treatment, index) => (
+                    <ListItem 
+                      key={treatment.VNO} 
                       sx={{
-                        height: 8,
-                        borderRadius: 4,
-                        bgcolor: '#e0e0e0',
-                        "& .MuiLinearProgress-bar": {
-                          backgroundColor: "#1976d2",
+                        border: '1px solid #e0e0e0',
+                        borderRadius: 2,
+                        mb: 1,
+                        bgcolor: selectedHistoryVNO === treatment.VNO ? '#e3f2fd' : '#fff',
+                        cursor: 'pointer',
+                        '&:hover': {
+                          bgcolor: '#f5f5f5'
                         }
                       }}
-                    />
-                  </Box>
-                  <Typography variant="body2" color="textSecondary">
-                    {item.display}
-                  </Typography>
-                </Card>
-              </Grid>
-            ))}
-          </Grid>
+                      onClick={() => handleHistoryClick(treatment)}
+                    >
+                      <ListItemText
+                        primary={
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <Typography variant="body1" fontWeight="600">
+                              {formatThaiDate(treatment.RDATE)}
+                            </Typography>
+                            <Typography variant="body2" fontWeight="500" color="primary.main">
+                              {treatment.DXNAME_THAI || 'ไม่ระบุการวินิจฉัย'}
+                            </Typography>
+                          </Box>
+                        }
+                        secondary={
+                          <Box sx={{ mt: 0.5 }}>
+                            <Typography variant="caption" color="text.secondary">
+                              VN: {treatment.VNO} • แพทย์: {treatment.EMP_NAME || 'ไม่ระบุ'}
+                            </Typography>
+                            {treatment.SYMPTOM && (
+                              <Typography variant="caption" display="block" sx={{ mt: 0.5 }}>
+                                อาการ: {treatment.SYMPTOM}
+                              </Typography>
+                            )}
+                          </Box>
+                        }
+                      />
+                    </ListItem>
+                  ))}
+
+                  {treatmentHistory.length === 0 && (
+                    <Typography variant="body2" color="text.secondary" textAlign="center" sx={{ py: 4 }}>
+                      ไม่พบประวัติการรักษาเก่า
+                    </Typography>
+                  )}
+                </List>
+              )}
+            </Box>
+          </Card>
         </Grid>
 
-        {/* Right Column - Medical Details */}
+        {/* Right Column - Treatment Summary */}
         <Grid item xs={12} md={7}>
           <Box sx={{ p: 2 }}>
-            {/* Today's Visit Information */}
+            {/* Header */}
             <Typography variant="h6" fontWeight="600" sx={{ mb: 3, color: '#1976d2' }}>
-              ข้อมูลการตรวจรักษา
-              {selectedHistoryVNO === 'today' ? 'วันนี้' : `วันที่ ${formatThaiDate(selectedTreatmentData?.treatment?.RDATE)}`}
+              สรุปการรักษา
+              {selectedHistoryVNO === 'today' 
+                ? ' - วันนี้' 
+                : ` - วันที่ ${formatThaiDate(displayTreatmentData?.treatment?.RDATE)}`
+              }
             </Typography>
 
-            {/* Vitals Information */}
-            <Grid container spacing={3} sx={{ mb: 3 }}>
-              <Grid item xs={6}>
-                <Typography sx={{ mb: 1, fontWeight: 'bold' }}>
-                  Vital Signs:
-                </Typography>
-                <Typography sx={{ mb: 1 }}>
-                  BP: {vitals.BP1 && vitals.BP2 ? `${vitals.BP1}/${vitals.BP2}` : '-'}
-                </Typography>
-                <Typography sx={{ mb: 1 }}>
-                  Pulse: {vitals.PR1 ? `${vitals.PR1} bpm` : '-'}
-                </Typography>
-                <Typography sx={{ mb: 1 }}>
-                  Weight: {vitals.WEIGHT1 ? `${vitals.WEIGHT1} kg` : '-'}
-                </Typography>
-                <Typography sx={{ mb: 1 }}>
-                  Height: {vitals.HIGHT1 ? `${vitals.HIGHT1} cm` : '-'}
-                </Typography>
-                <Typography sx={{ mb: 1 }}>
-                  Temp: {vitals.BT1 ? `${vitals.BT1}°C` : '-'}
-                </Typography>
-                <Typography sx={{ mb: 1 }}>
-                  SpO2: {vitals.SPO2 ? `${vitals.SPO2}%` : '-'}
-                </Typography>
-              </Grid>
-              <Grid item xs={6}>
-                <Typography sx={{ mb: 1, fontWeight: 'bold' }}>
-                  ข้อมูลคิว:
-                </Typography>
-                <Typography sx={{ mb: 1 }}>
-                  หมายเลขคิว: {currentPatient.queueNumber || 'ไม่ระบุ'}
-                </Typography>
-                <Typography sx={{ mb: 1 }}>
-                  เวลาคิว: {currentPatient.queueTime || 'ไม่ระบุ'}
-                </Typography>
-                <Typography sx={{ mb: 1 }}>
-                  สถานะ: {currentPatient.queueStatus || 'ไม่ระบุ'}
-                </Typography>
-                <Typography sx={{ mb: 1 }}>
-                  อาการเบื้องต้น: {currentPatient.SYMPTOM || 'ไม่ระบุ'}
-                </Typography>
-                <Typography sx={{ mb: 1 }}>
-                  HN: {currentPatient.HNCODE}
-                </Typography>
-                <Typography sx={{ mb: 1 }}>
-                  VN: {selectedHistoryVNO === 'today' ? (currentPatient.VNO || 'ยังไม่สร้าง') : selectedHistoryVNO}
-                </Typography>
-              </Grid>
-            </Grid>
-
-            <Divider sx={{ my: 3 }} />
-
-            {/* Treatment Details */}
             {loading && (
-              <Box sx={{ textAlign: 'center', py: 2 }}>
-                <CircularProgress size={24} />
-                <Typography variant="body2" sx={{ mt: 1 }}>
+              <Box sx={{ textAlign: 'center', py: 4 }}>
+                <CircularProgress size={32} />
+                <Typography variant="body2" sx={{ mt: 2 }}>
                   กำลังโหลดข้อมูลการรักษา...
                 </Typography>
               </Box>
             )}
 
-            {displayTreatmentData && (
+            {!loading && (
               <Grid container spacing={3}>
+                {/* ส่วนซ้าย - Vital Signs */}
                 <Grid item xs={6}>
-                  <Typography variant="body1" fontWeight="600" sx={{ mb: 2 }}>
-                    การตรวจเพิ่มเติม:
-                  </Typography>
-                  {displayTreatmentData.labTests?.length > 0 ? (
-                    displayTreatmentData.labTests.map((lab, idx) => (
-                      <Typography key={idx} variant="body2" sx={{ mb: 1 }}>
-                        • {lab.LABNAME}
-                      </Typography>
-                    ))
-                  ) : (
-                    <Typography variant="body2" color="text.secondary">
-                      ยังไม่ได้ส่งตรวจ
+                  <Card sx={{ p: 2, mb: 3, bgcolor: '#f8f9fa' }}>
+                    <Typography variant="h6" fontWeight="600" sx={{ mb: 2 }}>
+                      Vital Signs
                     </Typography>
-                  )}
-
-                  {displayTreatmentData.radiologicalTests?.length > 0 && (
-                    <>
-                      <Typography variant="body1" fontWeight="600" sx={{ mb: 1, mt: 2 }}>
-                        การตรวจทางรังสี:
+                    <Box>
+                      <Typography variant="body2" sx={{ mb: 1 }}>
+                        <strong>BP:</strong> {vitals.BP1 && vitals.BP2 ? `${vitals.BP1}/${vitals.BP2} mmHg` : 'ไม่มีข้อมูล'}
                       </Typography>
-                      {displayTreatmentData.radiologicalTests.map((radio, idx) => (
-                        <Typography key={idx} variant="body2" sx={{ mb: 1 }}>
-                          • {radio.RLNAME}
-                        </Typography>
-                      ))}
-                    </>
-                  )}
+                      <Typography variant="body2" sx={{ mb: 1 }}>
+                        <strong>Pulse:</strong> {vitals.PR1 ? `${vitals.PR1} bpm` : 'ไม่มีข้อมูล'}
+                      </Typography>
+                      <Typography variant="body2" sx={{ mb: 1 }}>
+                        <strong>Temp:</strong> {vitals.BT1 ? `${vitals.BT1}°C` : 'ไม่มีข้อมูล'}
+                      </Typography>
+                      <Typography variant="body2" sx={{ mb: 1 }}>
+                        <strong>SpO2:</strong> {vitals.SPO2 ? `${vitals.SPO2}%` : 'ไม่มีข้อมูล'}
+                      </Typography>
+                      <Typography variant="body2" sx={{ mb: 1 }}>
+                        <strong>Weight:</strong> {vitals.WEIGHT1 ? `${vitals.WEIGHT1} kg` : 'ไม่มีข้อมูล'}
+                      </Typography>
+                      <Typography variant="body2">
+                        <strong>Height:</strong> {vitals.HIGHT1 ? `${vitals.HIGHT1} cm` : 'ไม่มีข้อมูล'}
+                      </Typography>
+                    </Box>
+                  </Card>
                 </Grid>
 
+                {/* ส่วนขวา - Treatment Summary */}
                 <Grid item xs={6}>
-                  <Typography variant="body1" fontWeight="600" sx={{ mb: 2 }}>
-                    การรักษา/ยาที่สั่ง:
-                  </Typography>
-                  {displayTreatmentData.drugs?.length > 0 ? (
-                    displayTreatmentData.drugs.map((drug, idx) => (
-                      <Typography key={idx} variant="body2" sx={{ mb: 1 }}>
-                        • {drug.GENERIC_NAME} {drug.QTY} {drug.UNIT_NAME}
-                        <br />
-                        <span style={{ fontSize: '0.8em', color: '#666' }}>
-                          {drug.TIME1}
-                        </span>
-                      </Typography>
-                    ))
-                  ) : (
-                    <Typography variant="body2" color="text.secondary">
-                      ยังไม่ได้สั่งยา
+                  <Card sx={{ p: 2, mb: 3, bgcolor: '#f0f8ff' }}>
+                    <Typography variant="h6" fontWeight="600" sx={{ mb: 2 }}>
+                      สรุป Treatment
                     </Typography>
-                  )}
+                    <Box sx={{ maxHeight: 150, overflowY: 'auto' }}>
+                      {displayTreatmentData?.treatment?.TREATMENT1 ? (
+                        <Typography variant="body2" sx={{ lineHeight: 1.6 }}>
+                          {displayTreatmentData.treatment.TREATMENT1}
+                        </Typography>
+                      ) : (
+                        <Typography variant="body2" color="text.secondary">
+                          ยังไม่มีสรุปการรักษา
+                        </Typography>
+                      )}
+                    </Box>
+                  </Card>
+                </Grid>
+
+                {/* การส่งตรวจ */}
+                <Grid item xs={6}>
+                  <Card sx={{ p: 2, mb: 3 }}>
+                    <Typography variant="h6" fontWeight="600" sx={{ mb: 2, color: '#ff6b35' }}>
+                      การส่งตรวจ
+                    </Typography>
+                    <Box>
+                      <Typography variant="body1" fontWeight="600" sx={{ mb: 1 }}>
+                        Lab Tests:
+                      </Typography>
+                      {(() => {
+                        // แยกข้อมูล Laboratory จาก INVESTIGATION_NOTES
+                        const investigationNotes = displayTreatmentData?.treatment?.INVESTIGATION_NOTES || '';
+                        const labMatch = investigationNotes.match(/\[Laboratory\]\s*(.+?)(?=\n\n|$)/s);
+                        const labNote = labMatch ? labMatch[1].trim() : '';
+                        
+                        if (labNote) {
+                          return (
+                            <Typography variant="body2" sx={{ mb: 0.5, pl: 2 }}>
+                              • {labNote}
+                            </Typography>
+                          );
+                        } else if (displayTreatmentData?.labTests?.length > 0) {
+                          // Fallback ไปใช้ข้อมูลเก่า
+                          return displayTreatmentData.labTests.map((lab, idx) => (
+                            <Typography key={idx} variant="body2" sx={{ mb: 0.5, pl: 2 }}>
+                              • {lab.LABNAME}
+                            </Typography>
+                          ));
+                        } else {
+                          return (
+                            <Typography variant="body2" color="text.secondary" sx={{ pl: 2, mb: 2 }}>
+                              ไม่มีการส่งตรวจ Lab
+                            </Typography>
+                          );
+                        }
+                      })()}
+
+                      <Typography variant="body1" fontWeight="600" sx={{ mb: 1 }}>
+                        X-ray/Imaging:
+                      </Typography>
+                      {(() => {
+                        // แยกข้อมูล Imaging จาก INVESTIGATION_NOTES
+                        const investigationNotes = displayTreatmentData?.treatment?.INVESTIGATION_NOTES || '';
+                        const imagingMatch = investigationNotes.match(/\[Imaging\]\s*(.+?)(?=\n\n|$)/s);
+                        const imagingNote = imagingMatch ? imagingMatch[1].trim() : '';
+                        
+                        if (imagingNote) {
+                          return (
+                            <Typography variant="body2" sx={{ mb: 0.5, pl: 2 }}>
+                              • {imagingNote}
+                            </Typography>
+                          );
+                        } else if (displayTreatmentData?.radiologicalTests?.length > 0) {
+                          // Fallback ไปใช้ข้อมูลเก่า
+                          return displayTreatmentData.radiologicalTests.map((radio, idx) => (
+                            <Typography key={idx} variant="body2" sx={{ mb: 0.5, pl: 2 }}>
+                              • {radio.RLNAME}
+                            </Typography>
+                          ));
+                        } else {
+                          return (
+                            <Typography variant="body2" color="text.secondary" sx={{ pl: 2 }}>
+                              ไม่มีการส่งตรวจ X-ray/Imaging
+                            </Typography>
+                          );
+                        }
+                      })()}
+                    </Box>
+                  </Card>
+                </Grid>
+
+                {/* ยาที่สั่ง */}
+                <Grid item xs={6}>
+                  <Card sx={{ p: 2, mb: 3 }}>
+                    <Typography variant="h6" fontWeight="600" sx={{ mb: 2, color: '#4caf50' }}>
+                      ยาที่สั่ง
+                    </Typography>
+                    <Box sx={{ maxHeight: 200, overflowY: 'auto' }}>
+                      {displayTreatmentData?.drugs?.length > 0 ? (
+                        displayTreatmentData.drugs.map((drug, idx) => (
+                          <Box key={idx} sx={{ mb: 1.5, p: 1, bgcolor: '#f5f5f5', borderRadius: 1 }}>
+                            <Typography variant="body2" fontWeight="600">
+                              {drug.GENERIC_NAME || drug.TRADE_NAME}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              จำนวน: {drug.QTY} {drug.UNIT_NAME}
+                            </Typography>
+                            {drug.TIME1 && (
+                              <Typography variant="caption" display="block" color="text.secondary">
+                                วิธีใช้: {drug.TIME1}
+                              </Typography>
+                            )}
+                          </Box>
+                        ))
+                      ) : (
+                        <Typography variant="body2" color="text.secondary">
+                          ยังไม่ได้สั่งยา
+                        </Typography>
+                      )}
+                    </Box>
+                  </Card>
+                </Grid>
+
+                {/* หัตถการ (ถ้ามี) */}
+                {displayTreatmentData?.procedures?.length > 0 && (
+                  <Grid item xs={12}>
+                    <Card sx={{ p: 2, mb: 3 }}>
+                      <Typography variant="h6" fontWeight="600" sx={{ mb: 2, color: '#9c27b0' }}>
+                        หัตถการที่ทำ
+                      </Typography>
+                      <Box>
+                        {displayTreatmentData.procedures.map((procedure, idx) => (
+                          <Typography key={idx} variant="body2" sx={{ mb: 1 }}>
+                            • {procedure.MED_PRO_NAME_THAI || procedure.MED_PRO_NAME_ENG}
+                            {procedure.QTY && procedure.UNIT_NAME && (
+                              <Typography variant="caption" color="text.secondary">
+                                {' '}({procedure.QTY} {procedure.UNIT_NAME})
+                              </Typography>
+                            )}
+                          </Typography>
+                        ))}
+                      </Box>
+                    </Card>
+                  </Grid>
+                )}
+
+                {/* ข้อมูลเพิ่มเติม */}
+                <Grid item xs={12}>
+                  <Card sx={{ p: 2, bgcolor: '#fff3e0' }}>
+                    <Typography variant="h6" fontWeight="600" sx={{ mb: 2 }}>
+                      ข้อมูลการรักษา
+                    </Typography>
+                    <Grid container spacing={2}>
+                      <Grid item xs={6}>
+                        <Typography variant="body2" sx={{ mb: 1 }}>
+                          <strong>VN:</strong> {displayTreatmentData?.treatment?.VNO || 'ไม่มี'}
+                        </Typography>
+                        <Typography variant="body2" sx={{ mb: 1 }}>
+                          <strong>วันที่รักษา:</strong> {formatThaiDate(displayTreatmentData?.treatment?.RDATE)}
+                        </Typography>
+                        <Typography variant="body2" sx={{ mb: 1 }}>
+                          <strong>แพทย์:</strong> {displayTreatmentData?.treatment?.EMP_NAME || 'ไม่ระบุ'}
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Typography variant="body2" sx={{ mb: 1 }}>
+                          <strong>อาการ:</strong> {displayTreatmentData?.treatment?.SYMPTOM || 'ไม่ระบุ'}
+                        </Typography>
+                        <Typography variant="body2" sx={{ mb: 1 }}>
+                          <strong>การวินิจฉัย:</strong> {displayTreatmentData?.treatment?.DXNAME_THAI || 'ไม่ระบุ'}
+                        </Typography>
+                        <Typography variant="body2" sx={{ mb: 1 }}>
+                          <strong>สถานะ:</strong> {displayTreatmentData?.treatment?.STATUS1 || 'ไม่ระบุ'}
+                        </Typography>
+                      </Grid>
+                    </Grid>
+                  </Card>
                 </Grid>
               </Grid>
             )}
           </Box>
-
-          {/* Summary Cards - เหมือนเดิม */}
-          <Grid container spacing={2} sx={{ mt: 2 }}>
-            {/* Vital Signs Summary */}
-            <Grid item xs={12} md={4}>
-              <Card sx={{ p: 2, height: 250 }}>
-                <Typography variant="h6" fontWeight="600" sx={{ mb: 2 }}>
-                  Vital Signs Summary
-                </Typography>
-                <TableContainer>
-                  <Table size="small">
-                    <TableBody>
-                      <TableRow>
-                        <TableCell sx={{ fontWeight: 600, fontSize: '14px', border: 'none', py: 0.5 }}>
-                          BP
-                        </TableCell>
-                        <TableCell sx={{ fontSize: '14px', border: 'none', py: 0.5 }}>
-                          {vitals.BP1 && vitals.BP2 ? `${vitals.BP1}/${vitals.BP2}` : '-'}
-                        </TableCell>
-                        <TableCell sx={{ fontSize: '12px', color: 'text.secondary', border: 'none', py: 0.5 }}>
-                          mmHg
-                        </TableCell>
-                      </TableRow>
-                      <TableRow>
-                        <TableCell sx={{ fontWeight: 600, fontSize: '14px', border: 'none', py: 0.5 }}>
-                          HR
-                        </TableCell>
-                        <TableCell sx={{ fontSize: '14px', border: 'none', py: 0.5 }}>
-                          {vitals.PR1 || '-'}
-                        </TableCell>
-                        <TableCell sx={{ fontSize: '12px', color: 'text.secondary', border: 'none', py: 0.5 }}>
-                          bpm
-                        </TableCell>
-                      </TableRow>
-                      <TableRow>
-                        <TableCell sx={{ fontWeight: 600, fontSize: '14px', border: 'none', py: 0.5 }}>
-                          Temp
-                        </TableCell>
-                        <TableCell sx={{ fontSize: '14px', border: 'none', py: 0.5 }}>
-                          {vitals.BT1 || '-'}
-                        </TableCell>
-                        <TableCell sx={{ fontSize: '12px', color: 'text.secondary', border: 'none', py: 0.5 }}>
-                          °C
-                        </TableCell>
-                      </TableRow>
-                      <TableRow>
-                        <TableCell sx={{ fontWeight: 600, fontSize: '14px', border: 'none', py: 0.5 }}>
-                          SpO2
-                        </TableCell>
-                        <TableCell sx={{ fontSize: '14px', border: 'none', py: 0.5 }}>
-                          {vitals.SPO2 || '-'}
-                        </TableCell>
-                        <TableCell sx={{ fontSize: '12px', color: 'text.secondary', border: 'none', py: 0.5 }}>
-                          %
-                        </TableCell>
-                      </TableRow>
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              </Card>
-            </Grid>
-
-            {/* Patient Info Summary */}
-            <Grid item xs={12} md={4}>
-              <Card sx={{ p: 2, height: 250 }}>
-                <Typography variant="h6" fontWeight="600" sx={{ mb: 2 }}>
-                  Patient Information
-                </Typography>
-                <Box sx={{ overflow: 'auto', height: 180 }}>
-                  <Typography variant="body2" sx={{ mb: 1 }}>
-                    <strong>ชื่อ-สกุล:</strong> {currentPatient.PRENAME} {currentPatient.NAME1} {currentPatient.SURNAME}
-                  </Typography>
-                  <Typography variant="body2" sx={{ mb: 1 }}>
-                    <strong>อายุ:</strong> {currentPatient.AGE} ปี
-                  </Typography>
-                  <Typography variant="body2" sx={{ mb: 1 }}>
-                    <strong>เพศ:</strong> {currentPatient.SEX}
-                  </Typography>
-                  <Typography variant="body2" sx={{ mb: 1 }}>
-                    <strong>HN:</strong> {currentPatient.HNCODE}
-                  </Typography>
-                  <Typography variant="body2" sx={{ mb: 1 }}>
-                    <strong>เลขบัตรประชาชน:</strong> {currentPatient.IDNO}
-                  </Typography>
-                  <Typography variant="body2" sx={{ mb: 1 }}>
-                    <strong>โทรศัพท์:</strong> {currentPatient.TEL1}
-                  </Typography>
-                </Box>
-              </Card>
-            </Grid>
-
-            {/* Today's Status */}
-            <Grid item xs={12} md={4}>
-              <Card sx={{ p: 2, height: 250 }}>
-                <Typography variant="h6" fontWeight="600" sx={{ mb: 2 }}>
-                  สถานะวันนี้
-                </Typography>
-                <Box sx={{ overflow: 'auto', height: 180 }}>
-                  <Typography variant="body2" sx={{ mb: 1 }}>
-                    <strong>วันที่เข้ารับบริการ:</strong> {formatThaiDate(new Date())}
-                  </Typography>
-                  <Typography variant="body2" sx={{ mb: 1 }}>
-                    <strong>หมายเลขคิว:</strong> {currentPatient.queueNumber}
-                  </Typography>
-                  <Typography variant="body2" sx={{ mb: 1 }}>
-                    <strong>เวลาคิว:</strong> {currentPatient.queueTime}
-                  </Typography>
-                  <Typography variant="body2" sx={{ mb: 1 }}>
-                    <strong>สถานะ:</strong> {currentPatient.queueStatus}
-                  </Typography>
-                  <Typography variant="body2" sx={{ mb: 1 }}>
-                    <strong>VN:</strong> {currentPatient.VNO || 'ยังไม่สร้าง VN'}
-                  </Typography>
-                  {currentPatient.SYMPTOM && (
-                    <Typography variant="body2" sx={{ mb: 1 }}>
-                      <strong>อาการเบื้องต้น:</strong> {currentPatient.SYMPTOM}
-                    </Typography>
-                  )}
-                </Box>
-              </Card>
-            </Grid>
-          </Grid>
         </Grid>
       </Grid>
 

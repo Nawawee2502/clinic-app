@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from "react";
 import {
-  Grid, TextField, Button, Card, Typography, Avatar, InputAdornment,
-  Box, CircularProgress, Autocomplete
+  Grid, TextField, Button, Card, Typography, Avatar,
+  Box, CircularProgress
 } from "@mui/material";
 import SaveIcon from '@mui/icons-material/Save';
-import SearchIcon from '@mui/icons-material/Search';
 import PropTypes from 'prop-types';
 
 // Import Services
@@ -22,18 +21,32 @@ const DxandTreatment = ({ currentPatient, onSaveSuccess }) => {
     treatment: ''
   });
 
+  const [diagnosisData, setDiagnosisData] = useState({
+    CHIEF_COMPLAINT: '',
+    PRESENT_ILL: '',
+    PHYSICAL_EXAM: '',
+    PLAN1: '',
+    investigations: {
+      na: false,
+      imaging: false,
+      lab: false
+    },
+    radiological: {
+      note: ''
+    },
+    laboratory: {
+      note: ''
+    }
+  });
+
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [dxOptions, setDxOptions] = useState([]);
-  const [icd10Options, setIcd10Options] = useState([]);
 
   // โหลดข้อมูลเมื่อ currentPatient เปลี่ยน
   useEffect(() => {
     if (currentPatient?.VNO) {
       loadDxData();
     }
-    loadDxOptions();
-    loadIcd10Options();
   }, [currentPatient]);
 
   const loadDxData = async () => {
@@ -41,15 +54,67 @@ const DxandTreatment = ({ currentPatient, onSaveSuccess }) => {
       setLoading(true);
       const response = await TreatmentService.getTreatmentByVNO(currentPatient.VNO);
 
-      if (response.success && response.data?.treatment) {
+      if (response.success && response.data) {
         const treatment = response.data.treatment;
+        const diagnosis = response.data.diagnosis;
+
+        // โหลดข้อมูล Dx
         setDxData({
-          dx: treatment.DXNAME_THAI || '',
-          dxCode: treatment.DXCODE || '',
-          icd10: treatment.ICD10NAME_THAI || '',
-          icd10Code: treatment.ICD10CODE || '',
-          treatment: treatment.TREATMENT1 || ''
+          dx: treatment?.DXNAME_THAI || '',
+          dxCode: treatment?.DXCODE || '',
+          icd10: '', // ตั้งค่าเป็นค่าว่าง
+          icd10Code: '', // ตั้งค่าเป็นค่าว่าง
+          treatment: treatment?.TREATMENT1 || ''
         });
+
+        // โหลดข้อมูลการวินิจฉัย
+        if (diagnosis) {
+          setDiagnosisData(prev => ({
+            ...prev,
+            CHIEF_COMPLAINT: diagnosis.CHIEF_COMPLAINT || '',
+            PRESENT_ILL: diagnosis.PRESENT_ILL || '',
+            PHYSICAL_EXAM: diagnosis.PHYSICAL_EXAM || '',
+            PLAN1: diagnosis.PLAN1 || ''
+          }));
+        }
+
+        // โหลดข้อมูล Investigation Notes ที่บันทึกเป็น text
+        if (treatment?.INVESTIGATION_NOTES) {
+          const investigationNotes = treatment.INVESTIGATION_NOTES;
+          console.log('📝 Loading investigation notes:', investigationNotes);
+
+          let imagingNote = '';
+          let laboratoryNote = '';
+
+          // แยกข้อมูล [Imaging] และ [Laboratory] จาก INVESTIGATION_NOTES
+          const lines = investigationNotes.split('\n\n');
+          
+          lines.forEach(line => {
+            if (line.startsWith('[Imaging]')) {
+              imagingNote = line.replace('[Imaging]', '').trim();
+            } else if (line.startsWith('[Laboratory]')) {
+              laboratoryNote = line.replace('[Laboratory]', '').trim();
+            }
+          });
+
+          setDiagnosisData(prev => ({
+            ...prev,
+            investigations: {
+              ...prev.investigations,
+              imaging: imagingNote.length > 0,
+              lab: laboratoryNote.length > 0
+            },
+            radiological: {
+              note: imagingNote
+            },
+            laboratory: {
+              note: laboratoryNote
+            }
+          }));
+        }
+
+        // สร้าง Treatment Summary จากข้อมูลการวินิจฉัย
+        generateTreatmentSummary(diagnosis, treatment?.INVESTIGATION_NOTES);
       }
     } catch (error) {
       console.error('Error loading dx data:', error);
@@ -58,41 +123,57 @@ const DxandTreatment = ({ currentPatient, onSaveSuccess }) => {
     }
   };
 
-  const loadDxOptions = async () => {
-    try {
-      // แก้ไข: ใช้ endpoint ที่ถูกต้อง
-      const response = await fetch(`${API_BASE_URL}/diagnosis?limit=100`);
-      if (response.ok) {
-        const result = await response.json();
-        if (result.success) {
-          setDxOptions(result.data || []);
-        }
-      } else {
-        console.error('Failed to load dx options:', response.status);
-      }
-    } catch (error) {
-      console.error('Error loading dx options:', error);
-      // ใส่ข้อมูล fallback
-      setDxOptions([]);
-    }
-  };
+  // ฟังก์ชันสร้าง Treatment Summary
+  const generateTreatmentSummary = (diagnosis, investigationNotes) => {
+    let summary = '';
 
-  const loadIcd10Options = async () => {
-    try {
-      // แก้ไข: ใช้ endpoint ที่ถูกต้อง
-      const response = await fetch(`${API_BASE_URL}/icd10?limit=100`);
-      if (response.ok) {
-        const result = await response.json();
-        if (result.success) {
-          setIcd10Options(result.data || []);
+    // Chief Complaint
+    if (diagnosis?.CHIEF_COMPLAINT) {
+      summary += `Chief Complaint: ${diagnosis.CHIEF_COMPLAINT}\n\n`;
+    }
+
+    // Present Illness
+    if (diagnosis?.PRESENT_ILL) {
+      summary += `Present Illness: ${diagnosis.PRESENT_ILL}\n\n`;
+    }
+
+    // Physical Examination
+    if (diagnosis?.PHYSICAL_EXAM) {
+      summary += `Physical Examination: ${diagnosis.PHYSICAL_EXAM}\n\n`;
+    }
+
+    // Investigation
+    if (investigationNotes) {
+      summary += `Investigation:\n`;
+      
+      const lines = investigationNotes.split('\n\n');
+      lines.forEach(line => {
+        if (line.startsWith('[Imaging]')) {
+          const imagingNote = line.replace('[Imaging]', '').trim();
+          if (imagingNote) {
+            summary += `- Imaging: ${imagingNote}\n`;
+          }
+        } else if (line.startsWith('[Laboratory]')) {
+          const laboratoryNote = line.replace('[Laboratory]', '').trim();
+          if (laboratoryNote) {
+            summary += `- Laboratory: ${laboratoryNote}\n`;
+          }
         }
-      } else {
-        console.error('Failed to load icd10 options:', response.status);
-      }
-    } catch (error) {
-      console.error('Error loading icd10 options:', error);
-      // ใส่ข้อมูล fallback
-      setIcd10Options([]);
+      });
+      summary += `\n`;
+    }
+
+    // Plan
+    if (diagnosis?.PLAN1) {
+      summary += `Plan: ${diagnosis.PLAN1}`;
+    }
+
+    // อัพเดท treatment field ถ้ายังไม่มีข้อมูล
+    if (summary.trim()) {
+      setDxData(prev => ({
+        ...prev,
+        treatment: prev.treatment || summary.trim()
+      }));
     }
   };
 
@@ -101,6 +182,15 @@ const DxandTreatment = ({ currentPatient, onSaveSuccess }) => {
       ...prev,
       [field]: value
     }));
+  };
+
+  // ฟังก์ชันสร้าง Summary จากข้อมูลปัจจุบัน
+  const handleAutoFillSummary = () => {
+    generateTreatmentSummary(diagnosisData, 
+      diagnosisData.investigations.imaging || diagnosisData.investigations.lab ? 
+      `${diagnosisData.investigations.imaging ? `[Imaging] ${diagnosisData.radiological.note}` : ''}${diagnosisData.investigations.imaging && diagnosisData.investigations.lab ? '\n\n' : ''}${diagnosisData.investigations.lab ? `[Laboratory] ${diagnosisData.laboratory.note}` : ''}` 
+      : null
+    );
   };
 
   const handleSave = async () => {
@@ -117,7 +207,7 @@ const DxandTreatment = ({ currentPatient, onSaveSuccess }) => {
         VNO: currentPatient.VNO,
         HNNO: currentPatient.HNCODE,
         DXCODE: dxData.dxCode || null,
-        ICD10CODE: dxData.icd10Code || null,
+        ICD10CODE: '', // ตั้งค่าเป็นค่าว่าง
         TREATMENT1: dxData.treatment || null,
         STATUS1: 'กำลังตรวจ'
       };
@@ -228,81 +318,59 @@ const DxandTreatment = ({ currentPatient, onSaveSuccess }) => {
         {/* Dx and Treatment Form Section */}
         <Grid item xs={12} sm={7}>
           <Grid container spacing={2}>
-            {/* Dx Field */}
-            <Grid item xs={7}>
+            {/* Dx Field - เปลี่ยนเป็น TextField ธรรมดา */}
+            <Grid item xs={12}>
               <Typography sx={{ fontWeight: "400", fontSize: "16px", mb: 1 }}>
                 Dx *
               </Typography>
-              <Autocomplete
-                options={dxOptions}
-                getOptionLabel={(option) => option.DXNAME_THAI || option.DXNAME_ENG || ''}
-                value={dxOptions.find(opt => opt.DXCODE === dxData.dxCode) || null}
-                onChange={(event, newValue) => {
-                  handleDxChange('dxCode', newValue?.DXCODE || '');
-                  handleDxChange('dx', newValue?.DXNAME_THAI || newValue?.DXNAME_ENG || '');
+              <TextField
+                fullWidth
+                size="small"
+                placeholder="กรอก Dx"
+                value={dxData.dx}
+                onChange={(e) => handleDxChange('dx', e.target.value)}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: '10px',
+                  },
                 }}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    size="small"
-                    placeholder="ค้นหา Dx"
-                    sx={{
-                      '& .MuiOutlinedInput-root': {
-                        borderRadius: '10px',
-                      },
-                    }}
-                    InputProps={{
-                      ...params.InputProps,
-                      endAdornment: (
-                        <>
-                          {params.InputProps.endAdornment}
-                          <SearchIcon color="action" />
-                        </>
-                      ),
-                    }}
-                  />
-                )}
-              />
-            </Grid>
-
-            {/* ICD10 Field */}
-            <Grid item xs={5}>
-              <Typography sx={{ fontWeight: '400', fontSize: '16px', mb: 1 }}>
-                ICD10
-              </Typography>
-              <Autocomplete
-                options={icd10Options}
-                getOptionLabel={(option) => option.ICD10CODE || ''}
-                value={icd10Options.find(opt => opt.ICD10CODE === dxData.icd10Code) || null}
-                onChange={(event, newValue) => {
-                  handleDxChange('icd10Code', newValue?.ICD10CODE || '');
-                  handleDxChange('icd10', newValue?.ICD10NAME_THAI || '');
-                }}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    size="small"
-                    placeholder="ICD10"
-                    sx={{
-                      '& .MuiOutlinedInput-root': {
-                        borderRadius: '10px',
-                      },
-                    }}
-                  />
-                )}
               />
             </Grid>
 
             {/* Treatment Summary */}
             <Grid item xs={12}>
-              <Typography sx={{ fontWeight: "bold", fontSize: "16px", mb: 1, mt: 2 }}>
-                สรุป Treatment *
-              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1, mt: 2 }}>
+                <Typography sx={{ fontWeight: "bold", fontSize: "16px" }}>
+                  สรุป Treatment *
+                </Typography>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={handleAutoFillSummary}
+                  sx={{
+                    color: "#5698E0",
+                    borderColor: "#5698E0",
+                    fontSize: "0.8rem",
+                    '&:hover': {
+                      backgroundColor: "#f0f8ff"
+                    }
+                  }}
+                >
+                  ดึงข้อมูลจากการวินิจฉัย
+                </Button>
+              </Box>
               <TextField
                 fullWidth
                 multiline
-                rows={8}
-                placeholder="กรอกสรุปการรักษา, แผนการรักษา, คำแนะนำสำหรับผู้ป่วย"
+                rows={12}
+                placeholder="กรอกสรุปการรักษา, แผนการรักษา, คำแนะนำสำหรับผู้ป่วย
+
+รูปแบบที่แนะนำ:
+Chief Complaint: [อาการหลัก]
+Present Illness: [ประวัติความเจ็บป่วย]
+Physical Examination: [ผลการตรวจร่างกาย]
+Investigation: [การตรวจเพิ่มเติม]
+Plan: [แผนการรักษา]"
                 value={dxData.treatment}
                 onChange={(e) => handleDxChange('treatment', e.target.value)}
                 sx={{

@@ -361,6 +361,7 @@ class TreatmentService {
     }
 
     // จัดรูปแบบข้อมูลก่อนส่ง API
+    // จัดรูปแบบข้อมูลก่อนส่ง API
     static formatTreatmentData(data) {
         // Helper function to convert undefined to null
         const toNull = (value) => value === undefined ? null : value;
@@ -388,6 +389,9 @@ class TreatmentService {
             EMP_CODE: toNull(data.EMP_CODE?.trim()),
             EMP_CODE1: toNull(data.EMP_CODE1?.trim()),
             STATUS1: toNull(data.STATUS1) || 'ทำงานอยู่',
+
+            // เพิ่มฟิลด์ใหม่สำหรับ Investigation Notes
+            INVESTIGATION_NOTES: toNull(data.INVESTIGATION_NOTES?.trim()),
 
             // Diagnosis details - Handle undefined values
             diagnosis: data.diagnosis ? {
