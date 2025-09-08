@@ -1,4 +1,4 @@
-// services/treatmentService.js - แก้ไข VN Number ให้เป็น พ.ศ.
+// services/treatmentService.js - แก้ไขเพื่อรองรับ Freestyle Procedures
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
 
 class TreatmentService {
@@ -15,6 +15,87 @@ class TreatmentService {
         const runningNumber = String(Math.floor(Math.random() * 999) + 1).padStart(3, '0');
 
         return `VN${year}${month}${day}${runningNumber}`;
+    }
+
+    // ✅ สร้างรหัสหัตถการใหม่สำหรับ freestyle procedures
+    static generateProcedureCode(procedureName) {
+        const timestamp = Date.now().toString().slice(-6);
+        const namePrefix = procedureName.slice(0, 3).toUpperCase().replace(/[^A-Z]/g, 'X');
+        return `${namePrefix}_${timestamp}`;
+    }
+
+    // ✅ ตรวจสอบว่าเป็นรหัสหัตถการที่สร้างขึ้นใหม่หรือไม่
+    static isCustomProcedureCode(code) {
+        return code && (code.startsWith('CUSTOM_') || code.includes('_') || code.startsWith('PROC_'));
+    }
+
+    // ✅ เพิ่มหัตถการใหม่เข้าไปในฐานข้อมูล
+    static async addCustomProcedure(procedureCode, procedureName) {
+        try {
+            const response = await fetch(`${API_BASE_URL}/treatments/procedures/custom`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    MEDICAL_PROCEDURE_CODE: procedureCode,
+                    MED_PRO_NAME_THAI: procedureName,
+                    MED_PRO_NAME_ENG: procedureName,
+                    MED_PRO_TYPE: 'Custom',
+                    UNIT_PRICE: 0
+                })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('Error adding custom procedure:', error);
+            throw error;
+        }
+    }
+
+    // ✅ ตรวจสอบและเตรียมข้อมูลหัตถการก่อนบันทึก
+    static async prepareProceduresData(procedures) {
+        const preparedProcedures = [];
+
+        for (const proc of procedures) {
+            let procedureCode = proc.procedureCode || proc.PROCEDURE_CODE || proc.MEDICAL_PROCEDURE_CODE;
+            const procedureName = proc.procedureName || proc.PROCEDURE_NAME || 'หัตถการที่ไม่ระบุชื่อ';
+
+            // ถ้าไม่มีรหัส หรือเป็นรหัสชั่วคราว ให้สร้างใหม่
+            if (!procedureCode || procedureCode.trim() === '' || procedureCode.startsWith('CUSTOM_')) {
+                const timestamp = Date.now().toString().slice(-6);
+                procedureCode = `PROC_${timestamp}`;
+
+                // เพิ่มหัตถการใหม่เข้าฐานข้อมูล
+                try {
+                    await this.addCustomProcedure(procedureCode, procedureName);
+                    console.log(`✅ Added custom procedure: ${procedureCode} - ${procedureName}`);
+                } catch (error) {
+                    console.warn(`⚠️ Could not add custom procedure: ${procedureCode}`, error);
+                    // ใช้รหัสเดิมหากไม่สามารถเพิ่มได้
+                }
+            }
+
+            preparedProcedures.push({
+                PROCEDURE_CODE: procedureCode,
+                MEDICAL_PROCEDURE_CODE: procedureCode,
+                PROCEDURE_NAME: procedureName,
+                NOTE1: proc.note || proc.NOTE1 || '',
+                DOCTOR_NAME: proc.doctorName || proc.DOCTOR_NAME || 'นพ.ผู้รักษา',
+                PROCEDURE_DATE: proc.procedureDate || new Date().toISOString().split('T')[0],
+                QTY: proc.qty || proc.QTY || 1,
+                UNIT_CODE: proc.unitCode || proc.UNIT_CODE || 'ครั้ง',
+                UNIT_PRICE: proc.unitPrice || proc.UNIT_PRICE || 0,
+                AMT: proc.amt || proc.AMT || 0
+            });
+        }
+
+        return preparedProcedures;
     }
 
     // ✅ แปลงวันที่เป็นรูปแบบไทย - แก้ไขให้แสดง พ.ศ.
@@ -102,6 +183,11 @@ class TreatmentService {
     // สร้างการรักษาใหม่
     static async createTreatment(treatmentData) {
         try {
+            // ✅ เตรียมข้อมูลหัตถการก่อน
+            if (treatmentData.procedures && Array.isArray(treatmentData.procedures)) {
+                treatmentData.procedures = await this.prepareProceduresData(treatmentData.procedures);
+            }
+
             const response = await fetch(`${API_BASE_URL}/treatments`, {
                 method: 'POST',
                 headers: {
@@ -129,6 +215,11 @@ class TreatmentService {
                 ...treatmentData,
                 QUEUE_ID: queueId
             };
+
+            // ✅ เตรียมข้อมูลหัตถการก่อน
+            if (data.procedures && Array.isArray(data.procedures)) {
+                data.procedures = await this.prepareProceduresData(data.procedures);
+            }
 
             const response = await fetch(`${API_BASE_URL}/treatments`, {
                 method: 'POST',
@@ -225,9 +316,16 @@ class TreatmentService {
         }
     }
 
-    // อัพเดทข้อมูลการรักษา
+    // ✅ อัพเดทข้อมูลการรักษา - แก้ไขเพื่อรองรับ freestyle procedures
     static async updateTreatment(vno, treatmentData) {
         try {
+            // ✅ เตรียมข้อมูลหัตถการก่อนส่ง
+            if (treatmentData.procedures && Array.isArray(treatmentData.procedures)) {
+                console.log('📋 Preparing procedures data before sending to API...');
+                treatmentData.procedures = await this.prepareProceduresData(treatmentData.procedures);
+                console.log('✅ Procedures prepared:', treatmentData.procedures);
+            }
+
             // Format the data to ensure no undefined values
             const formattedData = this.formatTreatmentData(treatmentData);
 
@@ -252,7 +350,6 @@ class TreatmentService {
             throw error;
         }
     }
-
 
     // อัพเดทสถานะการรักษา
     static async updateTreatmentStatus(vno, status) {
@@ -298,7 +395,7 @@ class TreatmentService {
         }
     }
 
-    // ตรวจสอบความถูกต้องของข้อมูลการรักษา
+    // ✅ ตรวจสอบความถูกต้องของข้อมูลการรักษา - เพิ่มการตรวจสอบหัตถการ
     static validateTreatmentData(data) {
         const errors = [];
 
@@ -317,6 +414,15 @@ class TreatmentService {
 
         if (!data.RDATE) {
             errors.push('กรุณาระบุวันที่รับบริการ');
+        }
+
+        // ✅ ตรวจสอบข้อมูลหัตถการ
+        if (data.procedures && Array.isArray(data.procedures)) {
+            data.procedures.forEach((proc, index) => {
+                if (!proc.procedureName && !proc.PROCEDURE_NAME) {
+                    errors.push(`กรุณากรอกชื่อหัตถการลำดับที่ ${index + 1}`);
+                }
+            });
         }
 
         // ตรวจสอบค่าสัญญาณชีพ
@@ -339,7 +445,7 @@ class TreatmentService {
 
         // ✅ ตรวจสอบรูปแบบ VNO ใหม่
         if (data.VNO && !this.isValidVNO(data.VNO)) {
-            errors.push('Visit Number ต้องเป็นรูปแบบ VN + 12 หลัก');
+            errors.push('Visit Number ต้องเป็นรูปแบบ VN + 9 หลัก');
         }
 
         // ตรวจสอบรูปแบบวันที่
@@ -360,11 +466,15 @@ class TreatmentService {
         return date instanceof Date && !isNaN(date);
     }
 
-    // จัดรูปแบบข้อมูลก่อนส่ง API
-    // จัดรูปแบบข้อมูลก่อนส่ง API
+    // ✅ จัดรูปแบบข้อมูลก่อนส่ง API - เพิ่มการจัดการหัตถการ
     static formatTreatmentData(data) {
         // Helper function to convert undefined to null
-        const toNull = (value) => value === undefined ? null : value;
+        const toNull = (value) => {
+            if (value === undefined || value === null || value === '') {
+                return null;
+            }
+            return value;
+        };
 
         return {
             VNO: toNull(data.VNO?.trim()),
@@ -466,7 +576,7 @@ class TreatmentService {
         return warnings;
     }
 
-    // จัดรูปแบบข้อมูลสำหรับพิมพ์
+    // ✅ จัดรูปแบบข้อมูลสำหรับพิมพ์ - เพิ่มการจัดการหัตถการ
     static formatForPrint(treatmentData) {
         const treatment = treatmentData.data;
 
@@ -501,9 +611,12 @@ class TreatmentService {
             treatment: treatment.treatment.TREATMENT1,
             doctor: treatment.treatment.EMP_NAME,
 
-            // Details
+            // Details - ✅ แยกหัตถการที่สร้างใหม่กับที่มีอยู่เดิม
             drugs: treatment.drugs,
-            procedures: treatment.procedures,
+            procedures: treatment.procedures.map(proc => ({
+                ...proc,
+                isCustom: this.isCustomProcedureCode(proc.MEDICAL_PROCEDURE_CODE)
+            })),
             labTests: treatment.labTests,
             radioTests: treatment.radiologicalTests,
 
@@ -512,7 +625,7 @@ class TreatmentService {
         };
     }
 
-    // กรองและเรียงลำดับข้อมูล
+    // ✅ กรองและเรียงลำดับข้อมูล - เพิ่มการกรองหัตถการ
     static filterAndSortTreatments(treatments, filters = {}) {
         let filtered = [...treatments];
 
@@ -524,6 +637,18 @@ class TreatmentService {
         // กรองตามแพทย์
         if (filters.doctor) {
             filtered = filtered.filter(t => t.EMP_NAME?.includes(filters.doctor));
+        }
+
+        // ✅ กรองตามประเภทหัตถการ
+        if (filters.procedureType) {
+            filtered = filtered.filter(t => {
+                if (filters.procedureType === 'custom') {
+                    return t.procedures?.some(p => this.isCustomProcedureCode(p.MEDICAL_PROCEDURE_CODE));
+                } else if (filters.procedureType === 'standard') {
+                    return t.procedures?.some(p => !this.isCustomProcedureCode(p.MEDICAL_PROCEDURE_CODE));
+                }
+                return true;
+            });
         }
 
         // กรองตามช่วงวันที่
@@ -551,11 +676,11 @@ class TreatmentService {
         return filtered;
     }
 
-    // ส่งออกข้อมูลเป็น CSV
+    // ✅ ส่งออกข้อมูลเป็น CSV - เพิ่มข้อมูลหัตถการ
     static exportToCSV(treatments) {
         const headers = [
             'VNO', 'HN', 'วันที่', 'ชื่อผู้ป่วย', 'อายุ', 'เพศ',
-            'อาการ', 'การวินิจฉัย', 'การรักษา', 'แพทย์', 'สถานะ'
+            'อาการ', 'การวินิจฉัย', 'การรักษา', 'หัตถการ', 'แพทย์', 'สถานะ'
         ];
 
         const rows = treatments.map(t => [
@@ -568,6 +693,8 @@ class TreatmentService {
             t.SYMPTOM,
             t.DXNAME_THAI,
             t.TREATMENT1,
+            // ✅ รวมรายการหัตถการ
+            t.procedures?.map(p => p.MED_PRO_NAME_THAI || p.PROCEDURE_NAME).join(', ') || '',
             t.EMP_NAME,
             t.STATUS1
         ]);
@@ -595,7 +722,7 @@ class TreatmentService {
         document.body.removeChild(link);
     }
 
-    // สร้างข้อมูลการรักษาใหม่จาก Queue
+    // ✅ สร้างข้อมูลการรักษาใหม่จาก Queue - เพิ่มการจัดการหัตถการ
     static createTreatmentFromQueue(queueData) {
         return {
             VNO: this.generateVNO(),
@@ -614,7 +741,10 @@ class TreatmentService {
                 AGE: queueData.AGE,
                 SEX: queueData.SEX,
                 TEL1: queueData.TEL1
-            }
+            },
+
+            // ✅ เริ่มต้นด้วยข้อมูลหัตถการว่าง
+            procedures: []
         };
     }
 
@@ -638,6 +768,74 @@ class TreatmentService {
             // ไม่ throw error เพื่อไม่ให้กระทบกับการอัพเดทการรักษา
             return null;
         }
+    }
+
+    // ✅ เพิ่มฟังก์ชันสำหรับจัดการหัตถการพิเศษ
+    static getProcedureStatistics(procedures) {
+        if (!Array.isArray(procedures)) return null;
+
+        const stats = {
+            total: procedures.length,
+            custom: 0,
+            standard: 0,
+            categories: {}
+        };
+
+        procedures.forEach(proc => {
+            if (this.isCustomProcedureCode(proc.MEDICAL_PROCEDURE_CODE || proc.PROCEDURE_CODE)) {
+                stats.custom++;
+            } else {
+                stats.standard++;
+            }
+
+            const category = proc.MED_PRO_TYPE || proc.CATEGORY || 'ไม่ระบุ';
+            stats.categories[category] = (stats.categories[category] || 0) + 1;
+        });
+
+        return stats;
+    }
+
+    // ✅ ค้นหาหัตถการที่คล้ายกัน
+    static findSimilarProcedures(procedureName, existingProcedures = []) {
+        if (!procedureName || !Array.isArray(existingProcedures)) return [];
+
+        const searchTerm = procedureName.toLowerCase();
+        return existingProcedures.filter(proc => {
+            const name = (proc.MED_PRO_NAME_THAI || proc.PROCEDURE_NAME || '').toLowerCase();
+            return name.includes(searchTerm) || searchTerm.includes(name);
+        });
+    }
+
+    // ✅ สร้างรายงานหัตถการ
+    static generateProcedureReport(treatments) {
+        const allProcedures = [];
+
+        treatments.forEach(treatment => {
+            if (treatment.procedures && Array.isArray(treatment.procedures)) {
+                treatment.procedures.forEach(proc => {
+                    allProcedures.push({
+                        ...proc,
+                        VNO: treatment.VNO,
+                        patientName: `${treatment.PRENAME || ''} ${treatment.NAME1} ${treatment.SURNAME || ''}`.trim(),
+                        treatmentDate: treatment.RDATE,
+                        isCustom: this.isCustomProcedureCode(proc.MEDICAL_PROCEDURE_CODE)
+                    });
+                });
+            }
+        });
+
+        const stats = this.getProcedureStatistics(allProcedures);
+
+        return {
+            procedures: allProcedures,
+            statistics: stats,
+            summary: {
+                totalTreatments: treatments.length,
+                treatmentsWithProcedures: treatments.filter(t => t.procedures && t.procedures.length > 0).length,
+                averageProceduresPerTreatment: allProcedures.length / treatments.length,
+                customProcedurePercentage: stats ? (stats.custom / stats.total * 100).toFixed(1) + '%' : '0%'
+            }
+        };
     }
 }
 

@@ -11,6 +11,7 @@ import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import MedicalServicesIcon from '@mui/icons-material/MedicalServices';
+import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import PropTypes from 'prop-types';
 
 // Import Services
@@ -56,10 +57,10 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
       if (response.success && response.data?.procedures) {
         const procedures = response.data.procedures.map((procedure, index) => ({
           id: index + 1,
-          procedureName: procedure.PROCEDURE_NAME,
-          procedureCode: procedure.PROCEDURE_CODE,
+          procedureName: procedure.MED_PRO_NAME_THAI || procedure.PROCEDURE_NAME || 'ไม่ระบุชื่อ',
+          procedureCode: procedure.MEDICAL_PROCEDURE_CODE || procedure.PROCEDURE_CODE,
           note: procedure.NOTE1 || '',
-          doctorName: procedure.DOCTOR_NAME || ''
+          doctorName: procedure.DOCTOR_NAME || 'นพ.ผู้รักษา'
         }));
         setSavedProcedures(procedures);
       }
@@ -74,10 +75,16 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
   const loadProcedureOptions = async () => {
     try {
       // โหลดรายการหัตถการจาก API
-      const response = await fetch('/api/procedures'); // สมมุติ API endpoint
+      const response = await fetch('/api/medical-procedures?limit=100');
       if (response.ok) {
         const data = await response.json();
-        setProcedureOptions(data);
+        const formattedOptions = data.data.map(item => ({
+          PROCEDURE_CODE: item.MEDICAL_PROCEDURE_CODE,
+          PROCEDURE_NAME: item.MED_PRO_NAME_THAI,
+          CATEGORY: item.MED_PRO_TYPE || 'ทั่วไป',
+          UNIT_PRICE: item.UNIT_PRICE || 0
+        }));
+        setProcedureOptions(formattedOptions);
       } else {
         throw new Error('API not available');
       }
@@ -85,21 +92,21 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
       console.error('Error loading procedure options:', error);
       // ข้อมูลจำลองหัตถการ
       setProcedureOptions([
-        { PROCEDURE_CODE: 'PROC001', PROCEDURE_NAME: 'การเย็บแผล', CATEGORY: 'Minor Surgery' },
-        { PROCEDURE_CODE: 'PROC002', PROCEDURE_NAME: 'การตัดแผล', CATEGORY: 'Minor Surgery' },
-        { PROCEDURE_CODE: 'PROC003', PROCEDURE_NAME: 'การล้างแผล', CATEGORY: 'Wound Care' },
-        { PROCEDURE_CODE: 'PROC004', PROCEDURE_NAME: 'การใส่เข็มหยด', CATEGORY: 'IV Therapy' },
-        { PROCEDURE_CODE: 'PROC005', PROCEDURE_NAME: 'การฉีดยาเข้ากล้ามเนื้อ', CATEGORY: 'Injection' },
-        { PROCEDURE_CODE: 'PROC006', PROCEDURE_NAME: 'การฉีดยาเข้าหลอดเลือด', CATEGORY: 'Injection' },
-        { PROCEDURE_CODE: 'PROC007', PROCEDURE_NAME: 'การดูดเสมหะ', CATEGORY: 'Respiratory' },
-        { PROCEDURE_CODE: 'PROC008', PROCEDURE_NAME: 'การใส่สายปัสสาวะ', CATEGORY: 'Urinary' },
-        { PROCEDURE_CODE: 'PROC009', PROCEDURE_NAME: 'การตรวจร่างกาย', CATEGORY: 'Examination' },
-        { PROCEDURE_CODE: 'PROC010', PROCEDURE_NAME: 'การวัดความดันโลหิต', CATEGORY: 'Vital Signs' },
-        { PROCEDURE_CODE: 'PROC011', PROCEDURE_NAME: 'การปฐมพยาบาล', CATEGORY: 'First Aid' },
-        { PROCEDURE_CODE: 'PROC012', PROCEDURE_NAME: 'การทำแผล', CATEGORY: 'Wound Care' },
-        { PROCEDURE_CODE: 'PROC013', PROCEDURE_NAME: 'การตรวจหู คอ จมูก', CATEGORY: 'ENT' },
-        { PROCEDURE_CODE: 'PROC014', PROCEDURE_NAME: 'การตรวจตา', CATEGORY: 'Ophthalmology' },
-        { PROCEDURE_CODE: 'PROC015', PROCEDURE_NAME: 'การนวดหัวใจ', CATEGORY: 'Emergency' }
+        { PROCEDURE_CODE: 'PROC001', PROCEDURE_NAME: 'การเย็บแผล', CATEGORY: 'Minor Surgery', UNIT_PRICE: 500 },
+        { PROCEDURE_CODE: 'PROC002', PROCEDURE_NAME: 'การตัดแผล', CATEGORY: 'Minor Surgery', UNIT_PRICE: 300 },
+        { PROCEDURE_CODE: 'PROC003', PROCEDURE_NAME: 'การล้างแผล', CATEGORY: 'Wound Care', UNIT_PRICE: 200 },
+        { PROCEDURE_CODE: 'PROC004', PROCEDURE_NAME: 'การใส่เข็มหยด', CATEGORY: 'IV Therapy', UNIT_PRICE: 150 },
+        { PROCEDURE_CODE: 'PROC005', PROCEDURE_NAME: 'การฉีดยาเข้ากล้ามเนื้อ', CATEGORY: 'Injection', UNIT_PRICE: 100 },
+        { PROCEDURE_CODE: 'PROC006', PROCEDURE_NAME: 'การฉีดยาเข้าหลอดเลือด', CATEGORY: 'Injection', UNIT_PRICE: 150 },
+        { PROCEDURE_CODE: 'PROC007', PROCEDURE_NAME: 'การดูดเสมหะ', CATEGORY: 'Respiratory', UNIT_PRICE: 250 },
+        { PROCEDURE_CODE: 'PROC008', PROCEDURE_NAME: 'การใส่สายปัสสาวะ', CATEGORY: 'Urinary', UNIT_PRICE: 300 },
+        { PROCEDURE_CODE: 'PROC009', PROCEDURE_NAME: 'การตรวจร่างกาย', CATEGORY: 'Examination', UNIT_PRICE: 200 },
+        { PROCEDURE_CODE: 'PROC010', PROCEDURE_NAME: 'การวัดความดันโลหิต', CATEGORY: 'Vital Signs', UNIT_PRICE: 50 },
+        { PROCEDURE_CODE: 'PROC011', PROCEDURE_NAME: 'การปฐมพยาบาล', CATEGORY: 'First Aid', UNIT_PRICE: 150 },
+        { PROCEDURE_CODE: 'PROC012', PROCEDURE_NAME: 'การทำแผล', CATEGORY: 'Wound Care', UNIT_PRICE: 200 },
+        { PROCEDURE_CODE: 'PROC013', PROCEDURE_NAME: 'การตรวจหู คอ จมูก', CATEGORY: 'ENT', UNIT_PRICE: 300 },
+        { PROCEDURE_CODE: 'PROC014', PROCEDURE_NAME: 'การตรวจตา', CATEGORY: 'Ophthalmology', UNIT_PRICE: 250 },
+        { PROCEDURE_CODE: 'PROC015', PROCEDURE_NAME: 'การนวดหัวใจ', CATEGORY: 'Emergency', UNIT_PRICE: 1000 }
       ]);
     }
   };
@@ -111,17 +118,51 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
     }));
   };
 
+  // แก้ไข handleProcedureSelect เพื่อรองรับ freeSolo
   const handleProcedureSelect = (newValue) => {
     if (newValue) {
-      handleProcedureChange('procedureCode', newValue.PROCEDURE_CODE);
-      handleProcedureChange('procedureName', newValue.PROCEDURE_NAME);
+      if (typeof newValue === 'object') {
+        // เลือกจากรายการที่มี
+        handleProcedureChange('procedureCode', newValue.PROCEDURE_CODE);
+        handleProcedureChange('procedureName', newValue.PROCEDURE_NAME);
+      } else {
+        // พิมพ์ใหม่ (string)
+        handleProcedureChange('procedureName', newValue);
+        handleProcedureChange('procedureCode', ''); // จะสร้างใหม่ตอนบันทึก
+      }
     } else {
       handleProcedureChange('procedureCode', '');
       handleProcedureChange('procedureName', '');
     }
   };
 
-  const handleAddProcedure = () => {
+  // ฟังก์ชันเพิ่มหัตถการใหม่เข้าฐานข้อมูล
+  const addCustomProcedureToDatabase = async (code, name) => {
+    try {
+      const response = await fetch('/api/treatments/procedures/custom', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          MEDICAL_PROCEDURE_CODE: code,
+          MED_PRO_NAME_THAI: name,
+          MED_PRO_NAME_ENG: name
+        })
+      });
+
+      if (response.ok) {
+        console.log('Added custom procedure to database:', code);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Error adding custom procedure:', error);
+      return false;
+    }
+  };
+
+  const handleAddProcedure = async () => {
     // ตรวจสอบข้อมูลที่จำเป็น
     const errors = [];
 
@@ -134,10 +175,25 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
       return;
     }
 
+    // ถ้าไม่มี procedureCode ให้สร้างรหัสชั่วคราว
+    let finalProcedureCode = procedureData.procedureCode;
+
+    if (!finalProcedureCode || finalProcedureCode.trim() === '') {
+      const timestamp = Date.now().toString().slice(-6);
+      finalProcedureCode = `CUSTOM_${timestamp}`;
+
+      // เพิ่มรหัสนี้เข้าไปในตาราง TABLE_MEDICAL_PROCEDURES
+      try {
+        await addCustomProcedureToDatabase(finalProcedureCode, procedureData.procedureName.trim());
+      } catch (error) {
+        console.warn('Could not add custom procedure to database:', error);
+      }
+    }
+
     const newProcedure = {
       id: editingIndex >= 0 ? savedProcedures[editingIndex].id : Date.now(),
       procedureName: procedureData.procedureName.trim(),
-      procedureCode: procedureData.procedureCode,
+      procedureCode: finalProcedureCode,
       note: procedureData.note.trim(),
       doctorName: procedureData.doctorName.trim() || 'นพ.ผู้รักษา'
     };
@@ -198,12 +254,36 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
       }
 
       // เตรียมข้อมูลหัตถการสำหรับบันทึก
-      const procedures = savedProcedures.map(procedure => ({
-        PROCEDURE_CODE: procedure.procedureCode,
-        NOTE1: procedure.note,
-        DOCTOR_NAME: procedure.doctorName,
-        PROCEDURE_DATE: new Date().toISOString().split('T')[0]
-      }));
+      const procedures = await Promise.all(
+        savedProcedures.map(async (procedure) => {
+          let finalCode = procedure.procedureCode;
+
+          // ถ้าไม่มีรหัส หรือเป็นรหัสชั่วคราว ให้เพิ่มเข้าฐานข้อมูลก่อน
+          if (!finalCode || finalCode.startsWith('CUSTOM_')) {
+            try {
+              const timestamp = Date.now().toString().slice(-6);
+              finalCode = `PROC_${timestamp}`;
+              await addCustomProcedureToDatabase(finalCode, procedure.procedureName);
+            } catch (error) {
+              console.warn('Could not add procedure to database, using original code');
+              finalCode = procedure.procedureCode || `TEMP_${Date.now()}`;
+            }
+          }
+
+          return {
+            PROCEDURE_CODE: finalCode,
+            MEDICAL_PROCEDURE_CODE: finalCode,
+            PROCEDURE_NAME: procedure.procedureName,
+            NOTE1: procedure.note,
+            DOCTOR_NAME: procedure.doctorName,
+            PROCEDURE_DATE: new Date().toISOString().split('T')[0],
+            QTY: 1,
+            UNIT_CODE: 'ครั้ง',
+            UNIT_PRICE: 0,
+            AMT: 0
+          };
+        })
+      );
 
       const treatmentData = {
         VNO: currentPatient.VNO,
@@ -322,21 +402,31 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
               </Typography>
 
               <Grid container spacing={2}>
-                {/* Procedure Search */}
+                {/* Procedure Search with freeSolo */}
                 <Grid item xs={12}>
                   <Typography sx={{ fontWeight: "400", fontSize: "16px", mb: 1 }}>
                     ค้นหาหัตถการ *
                   </Typography>
                   <Autocomplete
                     options={procedureOptions}
-                    getOptionLabel={(option) => `${option.PROCEDURE_NAME} (${option.CATEGORY})`}
-                    value={procedureOptions.find(opt => opt.PROCEDURE_CODE === procedureData.procedureCode) || null}
+                    freeSolo // เพิ่มบรรทัดนี้เพื่อให้พิมพ์ได้อิสระ
+                    getOptionLabel={(option) => {
+                      if (typeof option === 'string') return option;
+                      return `${option.PROCEDURE_NAME} (${option.CATEGORY})`;
+                    }}
+                    value={procedureOptions.find(opt => opt.PROCEDURE_CODE === procedureData.procedureCode) || procedureData.procedureName || null}
                     onChange={(event, newValue) => handleProcedureSelect(newValue)}
+                    onInputChange={(event, newInputValue) => {
+                      // อัปเดตชื่อหัตถการเมื่อพิมพ์
+                      if (event?.type === 'change') {
+                        handleProcedureChange('procedureName', newInputValue);
+                      }
+                    }}
                     renderInput={(params) => (
                       <TextField
                         {...params}
                         size="small"
-                        placeholder="พิมพ์ชื่อหัตถการที่ต้องการ"
+                        placeholder="พิมพ์ชื่อหัตถการ หรือเลือกจากรายการ"
                         sx={{
                           '& .MuiOutlinedInput-root': {
                             borderRadius: '10px',
@@ -353,7 +443,33 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
                         }}
                       />
                     )}
+                    renderOption={(props, option) => (
+                      <Box component="li" {...props}>
+                        <Box>
+                          <Typography variant="body2" fontWeight={600}>
+                            {option.PROCEDURE_NAME}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {option.CATEGORY} | รหัส: {option.PROCEDURE_CODE}
+                          </Typography>
+                        </Box>
+                      </Box>
+                    )}
+                    noOptionsText={
+                      <Box sx={{ p: 2, textAlign: 'center' }}>
+                        <AutoFixHighIcon color="primary" sx={{ fontSize: 32, mb: 1 }} />
+                        <Typography variant="body2" color="text.secondary">
+                          ไม่พบหัตถการในระบบ
+                        </Typography>
+                        <Typography variant="caption" color="primary">
+                          💡 สามารถพิมพ์ชื่อหัตถการใหม่ได้เลย
+                        </Typography>
+                      </Box>
+                    }
                   />
+                  <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                    💡 เลือกจากรายการ หรือพิมพ์ชื่อหัตถการใหม่ได้เลย
+                  </Typography>
                 </Grid>
 
                 {/* Doctor Name */}
@@ -430,8 +546,6 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
               </Grid>
             </CardContent>
           </Card>
-
-
         </Grid>
       </Grid>
 
@@ -454,6 +568,7 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
                     ลำดับ
                   </TableCell>
                   <TableCell sx={{ fontWeight: 'bold' }}>รายการทำหัตถการ</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }}>รหัส</TableCell>
                   <TableCell sx={{ fontWeight: 'bold' }}>แพทย์ผู้ทำ</TableCell>
                   <TableCell sx={{ fontWeight: 'bold' }}>หมายเหตุ</TableCell>
                   <TableCell sx={{ fontWeight: 'bold', textAlign: 'center' }}>จัดการ</TableCell>
@@ -462,7 +577,7 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
               <TableBody>
                 {savedProcedures.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} sx={{ textAlign: 'center', py: 4 }}>
+                    <TableCell colSpan={6} sx={{ textAlign: 'center', py: 4 }}>
                       <Typography color="text.secondary">
                         ยังไม่มีรายการหัตถการ กรุณาเพิ่มรายการหัตถการด้านบน
                       </Typography>
@@ -482,6 +597,20 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
                         {index + 1}
                       </TableCell>
                       <TableCell>{procedure.procedureName}</TableCell>
+                      <TableCell>
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            bgcolor: procedure.procedureCode?.startsWith('CUSTOM_') ? '#fff3e0' : '#e3f2fd',
+                            px: 1,
+                            py: 0.5,
+                            borderRadius: 1,
+                            fontSize: '11px'
+                          }}
+                        >
+                          {procedure.procedureCode || 'ไม่มีรหัส'}
+                        </Typography>
+                      </TableCell>
                       <TableCell>{procedure.doctorName}</TableCell>
                       <TableCell>{procedure.note}</TableCell>
                       <TableCell sx={{ textAlign: 'center' }}>
