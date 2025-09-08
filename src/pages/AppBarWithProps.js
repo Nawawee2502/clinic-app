@@ -231,6 +231,11 @@ const CustomSidebar = ({ activeMenu, onMenuClick, isOpen }) => {
         {
             title: 'ระบบการจัดการสิทธิ',
             path: '/clinic/rights',
+            icon: <SettingsIcon />
+        },
+        {
+            title: 'ข้อมูลผู้ป่วย',
+            path: '/clinic/patients',
             icon: <PersonOutlineIcon />
         },
         {
@@ -269,8 +274,6 @@ const CustomSidebar = ({ activeMenu, onMenuClick, isOpen }) => {
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
-                    // py: 3,
-                    // mb: 2,
                     opacity: isOpen ? 1 : 0,
                     transition: 'opacity 0.2s',
                     borderBottom: '1px solid rgba(229, 231, 251, 0.5)'

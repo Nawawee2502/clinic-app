@@ -505,7 +505,7 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
                                     {editingIndex >= 0 ? '🔄 แก้ไขรายการยา' : '➕ เพิ่มรายการยา'}
                                 </Typography>
                                 {/* ✅ แสดงสถานะ API และจำนวนยา */}
-                                <Box sx={{ display: 'flex', gap: 1 }}>
+                                {/* <Box sx={{ display: 'flex', gap: 1 }}>
                                     <Box sx={{
                                         px: 2,
                                         py: 0.5,
@@ -530,7 +530,7 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
                                     }}>
                                         เหลือ {availableDrugs.length} / {totalDrugs} ยา
                                     </Box>
-                                </Box>
+                                </Box> */}
                             </Box>
 
                             {/* ✅ แสดงข้อความเตือนเมื่อยาเหลือน้อย */}

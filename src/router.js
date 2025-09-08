@@ -9,6 +9,7 @@ import ตรวจรักษา from './pages/ตรวจรักษา';
 import Medicalstock from './pages/Drugandmedical';
 import Cerwork from "./components/ตรวจรักษา/cerwork";
 import Paymentanddispensingmedicine from "./pages/Paymentanddispensingmedicine";
+import PatientManagement from "./pages/PatientManagementPage";
 
 const ProtectedRoute = ({ children }) => {
   const isAuthenticated = useSelector((state) => state.authentication.token);
@@ -71,6 +72,7 @@ const Router = () => {
           <Route index element={<Navigate to="/clinic/dashboard" replace />} />
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="patientregistration" element={<Patientregistration />} />
+          <Route path="patients" element={<PatientManagement />} /> {/* เพิ่ม route ใหม่ */}
           <Route path="treatment" element={<ตรวจรักษา />} />
           <Route path="medicalstock" element={<Medicalstock />} />
           <Route path="cerwork" element={<Cerwork />} />
