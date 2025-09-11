@@ -15,7 +15,7 @@ import PropTypes from 'prop-types';
 
 // Import Services
 import TreatmentService from "../../services/treatmentService";
-import DrugService from "../../services/drugService"; // ✅ เพิ่ม import DrugService
+import DrugService from "../../services/drugService";
 
 const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
     const [medicineData, setMedicineData] = useState({
@@ -36,7 +36,6 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
         severity: 'success'
     });
 
-    // เพิ่ม options สำหรับหน่วยนับยา
     const [unitOptions] = useState([
         { code: 'TAB', name: 'เม็ด' },
         { code: 'CAP', name: 'แคปซูล' },
@@ -71,9 +70,8 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
     const [saving, setSaving] = useState(false);
     const [loading, setLoading] = useState(false);
     const [editingIndex, setEditingIndex] = useState(-1);
-    const [apiStatus, setApiStatus] = useState('checking'); // ✅ เพิ่มสถานะ API
+    const [apiStatus, setApiStatus] = useState('checking');
 
-    // โหลดข้อมูลเมื่อ currentPatient เปลี่ยน
     useEffect(() => {
         if (currentPatient?.VNO) {
             loadMedicineData();
@@ -111,13 +109,11 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
         }
     };
 
-    // ✅ ปรับปรุง loadDrugOptions ให้มี error handling ที่ดีขึ้น
     const loadDrugOptions = async () => {
         try {
             console.log('🔍 Loading drug options...');
             setApiStatus('checking');
 
-            // ลองใช้ DrugService ก่อน
             const response = await DrugService.getAllDrugs({ limit: 100 });
 
             if (response.success && response.data) {
@@ -137,20 +133,15 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
             setApiStatus('offline');
         }
 
-        // ใช้ข้อมูลจำลองเมื่อ API ไม่พร้อม
         console.log('📦 Using mock drug data');
         const mockDrugs = DrugService.getMockDrugs();
         setDrugOptions(mockDrugs);
         setApiStatus('mock');
-
-        // แสดงข้อความแจ้งเตือน
         showSnackbar('กำลังใช้ข้อมูลยาจำลอง (API ไม่พร้อม)', 'warning');
     };
 
-    // ✅ ฟิลเตอร์ยาที่ยังไม่ได้เพิ่ม (ยกเว้นตอนแก้ไข)
     const getAvailableDrugs = () => {
         if (editingIndex >= 0) {
-            // ถ้ากำลังแก้ไข ให้แสดงยาปัจจุบันด้วย
             const currentEditingDrugCode = savedMedicines[editingIndex]?.drugCode;
             return drugOptions.filter(drug =>
                 !savedMedicines.some((med, index) =>
@@ -158,16 +149,13 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
                 ) || drug.DRUG_CODE === currentEditingDrugCode
             );
         }
-        // ถ้าไม่ได้แก้ไข ซ่อนยาที่เพิ่มแล้ว
         return drugOptions.filter(drug =>
             !savedMedicines.some(med => med.drugCode === drug.DRUG_CODE)
         );
     };
 
-    // ✅ เช็คว่ายาซ้ำหรือไม่
     const isDuplicateMedicine = (drugCode) => {
         return savedMedicines.some((med, index) => {
-            // ถ้ากำลังแก้ไข ไม่นับตัวที่กำลังแก้ไขเป็นของซ้ำ
             if (editingIndex >= 0 && index === editingIndex) {
                 return false;
             }
@@ -184,7 +172,6 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
 
     const handleDrugSelect = (newValue) => {
         if (newValue) {
-            // ✅ เช็คยาซ้ำก่อนเลือก
             if (isDuplicateMedicine(newValue.DRUG_CODE)) {
                 showSnackbar('ยาตัวนี้ถูกเพิ่มไปแล้ว กรุณาเลือกยาตัวอื่น', 'warning');
                 return;
@@ -192,7 +179,6 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
 
             handleMedicineChange('drugCode', newValue.DRUG_CODE);
             handleMedicineChange('drugName', newValue.GENERIC_NAME);
-            // ตั้งหน่วยเริ่มต้นตามยาที่เลือก
             handleMedicineChange('unit', newValue.DEFAULT_UNIT || 'TAB');
         } else {
             handleMedicineChange('drugCode', '');
@@ -202,7 +188,6 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
     };
 
     const handleAddMedicine = () => {
-        // ✅ เพิ่มการตรวจสอบข้อมูลที่ชัดเจน
         const errors = [];
 
         if (!medicineData.drugName.trim()) {
@@ -220,7 +205,6 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
             return;
         }
 
-        // ✅ เช็คยาซ้ำอีกครั้งก่อนเพิ่ม (Double check)
         if (editingIndex < 0 && isDuplicateMedicine(medicineData.drugCode)) {
             showSnackbar('ไม่สามารถเพิ่มยาตัวเดิมซ้ำได้', 'error');
             return;
@@ -238,19 +222,16 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
         };
 
         if (editingIndex >= 0) {
-            // แก้ไขยาที่มีอยู่
             const updatedMedicines = [...savedMedicines];
             updatedMedicines[editingIndex] = newMedicine;
             setSavedMedicines(updatedMedicines);
             setEditingIndex(-1);
             showSnackbar('แก้ไขรายการยาสำเร็จ', 'success');
         } else {
-            // เพิ่มยาใหม่
             setSavedMedicines(prev => [...prev, newMedicine]);
             showSnackbar('เพิ่มรายการยาสำเร็จ', 'success');
         }
 
-        // รีเซ็ตฟอร์ม
         resetForm();
     };
 
@@ -286,12 +267,10 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
             const updatedMedicines = savedMedicines.filter((_, i) => i !== index);
             setSavedMedicines(updatedMedicines);
 
-            // ถ้าลบยาที่กำลังแก้ไขอยู่ ให้รีเซ็ตฟอร์ม
             if (editingIndex === index) {
                 resetForm();
                 setEditingIndex(-1);
             } else if (editingIndex > index) {
-                // ปรับ index ถ้าลบยาก่อนหน้า
                 setEditingIndex(editingIndex - 1);
             }
 
@@ -313,67 +292,74 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
                 return;
             }
 
-            // Helper function to convert undefined to null
-            const toNull = (value) => value === undefined ? null : value;
+            // Helper function to safely handle null/undefined values
+            const safeValue = (value, defaultValue = null) => {
+                if (value === null || value === undefined || value === '') {
+                    return defaultValue;
+                }
+                return value;
+            };
 
-            // ✅ เตรียมข้อมูลยาสำหรับบันทึก - Handle undefined values
+            // Prepare drug data with proper null handling
             const drugs = savedMedicines.map(medicine => ({
-                DRUG_CODE: toNull(medicine.drugCode),
-                QTY: toNull(medicine.quantity) || 1,
-                UNIT_CODE: toNull(medicine.unit) || 'TAB',
+                DRUG_CODE: safeValue(medicine.drugCode),
+                QTY: safeValue(medicine.quantity) || 1,
+                UNIT_CODE: safeValue(medicine.unit) || 'TAB',
                 UNIT_PRICE: 0,
                 AMT: 0,
-                NOTE1: toNull(`${medicine.usage || 'รับประทาน'} ${medicine.beforeAfter || 'หลังอาหาร'}`.trim()),
-                TIME1: toNull(medicine.time) || 'วันละ 1 ครั้ง'
+                NOTE1: safeValue(`${medicine.usage || 'รับประทาน'} ${medicine.beforeAfter || 'หลังอาหาร'}`.trim()),
+                TIME1: safeValue(medicine.time) || 'วันละ 1 ครั้ง'
             }));
 
-            // ✅ สร้างข้อมูล treatment ที่สมบูรณ์ - Convert all undefined to null
+            // Prepare treatment data with comprehensive null checking
             const treatmentData = {
-                VNO: toNull(currentPatient.VNO),
-                HNNO: toNull(currentPatient.HNCODE),
-
-                // ✅ ข้อมูลพื้นฐานที่จำเป็น
+                VNO: safeValue(currentPatient.VNO),
+                HNNO: safeValue(currentPatient.HNCODE),
                 EMP_CODE: 'DOC001',
                 STATUS1: 'ทำงานอยู่',
-
-                // ✅ Vital Signs พื้นฐาน (ถ้าไม่มี) - Handle undefined
-                WEIGHT1: toNull(currentPatient.WEIGHT1) || 60,
-                HIGHT1: toNull(currentPatient.HIGHT1) || 160,
-                BT1: toNull(currentPatient.BT1) || 36.5,
-                BP1: toNull(currentPatient.BP1) || 120,
-                BP2: toNull(currentPatient.BP2) || 80,
-                RR1: toNull(currentPatient.RR1) || 20,
-                PR1: toNull(currentPatient.PR1) || 80,
-                SPO2: toNull(currentPatient.SPO2) || 98,
-
-                SYMPTOM: toNull(currentPatient.SYMPTOM) || 'รับยา',
-
-                // ✅ รายการยา - Already handled above
+                
+                // Vital signs with proper defaults
+                WEIGHT1: safeValue(currentPatient.WEIGHT1) || 60,
+                HIGHT1: safeValue(currentPatient.HIGHT1) || 160,
+                BT1: safeValue(currentPatient.BT1) || 36.5,
+                BP1: safeValue(currentPatient.BP1) || 120,
+                BP2: safeValue(currentPatient.BP2) || 80,
+                RR1: safeValue(currentPatient.RR1) || 20,
+                PR1: safeValue(currentPatient.PR1) || 80,
+                SPO2: safeValue(currentPatient.SPO2) || 98,
+                
+                SYMPTOM: safeValue(currentPatient.SYMPTOM) || 'รับยา',
+                
+                // Arrays with proper initialization
                 drugs: drugs,
-
-                // ✅ Handle other arrays that might be undefined
                 procedures: [],
                 labTests: [],
                 radioTests: [],
-
-                // ✅ Handle diagnosis object
+                
+                // Additional fields
                 diagnosis: null,
-
-                // ✅ Handle other fields that might be undefined
                 DXCODE: null,
                 ICD10CODE: null,
-                TREATMENT1: null
+                TREATMENT1: null,
+                INVESTIGATION_NOTES: null
             };
 
             console.log('💾 Saving treatment data:', treatmentData);
 
-            // ✅ เรียก updateTreatment
+            // Validate required fields before sending
+            if (!treatmentData.VNO) {
+                throw new Error('VNO is required');
+            }
+            if (!treatmentData.HNNO) {
+                throw new Error('HNNO is required');
+            }
+
             const response = await TreatmentService.updateTreatment(currentPatient.VNO, treatmentData);
 
             if (response.success) {
                 showSnackbar('บันทึกข้อมูลยาสำเร็จ!', 'success');
 
-                // ✅ อัพเดทสถานะคิวเป็น "กำลังตรวจ"
+                // Update queue status
                 try {
                     const QueueService = await import('../../services/queueService');
                     await QueueService.default.updateQueueStatus(currentPatient.queueId, 'กำลังตรวจ');
@@ -386,26 +372,30 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
                     setTimeout(() => onSaveSuccess(), 1500);
                 }
             } else {
-                showSnackbar('ไม่สามารถบันทึกข้อมูลได้: ' + response.message, 'error');
+                const errorMessage = response.message || 'ไม่สามารถบันทึกข้อมูลได้';
+                showSnackbar('ไม่สามารถบันทึกข้อมูลได้: ' + errorMessage, 'error');
+                console.error('API Error Response:', response);
             }
         } catch (error) {
             console.error('Error saving medicine data:', error);
-            showSnackbar('เกิดข้อผิดพลาดในการบันทึกข้อมูล: ' + error.message, 'error');
+            
+            // More detailed error handling
+            let errorMessage = 'เกิดข้อผิดพลาดในการบันทึกข้อมูล';
+            
+            if (error.response?.status === 500) {
+                errorMessage = 'เซิร์ฟเวอร์เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง';
+            } else if (error.response?.status === 400) {
+                errorMessage = 'ข้อมูลที่ส่งไม่ถูกต้อง กรุณาตรวจสอบข้อมูลอีกครั้ง';
+            } else if (error.response?.data?.message) {
+                errorMessage = error.response.data.message;
+            } else if (error.message) {
+                errorMessage = error.message;
+            }
+            
+            showSnackbar(errorMessage, 'error');
         } finally {
             setSaving(false);
         }
-    };
-
-    // ✅ ฟังก์ชันแสดงสถานะ API
-    const getApiStatusChip = () => {
-        const statusConfig = {
-            checking: { color: 'info', label: 'กำลังตรวจสอบ...' },
-            connected: { color: 'success', label: 'เชื่อมต่อ API' },
-            mock: { color: 'warning', label: 'ใช้ข้อมูลจำลอง' },
-            offline: { color: 'error', label: 'API ไม่พร้อม' }
-        };
-
-        return statusConfig[apiStatus] || statusConfig.checking;
     };
 
     if (!currentPatient) {
@@ -427,10 +417,8 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
         );
     }
 
-    // ✅ คำนวณจำนวนยาที่เหลือให้เลือก
     const availableDrugs = getAvailableDrugs();
     const totalDrugs = drugOptions.length;
-    const addedDrugs = savedMedicines.length;
 
     return (
         <Box sx={{ mt: 2 }}>
@@ -504,36 +492,8 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
                                 <Typography variant="h6" fontWeight="600" sx={{ color: '#1976d2' }}>
                                     {editingIndex >= 0 ? '🔄 แก้ไขรายการยา' : '➕ เพิ่มรายการยา'}
                                 </Typography>
-                                {/* ✅ แสดงสถานะ API และจำนวนยา */}
-                                {/* <Box sx={{ display: 'flex', gap: 1 }}>
-                                    <Box sx={{
-                                        px: 2,
-                                        py: 0.5,
-                                        borderRadius: 1,
-                                        bgcolor: getApiStatusChip().color === 'success' ? '#e8f5e8' :
-                                            getApiStatusChip().color === 'warning' ? '#fff3e0' : '#ffebee',
-                                        color: getApiStatusChip().color === 'success' ? '#2e7d32' :
-                                            getApiStatusChip().color === 'warning' ? '#f57c00' : '#d32f2f',
-                                        fontSize: '0.75rem',
-                                        fontWeight: 'bold'
-                                    }}>
-                                        {getApiStatusChip().label}
-                                    </Box>
-                                    <Box sx={{
-                                        px: 2,
-                                        py: 0.5,
-                                        borderRadius: 1,
-                                        bgcolor: availableDrugs.length === 0 ? '#ffebee' : '#f3e5f5',
-                                        color: availableDrugs.length === 0 ? '#d32f2f' : '#7b1fa2',
-                                        fontSize: '0.75rem',
-                                        fontWeight: 'bold'
-                                    }}>
-                                        เหลือ {availableDrugs.length} / {totalDrugs} ยา
-                                    </Box>
-                                </Box> */}
                             </Box>
 
-                            {/* ✅ แสดงข้อความเตือนเมื่อยาเหลือน้อย */}
                             {availableDrugs.length === 0 && editingIndex < 0 && (
                                 <Alert severity="info" sx={{ mb: 2 }}>
                                     ✅ คุณได้เพิ่มยาครบทุกตัวในระบบแล้ว! หากต้องการเพิ่มยา กรุณาลบยาบางตัวออกก่อน หรือแก้ไขรายการที่มีอยู่
@@ -741,10 +701,7 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
                     </Card>
 
                 </Grid>
-
-
             </Grid>
-
 
             {/* Medicine List Table */}
             <Card>
