@@ -343,7 +343,7 @@ const Paymentanddispensingmedicine = () => {
       // ลบผู้ป่วยที่ชำระเงินแล้วออกจากคิว
       const currentPatient = patients[selectedPatientIndex];
       const updatedPatients = patients.filter((_, index) => index !== selectedPatientIndex);
-      
+
       setPatients(updatedPatients);
 
       // อัพเดต selectedPatientIndex
@@ -737,6 +737,7 @@ const Paymentanddispensingmedicine = () => {
                 )}
 
                 {/* Tab 2: Drug Labels */}
+
                 {tabIndex === 2 && (
                   <Box>
                     <Typography variant="h5" sx={{ mb: 3, textAlign: 'center', color: '#1976d2' }}>
@@ -744,71 +745,273 @@ const Paymentanddispensingmedicine = () => {
                     </Typography>
 
                     {currentPatient && editablePrices.drugs.length > 0 ? (
-                      <Grid container spacing={2}>
-                        {editablePrices.drugs.map((drug, index) => (
-                          <Grid item xs={12} md={6} lg={4} key={index}>
-                            <Card sx={{
-                              p: 2,
-                              border: '2px dashed #1976d2',
-                              minHeight: 200,
-                              display: 'flex',
-                              flexDirection: 'column',
-                              justifyContent: 'space-between'
-                            }}>
-                              <Box sx={{ textAlign: 'center', mb: 2 }}>
-                                <Typography variant="h6" fontWeight="bold" color="primary">สัมพันธ์คลินิค</Typography>
-                                <Typography variant="caption">Tel: 053-826-524</Typography>
-                              </Box>
+                      <Box>
+                        <Grid container spacing={2} sx={{ mb: 3 }}>
+                          {editablePrices.drugs.map((drug, index) => (
+                            <Grid item xs={12} md={6} lg={4} key={index}>
+                              <Box sx={{
+                                width: '320px',
+                                minHeight: '450px',
+                                background: 'white',
+                                border: '2px solid #4a90e2',
+                                margin: '10px auto',
+                                boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+                                fontFamily: 'Sarabun, sans-serif'
+                              }}>
+                                {/* Header คลินิก */}
+                                <Box sx={{
+                                  background: 'linear-gradient(135deg, #4a90e2 0%, #357abd 100%)',
+                                  color: 'white',
+                                  padding: '12px',
+                                  textAlign: 'center',
+                                  position: 'relative'
+                                }}>
+                                  <Box sx={{
+                                    position: 'absolute',
+                                    left: '15px',
+                                    top: '50%',
+                                    transform: 'translateY(-50%)',
+                                    width: '40px',
+                                    height: '40px',
+                                    background: 'white',
+                                    borderRadius: '50%',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    fontSize: '20px',
+                                    color: '#4a90e2'
+                                  }}>
+                                    💊
+                                  </Box>
+                                  <Typography sx={{ fontSize: '18px', fontWeight: 700, margin: 0, letterSpacing: '0.5px' }}>
+                                    สัมพันธ์คลินิค คลินิกเวชกรรม
+                                  </Typography>
+                                  <Typography sx={{ fontSize: '11px', margin: '2px 0', opacity: 0.95 }}>
+                                    280/4 ต.บ้านหลวง อ.จอมทอง จ.เชียงใหม่ 50160
+                                  </Typography>
+                                  <Typography sx={{ fontSize: '12px', margin: 0, fontWeight: 500 }}>
+                                    โทร : 053-341-723
+                                  </Typography>
+                                </Box>
 
-                              <Box sx={{ mb: 2 }}>
-                                <Typography variant="body2">
-                                  <strong>ชื่อ:</strong> {currentPatient.PRENAME} {currentPatient.NAME1} {currentPatient.SURNAME}
-                                </Typography>
-                                <Typography variant="body2">
-                                  <strong>HN:</strong> {currentPatient.HNCODE} | <strong>VN:</strong> {currentPatient.VNO}
-                                </Typography>
-                                <Typography variant="body2">
-                                  <strong>วันที่:</strong> {new Date().toLocaleDateString('th-TH')}
-                                </Typography>
-                              </Box>
+                                {/* เนื้อหาฉลาก */}
+                                <Box sx={{ padding: '15px' }}>
+                                  {/* ข้อมูลผู้ป่วย */}
+                                  <Box sx={{ borderBottom: '1px solid #e0e0e0', paddingBottom: '10px', marginBottom: '15px' }}>
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', margin: '3px 0', fontSize: '13px' }}>
+                                      <span style={{ color: '#666', minWidth: '40px' }}>ชื่อผู้ป่วย</span>
+                                      <span style={{ flex: 1, margin: '0 10px', fontWeight: 600, color: '#333' }}>
+                                        {currentPatient.PRENAME}{currentPatient.NAME1} {currentPatient.SURNAME}
+                                      </span>
+                                      <span style={{ color: '#666' }}>วันที่</span>
+                                      <span style={{ marginLeft: '5px', fontWeight: 600 }}>
+                                        {new Date().toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', year: '2-digit' })}
+                                      </span>
+                                    </Box>
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', margin: '8px 0 3px 0', fontSize: '13px' }}>
+                                      <span style={{ color: '#666', minWidth: '40px' }}>ที่อยู่</span>
+                                      <span style={{ flex: 1, margin: '0 10px', fontWeight: 600, color: '#333' }}>
+                                        HN: {currentPatient.HNCODE} VN: {currentPatient.VNO}
+                                      </span>
+                                      <span style={{ color: '#666' }}>จำนวน</span>
+                                      <span style={{ marginLeft: '5px', fontWeight: 600 }}>
+                                        {drug.QTY} {drug.UNIT_CODE}
+                                      </span>
+                                    </Box>
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', margin: '8px 0 3px 0', fontSize: '13px' }}>
+                                      <span style={{ color: '#666', minWidth: '40px' }}>ชื่อยาใช้</span>
+                                      <span style={{ flex: 1, marginLeft: '10px', fontWeight: 600, color: '#2c5aa0' }}>
+                                        {drug.GENERIC_NAME || drug.DRUG_CODE}
+                                      </span>
+                                    </Box>
+                                  </Box>
 
-                              <Box sx={{ bgcolor: '#f8f9fa', p: 1.5, borderRadius: 1, mb: 2 }}>
-                                <Typography variant="h6" fontWeight="bold" color="primary">
-                                  {drug.GENERIC_NAME || drug.DRUG_CODE}
-                                </Typography>
-                                <Typography variant="body2">
-                                  <strong>จำนวน:</strong> {drug.QTY} {drug.UNIT_CODE}
-                                </Typography>
-                                <Typography variant="body2">
-                                  <strong>วิธีใช้:</strong> {drug.NOTE1 || 'ตามแพทย์สั่ง'}
-                                </Typography>
-                                <Typography variant="body2">
-                                  <strong>เวลา:</strong> {drug.TIME1 || 'วันละ 1 ครั้ง'}
-                                </Typography>
-                              </Box>
+                                  {/* ส่วนวิธีการใช้ยา */}
+                                  <Box sx={{ marginTop: '15px' }}>
+                                    <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#2c5aa0', marginBottom: '8px', textAlign: 'center' }}>
+                                      รับประทานครั้งละ <span style={{ fontWeight: 700, color: '#e74c3c' }}>
+                                        {drug.DOSAGE || '1'}
+                                      </span> เม็ด &nbsp;&nbsp;&nbsp;&nbsp; วันละ <span style={{ fontWeight: 700, color: '#e74c3c' }}>
+                                        {drug.FREQUENCY || '3'}
+                                      </span> ครั้ง
+                                    </Typography>
 
-                              <Box sx={{ textAlign: 'center', borderTop: '1px solid #ddd', pt: 1 }}>
-                                <Typography variant="caption">ใช้ตามคำแนะนำของแพทย์</Typography>
-                              </Box>
-                            </Card>
-                          </Grid>
-                        ))}
+                                    {/* ไอคอนเวลา */}
+                                    <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', margin: '10px 0' }}>
+                                      <Box sx={{ textAlign: 'center', fontSize: '11px', color: '#666' }}>
+                                        <span style={{ fontSize: '16px', display: 'block', marginBottom: '2px' }}>🌅</span>
+                                        <div style={{ fontSize: '10px' }}>เช้า<br />Breakfast</div>
+                                      </Box>
+                                      <Box sx={{
+                                        textAlign: 'center',
+                                        fontSize: '11px',
+                                        color: '#666',
+                                        ...(drug.TIME1?.includes('กลางวัน') || drug.FREQUENCY >= 2 ?
+                                          { background: '#e8f4fd', borderRadius: '4px', padding: '4px', color: '#2c5aa0', fontWeight: 600 } : {})
+                                      }}>
+                                        <span style={{ fontSize: '16px', display: 'block', marginBottom: '2px' }}>☀️</span>
+                                        <div style={{ fontSize: '10px' }}>กลางวัน<br />Lunch</div>
+                                      </Box>
+                                      <Box sx={{
+                                        textAlign: 'center',
+                                        fontSize: '11px',
+                                        color: '#666',
+                                        ...(drug.TIME1?.includes('เย็น') || drug.FREQUENCY >= 3 ?
+                                          { background: '#e8f4fd', borderRadius: '4px', padding: '4px', color: '#2c5aa0', fontWeight: 600 } : {})
+                                      }}>
+                                        <span style={{ fontSize: '16px', display: 'block', marginBottom: '2px' }}>🌆</span>
+                                        <div style={{ fontSize: '10px' }}>เย็น<br />Dinner</div>
+                                      </Box>
+                                      <Box sx={{ textAlign: 'center', fontSize: '11px', color: '#666' }}>
+                                        <span style={{ fontSize: '16px', display: 'block', marginBottom: '2px' }}>🌙</span>
+                                        <div style={{ fontSize: '10px' }}>ก่อนนอน<br />At bedtime</div>
+                                      </Box>
+                                    </Box>
 
-                        <Grid item xs={12}>
-                          <Box sx={{ textAlign: 'center', mt: 3 }}>
-                            <Button
-                              variant="contained"
-                              startIcon={<PrintIcon />}
-                              onClick={() => window.print()}
-                              size="large"
-                            >
-                              พิมพ์ฉลากยาทั้งหมด ({editablePrices.drugs.length} ฉลาก)
-                            </Button>
-                          </Box>
+                                    {/* ตัวเลือกเวลาอาหาร */}
+                                    <Box sx={{ margin: '10px 0' }}>
+                                      <Box sx={{ display: 'flex', alignItems: 'center', margin: '3px 0', fontSize: '11px' }}>
+                                        <Box sx={{ width: '12px', height: '12px', border: '1px solid #4a90e2', marginRight: '6px', borderRadius: '2px' }}></Box>
+                                        <span>ก่อนอาหาร</span>
+                                        <span style={{ flex: 1, textAlign: 'right', fontSize: '10px' }}>Before meal</span>
+                                      </Box>
+                                      <Box sx={{ display: 'flex', alignItems: 'center', margin: '3px 0', fontSize: '11px' }}>
+                                        <Box sx={{
+                                          width: '12px',
+                                          height: '12px',
+                                          border: '1px solid #4a90e2',
+                                          marginRight: '6px',
+                                          borderRadius: '2px',
+                                          background: '#2c5aa0',
+                                          position: 'relative'
+                                        }}>
+                                          <span style={{ color: 'white', fontSize: '8px', position: 'absolute', top: '1px', left: '3px' }}>✓</span>
+                                        </Box>
+                                        <span style={{ fontWeight: 600, color: '#2c5aa0' }}>หลังอาหาร</span>
+                                        <span style={{ flex: 1, textAlign: 'right', fontSize: '10px', color: '#2c5aa0' }}>After meal</span>
+                                      </Box>
+                                    </Box>
+
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', margin: '10px 0', fontSize: '11px' }}>
+                                      <span>เมื่อมีอาการ</span>
+                                      <span style={{ flex: 1, margin: '0 10px', fontWeight: 600, color: '#e74c3c' }}>
+                                        {drug.NOTE1?.includes('เมื่อ') ? drug.NOTE1 : 'ตามแพทย์สั่ง'}
+                                      </span>
+                                      <span>ทุก</span>
+                                      <span style={{ margin: '0 5px', fontWeight: 600, color: '#e74c3c' }}>6</span>
+                                      <span>ชั่วโมง</span>
+                                    </Box>
+
+                                    {/* คำแนะนำ */}
+                                    <Box sx={{ borderTop: '1px solid #ccc', margin: '10px 0', paddingTop: '10px' }}>
+                                      <Typography sx={{ fontSize: '12px', fontWeight: 600, marginBottom: '8px', color: '#2c5aa0' }}>
+                                        คำแนะนำ
+                                      </Typography>
+
+                                      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', fontSize: '10px', color: '#555' }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                          <Box sx={{ width: '10px', height: '10px', border: '1px solid #4a90e2', marginRight: '4px', borderRadius: '1px' }}></Box>
+                                          <span>ก่อนอาหารครึ่ง-หนึ่งชั่วโมง<br /><span style={{ fontSize: '9px' }}>30-60 minutes before meals</span></span>
+                                        </Box>
+                                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                          <Box sx={{
+                                            width: '10px',
+                                            height: '10px',
+                                            border: '1px solid #4a90e2',
+                                            marginRight: '4px',
+                                            borderRadius: '1px',
+                                            background: '#2c5aa0',
+                                            position: 'relative'
+                                          }}>
+                                            <span style={{ color: 'white', fontSize: '6px', position: 'absolute', top: '1px', left: '2px' }}>✓</span>
+                                          </Box>
+                                          <span style={{ fontWeight: 600, color: '#2c5aa0' }}>ทานยาติดต่อกันจนหมด<br /><span style={{ fontSize: '9px', color: '#2c5aa0' }}>Take this medicine until finished</span></span>
+                                        </Box>
+                                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                          <Box sx={{ width: '10px', height: '10px', border: '1px solid #4a90e2', marginRight: '4px', borderRadius: '1px' }}></Box>
+                                          <span>ทานหลังอาหารทันที<br /><span style={{ fontSize: '9px' }}>Immediately after meals</span></span>
+                                        </Box>
+                                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                          <Box sx={{
+                                            width: '10px',
+                                            height: '10px',
+                                            border: '1px solid #4a90e2',
+                                            marginRight: '4px',
+                                            borderRadius: '1px',
+                                            background: '#2c5aa0',
+                                            position: 'relative'
+                                          }}>
+                                            <span style={{ color: 'white', fontSize: '6px', position: 'absolute', top: '1px', left: '2px' }}>✓</span>
+                                          </Box>
+                                          <span style={{ fontWeight: 600, color: '#2c5aa0' }}>ดื่มน้ำตามมากๆ<br /><span style={{ fontSize: '9px', color: '#2c5aa0' }}>Follow with 1-2 glasses of water</span></span>
+                                        </Box>
+                                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                          <Box sx={{ width: '10px', height: '10px', border: '1px solid #4a90e2', marginRight: '4px', borderRadius: '1px' }}></Box>
+                                          <span>ยานี้อาจทำให้ง่วงซึม<br /><span style={{ fontSize: '9px' }}>This drug may cause drowsiness</span></span>
+                                        </Box>
+                                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                          <Box sx={{ width: '10px', height: '10px', border: '1px solid #4a90e2', marginRight: '4px', borderRadius: '1px' }}></Box>
+                                          <span>อื่นๆ..............................<br /><span style={{ fontSize: '9px' }}>Others</span></span>
+                                        </Box>
+                                      </Box>
+                                    </Box>
+
+                                    {/* วันหมดอายุ */}
+                                    <Box sx={{ marginTop: '15px', paddingTop: '8px', borderTop: '1px solid #e0e0e0', textAlign: 'center' }}>
+                                      <Typography sx={{ fontSize: '11px', color: '#666' }}>
+                                        วันหมดอายุ (Exp.) <span style={{ fontWeight: 600, color: '#e74c3c' }}>
+                                          {drug.EXPIRE_DATE || '31/12/2025'}
+                                        </span>
+                                      </Typography>
+                                    </Box>
+                                  </Box>
+                                </Box>
+                              </Box>
+                            </Grid>
+                          ))}
                         </Grid>
-                      </Grid>
+
+                        {/* ปุ่มพิมพ์ */}
+                        <Box sx={{ textAlign: 'center', mt: 3 }}>
+                          <Button
+                            variant="contained"
+                            startIcon={<PrintIcon />}
+                            onClick={() => window.print()}
+                            size="large"
+                            sx={{
+                              backgroundColor: "#5698E0",
+                              '&:hover': { backgroundColor: "#2B69AC" },
+                              px: 4,
+                              py: 1.5,
+                              fontSize: '16px',
+                              fontWeight: 600
+                            }}
+                          >
+                            🖨️ พิมพ์ฉลากยาทั้งหมด ({editablePrices.drugs.length} ฉลาก)
+                          </Button>
+                        </Box>
+
+                        {/* CSS สำหรับการพิมพ์ */}
+                        <style jsx>{`
+          @media print {
+            .MuiContainer-root {
+              margin: 0 !important;
+              padding: 0 !important;
+            }
+            .MuiButton-root {
+              display: none !important;
+            }
+            .MuiTabs-root {
+              display: none !important;
+            }
+            .MuiTypography-h5 {
+              display: none !important;
+            }
+          }
+        `}</style>
+                      </Box>
                     ) : (
-                      <Alert severity="info">
+                      <Alert severity="info" sx={{ borderRadius: '12px', textAlign: 'center', py: 4 }}>
                         {!currentPatient ? 'กรุณาเลือกผู้ป่วยเพื่อดูฉลากยา' : 'ผู้ป่วยรายนี้ไม่มีการสั่งยา'}
                       </Alert>
                     )}
