@@ -28,17 +28,11 @@ import PatientService from "../services/patientService";
 import TreatmentService from "../services/treatmentService";
 
 // Import Components
-// import PatientQueueSidebar from './PatientQueueSidebar';
-// import PatientInfoHeader from './PatientInfoHeader';
-// import LabProceduresTable from './LabProceduresTable';
-// import PaymentSummaryCard from './PaymentSummaryCard';
-// import DrugsTable from './DrugsTable';
 import PatientQueueSidebar from "../components/Paymentanddispensingmedicine/PatientQueueSidebar";
 import PatientInfoHeader from "../components/Paymentanddispensingmedicine/PatientInfoHeader";
 import PaymentSummaryCard from "../components/Paymentanddispensingmedicine/PaymentSummaryCard";
 import DrugsTable from "../components/Paymentanddispensingmedicine/DrugsTable";
 import LabProceduresTable from "../components/Paymentanddispensingmedicine/LabProceduresTable";
-
 
 const Paymentanddispensingmedicine = () => {
   const navigate = useNavigate();
@@ -92,15 +86,23 @@ const Paymentanddispensingmedicine = () => {
       const response = await PatientService.getTodayPatientsFromQueue();
 
       if (response.success) {
-        const patientsWithPaymentStatus = response.data.map(patient => ({
-          ...patient,
-          paymentStatus: patient.queueStatus === 'เสร็จแล้ว' ? 'ยังไม่ชำระ' : 'รอเสร็จการรักษา'
-        }));
+        // กรองให้เหลือเฉพาะผู้ป่วยที่ยังไม่ได้ชำระเงิน
+        const filteredPatients = response.data
+          .filter(patient => patient.queueStatus === 'เสร็จแล้ว') // เฉพาะที่รักษาเสร็จแล้ว
+          .map(patient => ({
+            ...patient,
+            paymentStatus: 'ยังไม่ชำระ'
+          }));
 
-        setPatients(patientsWithPaymentStatus);
+        setPatients(filteredPatients);
 
-        if (patientsWithPaymentStatus.length === 0) {
-          setError('ไม่มีผู้ป่วยในคิววันนี้');
+        if (filteredPatients.length === 0) {
+          setError('ไม่มีผู้ป่วยที่รอการชำระเงิน');
+        }
+
+        // รีเซ็ต selectedPatientIndex ถ้าจำนวนผู้ป่วยลดลง
+        if (selectedPatientIndex >= filteredPatients.length) {
+          setSelectedPatientIndex(Math.max(0, filteredPatients.length - 1));
         }
       } else {
         setError('ไม่สามารถโหลดข้อมูลผู้ป่วยได้: ' + response.message);
@@ -338,16 +340,41 @@ const Paymentanddispensingmedicine = () => {
         return;
       }
 
-      // อัพเดตสถานะการชำระเงิน
-      const updatedPatients = [...patients];
-      updatedPatients[selectedPatientIndex].paymentStatus = 'ชำระแล้ว';
-      updatedPatients[selectedPatientIndex].totalAmount = calculateTotal();
+      // ลบผู้ป่วยที่ชำระเงินแล้วออกจากคิว
+      const currentPatient = patients[selectedPatientIndex];
+      const updatedPatients = patients.filter((_, index) => index !== selectedPatientIndex);
+      
       setPatients(updatedPatients);
+
+      // อัพเดต selectedPatientIndex
+      if (updatedPatients.length === 0) {
+        setSelectedPatientIndex(0);
+        setTreatmentData(null);
+        setEditablePrices({
+          labs: [],
+          procedures: [],
+          drugs: []
+        });
+      } else {
+        // ถ้าลบผู้ป่วยคนสุดท้าย ให้เลื่อนไปผู้ป่วยคนก่อนหน้า
+        if (selectedPatientIndex >= updatedPatients.length) {
+          setSelectedPatientIndex(updatedPatients.length - 1);
+        }
+        // ถ้าไม่ใช่ ให้อยู่ที่ index เดิม (จะแสดงผู้ป่วยคนถัดไป)
+      }
 
       setSnackbar({
         open: true,
-        message: `บันทึกการชำระเงินสำเร็จ ยอดชำระ: ฿${calculateTotal().toFixed(2)}`,
+        message: `บันทึกการชำระเงินสำเร็จ ยอดชำระ: ฿${calculateTotal().toFixed(2)} - ${currentPatient.PRENAME} ${currentPatient.NAME1} ${currentPatient.SURNAME}`,
         severity: 'success'
+      });
+
+      // รีเซ็ตข้อมูลการชำระเงิน
+      setPaymentData({
+        paymentMethod: 'เงินสด',
+        receivedAmount: '',
+        discount: 0,
+        remarks: ''
       });
 
       setTabIndex(1);
@@ -424,10 +451,10 @@ const Paymentanddispensingmedicine = () => {
             <Card>
               <CardContent sx={{ textAlign: 'center', py: 8 }}>
                 <Typography variant="h5" color="text.secondary" sx={{ mb: 2 }}>
-                  ไม่มีผู้ป่วยในคิววันนี้
+                  ไม่มีผู้ป่วยรอการชำระเงิน
                 </Typography>
                 <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-                  ยังไม่มีผู้ป่วยเข้าคิววันนี้
+                  ผู้ป่วยทุกรายได้ชำระเงินเรียบร้อยแล้ว หรือยังไม่มีผู้ป่วยที่รักษาเสร็จ
                 </Typography>
                 <Button
                   variant="contained"

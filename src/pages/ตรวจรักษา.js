@@ -914,14 +914,6 @@ const ตรวจรักษา = () => {
                   <Tab
                     label={
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <span>🧪</span>
-                        <span>ส่งLAB/X-ray</span>
-                      </Box>
-                    }
-                  />
-                  <Tab
-                    label={
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <span>📝</span>
                         <span>Dx/ สรุป Treatment</span>
                       </Box>
@@ -994,15 +986,15 @@ const ตรวจรักษา = () => {
                       onSaveSuccess={handleDiagnosisSaveSuccess}
                     />
                   )}
-                  {tabIndex === 3 && <LabandXray currentPatient={currentPatient} onSaveSuccess={goToNextTab} />}
-                  {tabIndex === 4 && <DxandTreatment currentPatient={currentPatient} onSaveSuccess={goToNextTab} />}
-                  {tabIndex === 5 && <Ordermedicine currentPatient={currentPatient} />}
-                  {tabIndex === 6 && <Procedure currentPatient={currentPatient} />}
-                  {tabIndex === 7 && <Appointment currentPatient={currentPatient} />}
-                  {tabIndex === 8 && <Medicalcertificate currentPatient={currentPatient} />}
-                  {tabIndex === 9 && <Doctor />}
-                  {tabIndex === 10 && <Cerwork currentPatient={currentPatient} />}
-                  {tabIndex === 11 && <Cerdriver currentPatient={currentPatient} />}
+                  {/* {tabIndex === 3 && <LabandXray currentPatient={currentPatient} onSaveSuccess={goToNextTab} />} */}
+                  {tabIndex === 3 && <DxandTreatment currentPatient={currentPatient} onSaveSuccess={goToNextTab} />}
+                  {tabIndex === 4 && <Ordermedicine currentPatient={currentPatient} />}
+                  {tabIndex === 5 && <Procedure currentPatient={currentPatient} />}
+                  {tabIndex === 6 && <Appointment currentPatient={currentPatient} />}
+                  {tabIndex === 7 && <Medicalcertificate currentPatient={currentPatient} />}
+                  {tabIndex === 8 && <Doctor />}
+                  {tabIndex === 9 && <Cerwork currentPatient={currentPatient} />}
+                  {tabIndex === 10 && <Cerdriver currentPatient={currentPatient} />}
                 </CardContent>
               </Card>
             )}

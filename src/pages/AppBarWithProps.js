@@ -198,41 +198,41 @@ const CustomSidebar = ({ activeMenu, onMenuClick, isOpen }) => {
             path: '/clinic/treatment',
             icon: <MoveToInboxIcon />
         },
-        {
-            title: 'ระบบห้องตรวจปฏิบัติการ',
-            path: '/clinic/laboratory',
-            icon: <ScienceIcon />
-        },
+        // {
+        //     title: 'ระบบห้องตรวจปฏิบัติการ',
+        //     path: '/clinic/laboratory',
+        //     icon: <ScienceIcon />
+        // },
         {
             title: 'ชำระเงิน /จ่ายยา',
             path: '/clinic/payment',
             icon: <Inventory2OutlinedIcon />
         },
-        {
-            title: 'ระบบบุคลากร',
-            path: '/clinic/personnel',
-            icon: <PeopleAltIcon />
-        },
-        {
-            title: 'ระบบคลังยา/เวชภัณฑ์',
-            path: '/clinic/medicalstock',
-            icon: <InsertDriveFileIcon />
-        },
-        {
-            title: 'ระบบการเงิน/บัญชี',
-            path: '/clinic/finance',
-            icon: <PaymentIcon />
-        },
-        {
-            title: 'รายงานสำหรับผู้บริหาร',
-            path: '/clinic/report',
-            icon: <DescriptionIcon />
-        },
-        {
-            title: 'ระบบการจัดการสิทธิ',
-            path: '/clinic/rights',
-            icon: <SettingsIcon />
-        },
+        // {
+        //     title: 'ระบบบุคลากร',
+        //     path: '/clinic/personnel',
+        //     icon: <PeopleAltIcon />
+        // },
+        // {
+        //     title: 'ระบบคลังยา/เวชภัณฑ์',
+        //     path: '/clinic/medicalstock',
+        //     icon: <InsertDriveFileIcon />
+        // },
+        // {
+        //     title: 'ระบบการเงิน/บัญชี',
+        //     path: '/clinic/finance',
+        //     icon: <PaymentIcon />
+        // },
+        // {
+        //     title: 'รายงานสำหรับผู้บริหาร',
+        //     path: '/clinic/report',
+        //     icon: <DescriptionIcon />
+        // },
+        // {
+        //     title: 'ระบบการจัดการสิทธิ',
+        //     path: '/clinic/rights',
+        //     icon: <SettingsIcon />
+        // },
         {
             title: 'ข้อมูลผู้ป่วย',
             path: '/clinic/patients',

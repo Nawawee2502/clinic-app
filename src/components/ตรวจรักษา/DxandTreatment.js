@@ -9,15 +9,9 @@ import PropTypes from 'prop-types';
 // Import Services
 import TreatmentService from "../../services/treatmentService";
 
-// แก้ไข API endpoints
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
-
 const DxandTreatment = ({ currentPatient, onSaveSuccess }) => {
   const [dxData, setDxData] = useState({
     dx: '',
-    dxCode: '',
-    icd10: '',
-    icd10Code: '',
     treatment: ''
   });
 
@@ -58,12 +52,9 @@ const DxandTreatment = ({ currentPatient, onSaveSuccess }) => {
         const treatment = response.data.treatment;
         const diagnosis = response.data.diagnosis;
 
-        // โหลดข้อมูล Dx
+        // โหลดข้อมูล Dx - ใช้ DXCODE เป็น text
         setDxData({
-          dx: treatment?.DXNAME_THAI || '',
-          dxCode: treatment?.DXCODE || '',
-          icd10: '', // ตั้งค่าเป็นค่าว่าง
-          icd10Code: '', // ตั้งค่าเป็นค่าว่าง
+          dx: treatment?.DXCODE || '',
           treatment: treatment?.TREATMENT1 || ''
         });
 
@@ -202,17 +193,17 @@ const DxandTreatment = ({ currentPatient, onSaveSuccess }) => {
         return;
       }
 
-      // แก้ไข: ปรับโครงสร้างข้อมูลให้ตรงกับ API
+      // ส่งข้อมูล Dx เป็น text ลงใน DXCODE โดยตรง
       const treatmentData = {
         VNO: currentPatient.VNO,
         HNNO: currentPatient.HNCODE,
-        DXCODE: dxData.dxCode || null,
-        ICD10CODE: '', // ตั้งค่าเป็นค่าว่าง
+        DXCODE: dxData.dx.trim() || null, // บันทึก dx text ลงใน DXCODE
+        ICD10CODE: null,
         TREATMENT1: dxData.treatment || null,
         STATUS1: 'กำลังตรวจ'
       };
 
-      console.log('Sending treatment data:', treatmentData);
+      console.log('Sending treatment data with Dx text in DXCODE:', treatmentData);
 
       const response = await TreatmentService.updateTreatment(currentPatient.VNO, treatmentData);
 
@@ -318,15 +309,15 @@ const DxandTreatment = ({ currentPatient, onSaveSuccess }) => {
         {/* Dx and Treatment Form Section */}
         <Grid item xs={12} sm={7}>
           <Grid container spacing={2}>
-            {/* Dx Field - เปลี่ยนเป็น TextField ธรรมดา */}
+            {/* Dx Field - TextField สำหรับใส่ข้อความอิสระ */}
             <Grid item xs={12}>
               <Typography sx={{ fontWeight: "400", fontSize: "16px", mb: 1 }}>
-                Dx *
+                Diagnosis (Dx) *
               </Typography>
               <TextField
                 fullWidth
                 size="small"
-                placeholder="กรอก Dx"
+                placeholder="กรอกการวินิจฉัยโรค เช่น Upper respiratory tract infection, Hypertension, Diabetes mellitus type 2"
                 value={dxData.dx}
                 onChange={(e) => handleDxChange('dx', e.target.value)}
                 sx={{

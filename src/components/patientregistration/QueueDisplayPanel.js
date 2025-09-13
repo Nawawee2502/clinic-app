@@ -50,6 +50,26 @@ const QueueDisplayPanel = ({
         return timeString;
     };
 
+    // กรองเฉพาะคิวที่ยังไม่เสร็จ (ไม่แสดงคิวที่เสร็จแล้ว หรือชำระเงินแล้ว)
+    const activeQueue = todayQueue ? todayQueue.filter(queue => {
+        const status = queue.QUEUE_STATUS || queue.queueStatus || queue.status;
+        console.log(`Queue ${queue.QUEUE_NUMBER || queue.queueNumber}: status = "${status}"`);
+        return status !== 'เสร็จแล้ว' && status !== 'ชำระเงินแล้ว' && status !== 'สำเร็จ';
+    }) : [];
+
+    // คำนวณสถิติใหม่จากคิวที่กรองแล้ว
+    const activeStats = {
+        total: activeQueue.length,
+        waiting: activeQueue.filter(q => {
+            const status = q.QUEUE_STATUS || q.queueStatus || q.status;
+            return status === 'รอตรวจ';
+        }).length,
+        inProgress: activeQueue.filter(q => {
+            const status = q.QUEUE_STATUS || q.queueStatus || q.status;
+            return status === 'กำลังตรวจ';
+        }).length
+    };
+
     return (
         <>
             {/* Queue Display */}
@@ -67,7 +87,7 @@ const QueueDisplayPanel = ({
                             color: '#1976d2'
                         }}>
                             <QueueIcon sx={{ mr: 1 }} />
-                            คิววันนี้ ({queueStats?.total || 0})
+                            คิวปัจจุบัน ({activeStats.total})
                         </Typography>
                         <IconButton
                             size="small"
@@ -78,7 +98,7 @@ const QueueDisplayPanel = ({
                         </IconButton>
                     </Box>
 
-                    {/* Queue Statistics */}
+                    {/* Queue Statistics - แสดงเฉพาะคิวที่ยังไม่เสร็จ */}
                     <Box sx={{
                         display: 'grid',
                         gridTemplateColumns: 'repeat(3, 1fr)',
@@ -87,21 +107,21 @@ const QueueDisplayPanel = ({
                         textAlign: 'center'
                     }}>
                         <Box sx={{ p: 1, bgcolor: '#e3f2fd', borderRadius: 1 }}>
-                            <Typography variant="h6" color="primary">{queueStats?.total || 0}</Typography>
+                            <Typography variant="h6" color="primary">{activeStats.total}</Typography>
                             <Typography variant="caption">ทั้งหมด</Typography>
                         </Box>
                         <Box sx={{ p: 1, bgcolor: '#fff3e0', borderRadius: 1 }}>
-                            <Typography variant="h6" color="warning.main">{queueStats?.waiting || 0}</Typography>
+                            <Typography variant="h6" color="warning.main">{activeStats.waiting}</Typography>
                             <Typography variant="caption">รอตรวจ</Typography>
                         </Box>
-                        <Box sx={{ p: 1, bgcolor: '#e8f5e8', borderRadius: 1 }}>
-                            <Typography variant="h6" color="success.main">{queueStats?.completed || 0}</Typography>
-                            <Typography variant="caption">เสร็จแล้ว</Typography>
+                        <Box sx={{ p: 1, bgcolor: '#e1f5fe', borderRadius: 1 }}>
+                            <Typography variant="h6" color="info.main">{activeStats.inProgress}</Typography>
+                            <Typography variant="caption">กำลังตรวจ</Typography>
                         </Box>
                     </Box>
 
                     <List dense>
-                        {todayQueue && todayQueue.map((queue, index) => (
+                        {activeQueue && activeQueue.map((queue, index) => (
                             <ListItem key={queue.QUEUE_ID || queue.queueId || index} sx={{
                                 border: '1px solid #e0e0e0',
                                 borderRadius: 1,
@@ -142,12 +162,26 @@ const QueueDisplayPanel = ({
                                 />
                             </ListItem>
                         ))}
-                        {(!todayQueue || todayQueue.length === 0) && (
+                        {(!activeQueue || activeQueue.length === 0) && (
                             <Typography variant="body2" color="text.secondary" textAlign="center" sx={{ py: 2 }}>
-                                ยังไม่มีคิววันนี้
+                                ไม่มีคิวที่รอตรวจ
                             </Typography>
                         )}
                     </List>
+
+                    {/* แสดงข้อมูลคิวที่เสร็จแล้วแยกต่างหาก */}
+                    {queueStats?.completed > 0 && (
+                        <Box sx={{ 
+                            mt: 2, 
+                            pt: 2, 
+                            borderTop: '1px solid #e0e0e0',
+                            textAlign: 'center'
+                        }}>
+                            <Typography variant="caption" color="text.secondary">
+                                วันนี้เสร็จแล้ว: {queueStats.completed} ราย
+                            </Typography>
+                        </Box>
+                    )}
                 </CardContent>
             </Card>
 

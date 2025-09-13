@@ -1,3 +1,5 @@
+// PatientRegistration.js - แก้ไขให้ใช้คิวตัวเดียวกันกับหน้าตรวจรักษา
+
 import React, { useState, useEffect } from "react";
 import {
   Box,
@@ -10,7 +12,6 @@ import {
   Tabs,
   Tab,
   CardContent,
-
 } from "@mui/material";
 
 // Import Components
@@ -26,14 +27,12 @@ import PatientService from "../services/patientService";
 import QueueService from "../services/queueService";
 
 const PatientRegistration = () => {
-  const [mainView, setMainView] = useState('reception'); // reception, newPatient, appointments
+  const [mainView, setMainView] = useState('reception');
   const [loading, setLoading] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
-
-  // ✅ เพิ่ม state สำหรับเก็บข้อมูลผู้ป่วยที่เพิ่งลงทะเบียน
   const [newlyRegisteredPatient, setNewlyRegisteredPatient] = useState(null);
 
-  // Queue State
+  // ✅ เปลี่ยนให้ใช้ข้อมูลเดียวกันกับหน้าตรวจรักษา
   const [todayQueue, setTodayQueue] = useState([]);
   const [queueStats, setQueueStats] = useState({
     total: 0,
@@ -44,7 +43,7 @@ const PatientRegistration = () => {
   // Appointments State
   const [appointments, setAppointments] = useState([]);
 
-  // New Patient Registration State (ใช้ของเดิม)
+  // New Patient Registration State
   const [newPatientTabIndex, setNewPatientTabIndex] = useState(0);
   const [patientData, setPatientData] = useState({
     HNCODE: '',
@@ -88,26 +87,32 @@ const PatientRegistration = () => {
     loadTodayAppointments();
   }, []);
 
-  // Load today's queue
+  // ✅ เปลี่ยนให้ใช้ Service เดียวกันกับหน้าตรวจรักษา
   const loadTodayQueue = async () => {
     try {
       setLoading(true);
-      const response = await QueueService.getTodayQueue();
+      // ใช้ PatientService.getTodayPatientsFromQueue() เหมือนหน้าตรวจรักษา
+      const response = await PatientService.getTodayPatientsFromQueue();
 
       if (response.success) {
+        // ✅ แสดงทุกคิว ไม่กรองเหมือนหน้าตรวจรักษา (เพราะหน้านี้ต้องเห็นทุกสถานะ)
         setTodayQueue(response.data);
+        
+        console.log('✅ Loaded queue data from PatientService:', response.data);
       } else {
         showSnackbar('ไม่สามารถโหลดข้อมูลคิวได้', 'error');
+        setTodayQueue([]);
       }
     } catch (error) {
-      console.error('Error loading today queue:', error);
+      console.error('❌ Error loading today queue:', error);
       showSnackbar('เกิดข้อผิดพลาดในการโหลดข้อมูลคิว', 'error');
+      setTodayQueue([]);
     } finally {
       setLoading(false);
     }
   };
 
-  // Load queue statistics
+  // ✅ โหลดสถิติจาก QueueService (ใช้เดิม)
   const loadQueueStats = async () => {
     try {
       const response = await QueueService.getQueueStats();
@@ -118,9 +123,11 @@ const PatientRegistration = () => {
           waiting: response.data.today_queue.waiting || 0,
           completed: response.data.today_queue.completed || 0
         });
+        
+        console.log('✅ Loaded queue stats:', response.data.today_queue);
       }
     } catch (error) {
-      console.error('Error loading queue stats:', error);
+      console.error('❌ Error loading queue stats:', error);
     }
   };
 
@@ -137,11 +144,12 @@ const PatientRegistration = () => {
     }
   };
 
-  // Refresh all data
+  // ✅ ปรับปรุง Refresh function
   const handleRefresh = () => {
-    loadTodayQueue();
-    loadQueueStats();
-    loadTodayAppointments();
+    console.log('🔄 Refreshing all data...');
+    loadTodayQueue();      // ใช้ PatientService
+    loadQueueStats();      // ใช้ QueueService
+    loadTodayAppointments(); // ใช้ PatientService
   };
 
   // Show snackbar
@@ -158,7 +166,7 @@ const PatientRegistration = () => {
     setSnackbar({ ...snackbar, open: false });
   };
 
-  // New Patient Registration Functions (ใช้ของเดิม)
+  // New Patient Registration Functions
   const updatePatientData = (newData) => {
     setPatientData(prevData => ({
       ...prevData,
@@ -178,7 +186,6 @@ const PatientRegistration = () => {
     }
   };
 
-  // ✅ ปรับปรุงฟังก์ชัน handleSaveNewPatient เพื่อส่งต่อไปหน้ารับผู้ป่วย
   const handleSaveNewPatient = async () => {
     setLoading(true);
 
@@ -206,17 +213,15 @@ const PatientRegistration = () => {
           HIGH1: patientData.HIGH1
         };
 
-        // ✅ เก็บข้อมูลผู้ป่วยที่เพิ่งลงทะเบียน
         setNewlyRegisteredPatient(newPatientInfo);
-
-        showSnackbar(`ลงทะเบียนผู้ป่วยสำเร็จ! HN: ${result.data.HNCODE} - กรุณากรอก Vital Signs`, 'success');
-
-        // ✅ รีเซ็ตฟอร์มและไปหน้ารับผู้ป่วย
+        showSnackbar(`ลงทะเบียนผู้ป่วยสำเร็จ! HN: ${result.data.HNCODE} - กรุณากรอง Vital Signs`, 'success');
+        
         resetNewPatientForm();
 
-        // รอ 1 วินาทีแล้วไปหน้ารับผู้ป่วย
+        // รีเฟรชข้อมูลคิว
         setTimeout(() => {
           setMainView('reception');
+          handleRefresh(); // ✅ รีเฟรชเพื่อดูข้อมูลล่าสุด
         }, 1000);
 
       } else {
@@ -272,10 +277,17 @@ const PatientRegistration = () => {
     setNewPatientTabIndex(0);
   };
 
-  // ✅ ฟังก์ชันสำหรับเคลียร์ข้อมูลผู้ป่วยที่เพิ่งลงทะเบียนหลังจากส่งคิวแล้ว
   const handleClearNewlyRegistered = () => {
     setNewlyRegisteredPatient(null);
   };
+
+  // ✅ เพิ่ม Debug info
+  console.log('📊 Queue Debug Info:', {
+    todayQueueLength: todayQueue.length,
+    queueStats,
+    firstQueueItem: todayQueue[0],
+    mainView
+  });
 
   return (
     <Container maxWidth={false} sx={{ mt: 2, maxWidth: "1600px" }}>
@@ -318,7 +330,7 @@ const PatientRegistration = () => {
             />
           )}
 
-          {/* เพิ่มผู้ป่วยใหม่ - ใช้ Components เดิม */}
+          {/* เพิ่มผู้ป่วยใหม่ */}
           {mainView === 'newPatient' && (
             <Card>
               <Tabs
