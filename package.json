@@ -9,6 +9,7 @@
     "@fontsource/prompt": "^5.1.1",
     "@mui/icons-material": "^5.14.19",
     "@mui/material": "^5.14.20",
+    "@react-pdf/renderer": "^4.3.0",
     "@reduxjs/toolkit": "^2.5.1",
     "@testing-library/jest-dom": "^5.14.1",
     "@testing-library/react": "^14.0.0",

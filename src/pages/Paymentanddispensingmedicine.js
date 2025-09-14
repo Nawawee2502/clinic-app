@@ -23,6 +23,9 @@ import {
 } from "@mui/material";
 import { Print as PrintIcon } from "@mui/icons-material";
 
+import { PDFDownloadLink, PDFViewer } from "@react-pdf/renderer";
+import ReceiptPDF from "../components/Paymentanddispensingmedicine/ReceiptPDF";
+
 // Import Services
 import PatientService from "../services/patientService";
 import TreatmentService from "../services/treatmentService";
@@ -78,21 +81,217 @@ const Paymentanddispensingmedicine = () => {
     }
   }, [selectedPatientIndex, patients]);
 
+  const handlePrintReceipt = () => {
+    if (!PrintUtils.checkPrintSupport()) return;
+
+    // ตรวจสอบว่ามีข้อมูลครบถ้วน
+    if (!currentPatient || !treatmentData || calculateTotalFromEditablePrices() === 0) {
+      setSnackbar({
+        open: true,
+        message: 'ไม่สามารถพิมพ์ใบเสร็จได้ กรุณาตรวจสอบข้อมูล',
+        severity: 'error'
+      });
+      return;
+    }
+
+    PrintUtils.printReceipt();
+  };
+
+  // ฟังก์ชันสำหรับจัดการการพิมพ์ฉลากยา
+  const handlePrintDrugLabels = () => {
+    if (!PrintUtils.checkPrintSupport()) return;
+
+    if (!currentPatient || editablePrices.drugs.length === 0) {
+      setSnackbar({
+        open: true,
+        message: 'ไม่มีรายการยาที่จะพิมพ์ฉลาก',
+        severity: 'error'
+      });
+      return;
+    }
+
+    PrintUtils.printDrugLabels();
+  };
+
+  const handlePayment = async () => {
+    try {
+      if (!treatmentData) {
+        setSnackbar({
+          open: true,
+          message: 'ไม่พบข้อมูลการรักษา',
+          severity: 'error'
+        });
+        return;
+      }
+
+      if (!paymentData.receivedAmount || parseFloat(paymentData.receivedAmount) < calculateTotal()) {
+        setSnackbar({
+          open: true,
+          message: 'จำนวนเงินที่รับไม่เพียงพอ',
+          severity: 'error'
+        });
+        return;
+      }
+
+      const currentPatient = patients[selectedPatientIndex];
+
+      // ข้อมูลการชำระเงินที่จะบันทึกลง treatment record
+      const paymentInfo = {
+        PAYMENT_STATUS: 'ชำระเงินแล้ว',
+        PAYMENT_DATE: new Date().toISOString().split('T')[0],
+        PAYMENT_TIME: new Date().toLocaleTimeString('th-TH'),
+        TOTAL_AMOUNT: calculateTotal(),
+        DISCOUNT: paymentData.discount || 0,
+        PAYMENT_METHOD: paymentData.paymentMethod,
+        RECEIVED_AMOUNT: parseFloat(paymentData.receivedAmount),
+        CHANGE_AMOUNT: parseFloat(paymentData.receivedAmount) - calculateTotal(),
+        CASHIER: 'PAYMENT_SYSTEM'
+      };
+
+      // Step 1: อัปเดต treatment record
+      console.log('💰 Updating treatment record for VNO:', currentPatient.VNO);
+
+      try {
+        // อัปเดต STATUS1 และข้อมูลการชำระเงิน
+        const treatmentUpdateData = {
+          VNO: currentPatient.VNO,
+          STATUS1: 'ชำระเงินแล้ว', // ใช้ฟิลด์ STATUS1 ที่มีอยู่แล้ว
+          PAYMENT_INFO: JSON.stringify(paymentInfo), // เก็บข้อมูลการชำระเป็น JSON
+          SYSTEM_DATE: new Date().toISOString().split('T')[0],
+          SYSTEM_TIME: new Date().toLocaleTimeString('th-TH')
+        };
+
+        // เรียก API อัปเดต treatment
+        const treatmentResponse = await TreatmentService.updateTreatmentStatus(
+          currentPatient.VNO,
+          treatmentUpdateData
+        );
+
+        if (!treatmentResponse.success) {
+          throw new Error('ไม่สามารถอัปเดต treatment record ได้: ' + treatmentResponse.message);
+        }
+
+        console.log('✅ Treatment record updated successfully');
+
+      } catch (treatmentError) {
+        console.error('❌ Error updating treatment record:', treatmentError);
+        throw treatmentError;
+      }
+
+      // Step 2: อัปเดตสถานะคิวเป็น 'ชำระเงินแล้ว'
+      try {
+        const queueUpdateResponse = await QueueService.updateQueueStatus(
+          currentPatient.queueId,
+          'ชำระเงินแล้ว'
+        );
+
+        if (!queueUpdateResponse.success) {
+          console.warn('⚠️ Failed to update queue status:', queueUpdateResponse.message);
+        } else {
+          console.log('✅ Queue status updated successfully');
+        }
+      } catch (queueError) {
+        console.error('❌ Error updating queue status:', queueError);
+        // ไม่ throw error เพราะ treatment record สำคัญกว่า
+      }
+
+      // Step 3: ลบผู้ป่วยออกจาก state (UI)
+      const updatedPatients = patients.filter((_, index) => index !== selectedPatientIndex);
+      setPatients(updatedPatients);
+
+      // Step 4: อัพเดต selectedPatientIndex
+      if (updatedPatients.length === 0) {
+        setSelectedPatientIndex(0);
+        setTreatmentData(null);
+        setEditablePrices({
+          labs: [],
+          procedures: [],
+          drugs: []
+        });
+      } else {
+        if (selectedPatientIndex >= updatedPatients.length) {
+          setSelectedPatientIndex(updatedPatients.length - 1);
+        }
+      }
+
+      // Success message
+      setSnackbar({
+        open: true,
+        message: `✅ บันทึกการชำระเงินสำเร็จ ยอดชำระ: ฿${calculateTotal().toFixed(2)} - ${currentPatient.PRENAME} ${currentPatient.NAME1} ${currentPatient.SURNAME}`,
+        severity: 'success'
+      });
+
+      // Step 5: รีเซ็ตข้อมูลการชำระเงิน
+      setPaymentData({
+        paymentMethod: 'เงินสด',
+        receivedAmount: '',
+        discount: 0,
+        remarks: ''
+      });
+
+      setTabIndex(1); // ไปหน้าใบเสร็จ
+
+      // Step 6: รีเฟรชข้อมูลหลังจาก 1 วินาที
+      setTimeout(() => {
+        loadCompletedPatients();
+      }, 1000);
+
+    } catch (error) {
+      console.error('❌ Error processing payment:', error);
+      setSnackbar({
+        open: true,
+        message: 'เกิดข้อผิดพลาดในการบันทึกการชำระเงิน: ' + error.message,
+        severity: 'error'
+      });
+    }
+  };
+
+  // แก้ไขฟังก์ชันโหลดข้อมูล - กรองตาม STATUS1
   const loadCompletedPatients = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      const response = await PatientService.getTodayPatientsFromQueue();
+      const response = await PatientService.getTodayPatientsFromQueue({
+        refresh: true,
+        timestamp: Date.now()
+      });
 
       if (response.success) {
-        // กรองให้เหลือเฉพาะผู้ป่วยที่ยังไม่ได้ชำระเงิน
-        const filteredPatients = response.data
-          .filter(patient => patient.queueStatus === 'เสร็จแล้ว') // เฉพาะที่รักษาเสร็จแล้ว
-          .map(patient => ({
-            ...patient,
-            paymentStatus: 'ยังไม่ชำระ'
-          }));
+        console.log('Raw queue data:', response.data.length, 'patients');
+
+        // เพิ่มการดึงข้อมูล treatment status สำหรับแต่ละผู้ป่วย
+        const patientsWithTreatmentStatus = await Promise.all(
+          response.data.map(async (patient) => {
+            try {
+              // ดึง treatment status จาก VNO
+              if (patient.VNO) {
+                const treatmentResponse = await TreatmentService.getTreatmentByVNO(patient.VNO);
+                if (treatmentResponse.success && treatmentResponse.data.treatment) {
+                  patient.STATUS1 = treatmentResponse.data.treatment.STATUS1;
+                }
+              }
+              return patient;
+            } catch (error) {
+              console.warn(`Failed to get treatment status for VNO ${patient.VNO}:`, error);
+              return patient;
+            }
+          })
+        );
+
+        // กรองเฉพาะผู้ป่วยที่รอชำระเงิน
+        const filteredPatients = patientsWithTreatmentStatus.filter(patient => {
+          const queueStatus = patient.queueStatus || patient.QUEUE_STATUS || patient.STATUS || 'รอตรวจ';
+          const treatmentStatus = patient.STATUS1 || 'กำลังตรวจ';
+
+          console.log(`Patient ${patient.HNCODE}: queueStatus="${queueStatus}", treatmentStatus="${treatmentStatus}"`);
+
+          return queueStatus === 'เสร็จแล้ว' &&
+            treatmentStatus !== 'ชำระเงินแล้ว' &&
+            treatmentStatus !== 'ปิดแล้ว';
+        });
+
+        console.log(`Found ${filteredPatients.length} patients waiting for payment`);
 
         setPatients(filteredPatients);
 
@@ -100,10 +299,6 @@ const Paymentanddispensingmedicine = () => {
           setError('ไม่มีผู้ป่วยที่รอการชำระเงิน');
         }
 
-        // รีเซ็ต selectedPatientIndex ถ้าจำนวนผู้ป่วยลดลง
-        if (selectedPatientIndex >= filteredPatients.length) {
-          setSelectedPatientIndex(Math.max(0, filteredPatients.length - 1));
-        }
       } else {
         setError('ไม่สามารถโหลดข้อมูลผู้ป่วยได้: ' + response.message);
       }
@@ -320,73 +515,6 @@ const Paymentanddispensingmedicine = () => {
     }
   };
 
-  const handlePayment = async () => {
-    try {
-      if (!treatmentData) {
-        setSnackbar({
-          open: true,
-          message: 'ไม่พบข้อมูลการรักษา',
-          severity: 'error'
-        });
-        return;
-      }
-
-      if (!paymentData.receivedAmount || parseFloat(paymentData.receivedAmount) < calculateTotal()) {
-        setSnackbar({
-          open: true,
-          message: 'จำนวนเงินที่รับไม่เพียงพอ',
-          severity: 'error'
-        });
-        return;
-      }
-
-      // ลบผู้ป่วยที่ชำระเงินแล้วออกจากคิว
-      const currentPatient = patients[selectedPatientIndex];
-      const updatedPatients = patients.filter((_, index) => index !== selectedPatientIndex);
-
-      setPatients(updatedPatients);
-
-      // อัพเดต selectedPatientIndex
-      if (updatedPatients.length === 0) {
-        setSelectedPatientIndex(0);
-        setTreatmentData(null);
-        setEditablePrices({
-          labs: [],
-          procedures: [],
-          drugs: []
-        });
-      } else {
-        // ถ้าลบผู้ป่วยคนสุดท้าย ให้เลื่อนไปผู้ป่วยคนก่อนหน้า
-        if (selectedPatientIndex >= updatedPatients.length) {
-          setSelectedPatientIndex(updatedPatients.length - 1);
-        }
-        // ถ้าไม่ใช่ ให้อยู่ที่ index เดิม (จะแสดงผู้ป่วยคนถัดไป)
-      }
-
-      setSnackbar({
-        open: true,
-        message: `บันทึกการชำระเงินสำเร็จ ยอดชำระ: ฿${calculateTotal().toFixed(2)} - ${currentPatient.PRENAME} ${currentPatient.NAME1} ${currentPatient.SURNAME}`,
-        severity: 'success'
-      });
-
-      // รีเซ็ตข้อมูลการชำระเงิน
-      setPaymentData({
-        paymentMethod: 'เงินสด',
-        receivedAmount: '',
-        discount: 0,
-        remarks: ''
-      });
-
-      setTabIndex(1);
-    } catch (error) {
-      console.error('Error saving payment:', error);
-      setSnackbar({
-        open: true,
-        message: 'เกิดข้อผิดพลาดในการบันทึกการชำระเงิน',
-        severity: 'error'
-      });
-    }
-  };
 
   const currentPatient = patients[selectedPatientIndex];
 
@@ -416,6 +544,1006 @@ const Paymentanddispensingmedicine = () => {
       </Container>
     );
   }
+
+  const generateProfessionalReceipt = () => {
+    if (!currentPatient) {
+      setSnackbar({
+        open: true,
+        message: 'กรุณาเลือกผู้ป่วยก่อน',
+        severity: 'error'
+      });
+      return;
+    }
+
+    const totalAmount = calculateTotalFromEditablePrices();
+    const finalAmount = calculateTotal();
+
+    // รวมรายการทั้งหมด
+    const allItems = [
+      ...editablePrices.labs.map(item => ({
+        name: item.LABNAME || item.LABCODE || "การตรวจ",
+        quantity: 1,
+        unit: "ครั้ง",
+        price: item.editablePrice || 0
+      })),
+      ...editablePrices.procedures.map(item => ({
+        name: item.MED_PRO_NAME_THAI || item.PROCEDURE_NAME || item.MEDICAL_PROCEDURE_CODE || "หัตถการ",
+        quantity: 1,
+        unit: "ครั้ง",
+        price: item.editablePrice || 0
+      })),
+      ...editablePrices.drugs.map(item => ({
+        name: item.GENERIC_NAME || item.DRUG_CODE || "ยา",
+        quantity: item.QTY || 1,
+        unit: item.UNIT_CODE || "เม็ด",
+        price: item.editablePrice || 0
+      }))
+    ];
+
+    const receiptWindow = window.open('', '_blank', 'width=800,height=900');
+
+    const receiptHTML = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+          <meta charset="UTF-8">
+          <title>ใบเสร็จรับเงิน - ${currentPatient.VNO}</title>
+          <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+          <style>
+              * {
+                  margin: 0;
+                  padding: 0;
+                  box-sizing: border-box;
+              }
+              
+              body {
+                  font-family: 'Sarabun', Arial, sans-serif;
+                  font-size: 14px;
+                  line-height: 1.6;
+                  color: #333;
+                  background: #f5f5f5;
+                  padding: 20px;
+              }
+              
+              .receipt-container {
+                  max-width: 700px;
+                  margin: 0 auto;
+                  background: white;
+                  box-shadow: 0 0 20px rgba(0,0,0,0.1);
+                  border-radius: 10px;
+                  overflow: hidden;
+              }
+              
+              .header {
+                  background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%);
+                  color: white;
+                  text-align: center;
+                  padding: 30px 20px;
+                  position: relative;
+              }
+              
+              .header::before {
+                  content: '';
+                  position: absolute;
+                  top: 0;
+                  left: 0;
+                  right: 0;
+                  bottom: 0;
+                  background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="20" cy="20" r="2" fill="white" opacity="0.1"/><circle cx="80" cy="80" r="2" fill="white" opacity="0.1"/><circle cx="40" cy="60" r="1" fill="white" opacity="0.1"/></svg>');
+              }
+              
+              .clinic-name {
+                  font-size: 28px;
+                  font-weight: 700;
+                  margin-bottom: 8px;
+                  position: relative;
+                  z-index: 1;
+              }
+              
+              .clinic-address {
+                  font-size: 14px;
+                  opacity: 0.9;
+                  margin-bottom: 4px;
+                  position: relative;
+                  z-index: 1;
+              }
+              
+              .receipt-title {
+                  font-size: 20px;
+                  font-weight: 600;
+                  margin-top: 15px;
+                  padding: 10px 30px;
+                  background: rgba(255,255,255,0.2);
+                  border-radius: 20px;
+                  display: inline-block;
+                  position: relative;
+                  z-index: 1;
+              }
+              
+              .content {
+                  padding: 30px;
+              }
+              
+              .patient-info {
+                  background: #f8f9fa;
+                  border-radius: 10px;
+                  padding: 20px;
+                  margin-bottom: 25px;
+                  border-left: 4px solid #1976d2;
+              }
+              
+              .info-row {
+                  display: flex;
+                  justify-content: space-between;
+                  align-items: center;
+                  margin-bottom: 10px;
+                  flex-wrap: wrap;
+                  gap: 10px;
+              }
+              
+              .info-row:last-child {
+                  margin-bottom: 0;
+              }
+              
+              .info-label {
+                  font-weight: 600;
+                  color: #555;
+                  min-width: 80px;
+              }
+              
+              .info-value {
+                  font-weight: 500;
+                  color: #1976d2;
+              }
+              
+              .items-section {
+                  margin-bottom: 25px;
+              }
+              
+              .section-title {
+                  font-size: 18px;
+                  font-weight: 600;
+                  color: #1976d2;
+                  margin-bottom: 15px;
+                  padding-bottom: 5px;
+                  border-bottom: 2px solid #e3f2fd;
+              }
+              
+              .items-table {
+                  width: 100%;
+                  border-collapse: collapse;
+                  margin-bottom: 20px;
+                  border-radius: 8px;
+                  overflow: hidden;
+                  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+              }
+              
+              .items-table th {
+                  background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%);
+                  color: white;
+                  font-weight: 600;
+                  padding: 15px 10px;
+                  text-align: left;
+                  font-size: 14px;
+              }
+              
+              .items-table th:nth-child(1) { width: 50%; }
+              .items-table th:nth-child(2) { width: 20%; text-align: center; }
+              .items-table th:nth-child(3) { width: 30%; text-align: right; }
+              
+              .items-table td {
+                  padding: 12px 10px;
+                  border-bottom: 1px solid #eee;
+                  font-size: 13px;
+              }
+              
+              .items-table tbody tr:nth-child(even) {
+                  background: #f8f9fa;
+              }
+              
+              .items-table tbody tr:hover {
+                  background: #e3f2fd;
+              }
+              
+              .item-name {
+                  font-weight: 500;
+                  color: #333;
+              }
+              
+              .item-quantity {
+                  text-align: center;
+                  font-weight: 500;
+              }
+              
+              .item-price {
+                  text-align: right;
+                  font-weight: 600;
+                  color: #1976d2;
+              }
+              
+              .summary-section {
+                  background: #f8f9fa;
+                  border-radius: 10px;
+                  padding: 20px;
+                  border-top: 3px solid #1976d2;
+              }
+              
+              .summary-row {
+                  display: flex;
+                  justify-content: space-between;
+                  align-items: center;
+                  margin-bottom: 10px;
+                  font-size: 15px;
+              }
+              
+              .summary-row:last-child {
+                  margin-bottom: 0;
+              }
+              
+              .summary-label {
+                  font-weight: 500;
+              }
+              
+              .summary-value {
+                  font-weight: 600;
+              }
+              
+              .total-row {
+                  background: white;
+                  margin: 15px -10px -10px;
+                  padding: 15px 10px;
+                  border-radius: 8px;
+                  border: 2px solid #1976d2;
+                  font-size: 18px;
+                  font-weight: 700;
+                  color: #1976d2;
+              }
+              
+              .footer {
+                  background: #f8f9fa;
+                  text-align: center;
+                  padding: 20px;
+                  color: #666;
+                  font-size: 12px;
+              }
+              
+              .thank-you {
+                  font-size: 16px;
+                  font-weight: 600;
+                  color: #1976d2;
+                  margin-bottom: 10px;
+              }
+              
+              .print-section {
+                  text-align: center;
+                  padding: 20px;
+                  background: white;
+              }
+              
+              .print-btn {
+                  background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%);
+                  color: white;
+                  border: none;
+                  padding: 12px 30px;
+                  font-size: 16px;
+                  font-weight: 600;
+                  border-radius: 25px;
+                  cursor: pointer;
+                  margin: 0 10px;
+                  transition: all 0.3s ease;
+                  font-family: 'Sarabun', Arial, sans-serif;
+              }
+              
+              .print-btn:hover {
+                  transform: translateY(-2px);
+                  box-shadow: 0 5px 15px rgba(25,118,210,0.4);
+              }
+              
+              .close-btn {
+                  background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
+              }
+              
+              .close-btn:hover {
+                  box-shadow: 0 5px 15px rgba(244,67,54,0.4);
+              }
+              
+              .empty-state {
+                  text-align: center;
+                  padding: 40px;
+                  color: #999;
+                  font-style: italic;
+              }
+              
+              @media print {
+                  body {
+                      background: white;
+                      padding: 0;
+                  }
+                  .receipt-container {
+                      box-shadow: none;
+                      border-radius: 0;
+                  }
+                  .print-section {
+                      display: none !important;
+                  }
+              }
+              
+              @media (max-width: 600px) {
+                  .receipt-container {
+                      margin: 0;
+                      border-radius: 0;
+                  }
+                  
+                  .content {
+                      padding: 20px;
+                  }
+                  
+                  .items-table th,
+                  .items-table td {
+                      padding: 8px 5px;
+                      font-size: 12px;
+                  }
+                  
+                  .info-row {
+                      flex-direction: column;
+                      align-items: flex-start;
+                  }
+              }
+          </style>
+      </head>
+      <body>
+          <div class="receipt-container">
+              <!-- Header -->
+              <div class="header">
+                  <div class="clinic-name">สัมพันธ์คลินิค</div>
+                  <div class="clinic-address">280 หมู่ 4 ถนน เชียงใหม่-ฮอด ต.บ้านหลวง อ.จอมทอง จ.เชียงใหม่ 50160</div>
+                  <div class="clinic-address">โทรศัพท์: 053-826-524</div>
+                  <div class="receipt-title">ใบเสร็จรับเงิน</div>
+              </div>
+              
+              <!-- Content -->
+              <div class="content">
+                  <!-- Patient Information -->
+                  <div class="patient-info">
+                      <div class="info-row">
+                          <span class="info-label">เลขที่ VN:</span>
+                          <span class="info-value">${currentPatient.VNO}</span>
+                          <span class="info-label">เลขที่ HN:</span>
+                          <span class="info-value">${currentPatient.HNCODE}</span>
+                      </div>
+                      <div class="info-row">
+                          <span class="info-label">ชื่อผู้ป่วย:</span>
+                          <span class="info-value">${currentPatient.PRENAME}${currentPatient.NAME1} ${currentPatient.SURNAME}</span>
+                      </div>
+                      <div class="info-row">
+                          <span class="info-label">วันที่:</span>
+                          <span class="info-value">${new Date().toLocaleDateString('th-TH', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    })}</span>
+                          <span class="info-label">เวลา:</span>
+                          <span class="info-value">${new Date().toLocaleTimeString('th-TH', {
+      hour: '2-digit',
+      minute: '2-digit'
+    })}</span>
+                      </div>
+                  </div>
+                  
+                  <!-- Items Section -->
+                  <div class="items-section">
+                      <div class="section-title">รายการค่าใช้จ่าย</div>
+                      
+                      ${allItems.length > 0 ? `
+                      <table class="items-table">
+                          <thead>
+                              <tr>
+                                  <th>รายการ</th>
+                                  <th>จำนวน</th>
+                                  <th>ราคา (บาท)</th>
+                              </tr>
+                          </thead>
+                          <tbody>
+                              ${allItems.map(item => `
+                                  <tr>
+                                      <td class="item-name">${item.name}</td>
+                                      <td class="item-quantity">${item.quantity} ${item.unit}</td>
+                                      <td class="item-price">${item.price.toFixed(2)}</td>
+                                  </tr>
+                              `).join('')}
+                          </tbody>
+                      </table>
+                      ` : '<div class="empty-state">ไม่มีรายการค่าใช้จ่าย</div>'}
+                  </div>
+                  
+                  <!-- Summary Section -->
+                  <div class="summary-section">
+                      <div class="summary-row">
+                          <span class="summary-label">รวมค่ารักษาทั้งหมด:</span>
+                          <span class="summary-value">${totalAmount.toFixed(2)} บาท</span>
+                      </div>
+                      
+                      ${paymentData.discount > 0 ? `
+                      <div class="summary-row">
+                          <span class="summary-label">หักส่วนลด:</span>
+                          <span class="summary-value">-${paymentData.discount.toFixed(2)} บาท</span>
+                      </div>
+                      ` : ''}
+                      
+                      <div class="summary-row total-row">
+                          <span class="summary-label">ยอดชำระสุทธิ:</span>
+                          <span class="summary-value">${finalAmount.toFixed(2)} บาท</span>
+                      </div>
+                  </div>
+              </div>
+              
+              <!-- Footer -->
+              <div class="footer">
+                  <div class="thank-you">ขอบคุณที่ใช้บริการ</div>
+                  <div>พิมพ์เมื่อ: ${new Date().toLocaleString('th-TH')}</div>
+              </div>
+          </div>
+          
+          <!-- Print Section -->
+          <div class="print-section">
+              <button class="print-btn" onclick="window.print()">
+                  🖨️ พิมพ์ใบเสร็จ
+              </button>
+              <button class="print-btn close-btn" onclick="window.close()">
+                  ❌ ปิดหน้าต่าง
+              </button>
+          </div>
+      </body>
+      </html>
+    `;
+
+    receiptWindow.document.write(receiptHTML);
+    receiptWindow.document.close();
+    receiptWindow.focus();
+  };
+
+  const generateProfessionalDrugLabels = () => {
+    if (!currentPatient || editablePrices.drugs.length === 0) {
+      setSnackbar({
+        open: true,
+        message: 'ไม่มีรายการยาที่จะพิมพ์ฉลาก',
+        severity: 'error'
+      });
+      return;
+    }
+
+    const labelWindow = window.open('', '_blank', 'width=1200,height=800');
+
+    const labelsHTML = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+          <meta charset="UTF-8">
+          <title>ฉลากยา - ${currentPatient.PRENAME}${currentPatient.NAME1} ${currentPatient.SURNAME}</title>
+          <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+          <style>
+              * {
+                  margin: 0;
+                  padding: 0;
+                  box-sizing: border-box;
+              }
+              
+              body {
+                  font-family: 'Sarabun', Arial, sans-serif;
+                  font-size: 13px;
+                  line-height: 1.4;
+                  background: #f0f2f5;
+                  padding: 20px;
+              }
+              
+              .labels-container {
+                  display: grid;
+                  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+                  gap: 20px;
+                  max-width: 1200px;
+                  margin: 0 auto;
+              }
+              
+              .drug-label {
+                  width: 340px;
+                  height: 480px;
+                  background: white;
+                  border: 2px solid #1976d2;
+                  border-radius: 12px;
+                  overflow: hidden;
+                  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                  page-break-inside: avoid;
+                  display: flex;
+                  flex-direction: column;
+              }
+              
+              .label-header {
+                  background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%);
+                  color: white;
+                  padding: 15px;
+                  text-align: center;
+                  position: relative;
+                  overflow: hidden;
+              }
+              
+              .label-header::before {
+                  content: '💊';
+                  position: absolute;
+                  left: 15px;
+                  top: 50%;
+                  transform: translateY(-50%);
+                  font-size: 24px;
+                  background: white;
+                  color: #1976d2;
+                  width: 40px;
+                  height: 40px;
+                  border-radius: 50%;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+              }
+              
+              .clinic-title {
+                  font-size: 18px;
+                  font-weight: 700;
+                  margin-bottom: 2px;
+                  letter-spacing: 0.5px;
+              }
+              
+              .clinic-subtitle {
+                  font-size: 11px;
+                  opacity: 0.95;
+                  margin-bottom: 2px;
+              }
+              
+              .clinic-phone {
+                  font-size: 12px;
+                  font-weight: 500;
+              }
+              
+              .label-content {
+                  padding: 18px;
+                  flex: 1;
+                  display: flex;
+                  flex-direction: column;
+              }
+              
+              .patient-section {
+                  background: #f8f9fa;
+                  border-radius: 8px;
+                  padding: 12px;
+                  margin-bottom: 15px;
+                  border-left: 4px solid #1976d2;
+              }
+              
+              .patient-row {
+                  display: flex;
+                  justify-content: space-between;
+                  align-items: center;
+                  margin-bottom: 6px;
+                  font-size: 12px;
+              }
+              
+              .patient-row:last-child {
+                  margin-bottom: 0;
+              }
+              
+              .patient-label {
+                  color: #666;
+                  font-weight: 500;
+                  min-width: 60px;
+              }
+              
+              .patient-value {
+                  font-weight: 600;
+                  color: #333;
+                  flex: 1;
+                  margin: 0 8px;
+              }
+              
+              .drug-name-section {
+                  text-align: center;
+                  margin-bottom: 15px;
+              }
+              
+              .drug-name {
+                  font-size: 16px;
+                  font-weight: 700;
+                  color: #1976d2;
+                  background: #e3f2fd;
+                  padding: 8px 12px;
+                  border-radius: 6px;
+                  border: 1px solid #bbdefb;
+              }
+              
+              .dosage-section {
+                  background: #fff3e0;
+                  border-radius: 8px;
+                  padding: 12px;
+                  margin-bottom: 15px;
+                  border: 1px solid #ffcc02;
+              }
+              
+              .dosage-title {
+                  font-size: 13px;
+                  font-weight: 600;
+                  color: #f57c00;
+                  text-align: center;
+                  margin-bottom: 8px;
+              }
+              
+              .dosage-info {
+                  display: flex;
+                  justify-content: center;
+                  align-items: center;
+                  gap: 20px;
+                  flex-wrap: wrap;
+              }
+              
+              .dosage-item {
+                  text-align: center;
+              }
+              
+              .dosage-number {
+                  font-size: 18px;
+                  font-weight: 700;
+                  color: #d32f2f;
+                  display: block;
+              }
+              
+              .dosage-label {
+                  font-size: 11px;
+                  color: #666;
+              }
+              
+              .time-grid {
+                  display: grid;
+                  grid-template-columns: repeat(4, 1fr);
+                  gap: 8px;
+                  margin: 12px 0;
+              }
+              
+              .time-slot {
+                  text-align: center;
+                  padding: 6px 4px;
+                  border-radius: 6px;
+                  font-size: 10px;
+                  border: 1px solid #e0e0e0;
+                  background: white;
+              }
+              
+              .time-slot.active {
+                  background: #e3f2fd;
+                  border-color: #1976d2;
+                  color: #1976d2;
+                  font-weight: 600;
+              }
+              
+              .time-icon {
+                  display: block;
+                  font-size: 14px;
+                  margin-bottom: 2px;
+              }
+              
+              .meal-timing {
+                  margin: 12px 0;
+              }
+              
+              .meal-option {
+                  display: flex;
+                  align-items: center;
+                  margin-bottom: 4px;
+                  font-size: 11px;
+              }
+              
+              .meal-checkbox {
+                  width: 12px;
+                  height: 12px;
+                  border: 1px solid #1976d2;
+                  border-radius: 2px;
+                  margin-right: 6px;
+                  position: relative;
+                  background: white;
+              }
+              
+              .meal-checkbox.checked {
+                  background: #1976d2;
+              }
+              
+              .meal-checkbox.checked::after {
+                  content: '✓';
+                  position: absolute;
+                  top: -2px;
+                  left: 2px;
+                  color: white;
+                  font-size: 10px;
+                  font-weight: bold;
+              }
+              
+              .meal-text {
+                  flex: 1;
+              }
+              
+              .meal-english {
+                  color: #666;
+                  font-size: 9px;
+                  margin-left: auto;
+              }
+              
+              .instructions-section {
+                  background: #f1f8e9;
+                  border-radius: 8px;
+                  padding: 12px;
+                  margin-top: auto;
+                  border: 1px solid #c8e6c9;
+              }
+              
+              .instructions-title {
+                  font-size: 12px;
+                  font-weight: 600;
+                  color: #388e3c;
+                  margin-bottom: 8px;
+              }
+              
+              .instructions-grid {
+                  display: grid;
+                  grid-template-columns: 1fr 1fr;
+                  gap: 6px;
+                  font-size: 9px;
+                  color: #555;
+              }
+              
+              .instruction-item {
+                  display: flex;
+                  align-items: flex-start;
+                  line-height: 1.3;
+              }
+              
+              .instruction-checkbox {
+                  width: 10px;
+                  height: 10px;
+                  border: 1px solid #388e3c;
+                  border-radius: 1px;
+                  margin-right: 4px;
+                  margin-top: 1px;
+                  flex-shrink: 0;
+                  background: white;
+              }
+              
+              .instruction-checkbox.checked {
+                  background: #388e3c;
+              }
+              
+              .instruction-checkbox.checked::after {
+                  content: '✓';
+                  position: absolute;
+                  color: white;
+                  font-size: 7px;
+                  font-weight: bold;
+                  margin-left: -8px;
+                  margin-top: -1px;
+              }
+              
+              .expiry-section {
+                  text-align: center;
+                  margin-top: 15px;
+                  padding-top: 12px;
+                  border-top: 1px solid #e0e0e0;
+              }
+              
+              .expiry-text {
+                  font-size: 11px;
+                  color: #666;
+              }
+              
+              .expiry-date {
+                  font-weight: 600;
+                  color: #d32f2f;
+                  margin-left: 5px;
+              }
+              
+              .print-controls {
+                  position: fixed;
+                  top: 20px;
+                  right: 20px;
+                  z-index: 1000;
+                  display: flex;
+                  gap: 10px;
+              }
+              
+              .print-btn {
+                  background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%);
+                  color: white;
+                  border: none;
+                  padding: 10px 20px;
+                  border-radius: 20px;
+                  font-size: 14px;
+                  font-weight: 600;
+                  cursor: pointer;
+                  box-shadow: 0 2px 8px rgba(25,118,210,0.3);
+                  transition: all 0.3s ease;
+                  font-family: 'Sarabun', Arial, sans-serif;
+              }
+              
+              .print-btn:hover {
+                  transform: translateY(-2px);
+                  box-shadow: 0 4px 12px rgba(25,118,210,0.4);
+              }
+              
+              .close-btn {
+                  background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
+              }
+              
+              .close-btn:hover {
+                  box-shadow: 0 4px 12px rgba(244,67,54,0.4);
+              }
+              
+              @media print {
+                  body {
+                      background: white;
+                      padding: 10px;
+                  }
+                  
+                  .print-controls {
+                      display: none !important;
+                  }
+                  
+                  .labels-container {
+                      gap: 15px;
+                  }
+                  
+                  .drug-label {
+                      box-shadow: none;
+                      border-width: 1px;
+                  }
+              }
+              
+              @page {
+                  margin: 10mm;
+                  size: A4;
+              }
+          </style>
+      </head>
+      <body>
+          <div class="print-controls">
+              <button class="print-btn" onclick="window.print()">
+                  🖨️ พิมพ์ฉลากยาทั้งหมด (${editablePrices.drugs.length} ฉลาก)
+              </button>
+              <button class="print-btn close-btn" onclick="window.close()">
+                  ❌ ปิดหน้าต่าง
+              </button>
+          </div>
+          
+          <div class="labels-container">
+              ${editablePrices.drugs.map((drug, index) => {
+      const dosage = drug.DOSAGE || '1';
+      const frequency = parseInt(drug.FREQUENCY || '3');
+      const quantity = drug.QTY || 1;
+      const unit = drug.UNIT_CODE || 'เม็ด';
+      const drugName = drug.GENERIC_NAME || drug.DRUG_CODE || 'ยา';
+      const expireDate = drug.EXPIRE_DATE || '31/12/2025';
+
+      return `
+                  <div class="drug-label">
+                      <div class="label-header">
+                          <div class="clinic-title">สัมพันธ์คลินิค คลินิกเวชกรรม</div>
+                          <div class="clinic-subtitle">280/4 ต.บ้านหลวง อ.จอมทอง จ.เชียงใหม่ 50160</div>
+                          <div class="clinic-phone">โทร: 053-341-723</div>
+                      </div>
+                      
+                      <div class="label-content">
+                          <div class="patient-section">
+                              <div class="patient-row">
+                                  <span class="patient-label">ชื่อผู้ป่วย</span>
+                                  <span class="patient-value">${currentPatient.PRENAME}${currentPatient.NAME1} ${currentPatient.SURNAME}</span>
+                                  <span class="patient-label">วันที่</span>
+                                  <span class="patient-value">${new Date().toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', year: '2-digit' })}</span>
+                              </div>
+                              <div class="patient-row">
+                                  <span class="patient-label">ที่อยู่</span>
+                                  <span class="patient-value">HN: ${currentPatient.HNCODE} VN: ${currentPatient.VNO}</span>
+                                  <span class="patient-label">จำนวน</span>
+                                  <span class="patient-value">${quantity} ${unit}</span>
+                              </div>
+                          </div>
+                          
+                          <div class="drug-name-section">
+                              <div class="drug-name">${drugName}</div>
+                          </div>
+                          
+                          <div class="dosage-section">
+                              <div class="dosage-title">วิธีการใช้ยา</div>
+                              <div class="dosage-info">
+                                  <div class="dosage-item">
+                                      <span class="dosage-number">${dosage}</span>
+                                      <span class="dosage-label">เม็ด/ครั้ง</span>
+                                  </div>
+                                  <div class="dosage-item">
+                                      <span class="dosage-number">${frequency}</span>
+                                      <span class="dosage-label">ครั้ง/วัน</span>
+                                  </div>
+                              </div>
+                          </div>
+                          
+                          <div class="time-grid">
+                              <div class="time-slot ${frequency >= 1 ? 'active' : ''}">
+                                  <span class="time-icon">🌅</span>
+                                  <div>เช้า<br>Morning</div>
+                              </div>
+                              <div class="time-slot ${frequency >= 2 ? 'active' : ''}">
+                                  <span class="time-icon">☀️</span>
+                                  <div>กลางวัน<br>Noon</div>
+                              </div>
+                              <div class="time-slot ${frequency >= 3 ? 'active' : ''}">
+                                  <span class="time-icon">🌆</span>
+                                  <div>เย็น<br>Evening</div>
+                              </div>
+                              <div class="time-slot ${frequency >= 4 ? 'active' : ''}">
+                                  <span class="time-icon">🌙</span>
+                                  <div>ก่อนนอน<br>Bedtime</div>
+                              </div>
+                          </div>
+                          
+                          <div class="meal-timing">
+                              <div class="meal-option">
+                                  <div class="meal-checkbox"></div>
+                                  <span class="meal-text">ก่อนอาหาร</span>
+                                  <span class="meal-english">Before meal</span>
+                              </div>
+                              <div class="meal-option">
+                                  <div class="meal-checkbox checked"></div>
+                                  <span class="meal-text">หลังอาหาร</span>
+                                  <span class="meal-english">After meal</span>
+                              </div>
+                          </div>
+                          
+                          <div class="instructions-section">
+                              <div class="instructions-title">คำแนะนำในการใช้ยา</div>
+                              <div class="instructions-grid">
+                                  <div class="instruction-item">
+                                      <div class="instruction-checkbox"></div>
+                                      <span>ก่อนอาหารครึ่ง-1 ชั่วโมง<br><em>30-60 min before meals</em></span>
+                                  </div>
+                                  <div class="instruction-item">
+                                      <div class="instruction-checkbox checked"></div>
+                                      <span>ทานยาติดต่อกันจนหมด<br><em>Take until finished</em></span>
+                                  </div>
+                                  <div class="instruction-item">
+                                      <div class="instruction-checkbox"></div>
+                                      <span>ทานหลังอาหารทันที<br><em>Immediately after meals</em></span>
+                                  </div>
+                                  <div class="instruction-item">
+                                      <div class="instruction-checkbox checked"></div>
+                                      <span>ดื่มน้ำตามมากๆ<br><em>Drink plenty of water</em></span>
+                                  </div>
+                                  <div class="instruction-item">
+                                      <div class="instruction-checkbox"></div>
+                                      <span>ยานี้อาจทำให้ง่วงซึม<br><em>May cause drowsiness</em></span>
+                                  </div>
+                                  <div class="instruction-item">
+                                      <div class="instruction-checkbox"></div>
+                                      <span>อื่นๆ<br><em>Others</em></span>
+                                  </div>
+                              </div>
+                          </div>
+                          
+                          <div class="expiry-section">
+                              <span class="expiry-text">วันหมดอายุ (Exp.)</span>
+                              <span class="expiry-date">${expireDate}</span>
+                          </div>
+                      </div>
+                  </div>
+                  `;
+    }).join('')}
+          </div>
+      </body>
+      </html>
+    `;
+
+    labelWindow.document.write(labelsHTML);
+    labelWindow.document.close();
+    labelWindow.focus();
+  };
 
   return (
     <Container maxWidth={false} sx={{ mt: 2, maxWidth: "1600px" }}>
@@ -633,6 +1761,7 @@ const Paymentanddispensingmedicine = () => {
                 )}
 
                 {/* Tab 1: Receipt */}
+                {/* Tab 1: Receipt */}
                 {tabIndex === 1 && (
                   <Box>
                     <Typography variant="h5" sx={{ mb: 3, textAlign: 'center', color: '#1976d2' }}>
@@ -724,9 +1853,15 @@ const Paymentanddispensingmedicine = () => {
                           <Button
                             variant="contained"
                             startIcon={<PrintIcon />}
-                            onClick={() => window.print()}
+                            onClick={generateProfessionalReceipt}
+                            sx={{
+                              backgroundColor: "#1976d2",
+                              '&:hover': { backgroundColor: "#1565c0" },
+                              px: 3,
+                              py: 1.5
+                            }}
                           >
-                            พิมพ์ใบเสร็จ
+                            สร้างใบเสร็จ
                           </Button>
                         </Box>
                       </Paper>
@@ -975,19 +2110,20 @@ const Paymentanddispensingmedicine = () => {
                         <Box sx={{ textAlign: 'center', mt: 3 }}>
                           <Button
                             variant="contained"
-                            startIcon={<PrintIcon />}
-                            onClick={() => window.print()}
-                            size="large"
+                            startIcon={<span>💊</span>}
+                            onClick={generateProfessionalDrugLabels}
+                            disabled={editablePrices.drugs.length === 0}
                             sx={{
-                              backgroundColor: "#5698E0",
-                              '&:hover': { backgroundColor: "#2B69AC" },
-                              px: 4,
-                              py: 1.5,
-                              fontSize: '16px',
-                              fontWeight: 600
+                              backgroundColor: "#2B69AC",
+                              height: 48,
+                              minWidth: 160,
+                              borderRadius: 3,
+                              fontSize: '1rem',
+                              fontWeight: 600,
+                              '&:hover': { backgroundColor: "#1e5a94" }
                             }}
                           >
-                            🖨️ พิมพ์ฉลากยาทั้งหมด ({editablePrices.drugs.length} ฉลาก)
+                            พิมพ์ฉลากยา
                           </Button>
                         </Box>
 

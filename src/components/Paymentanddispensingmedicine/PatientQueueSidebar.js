@@ -418,56 +418,6 @@ const PatientQueueSidebar = ({
           ))
         )}
       </List>
-
-      {/* Footer */}
-      <Box sx={{
-        p: 1.5,
-        bgcolor: '#f1f5f9',
-        flexShrink: 0,
-        borderTop: '1px solid rgba(0,0,0,0.08)'
-      }}>
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button
-            variant="contained"
-            size="small"
-            sx={{
-              flex: 1,
-              fontSize: '10px',
-              py: 1,
-              background: 'linear-gradient(135deg, #5698E0 0%, #2B69AC 100%)',
-              borderRadius: '8px',
-              '&:hover': {
-                transform: 'translateY(-1px)',
-                boxShadow: '0 4px 12px rgba(86, 152, 224, 0.4)'
-              },
-              transition: 'all 0.3s ease'
-            }}
-          >
-            📊 รายงาน
-          </Button>
-
-          <Button
-            variant="outlined"
-            size="small"
-            sx={{
-              flex: 1,
-              fontSize: '10px',
-              py: 1,
-              borderColor: '#5698E0',
-              color: '#2B69AC',
-              borderRadius: '8px',
-              '&:hover': {
-                bgcolor: '#E3F2FD',
-                borderColor: '#2B69AC',
-                transform: 'translateY(-1px)'
-              },
-              transition: 'all 0.3s ease'
-            }}
-          >
-            🖨️ พิมพ์
-          </Button>
-        </Box>
-      </Box>
     </Card>
   );
 };

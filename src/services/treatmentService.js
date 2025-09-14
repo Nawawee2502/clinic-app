@@ -5,15 +5,14 @@ class TreatmentService {
 
     // ✅ สร้าง VNO อัตโนมัติ - แก้ไขให้เป็น พ.ศ. รูปแบบ VN680809001
     static generateVNO(date = new Date()) {
-        const buddhistYear = date.getFullYear() + 543;
-        const year = buddhistYear.toString().slice(-2); // เอาแค่ 2 หลัก เช่น 2568 -> 68
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
+        // แปลงเป็น Thailand time
+        const thailandTime = new Date(date.getTime() + (7 * 60 * 60 * 1000));
+        const buddhistYear = thailandTime.getFullYear() + 543;
+        const year = buddhistYear.toString().slice(-2);
+        const month = String(thailandTime.getMonth() + 1).padStart(2, '0');
+        const day = String(thailandTime.getDate()).padStart(2, '0');
 
-        // ✅ รูปแบบใหม่: VN[ปี พ.ศ. 2 หลัก][เดือน][วัน][เลขรันนิ่ง 3 หลัก]
-        // สร้างเลขรันนิ่ง 3 หลัก (001-999)
         const runningNumber = String(Math.floor(Math.random() * 999) + 1).padStart(3, '0');
-
         return `VN${year}${month}${day}${runningNumber}`;
     }
 
@@ -352,14 +351,12 @@ class TreatmentService {
     }
 
     // อัพเดทสถานะการรักษา
-    static async updateTreatmentStatus(vno, status) {
+    static async updateTreatmentStatus(vno, statusData) {
         try {
-            const response = await fetch(`${API_BASE_URL}/treatments/${vno}/status`, {
+            const response = await fetch(`${API_BASE_URL}/treatments/${vno}`, {
                 method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ status })
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(statusData)
             });
 
             if (!response.ok) {
