@@ -111,33 +111,33 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
 
     const loadDrugOptions = async () => {
         try {
-            console.log('🔍 Loading drug options...');
+            console.log('Loading drug options...');
             setApiStatus('checking');
 
             const response = await DrugService.getAllDrugs({ limit: 100 });
 
             if (response.success && response.data) {
-                console.log('✅ Drug API available, loaded', response.data.length, 'drugs');
+                console.log('Drug API available, loaded', response.data.length, 'drugs');
                 const formattedDrugs = response.data.map(drug => ({
                     DRUG_CODE: drug.DRUG_CODE,
                     GENERIC_NAME: drug.GENERIC_NAME,
                     TRADE_NAME: drug.TRADE_NAME || '',
-                    DEFAULT_UNIT: drug.UNIT_CODE || 'TAB'
+                    DEFAULT_UNIT: drug.UNIT_CODE || 'TAB',
+                    UNIT_PRICE: drug.UNIT_PRICE || 0 // รวมราคา
                 }));
                 setDrugOptions(formattedDrugs);
                 setApiStatus('connected');
                 return;
+            } else {
+                // ถ้า API ไม่ทำงาน ให้แสดง error แทนการใช้ Mock
+                throw new Error('Drug API not available');
             }
         } catch (error) {
-            console.warn('⚠️ Drug API not available:', error.message);
+            console.error('Drug API not available:', error.message);
             setApiStatus('offline');
+            setDrugOptions([]); // ไม่ใช้ Mock Data
+            showSnackbar('ไม่สามารถเชื่อมต่อกับฐานข้อมูลยาได้ กรุณาติดต่อผู้ดูแลระบบ', 'error');
         }
-
-        console.log('📦 Using mock drug data');
-        const mockDrugs = DrugService.getMockDrugs();
-        setDrugOptions(mockDrugs);
-        setApiStatus('mock');
-        showSnackbar('กำลังใช้ข้อมูลยาจำลอง (API ไม่พร้อม)', 'warning');
     };
 
     const getAvailableDrugs = () => {
@@ -180,10 +180,23 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
             handleMedicineChange('drugCode', newValue.DRUG_CODE);
             handleMedicineChange('drugName', newValue.GENERIC_NAME);
             handleMedicineChange('unit', newValue.DEFAULT_UNIT || 'TAB');
+            // เก็บราคาใน state แต่ไม่แสดงใน UI
+            setMedicineData(prev => ({
+                ...prev,
+                drugCode: newValue.DRUG_CODE,
+                drugName: newValue.GENERIC_NAME,
+                unit: newValue.DEFAULT_UNIT || 'TAB',
+                unitPrice: newValue.UNIT_PRICE || 0 // เก็บราคาไว้
+            }));
         } else {
-            handleMedicineChange('drugCode', '');
-            handleMedicineChange('drugName', '');
-            handleMedicineChange('unit', '');
+            // reset ทุกอย่างรวมราคา
+            setMedicineData(prev => ({
+                ...prev,
+                drugCode: '',
+                drugName: '',
+                unit: '',
+                unitPrice: 0
+            }));
         }
     };
 
@@ -218,7 +231,8 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
             unit: medicineData.unit,
             usage: medicineData.usage || 'รับประทาน',
             beforeAfter: medicineData.beforeAfter || 'หลังอาหาร',
-            time: medicineData.time.trim() || 'วันละ 1 ครั้ง'
+            time: medicineData.time.trim() || 'วันละ 1 ครั้ง',
+            unitPrice: parseFloat(medicineData.unitPrice) || 0 // เก็บราคาไว้
         };
 
         if (editingIndex >= 0) {
@@ -305,8 +319,8 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
                 DRUG_CODE: safeValue(medicine.drugCode),
                 QTY: safeValue(medicine.quantity) || 1,
                 UNIT_CODE: safeValue(medicine.unit) || 'TAB',
-                UNIT_PRICE: 0,
-                AMT: 0,
+                UNIT_PRICE: safeValue(medicine.unitPrice) || 0, // ส่งราคาจริง
+                AMT: (medicine.quantity || 1) * (medicine.unitPrice || 0), // คำนวณราคารวม
                 NOTE1: safeValue(`${medicine.usage || 'รับประทาน'} ${medicine.beforeAfter || 'หลังอาหาร'}`.trim()),
                 TIME1: safeValue(medicine.time) || 'วันละ 1 ครั้ง'
             }));
@@ -317,7 +331,7 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
                 HNNO: safeValue(currentPatient.HNCODE),
                 EMP_CODE: 'DOC001',
                 STATUS1: 'ทำงานอยู่',
-                
+
                 // Vital signs with proper defaults
                 WEIGHT1: safeValue(currentPatient.WEIGHT1) || 60,
                 HIGHT1: safeValue(currentPatient.HIGHT1) || 160,
@@ -327,15 +341,15 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
                 RR1: safeValue(currentPatient.RR1) || 20,
                 PR1: safeValue(currentPatient.PR1) || 80,
                 SPO2: safeValue(currentPatient.SPO2) || 98,
-                
+
                 SYMPTOM: safeValue(currentPatient.SYMPTOM) || 'รับยา',
-                
+
                 // Arrays with proper initialization
                 drugs: drugs,
                 procedures: [],
                 labTests: [],
                 radioTests: [],
-                
+
                 // Additional fields
                 diagnosis: null,
                 DXCODE: null,
@@ -378,10 +392,10 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
             }
         } catch (error) {
             console.error('Error saving medicine data:', error);
-            
+
             // More detailed error handling
             let errorMessage = 'เกิดข้อผิดพลาดในการบันทึกข้อมูล';
-            
+
             if (error.response?.status === 500) {
                 errorMessage = 'เซิร์ฟเวอร์เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง';
             } else if (error.response?.status === 400) {
@@ -391,7 +405,7 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
             } else if (error.message) {
                 errorMessage = error.message;
             }
-            
+
             showSnackbar(errorMessage, 'error');
         } finally {
             setSaving(false);

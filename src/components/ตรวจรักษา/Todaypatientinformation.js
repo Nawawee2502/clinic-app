@@ -59,6 +59,67 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
   const [saving, setSaving] = useState(false);
   const [patientHistory, setPatientHistory] = useState(null);
 
+  // ✅ ฟังก์ชันตรวจสอบว่า vital sign แต่ละตัวผิดปกติหรือไม่
+  const isVitalAbnormal = (vitalName) => {
+    if (!warnings || warnings.length === 0) return false;
+    
+    // แมป warning messages กับ field names
+    const warningMap = {
+      'WEIGHT1': ['น้ำหนัก', 'BMI'],
+      'HIGHT1': ['ส่วนสูง', 'BMI'],
+      'BT1': ['อุณหภูมิ', 'ไข้'],
+      'BP1': ['ความดัน', 'BP', 'Systolic'],
+      'BP2': ['ความดัน', 'BP', 'Diastolic'],
+      'RR1': ['หายใจ', 'RR'],
+      'PR1': ['ชีพจร', 'PR', 'Pulse'],
+      'SPO2': ['ออกซิเจน', 'SpO2', 'O2']
+    };
+
+    const keywords = warningMap[vitalName] || [];
+    return warnings.some(warning => 
+      keywords.some(keyword => 
+        warning.toLowerCase().includes(keyword.toLowerCase())
+      )
+    );
+  };
+
+  // ✅ ฟังก์ชันสร้าง style สำหรับ TextField ที่ผิดปกติ
+  const getAbnormalStyle = (vitalName) => {
+    if (!isVitalAbnormal(vitalName)) {
+      return {
+        '& .MuiOutlinedInput-root': {
+          borderRadius: '10px',
+          bgcolor: vitals[vitalName] ? '#f0f8ff' : 'inherit'
+        }
+      };
+    }
+
+    return {
+      '& .MuiOutlinedInput-root': {
+        borderRadius: '10px',
+        bgcolor: '#ffebee', // พื้นหลังสีแดงอ่อน
+        borderColor: '#f44336', // กรอบสีแดง
+        '& fieldset': {
+          borderColor: '#f44336 !important',
+          borderWidth: '2px !important'
+        },
+        '&:hover fieldset': {
+          borderColor: '#d32f2f !important'
+        },
+        '&.Mui-focused fieldset': {
+          borderColor: '#d32f2f !important'
+        }
+      },
+      '& .MuiInputLabel-root': {
+        color: '#f44336'
+      },
+      '& .MuiOutlinedInput-input': {
+        color: '#d32f2f',
+        fontWeight: 'bold'
+      }
+    };
+  };
+
   // โหลดข้อมูลเมื่อ currentPatient เปลี่ยน
   useEffect(() => {
     if (currentPatient) {
@@ -424,12 +485,12 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
             {warnings.length > 0 && (
               <>
                 <Divider sx={{ my: 2 }} />
-                <Alert severity="warning" sx={{ fontSize: '0.8rem' }}>
+                <Alert severity="error" sx={{ fontSize: '0.8rem' }}>
                   <Typography variant="body2" fontWeight="bold" gutterBottom>
-                    คำเตือน Vital Signs:
+                    ⚠️ คำเตือน Vital Signs ผิดปกติ:
                   </Typography>
                   {warnings.map((warning, index) => (
-                    <Typography key={index} variant="body2">
+                    <Typography key={index} variant="body2" sx={{ color: '#d32f2f' }}>
                       • {warning}
                     </Typography>
                   ))}
@@ -446,7 +507,7 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
               sx={{
                 display: "flex",
                 alignItems: "center",
-                bgcolor: '#5698E0',
+                bgcolor: warnings.length > 0 ? '#f44336' : '#5698E0', // ✅ เปลี่ยนสีหัวเรื่องเป็นแดงถ้ามี warning
                 color: 'white',
                 py: 2,
                 px: 3,
@@ -457,8 +518,8 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
               <Typography variant="h6">Vital Signs & Diagnosis</Typography>
               {/* ✅ แสดงสถานะข้อมูล */}
               <Chip
-                label={vitals.WEIGHT1 ? "มีข้อมูล" : "ยังไม่มีข้อมูล"}
-                color={vitals.WEIGHT1 ? "success" : "warning"}
+                label={warnings.length > 0 ? "ผิดปกติ" : vitals.WEIGHT1 ? "ปกติ" : "ยังไม่มีข้อมูล"}
+                color={warnings.length > 0 ? "error" : vitals.WEIGHT1 ? "success" : "warning"}
                 size="small"
                 sx={{ ml: 'auto', bgcolor: 'rgba(255,255,255,0.2)' }}
               />
@@ -467,7 +528,12 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
             <Box sx={{ p: 3 }}>
               <Grid container spacing={2}>
                 <Grid item xs={6}>
-                  <Typography sx={{ fontWeight: 400, fontSize: '16px', mb: 1 }}>
+                  <Typography sx={{ 
+                    fontWeight: 400, 
+                    fontSize: '16px', 
+                    mb: 1,
+                    color: isVitalAbnormal('VNO') ? '#d32f2f' : 'inherit'
+                  }}>
                     VN *
                   </Typography>
                   <TextField
@@ -505,8 +571,14 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
                 </Grid>
 
                 <Grid item xs={6}>
-                  <Typography sx={{ fontWeight: 400, fontSize: '16px', mb: 1 }}>
-                    น้ำหนัก (kg) *
+                  <Typography sx={{ 
+                    fontWeight: 400, 
+                    fontSize: '16px', 
+                    mb: 1,
+                    color: isVitalAbnormal('WEIGHT1') ? '#d32f2f' : 'inherit',
+                    fontWeight: isVitalAbnormal('WEIGHT1') ? 'bold' : 400
+                  }}>
+                    น้ำหนัก (kg) * {isVitalAbnormal('WEIGHT1') && '⚠️'}
                   </Typography>
                   <TextField
                     type="number"
@@ -516,18 +588,19 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
                     size="small"
                     fullWidth
                     inputProps={{ min: 0, max: 1000, step: 0.1 }}
-                    sx={{
-                      '& .MuiOutlinedInput-root': {
-                        borderRadius: '10px',
-                        bgcolor: vitals.WEIGHT1 ? '#f0f8ff' : 'inherit'
-                      },
-                    }}
+                    sx={getAbnormalStyle('WEIGHT1')}
                   />
                 </Grid>
 
                 <Grid item xs={6}>
-                  <Typography sx={{ fontWeight: 400, fontSize: '16px', mb: 1 }}>
-                    ส่วนสูง (cm) *
+                  <Typography sx={{ 
+                    fontWeight: 400, 
+                    fontSize: '16px', 
+                    mb: 1,
+                    color: isVitalAbnormal('HIGHT1') ? '#d32f2f' : 'inherit',
+                    fontWeight: isVitalAbnormal('HIGHT1') ? 'bold' : 400
+                  }}>
+                    ส่วนสูง (cm) * {isVitalAbnormal('HIGHT1') && '⚠️'}
                   </Typography>
                   <TextField
                     type="number"
@@ -537,18 +610,19 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
                     size="small"
                     fullWidth
                     inputProps={{ min: 0, max: 300, step: 0.1 }}
-                    sx={{
-                      '& .MuiOutlinedInput-root': {
-                        borderRadius: '10px',
-                        bgcolor: vitals.HIGHT1 ? '#f0f8ff' : 'inherit'
-                      },
-                    }}
+                    sx={getAbnormalStyle('HIGHT1')}
                   />
                 </Grid>
 
                 <Grid item xs={6}>
-                  <Typography sx={{ fontWeight: 400, fontSize: '16px', mb: 1 }}>
-                    อุณหภูมิ (°C) *
+                  <Typography sx={{ 
+                    fontWeight: 400, 
+                    fontSize: '16px', 
+                    mb: 1,
+                    color: isVitalAbnormal('BT1') ? '#d32f2f' : 'inherit',
+                    fontWeight: isVitalAbnormal('BT1') ? 'bold' : 400
+                  }}>
+                    อุณหภูมิ (°C) * {isVitalAbnormal('BT1') && '🌡️'}
                   </Typography>
                   <TextField
                     type="number"
@@ -558,18 +632,19 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
                     size="small"
                     fullWidth
                     inputProps={{ min: 30, max: 45, step: 0.1 }}
-                    sx={{
-                      '& .MuiOutlinedInput-root': {
-                        borderRadius: '10px',
-                        bgcolor: vitals.BT1 ? '#f0f8ff' : 'inherit'
-                      },
-                    }}
+                    sx={getAbnormalStyle('BT1')}
                   />
                 </Grid>
 
                 <Grid item xs={6}>
-                  <Typography sx={{ fontWeight: 400, fontSize: '16px', mb: 1 }}>
-                    SpO2 (%) *
+                  <Typography sx={{ 
+                    fontWeight: 400, 
+                    fontSize: '16px', 
+                    mb: 1,
+                    color: isVitalAbnormal('SPO2') ? '#d32f2f' : 'inherit',
+                    fontWeight: isVitalAbnormal('SPO2') ? 'bold' : 400
+                  }}>
+                    SpO2 (%) * {isVitalAbnormal('SPO2') && '🫁'}
                   </Typography>
                   <TextField
                     type="number"
@@ -579,18 +654,19 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
                     size="small"
                     fullWidth
                     inputProps={{ min: 0, max: 100 }}
-                    sx={{
-                      '& .MuiOutlinedInput-root': {
-                        borderRadius: '10px',
-                        bgcolor: vitals.SPO2 ? '#f0f8ff' : 'inherit'
-                      },
-                    }}
+                    sx={getAbnormalStyle('SPO2')}
                   />
                 </Grid>
 
                 <Grid item xs={4}>
-                  <Typography sx={{ fontWeight: 400, fontSize: '16px', mb: 1 }}>
-                    ความดันตัวบน *
+                  <Typography sx={{ 
+                    fontWeight: 400, 
+                    fontSize: '16px', 
+                    mb: 1,
+                    color: isVitalAbnormal('BP1') ? '#d32f2f' : 'inherit',
+                    fontWeight: isVitalAbnormal('BP1') ? 'bold' : 400
+                  }}>
+                    ความดันตัวบน * {isVitalAbnormal('BP1') && '💓'}
                   </Typography>
                   <TextField
                     type="number"
@@ -600,18 +676,19 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
                     size="small"
                     fullWidth
                     inputProps={{ min: 50, max: 300 }}
-                    sx={{
-                      '& .MuiOutlinedInput-root': {
-                        borderRadius: '10px',
-                        bgcolor: vitals.BP1 ? '#f0f8ff' : 'inherit'
-                      },
-                    }}
+                    sx={getAbnormalStyle('BP1')}
                   />
                 </Grid>
 
                 <Grid item xs={4}>
-                  <Typography sx={{ fontWeight: 400, fontSize: '16px', mb: 1 }}>
-                    ความดันตัวล่าง *
+                  <Typography sx={{ 
+                    fontWeight: 400, 
+                    fontSize: '16px', 
+                    mb: 1,
+                    color: isVitalAbnormal('BP2') ? '#d32f2f' : 'inherit',
+                    fontWeight: isVitalAbnormal('BP2') ? 'bold' : 400
+                  }}>
+                    ความดันตัวล่าง * {isVitalAbnormal('BP2') && '💓'}
                   </Typography>
                   <TextField
                     type="number"
@@ -621,18 +698,19 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
                     size="small"
                     fullWidth
                     inputProps={{ min: 30, max: 200 }}
-                    sx={{
-                      '& .MuiOutlinedInput-root': {
-                        borderRadius: '10px',
-                        bgcolor: vitals.BP2 ? '#f0f8ff' : 'inherit'
-                      },
-                    }}
+                    sx={getAbnormalStyle('BP2')}
                   />
                 </Grid>
 
                 <Grid item xs={4}>
-                  <Typography sx={{ fontWeight: 400, fontSize: '16px', mb: 1 }}>
-                    อัตราการหายใจ *
+                  <Typography sx={{ 
+                    fontWeight: 400, 
+                    fontSize: '16px', 
+                    mb: 1,
+                    color: isVitalAbnormal('RR1') ? '#d32f2f' : 'inherit',
+                    fontWeight: isVitalAbnormal('RR1') ? 'bold' : 400
+                  }}>
+                    อัตราการหายใจ * {isVitalAbnormal('RR1') && '🫁'}
                   </Typography>
                   <TextField
                     type="number"
@@ -642,18 +720,19 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
                     size="small"
                     fullWidth
                     inputProps={{ min: 5, max: 60 }}
-                    sx={{
-                      '& .MuiOutlinedInput-root': {
-                        borderRadius: '10px',
-                        bgcolor: vitals.RR1 ? '#f0f8ff' : 'inherit'
-                      },
-                    }}
+                    sx={getAbnormalStyle('RR1')}
                   />
                 </Grid>
 
                 <Grid item xs={12}>
-                  <Typography sx={{ fontWeight: 400, fontSize: '16px', mb: 1 }}>
-                    ชีพจร (bpm) *
+                  <Typography sx={{ 
+                    fontWeight: 400, 
+                    fontSize: '16px', 
+                    mb: 1,
+                    color: isVitalAbnormal('PR1') ? '#d32f2f' : 'inherit',
+                    fontWeight: isVitalAbnormal('PR1') ? 'bold' : 400
+                  }}>
+                    ชีพจร (bpm) * {isVitalAbnormal('PR1') && '❤️'}
                   </Typography>
                   <TextField
                     type="number"
@@ -663,12 +742,7 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
                     size="small"
                     fullWidth
                     inputProps={{ min: 30, max: 200 }}
-                    sx={{
-                      '& .MuiOutlinedInput-root': {
-                        borderRadius: '10px',
-                        bgcolor: vitals.PR1 ? '#f0f8ff' : 'inherit'
-                      },
-                    }}
+                    sx={getAbnormalStyle('PR1')}
                   />
                 </Grid>
 
@@ -698,14 +772,14 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
                     onClick={handleSave}
                     disabled={saving}
                     sx={{
-                      backgroundColor: "#BCD8FF",
-                      color: "#2B69AC",
+                      backgroundColor: warnings.length > 0 ? "#f44336" : "#BCD8FF", // ✅ เปลี่ยนสีปุ่มเป็นแดงถ้ามี warning
+                      color: warnings.length > 0 ? "white" : "#2B69AC",
                       fontSize: "1rem",
                       fontWeight: 600,
                       px: 3,
                       py: 1,
                       '&:hover': {
-                        backgroundColor: "#A5CDFF"
+                        backgroundColor: warnings.length > 0 ? "#d32f2f" : "#A5CDFF"
                       },
                       '&:disabled': {
                         backgroundColor: "#e0e0e0"
