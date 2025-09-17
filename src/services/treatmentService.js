@@ -834,6 +834,158 @@ class TreatmentService {
             }
         };
     }
+
+    // ฟังก์ชันใหม่ที่ต้องเพิ่มใน treatmentService.js
+
+    // อัพเดทข้อมูลการชำระเงิน
+    static async updatePaymentStatus(vno, paymentData) {
+        try {
+            console.log('💰 Updating payment status for VNO:', vno, paymentData);
+
+            const updateData = {
+                TOTAL_AMOUNT: paymentData.totalAmount,
+                DISCOUNT_AMOUNT: paymentData.discountAmount || 0,
+                NET_AMOUNT: paymentData.netAmount,
+                PAYMENT_STATUS: 'ชำระเงินแล้ว',
+                PAYMENT_DATE: new Date().toISOString().split('T')[0],
+                PAYMENT_TIME: new Date().toLocaleTimeString('th-TH', { hour12: false }),
+                PAYMENT_METHOD: paymentData.paymentMethod || 'เงินสด',
+                RECEIVED_AMOUNT: paymentData.receivedAmount,
+                CHANGE_AMOUNT: paymentData.changeAmount,
+                CASHIER: paymentData.cashier || 'SYSTEM',
+                STATUS1: 'ชำระเงินแล้ว'
+            };
+
+            const response = await fetch(`${API_BASE_URL}/treatments/${vno}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(updateData)
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('Error updating payment status:', error);
+            throw error;
+        }
+    }
+
+    // ดึงสถิติรายรับ
+    static async getRevenueStats(params = {}) {
+        try {
+            const queryParams = new URLSearchParams();
+            if (params.date_from) queryParams.append('date_from', params.date_from);
+            if (params.date_to) queryParams.append('date_to', params.date_to);
+
+            const url = `${API_BASE_URL}/treatments/stats/revenue${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
+            const response = await fetch(url);
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('Error fetching revenue stats:', error);
+            throw error;
+        }
+    }
+
+    // ดึงการรักษาที่จ่ายเงินแล้ว
+    static async getPaidTreatments(params = {}) {
+        try {
+            const queryParams = {
+                ...params,
+                payment_status: 'ชำระเงินแล้ว'
+            };
+
+            return await this.getAllTreatments(queryParams);
+        } catch (error) {
+            console.error('Error fetching paid treatments:', error);
+            throw error;
+        }
+    }
+
+    // คำนวณยอดรวมจากรายละเอียดการรักษา
+    static calculateTreatmentTotal(treatmentData) {
+        let total = 0;
+
+        // คำนวณจากยา
+        if (treatmentData.drugs && Array.isArray(treatmentData.drugs)) {
+            total += treatmentData.drugs.reduce((sum, drug) => {
+                return sum + (parseFloat(drug.AMT) || 0);
+            }, 0);
+        }
+
+        // คำนวณจากหัตถการ
+        if (treatmentData.procedures && Array.isArray(treatmentData.procedures)) {
+            total += treatmentData.procedures.reduce((sum, proc) => {
+                return sum + (parseFloat(proc.AMT) || 0);
+            }, 0);
+        }
+
+        // คำนวณจากการตรวจ Lab (ราคาคงที่ 100)
+        if (treatmentData.labTests && Array.isArray(treatmentData.labTests)) {
+            total += treatmentData.labTests.length * 100;
+        }
+
+        // คำนวณจากการตรวจเอ็กซเรย์ (ราคาคงที่ 200)
+        if (treatmentData.radiologicalTests && Array.isArray(treatmentData.radiologicalTests)) {
+            total += treatmentData.radiologicalTests.length * 200;
+        }
+
+        return total;
+    }
+
+    // ประมวลผลการชำระเงิน
+    static async processPayment(vno, paymentInfo) {
+        try {
+            console.log('💳 Processing payment for VNO:', vno, paymentInfo);
+
+            const netAmount = paymentInfo.totalAmount - (paymentInfo.discount || 0);
+            const changeAmount = paymentInfo.receivedAmount - netAmount;
+
+            const paymentData = {
+                totalAmount: paymentInfo.totalAmount,
+                discountAmount: paymentInfo.discount || 0,
+                netAmount: netAmount,
+                paymentMethod: paymentInfo.paymentMethod || 'เงินสด',
+                receivedAmount: paymentInfo.receivedAmount,
+                changeAmount: changeAmount,
+                cashier: paymentInfo.cashier || 'SYSTEM'
+            };
+
+            return await this.updatePaymentStatus(vno, paymentData);
+        } catch (error) {
+            console.error('Error processing payment:', error);
+            throw error;
+        }
+    }
+
+    // ฟอร์แมทเงินเป็นสกุลไทย
+    static formatCurrency(amount) {
+        return new Intl.NumberFormat('th-TH', {
+            style: 'currency',
+            currency: 'THB',
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 2
+        }).format(amount || 0);
+    }
+
+    // ตัวเลือกสถานะการชำระเงิน
+    static getPaymentStatuses() {
+        return [
+            { value: 'รอชำระ', label: 'รอชำระ', color: 'warning' },
+            { value: 'ชำระเงินแล้ว', label: 'ชำระเงินแล้ว', color: 'success' },
+            { value: 'ยกเลิก', label: 'ยกเลิก', color: 'error' }
+        ];
+    }
 }
 
 export default TreatmentService;
