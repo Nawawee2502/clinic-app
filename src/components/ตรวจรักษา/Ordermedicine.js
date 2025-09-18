@@ -25,7 +25,8 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
         beforeAfter: '',
         quantity: '',
         unit: '',
-        time: ''
+        time: '',
+        unitPrice: 0
     });
 
     const [savedMedicines, setSavedMedicines] = useState([]);
@@ -79,6 +80,15 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
         loadDrugOptions();
     }, [currentPatient]);
 
+    // Debug logs
+    useEffect(() => {
+        console.log('Current medicineData:', medicineData);
+    }, [medicineData]);
+
+    useEffect(() => {
+        console.log('Drug options loaded:', drugOptions);
+    }, [drugOptions]);
+
     const showSnackbar = (message, severity = 'success') => {
         setSnackbar({ open: true, message, severity });
     };
@@ -97,7 +107,8 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
                     unit: drug.UNIT_CODE || 'TAB',
                     usage: drug.NOTE1 || '',
                     beforeAfter: '',
-                    time: drug.TIME1 || ''
+                    time: drug.TIME1 || '',
+                    unitPrice: drug.UNIT_PRICE || 0
                 }));
                 setSavedMedicines(medicines);
             }
@@ -122,20 +133,20 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
                     DRUG_CODE: drug.DRUG_CODE,
                     GENERIC_NAME: drug.GENERIC_NAME,
                     TRADE_NAME: drug.TRADE_NAME || '',
-                    DEFAULT_UNIT: drug.UNIT_CODE || 'TAB',
-                    UNIT_PRICE: drug.UNIT_PRICE || 0 // รวมราคา
+                    UNIT_CODE: drug.UNIT_CODE || 'TAB',
+                    UNIT_PRICE: drug.UNIT_PRICE || 0
                 }));
                 setDrugOptions(formattedDrugs);
                 setApiStatus('connected');
+                console.log('Formatted drugs:', formattedDrugs.slice(0, 3)); // Show first 3 for debug
                 return;
             } else {
-                // ถ้า API ไม่ทำงาน ให้แสดง error แทนการใช้ Mock
                 throw new Error('Drug API not available');
             }
         } catch (error) {
             console.error('Drug API not available:', error.message);
             setApiStatus('offline');
-            setDrugOptions([]); // ไม่ใช้ Mock Data
+            setDrugOptions([]);
             showSnackbar('ไม่สามารถเชื่อมต่อกับฐานข้อมูลยาได้ กรุณาติดต่อผู้ดูแลระบบ', 'error');
         }
     };
@@ -177,19 +188,17 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
                 return;
             }
 
-            handleMedicineChange('drugCode', newValue.DRUG_CODE);
-            handleMedicineChange('drugName', newValue.GENERIC_NAME);
-            handleMedicineChange('unit', newValue.DEFAULT_UNIT || 'TAB');
-            // เก็บราคาใน state แต่ไม่แสดงใน UI
+            console.log('Selected drug:', newValue);
+            console.log('Unit Code:', newValue.UNIT_CODE);
+
             setMedicineData(prev => ({
                 ...prev,
                 drugCode: newValue.DRUG_CODE,
                 drugName: newValue.GENERIC_NAME,
-                unit: newValue.DEFAULT_UNIT || 'TAB',
-                unitPrice: newValue.UNIT_PRICE || 0 // เก็บราคาไว้
+                unit: newValue.UNIT_CODE || 'TAB', // ใส่ค่าหน่วยจากยาไป แต่ยังเลือกเปลี่ยนได้
+                unitPrice: newValue.UNIT_PRICE || 0
             }));
         } else {
-            // reset ทุกอย่างรวมราคา
             setMedicineData(prev => ({
                 ...prev,
                 drugCode: '',
@@ -232,7 +241,7 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
             usage: medicineData.usage || 'รับประทาน',
             beforeAfter: medicineData.beforeAfter || 'หลังอาหาร',
             time: medicineData.time.trim() || 'วันละ 1 ครั้ง',
-            unitPrice: parseFloat(medicineData.unitPrice) || 0 // เก็บราคาไว้
+            unitPrice: parseFloat(medicineData.unitPrice) || 0
         };
 
         if (editingIndex >= 0) {
@@ -257,7 +266,8 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
             beforeAfter: '',
             quantity: '',
             unit: '',
-            time: ''
+            time: '',
+            unitPrice: 0
         });
     };
 
@@ -270,7 +280,8 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
             beforeAfter: medicine.beforeAfter,
             quantity: medicine.quantity.toString(),
             unit: medicine.unit,
-            time: medicine.time
+            time: medicine.time,
+            unitPrice: medicine.unitPrice || 0
         });
         setEditingIndex(index);
         showSnackbar('เข้าสู่โหมดแก้ไข', 'info');
@@ -306,74 +317,30 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
                 return;
             }
 
-            // Helper function to safely handle null/undefined values
-            const safeValue = (value, defaultValue = null) => {
-                if (value === null || value === undefined || value === '') {
-                    return defaultValue;
-                }
-                return value;
-            };
-
-            // Prepare drug data with proper null handling
             const drugs = savedMedicines.map(medicine => ({
-                DRUG_CODE: safeValue(medicine.drugCode),
-                QTY: safeValue(medicine.quantity) || 1,
-                UNIT_CODE: safeValue(medicine.unit) || 'TAB',
-                UNIT_PRICE: safeValue(medicine.unitPrice) || 0, // ส่งราคาจริง
-                AMT: (medicine.quantity || 1) * (medicine.unitPrice || 0), // คำนวณราคารวม
-                NOTE1: safeValue(`${medicine.usage || 'รับประทาน'} ${medicine.beforeAfter || 'หลังอาหาร'}`.trim()),
-                TIME1: safeValue(medicine.time) || 'วันละ 1 ครั้ง'
+                DRUG_CODE: medicine.drugCode,
+                QTY: parseFloat(medicine.quantity) || 1,
+                UNIT_CODE: medicine.unit || 'TAB',
+                UNIT_PRICE: parseFloat(medicine.unitPrice) || 0,
+                AMT: (parseFloat(medicine.quantity) || 1) * (parseFloat(medicine.unitPrice) || 0),
+                NOTE1: `${medicine.usage || 'รับประทาน'} ${medicine.beforeAfter || 'หลังอาหาร'}`.trim(),
+                TIME1: medicine.time || 'วันละ 1 ครั้ง'
             }));
 
-            // Prepare treatment data with comprehensive null checking
             const treatmentData = {
-                VNO: safeValue(currentPatient.VNO),
-                HNNO: safeValue(currentPatient.HNCODE),
-                EMP_CODE: 'DOC001',
-                STATUS1: 'ทำงานอยู่',
-
-                // Vital signs with proper defaults
-                WEIGHT1: safeValue(currentPatient.WEIGHT1) || 60,
-                HIGHT1: safeValue(currentPatient.HIGHT1) || 160,
-                BT1: safeValue(currentPatient.BT1) || 36.5,
-                BP1: safeValue(currentPatient.BP1) || 120,
-                BP2: safeValue(currentPatient.BP2) || 80,
-                RR1: safeValue(currentPatient.RR1) || 20,
-                PR1: safeValue(currentPatient.PR1) || 80,
-                SPO2: safeValue(currentPatient.SPO2) || 98,
-
-                SYMPTOM: safeValue(currentPatient.SYMPTOM) || 'รับยา',
-
-                // Arrays with proper initialization
-                drugs: drugs,
-                procedures: [],
-                labTests: [],
-                radioTests: [],
-
-                // Additional fields
-                diagnosis: null,
-                DXCODE: null,
-                ICD10CODE: null,
-                TREATMENT1: null,
-                INVESTIGATION_NOTES: null
+                VNO: currentPatient.VNO,
+                HNNO: currentPatient.HNCODE,
+                STATUS1: 'กำลังตรวจ',
+                drugs: drugs
             };
 
-            console.log('💾 Saving treatment data:', treatmentData);
-
-            // Validate required fields before sending
-            if (!treatmentData.VNO) {
-                throw new Error('VNO is required');
-            }
-            if (!treatmentData.HNNO) {
-                throw new Error('HNNO is required');
-            }
+            console.log('💾 Saving medicine data:', treatmentData);
 
             const response = await TreatmentService.updateTreatment(currentPatient.VNO, treatmentData);
 
             if (response.success) {
                 showSnackbar('บันทึกข้อมูลยาสำเร็จ!', 'success');
 
-                // Update queue status
                 try {
                     const QueueService = await import('../../services/queueService');
                     await QueueService.default.updateQueueStatus(currentPatient.queueId, 'กำลังตรวจ');
@@ -393,7 +360,6 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
         } catch (error) {
             console.error('Error saving medicine data:', error);
 
-            // More detailed error handling
             let errorMessage = 'เกิดข้อผิดพลาดในการบันทึกข้อมูล';
 
             if (error.response?.status === 500) {
@@ -518,17 +484,16 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
                                 {/* Drug Name */}
                                 <Grid item xs={6}>
                                     <Typography sx={{ fontWeight: "400", fontSize: "16px", mb: 1 }}>
-                                        ชื่อยา * {availableDrugs.length < totalDrugs && editingIndex < 0 && (
-                                            <Typography component="span" sx={{ fontSize: '0.875rem', color: 'text.secondary' }}>
-                                                (ยาที่เพิ่มแล้วจะไม่แสดงใน dropdown)
-                                            </Typography>
-                                        )}
+                                        ชื่อยา * 
                                     </Typography>
                                     <Autocomplete
                                         options={availableDrugs}
                                         getOptionLabel={(option) => option.GENERIC_NAME || ''}
                                         value={availableDrugs.find(opt => opt.DRUG_CODE === medicineData.drugCode) || null}
-                                        onChange={(event, newValue) => handleDrugSelect(newValue)}
+                                        onChange={(event, newValue) => {
+                                            console.log('Autocomplete onChange:', newValue);
+                                            handleDrugSelect(newValue);
+                                        }}
                                         disabled={availableDrugs.length === 0 && editingIndex < 0}
                                         renderInput={(params) => (
                                             <TextField
@@ -559,7 +524,7 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
                                                 </Box>
                                                 {option.TRADE_NAME && (
                                                     <Box component="span" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
-                                                        {option.TRADE_NAME} | {option.DRUG_CODE}
+                                                        {option.TRADE_NAME} | {option.DRUG_CODE} | หน่วย: {option.UNIT_CODE}
                                                     </Box>
                                                 )}
                                             </Box>
@@ -616,21 +581,19 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
                                     <Typography sx={{ fontWeight: '400', fontSize: '16px', mb: 1 }}>
                                         หน่วยนับ *
                                     </Typography>
-                                    <FormControl fullWidth size="small">
-                                        <Select
-                                            value={medicineData.unit}
-                                            onChange={(e) => handleMedicineChange('unit', e.target.value)}
-                                            displayEmpty
-                                            sx={{ borderRadius: '10px' }}
-                                        >
-                                            <MenuItem value="">เลือกหน่วย</MenuItem>
-                                            {unitOptions.map((option) => (
-                                                <MenuItem key={option.code} value={option.code}>
-                                                    {option.name}
-                                                </MenuItem>
-                                            ))}
-                                        </Select>
-                                    </FormControl>
+                                    <TextField
+                                        size="small"
+                                        value={medicineData.unit ? getUnitName(medicineData.unit) : ''}
+                                        placeholder="หน่วยนับ"
+                                        disabled
+                                        sx={{
+                                            width: '100%',
+                                            '& .MuiOutlinedInput-root': {
+                                                borderRadius: '10px',
+                                                backgroundColor: '#f5f5f5'
+                                            },
+                                        }}
+                                    />
                                 </Grid>
 
                                 {/* Before/After */}
@@ -713,7 +676,6 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
                             </Grid>
                         </CardContent>
                     </Card>
-
                 </Grid>
             </Grid>
 

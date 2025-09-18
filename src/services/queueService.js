@@ -182,6 +182,29 @@ class QueueService {
             { value: 'appointment', label: 'นัดหมาย', color: 'secondary' }
         ];
     }
+
+    static async updateQueueStatusSafe(queueId, status) {
+        try {
+            console.log('🔗 Calling SAFE API:', `${API_BASE_URL}/queue/${queueId}/status-only`);
+            const response = await fetch(`${API_BASE_URL}/queue/${queueId}/status-only`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ status })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('Error updating queue status (safe):', error);
+            throw error;
+        }
+    }
 }
 
 export default QueueService;

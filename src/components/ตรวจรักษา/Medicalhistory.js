@@ -116,7 +116,7 @@ export default function MedicalHistory({ currentPatient, onSaveSuccess }) {
     }
   };
 
-  // โหลดประวัติการรักษา
+  // โหลดประวัติการรักษา - วิธีใหม่ที่โหลดรายละเอียดทุก treatment เลย
   const loadTreatmentHistory = async () => {
     if (!currentPatient?.HNCODE) return;
 
@@ -129,8 +129,33 @@ export default function MedicalHistory({ currentPatient, onSaveSuccess }) {
       });
 
       if (response.success) {
-        console.log('Treatment history loaded:', response.data);
-        setTreatmentHistory(response.data);
+        console.log('==== FULL API RESPONSE ====');
+        console.log('Treatment history response:', response);
+        console.log('Treatment history data:', response.data);
+        
+        // โหลดรายละเอียดของแต่ละ treatment เพื่อให้ได้ DXCODE
+        const treatmentsWithDetails = await Promise.all(
+          response.data.map(async (treatment) => {
+            try {
+              const detailResponse = await TreatmentService.getTreatmentByVNO(treatment.VNO);
+              if (detailResponse.success && detailResponse.data?.treatment) {
+                console.log(`Got DXCODE for ${treatment.VNO}:`, detailResponse.data.treatment.DXCODE);
+                return {
+                  ...treatment,
+                  DXCODE: detailResponse.data.treatment.DXCODE,
+                  DXNAME_THAI: detailResponse.data.treatment.DXNAME_THAI || treatment.DXNAME_THAI
+                };
+              }
+              return treatment;
+            } catch (error) {
+              console.error(`Error loading details for ${treatment.VNO}:`, error);
+              return treatment;
+            }
+          })
+        );
+
+        console.log('Treatments with DXCODE details:', treatmentsWithDetails);
+        setTreatmentHistory(treatmentsWithDetails);
       } else {
         console.log('No treatment history found');
         setTreatmentHistory([]);
@@ -202,6 +227,11 @@ export default function MedicalHistory({ currentPatient, onSaveSuccess }) {
       month: '2-digit',
       day: '2-digit'
     });
+  };
+
+  // ฟังก์ชันเช็คว่ามี DXCODE ที่ใช้งานได้หรือไม่
+  const hasValidDxCode = (dxcode) => {
+    return dxcode && dxcode !== 'NULL' && dxcode !== '*NULL*' && dxcode.trim() !== '';
   };
 
   if (!currentPatient) {
@@ -320,42 +350,66 @@ export default function MedicalHistory({ currentPatient, onSaveSuccess }) {
                       }
                       secondary={
                         <Typography variant="body2" color="primary.main" sx={{ mt: 0.5 }}>
-                          {todayTreatment?.treatment?.DXCODE || displayTreatmentData?.treatment?.DXCODE || 'ยังไม่ได้วินิจฉัย'}
+                          {todayTreatment?.treatment?.DXCODE || 'ยังไม่ได้วินิจฉัย'}
                         </Typography>
                       }
                     />
                   </ListItem>
 
                   {/* ประวัติการรักษาเก่า */}
-                  {treatmentHistory.map((treatment, index) => (
-                    <ListItem
-                      key={treatment.VNO}
-                      sx={{
-                        border: '1px solid #e0e0e0',
-                        borderRadius: 2,
-                        mb: 1,
-                        bgcolor: selectedHistoryVNO === treatment.VNO ? '#e3f2fd' : '#fff',
-                        cursor: 'pointer',
-                        '&:hover': {
-                          bgcolor: '#f5f5f5'
-                        }
-                      }}
-                      onClick={() => handleHistoryClick(treatment)}
-                    >
-                      <ListItemText
-                        primary={
-                          <Typography variant="body1" fontWeight="600">
-                            {formatThaiDate(treatment.RDATE)}
-                          </Typography>
-                        }
-                        secondary={
-                          <Typography variant="body2" color="primary.main" sx={{ mt: 0.5 }}>
-                            {treatment.DXNAME_THAI || 'ไม่ระบุการวินิจฉัย'}
-                          </Typography>
-                        }
-                      />
-                    </ListItem>
-                  ))}
+                  {treatmentHistory.map((treatment, index) => {
+                    // Debug log แต่ละรายการ
+                    console.log('Rendering treatment:', {
+                      VNO: treatment.VNO,
+                      DXCODE: treatment.DXCODE,
+                      date: treatment.RDATE || treatment.TRDATE
+                    });
+                    
+                    return (
+                      <ListItem
+                        key={treatment.VNO}
+                        sx={{
+                          border: '1px solid #e0e0e0',
+                          borderRadius: 2,
+                          mb: 1,
+                          bgcolor: selectedHistoryVNO === treatment.VNO ? '#e3f2fd' : '#fff',
+                          cursor: 'pointer',
+                          '&:hover': {
+                            bgcolor: '#f5f5f5'
+                          }
+                        }}
+                        onClick={() => handleHistoryClick(treatment)}
+                      >
+                        <ListItemText
+                          primary={
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <Typography variant="body1" fontWeight="600">
+                                {formatThaiDate(treatment.RDATE || treatment.TRDATE)}
+                              </Typography>
+                              {/* แสดง DXCODE จากข้อมูล treatmentHistory โดยตรง */}
+                              {hasValidDxCode(treatment.DXCODE) && (
+                                <Chip
+                                  label={treatment.DXCODE}
+                                  size="small"
+                                  variant="outlined"
+                                  color="primary"
+                                  sx={{ fontSize: '0.75rem', maxWidth: 120 }}
+                                />
+                              )}
+                            </Box>
+                          }
+                          secondary={
+                            <Typography variant="body2" color="primary.main" sx={{ mt: 0.5 }}>
+                              {/* แสดง DXCODE จากข้อมูล treatmentHistory โดยตรง */}
+                              {hasValidDxCode(treatment.DXCODE) 
+                                ? treatment.DXCODE 
+                                : 'ไม่ระบุการวินิจฉัย'}
+                            </Typography>
+                          }
+                        />
+                      </ListItem>
+                    );
+                  })}
 
                   {treatmentHistory.length === 0 && (
                     <Typography variant="body2" color="text.secondary" textAlign="center" sx={{ py: 4 }}>

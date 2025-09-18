@@ -253,43 +253,38 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
         return;
       }
 
-      // เตรียมข้อมูลหัตถการสำหรับบันทึก
-      const procedures = await Promise.all(
-        savedProcedures.map(async (procedure) => {
-          let finalCode = procedure.procedureCode;
+      // เตรียมข้อมูลหัตถการในรูปแบบที่ API ต้องการ
+      const procedures = savedProcedures.map(procedure => {
+        let finalCode = procedure.procedureCode;
 
-          // ถ้าไม่มีรหัส หรือเป็นรหัสชั่วคราว ให้เพิ่มเข้าฐานข้อมูลก่อน
-          if (!finalCode || finalCode.startsWith('CUSTOM_')) {
-            try {
-              const timestamp = Date.now().toString().slice(-6);
-              finalCode = `PROC_${timestamp}`;
-              await addCustomProcedureToDatabase(finalCode, procedure.procedureName);
-            } catch (error) {
-              console.warn('Could not add procedure to database, using original code');
-              finalCode = procedure.procedureCode || `TEMP_${Date.now()}`;
-            }
-          }
+        // ถ้าไม่มีรหัส หรือเป็นรหัสชั่วคราว ให้สร้างใหม่
+        if (!finalCode || finalCode.startsWith('CUSTOM_')) {
+          const timestamp = Date.now().toString().slice(-6);
+          finalCode = `PROC_${timestamp}`;
+        }
 
-          return {
-            PROCEDURE_CODE: finalCode,
-            MEDICAL_PROCEDURE_CODE: finalCode,
-            PROCEDURE_NAME: procedure.procedureName,
-            NOTE1: procedure.note,
-            DOCTOR_NAME: procedure.doctorName,
-            PROCEDURE_DATE: new Date().toISOString().split('T')[0],
-            QTY: 1,
-            UNIT_CODE: 'ครั้ง',
-            UNIT_PRICE: 0,
-            AMT: 0
-          };
-        })
-      );
+        return {
+          MEDICAL_PROCEDURE_CODE: finalCode,
+          PROCEDURE_CODE: finalCode,
+          PROCEDURE_NAME: procedure.procedureName,
+          NOTE1: procedure.note,
+          DOCTOR_NAME: procedure.doctorName,
+          PROCEDURE_DATE: new Date().toISOString().split('T')[0],
+          QTY: 1,
+          UNIT_CODE: 'ครั้ง',
+          UNIT_PRICE: 0,
+          AMT: 0
+        };
+      });
 
       const treatmentData = {
         VNO: currentPatient.VNO,
         HNNO: currentPatient.HNCODE,
-        procedures: procedures
+        STATUS1: 'กำลังตรวจ',
+        procedures: procedures  // ส่งข้อมูลหัตถการไปด้วย
       };
+
+      console.log('💾 Saving procedure data:', treatmentData);
 
       const response = await TreatmentService.updateTreatment(currentPatient.VNO, treatmentData);
 

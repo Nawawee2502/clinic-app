@@ -163,19 +163,20 @@ const ตรวจรักษา = () => {
     if (!targetPatient) return;
 
     try {
-      const response = await QueueService.updateQueueStatus(targetPatient.queueId, newStatus);
+      // ใช้ API ใหม่ที่ปลอดภัยกว่า
+      const response = await QueueService.updateQueueStatusSafe(targetPatient.queueId, newStatus);
 
       if (response.success) {
-        // ถ้าเปลี่ยนเป็น "เสร็จแล้ว"
+        console.log(`✅ Queue status updated safely to: ${newStatus}`);
+
+        // เหลือ logic เดิม...
         if (newStatus === 'เสร็จแล้ว') {
-          // แสดงข้อความสำเร็จ
           setSnackbar({
             open: true,
-            message: `✅ คนไข้คิว ${targetPatient.queueNumber} เสร็จสิ้นการรักษาแล้ว กำลังนำไปหน้าชำระเงิน...`,
+            message: `✅ คนไข้คิว ${targetPatient.queueNumber} เสร็จสิ้นการรักษาแล้ว`,
             severity: 'success'
           });
 
-          // รอ 2 วินาทีแล้วไปหน้าชำระเงิน
           setTimeout(() => {
             navigate('/clinic/payment', {
               state: {
@@ -185,16 +186,13 @@ const ตรวจรักษา = () => {
             });
           }, 2000);
 
-          // อัพเดต patients list (เอาคนไข้ที่เสร็จแล้วออก)
           const updatedPatients = patients.filter(p => p.queueId !== targetPatient.queueId);
           setPatients(updatedPatients);
 
-          // ปรับ selectedPatientIndex หากจำเป็น
           if (selectedPatientIndex >= updatedPatients.length && updatedPatients.length > 0) {
             setSelectedPatientIndex(Math.max(0, updatedPatients.length - 1));
           }
         } else {
-          // สถานะอื่นๆ
           const updatedPatients = [...patients];
           const patientIndex = patients.findIndex(p => p.queueId === targetPatient.queueId);
           if (patientIndex !== -1) {
@@ -209,9 +207,7 @@ const ตรวจรักษา = () => {
           });
         }
 
-        // อัพเดตสถิติ
         loadQueueStats();
-
       } else {
         setSnackbar({
           open: true,
@@ -228,7 +224,6 @@ const ตรวจรักษา = () => {
       });
     }
 
-    // ปิด dialog
     setConfirmDialog({
       open: false,
       patient: null,

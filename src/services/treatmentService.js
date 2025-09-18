@@ -351,12 +351,28 @@ class TreatmentService {
     }
 
     // อัพเดทสถานะการรักษา
-    static async updateTreatmentStatus(vno, statusData) {
+    static async updateTreatment(vno, treatmentData) {
         try {
+            console.log('🔄 TreatmentService: Updating treatment', vno, 'with data:', treatmentData);
+
+            // ✅ เตรียมข้อมูลหัตถการก่อนส่ง
+            if (treatmentData.procedures && Array.isArray(treatmentData.procedures)) {
+                console.log('📋 Preparing procedures data before sending to API...');
+                treatmentData.procedures = await this.prepareProceduresData(treatmentData.procedures);
+                console.log('✅ Procedures prepared:', treatmentData.procedures);
+            }
+
+            // Format the data to ensure no undefined values
+            const formattedData = this.formatTreatmentData(treatmentData);
+
+            console.log('📤 Sending formatted treatment data:', formattedData);
+
             const response = await fetch(`${API_BASE_URL}/treatments/${vno}`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(statusData)
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(formattedData)
             });
 
             if (!response.ok) {
@@ -364,9 +380,12 @@ class TreatmentService {
                 throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
             }
 
-            return await response.json();
+            const result = await response.json();
+            console.log('✅ TreatmentService: Treatment updated successfully:', result);
+            return result;
+
         } catch (error) {
-            console.error('Error updating treatment status:', error);
+            console.error('❌ TreatmentService: Error updating treatment:', error);
             throw error;
         }
     }
@@ -496,11 +515,21 @@ class TreatmentService {
             EMP_CODE: toNull(data.EMP_CODE?.trim()),
             EMP_CODE1: toNull(data.EMP_CODE1?.trim()),
             STATUS1: toNull(data.STATUS1) || 'ทำงานอยู่',
-
-            // เพิ่มฟิลด์ใหม่สำหรับ Investigation Notes
             INVESTIGATION_NOTES: toNull(data.INVESTIGATION_NOTES?.trim()),
 
-            // Diagnosis details - Handle undefined values
+            // ✅ เพิ่มฟิลด์การชำระเงิน
+            TOTAL_AMOUNT: data.TOTAL_AMOUNT ? parseFloat(data.TOTAL_AMOUNT) : null,
+            DISCOUNT_AMOUNT: data.DISCOUNT_AMOUNT ? parseFloat(data.DISCOUNT_AMOUNT) : null,
+            NET_AMOUNT: data.NET_AMOUNT ? parseFloat(data.NET_AMOUNT) : null,
+            PAYMENT_STATUS: toNull(data.PAYMENT_STATUS),
+            PAYMENT_DATE: toNull(data.PAYMENT_DATE),
+            PAYMENT_TIME: toNull(data.PAYMENT_TIME),
+            PAYMENT_METHOD: toNull(data.PAYMENT_METHOD),
+            RECEIVED_AMOUNT: data.RECEIVED_AMOUNT ? parseFloat(data.RECEIVED_AMOUNT) : null,
+            CHANGE_AMOUNT: data.CHANGE_AMOUNT ? parseFloat(data.CHANGE_AMOUNT) : null,
+            CASHIER: toNull(data.CASHIER),
+
+            // Diagnosis details
             diagnosis: data.diagnosis ? {
                 CHIEF_COMPLAINT: toNull(data.diagnosis.CHIEF_COMPLAINT?.trim()),
                 PRESENT_ILL: toNull(data.diagnosis.PRESENT_ILL?.trim()),
@@ -508,7 +537,7 @@ class TreatmentService {
                 PLAN1: toNull(data.diagnosis.PLAN1?.trim())
             } : null,
 
-            // Arrays for related data - Ensure they're arrays, not undefined
+            // Arrays for related data
             drugs: Array.isArray(data.drugs) ? data.drugs : [],
             procedures: Array.isArray(data.procedures) ? data.procedures : [],
             labTests: Array.isArray(data.labTests) ? data.labTests : [],
@@ -985,6 +1014,337 @@ class TreatmentService {
             { value: 'ชำระเงินแล้ว', label: 'ชำระเงินแล้ว', color: 'success' },
             { value: 'ยกเลิก', label: 'ยกเลิก', color: 'error' }
         ];
+    }
+
+    // ✅ คำนวณยอดรวมจากข้อมูล editablePrices (ใช้ใน frontend)
+    static calculateTotalFromEditablePrices(editablePrices) {
+        if (!editablePrices) return 0;
+
+        const labTotal = editablePrices.labs ?
+            editablePrices.labs.reduce((sum, item) => sum + (item.editablePrice || 0), 0) : 0;
+
+        const procedureTotal = editablePrices.procedures ?
+            editablePrices.procedures.reduce((sum, item) => sum + (item.editablePrice || 0), 0) : 0;
+
+        const drugTotal = editablePrices.drugs ?
+            editablePrices.drugs.reduce((sum, item) => sum + (item.editablePrice || 0), 0) : 0;
+
+        return labTotal + procedureTotal + drugTotal;
+    }
+
+    // ✅ สร้างข้อมูลการชำระเงินจาก editablePrices
+    static createPaymentDataFromEditablePrices(editablePrices, paymentInfo) {
+        const totalAmount = this.calculateTotalFromEditablePrices(editablePrices);
+        const discount = parseFloat(paymentInfo.discount || 0);
+        const netAmount = Math.max(0, totalAmount - discount);
+        const receivedAmount = parseFloat(paymentInfo.receivedAmount || 0);
+        const changeAmount = Math.max(0, receivedAmount - netAmount);
+
+        return {
+            TOTAL_AMOUNT: totalAmount,
+            DISCOUNT_AMOUNT: discount,
+            NET_AMOUNT: netAmount,
+            PAYMENT_STATUS: 'ชำระเงินแล้ว',
+            PAYMENT_DATE: new Date().toISOString().split('T')[0],
+            PAYMENT_TIME: new Date().toLocaleTimeString('th-TH', { hour12: false }),
+            PAYMENT_METHOD: paymentInfo.paymentMethod || 'เงินสด',
+            RECEIVED_AMOUNT: receivedAmount,
+            CHANGE_AMOUNT: changeAmount,
+            CASHIER: paymentInfo.cashier || 'PAYMENT_SYSTEM',
+            STATUS1: 'ชำระเงินแล้ว'
+        };
+    }
+
+    // ✅ แก้ไข processPayment ให้ใช้ updateTreatment
+    static async processPayment(vno, editablePrices, paymentInfo) {
+        try {
+            console.log('💳 Processing payment for VNO:', vno, { editablePrices, paymentInfo });
+
+            // สร้างข้อมูลการชำระเงิน
+            const paymentData = this.createPaymentDataFromEditablePrices(editablePrices, paymentInfo);
+
+            console.log('💰 Payment data created:', paymentData);
+
+            // อัปเดต treatment record พร้อมข้อมูลการชำระเงิน
+            return await this.updateTreatment(vno, paymentData);
+
+        } catch (error) {
+            console.error('❌ Error processing payment:', error);
+            throw error;
+        }
+    }
+
+    // ✅ ตรวจสอบสถานะการชำระเงิน
+    static isPaymentCompleted(treatment) {
+        return treatment.PAYMENT_STATUS === 'ชำระเงินแล้ว' ||
+            treatment.STATUS1 === 'ชำระเงินแล้ว';
+    }
+
+    // ✅ ดึงข้อมูลการรักษาที่รอชำระเงิน
+    static async getUnpaidTreatments(params = {}) {
+        try {
+            const allParams = {
+                ...params,
+                status: 'เสร็จแล้ว' // เฉพาะที่รักษาเสร็จแล้ว
+            };
+
+            const response = await this.getAllTreatments(allParams);
+
+            if (response.success && response.data) {
+                // กรองเฉพาะที่ยังไม่ชำระเงิน
+                const unpaidTreatments = response.data.filter(treatment =>
+                    !this.isPaymentCompleted(treatment)
+                );
+
+                return {
+                    ...response,
+                    data: unpaidTreatments
+                };
+            }
+
+            return response;
+        } catch (error) {
+            console.error('Error fetching unpaid treatments:', error);
+            throw error;
+        }
+    }
+
+    // ✅ สร้างข้อมูลสำหรับใบเสร็จ
+    static createReceiptData(patient, editablePrices, paymentInfo) {
+        const items = [
+            ...editablePrices.labs.map(item => ({
+                name: item.LABNAME || item.LABCODE || "การตรวจ",
+                quantity: 1,
+                unit: "ครั้ง",
+                price: item.editablePrice || 0
+            })),
+            ...editablePrices.procedures.map(item => ({
+                name: item.MED_PRO_NAME_THAI || item.PROCEDURE_NAME || item.MEDICAL_PROCEDURE_CODE || "หัตถการ",
+                quantity: 1,
+                unit: "ครั้ง",
+                price: item.editablePrice || 0
+            })),
+            ...editablePrices.drugs.map(item => ({
+                name: item.GENERIC_NAME || item.DRUG_CODE || "ยา",
+                quantity: item.QTY || 1,
+                unit: item.UNIT_CODE || "เม็ด",
+                price: item.editablePrice || 0
+            }))
+        ];
+
+        const totalAmount = this.calculateTotalFromEditablePrices(editablePrices);
+        const discount = parseFloat(paymentInfo.discount || 0);
+        const netAmount = Math.max(0, totalAmount - discount);
+        const receivedAmount = parseFloat(paymentInfo.receivedAmount || 0);
+        const changeAmount = Math.max(0, receivedAmount - netAmount);
+
+        return {
+            patient: {
+                vno: patient.VNO,
+                hn: patient.HNCODE,
+                name: `${patient.PRENAME || ''} ${patient.NAME1} ${patient.SURNAME || ''}`.trim(),
+                age: patient.AGE,
+                sex: patient.SEX
+            },
+            items: items,
+            summary: {
+                totalAmount: totalAmount,
+                discount: discount,
+                netAmount: netAmount,
+                paymentMethod: paymentInfo.paymentMethod || 'เงินสด',
+                receivedAmount: receivedAmount,
+                changeAmount: changeAmount
+            },
+            datetime: {
+                date: new Date().toLocaleDateString('th-TH'),
+                time: new Date().toLocaleTimeString('th-TH')
+            }
+        };
+    }
+
+    // ✅ ดึงข้อมูลการรักษาที่ชำระเงินแล้ว - ปรับปรุงใหม่
+    static async getPaidTreatments(params = {}) {
+        try {
+            console.log('💰 Fetching paid treatments with params:', params);
+
+            const queryParams = new URLSearchParams();
+
+            // เพิ่มพารามิเตอร์พื้นฐาน
+            if (params.page) queryParams.append('page', params.page);
+            if (params.limit) queryParams.append('limit', params.limit);
+            if (params.date_from) queryParams.append('date_from', params.date_from);
+            if (params.date_to) queryParams.append('date_to', params.date_to);
+
+            // ✅ บังคับให้ดึงเฉพาะที่ชำระเงินแล้ว
+            queryParams.append('payment_status', 'ชำระเงินแล้ว');
+
+            // หรือใช้ status แทน
+            // queryParams.append('status', 'ชำระเงินแล้ว');
+
+            const url = `${API_BASE_URL}/treatments${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
+            console.log('🔗 Calling API URL:', url);
+
+            const response = await fetch(url);
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+            }
+
+            const result = await response.json();
+            console.log('✅ Paid treatments response:', result);
+
+            // ✅ Double-check กรองข้อมูลที่ client-side ด้วย
+            if (result.success && result.data) {
+                const filteredData = result.data.filter(treatment =>
+                    treatment.PAYMENT_STATUS === 'ชำระเงินแล้ว' ||
+                    treatment.STATUS1 === 'ชำระเงินแล้ว'
+                );
+
+                console.log(`💳 Filtered paid treatments: ${filteredData.length} out of ${result.data.length}`);
+
+                return {
+                    ...result,
+                    data: filteredData
+                };
+            }
+
+            return result;
+        } catch (error) {
+            console.error('❌ Error fetching paid treatments:', error);
+            throw error;
+        }
+    }
+
+    // ✅ ดึงข้อมูลผู้ป่วยที่ชำระเงินในช่วงวันที่กำหนด พร้อมรายละเอียดครบถ้วน
+    static async getPaidTreatmentsWithDetails(params = {}) {
+        try {
+            console.log('📊 Fetching paid treatments with full details:', params);
+
+            // ดึงข้อมูลพื้นฐานก่อน
+            const treatmentsResponse = await this.getPaidTreatments(params);
+
+            if (!treatmentsResponse.success || !treatmentsResponse.data) {
+                return treatmentsResponse;
+            }
+
+            // ดึงรายละเอียดแต่ละ treatment
+            const detailedTreatments = [];
+
+            for (const treatment of treatmentsResponse.data) {
+                try {
+                    const detailResponse = await this.getTreatmentByVNO(treatment.VNO);
+                    if (detailResponse.success && detailResponse.data) {
+                        detailedTreatments.push({
+                            ...treatment,
+                            ...detailResponse.data.treatment,
+                            drugs: detailResponse.data.drugs || [],
+                            procedures: detailResponse.data.procedures || [],
+                            labTests: detailResponse.data.labTests || [],
+                            radiologicalTests: detailResponse.data.radiologicalTests || [],
+                            summary: detailResponse.data.summary || {}
+                        });
+                    } else {
+                        // ถ้าดึงรายละเอียดไม่ได้ ใช้ข้อมูลพื้นฐาน
+                        detailedTreatments.push(treatment);
+                    }
+                } catch (error) {
+                    console.warn(`⚠️ Could not get details for VNO ${treatment.VNO}:`, error);
+                    detailedTreatments.push(treatment);
+                }
+            }
+
+            console.log(`✅ Retrieved ${detailedTreatments.length} detailed paid treatments`);
+
+            return {
+                success: true,
+                data: detailedTreatments,
+                pagination: treatmentsResponse.pagination
+            };
+
+        } catch (error) {
+            console.error('❌ Error fetching paid treatments with details:', error);
+            throw error;
+        }
+    }
+
+    // ✅ ดึงสถิติรายรับพร้อมรายละเอียดการรักษา
+    static async getRevenueStatsWithDetails(params = {}) {
+        try {
+            console.log('📈 Fetching revenue stats with treatment details:', params);
+
+            // ดึงสถิติพื้นฐาน
+            const statsResponse = await this.getRevenueStats(params);
+
+            // ดึงรายละเอียดการรักษา
+            const treatmentsResponse = await this.getPaidTreatmentsWithDetails(params);
+
+            if (!statsResponse.success || !treatmentsResponse.success) {
+                throw new Error('Failed to fetch complete data');
+            }
+
+            return {
+                success: true,
+                data: {
+                    ...statsResponse.data,
+                    treatments: treatmentsResponse.data || []
+                }
+            };
+
+        } catch (error) {
+            console.error('❌ Error fetching revenue stats with details:', error);
+            throw error;
+        }
+    }
+
+    static async getPaidTreatments(params = {}) {
+        try {
+            console.log('💰 Fetching paid treatments:', params);
+
+            const queryParams = new URLSearchParams();
+
+            if (params.page) queryParams.append('page', params.page);
+            if (params.limit) queryParams.append('limit', params.limit);
+            if (params.date_from) queryParams.append('date_from', params.date_from);
+            if (params.date_to) queryParams.append('date_to', params.date_to);
+
+            const url = `${API_BASE_URL}/treatments${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
+            console.log('API URL:', url);
+
+            const response = await fetch(url);
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+            }
+
+            const result = await response.json();
+
+            // กรองเฉพาะที่ชำระเงินแล้ว
+            if (result.success && result.data) {
+                const paidTreatments = result.data.filter(treatment => {
+                    // เช็คทั้งสองฟิลด์
+                    const isPaidStatus = treatment.PAYMENT_STATUS === 'ชำระเงินแล้ว';
+                    const isPaidStatus1 = treatment.STATUS1 === 'ชำระเงินแล้ว';
+                    const hasAmount = parseFloat(treatment.TOTAL_AMOUNT || 0) > 0 || parseFloat(treatment.NET_AMOUNT || 0) > 0;
+
+                    return isPaidStatus || isPaidStatus1 || hasAmount;
+                });
+
+                console.log(`Found ${paidTreatments.length} paid treatments out of ${result.data.length} total`);
+
+                return {
+                    success: true,
+                    data: paidTreatments,
+                    pagination: result.pagination
+                };
+            }
+
+            return result;
+        } catch (error) {
+            console.error('Error fetching paid treatments:', error);
+            throw error;
+        }
     }
 }
 

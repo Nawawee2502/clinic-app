@@ -101,61 +101,72 @@ const Paymentanddispensingmedicine = () => {
       }
 
       const currentPatient = patients[selectedPatientIndex];
+      const totalAmount = calculateTotalFromEditablePrices();
+      const discount = parseFloat(paymentData.discount || 0);
+      const netAmount = calculateTotal();
+      const receivedAmount = parseFloat(paymentData.receivedAmount);
+      const changeAmount = receivedAmount - netAmount;
 
-      // ข้อมูลการชำระเงินที่จะบันทึกลง treatment record
-      const paymentInfo = {
-        PAYMENT_STATUS: 'ชำระเงินแล้ว',
-        PAYMENT_DATE: new Date().toISOString().split('T')[0],
-        PAYMENT_TIME: new Date().toLocaleTimeString('th-TH'),
-        TOTAL_AMOUNT: calculateTotal(),
-        DISCOUNT: paymentData.discount || 0,
-        PAYMENT_METHOD: paymentData.paymentMethod,
-        RECEIVED_AMOUNT: parseFloat(paymentData.receivedAmount),
-        CHANGE_AMOUNT: parseFloat(paymentData.receivedAmount) - calculateTotal(),
-        CASHIER: 'PAYMENT_SYSTEM'
-      };
+      console.log('💰 Processing payment for VNO:', currentPatient.VNO, {
+        totalAmount,
+        discount,
+        netAmount,
+        receivedAmount,
+        changeAmount
+      });
 
-      // Step 1: อัปเดต treatment record
-      console.log('💰 Updating treatment record for VNO:', currentPatient.VNO);
-
+      // Step 1: อัปเดต treatment record พร้อมข้อมูลการชำระเงิน
       try {
-        // อัปเดต STATUS1 และข้อมูลการชำระเงิน
         const treatmentUpdateData = {
           VNO: currentPatient.VNO,
-          STATUS1: 'ชำระเงินแล้ว', // ใช้ฟิลด์ STATUS1 ที่มีอยู่แล้ว
-          PAYMENT_INFO: JSON.stringify(paymentInfo), // เก็บข้อมูลการชำระเป็น JSON
-          SYSTEM_DATE: new Date().toISOString().split('T')[0],
-          SYSTEM_TIME: new Date().toLocaleTimeString('th-TH')
+          STATUS1: 'ชำระเงินแล้ว',
+
+          // ข้อมูลการชำระเงิน - ใช้ field ที่มีอยู่ในตาราง TREATMENT1
+          TOTAL_AMOUNT: totalAmount,
+          DISCOUNT_AMOUNT: discount,
+          NET_AMOUNT: netAmount,
+          PAYMENT_STATUS: 'ชำระเงินแล้ว',
+          PAYMENT_DATE: new Date().toISOString().split('T')[0],
+          PAYMENT_TIME: new Date().toLocaleTimeString('th-TH', { hour12: false }),
+          PAYMENT_METHOD: paymentData.paymentMethod,
+          RECEIVED_AMOUNT: receivedAmount,
+          CHANGE_AMOUNT: changeAmount,
+          CASHIER: 'PAYMENT_SYSTEM'
         };
 
-        // เรียก API อัปเดต treatment
-        const treatmentResponse = await TreatmentService.updateTreatmentStatus(
+        console.log('🔄 Updating treatment with payment data:', treatmentUpdateData);
+
+        // เรียก API อัปเดต treatment พร้อมข้อมูลการชำระเงิน
+        const treatmentResponse = await TreatmentService.processPayment(
           currentPatient.VNO,
-          treatmentUpdateData
+          editablePrices,
+          paymentData
         );
 
         if (!treatmentResponse.success) {
           throw new Error('ไม่สามารถอัปเดต treatment record ได้: ' + treatmentResponse.message);
         }
 
-        console.log('✅ Treatment record updated successfully');
+        console.log('✅ Treatment record updated successfully with payment data');
 
       } catch (treatmentError) {
         console.error('❌ Error updating treatment record:', treatmentError);
         throw treatmentError;
       }
 
-      // Step 2: อัปเดตสถานะคิวเป็น 'ชำระเงินแล้ว'
+      // Step 2: อัปเดตสถานะคิว (ถ้ามี QueueService)
       try {
-        const queueUpdateResponse = await QueueService.updateQueueStatus(
-          currentPatient.queueId,
-          'ชำระเงินแล้ว'
-        );
+        if (typeof QueueService !== 'undefined' && currentPatient.queueId) {
+          const queueUpdateResponse = await QueueService.updateQueueStatus(
+            currentPatient.queueId,
+            'ชำระเงินแล้ว'
+          );
 
-        if (!queueUpdateResponse.success) {
-          console.warn('⚠️ Failed to update queue status:', queueUpdateResponse.message);
-        } else {
-          console.log('✅ Queue status updated successfully');
+          if (!queueUpdateResponse.success) {
+            console.warn('⚠️ Failed to update queue status:', queueUpdateResponse.message);
+          } else {
+            console.log('✅ Queue status updated successfully');
+          }
         }
       } catch (queueError) {
         console.error('❌ Error updating queue status:', queueError);
@@ -184,7 +195,7 @@ const Paymentanddispensingmedicine = () => {
       // Success message
       setSnackbar({
         open: true,
-        message: `✅ บันทึกการชำระเงินสำเร็จ ยอดชำระ: ฿${calculateTotal().toFixed(2)} - ${currentPatient.PRENAME} ${currentPatient.NAME1} ${currentPatient.SURNAME}`,
+        message: `✅ บันทึกการชำระเงินสำเร็จ ยอดชำระ: ฿${netAmount.toFixed(2)} - ${currentPatient.PRENAME} ${currentPatient.NAME1} ${currentPatient.SURNAME}`,
         severity: 'success'
       });
 

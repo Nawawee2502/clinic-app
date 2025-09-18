@@ -79,7 +79,7 @@ const DxandTreatment = ({ currentPatient, onSaveSuccess }) => {
 
           // แยกข้อมูล [Imaging] และ [Laboratory] จาก INVESTIGATION_NOTES
           const lines = investigationNotes.split('\n\n');
-          
+
           lines.forEach(line => {
             if (line.startsWith('[Imaging]')) {
               imagingNote = line.replace('[Imaging]', '').trim();
@@ -136,7 +136,7 @@ const DxandTreatment = ({ currentPatient, onSaveSuccess }) => {
     // Investigation
     if (investigationNotes) {
       summary += `Investigation:\n`;
-      
+
       const lines = investigationNotes.split('\n\n');
       lines.forEach(line => {
         if (line.startsWith('[Imaging]')) {
@@ -177,10 +177,10 @@ const DxandTreatment = ({ currentPatient, onSaveSuccess }) => {
 
   // ฟังก์ชันสร้าง Summary จากข้อมูลปัจจุบัน
   const handleAutoFillSummary = () => {
-    generateTreatmentSummary(diagnosisData, 
-      diagnosisData.investigations.imaging || diagnosisData.investigations.lab ? 
-      `${diagnosisData.investigations.imaging ? `[Imaging] ${diagnosisData.radiological.note}` : ''}${diagnosisData.investigations.imaging && diagnosisData.investigations.lab ? '\n\n' : ''}${diagnosisData.investigations.lab ? `[Laboratory] ${diagnosisData.laboratory.note}` : ''}` 
-      : null
+    generateTreatmentSummary(diagnosisData,
+      diagnosisData.investigations.imaging || diagnosisData.investigations.lab ?
+        `${diagnosisData.investigations.imaging ? `[Imaging] ${diagnosisData.radiological.note}` : ''}${diagnosisData.investigations.imaging && diagnosisData.investigations.lab ? '\n\n' : ''}${diagnosisData.investigations.lab ? `[Laboratory] ${diagnosisData.laboratory.note}` : ''}`
+        : null
     );
   };
 
@@ -193,23 +193,35 @@ const DxandTreatment = ({ currentPatient, onSaveSuccess }) => {
         return;
       }
 
+      // สร้าง INVESTIGATION_NOTES จากข้อมูลการวินิจฉัย
+      let investigationNotes = '';
+
+      if (diagnosisData.investigations.imaging && diagnosisData.radiological.note) {
+        investigationNotes += `[Imaging] ${diagnosisData.radiological.note}\n\n`;
+      }
+
+      if (diagnosisData.investigations.lab && diagnosisData.laboratory.note) {
+        investigationNotes += `[Laboratory] ${diagnosisData.laboratory.note}`;
+      }
+
       // ส่งข้อมูล Dx เป็น text ลงใน DXCODE โดยตรง
       const treatmentData = {
         VNO: currentPatient.VNO,
         HNNO: currentPatient.HNCODE,
-        DXCODE: dxData.dx.trim() || null, // บันทึก dx text ลงใน DXCODE
+        DXCODE: dxData.dx.trim() || null,
         ICD10CODE: null,
         TREATMENT1: dxData.treatment || null,
-        STATUS1: 'กำลังตรวจ'
+        STATUS1: 'กำลังตรวจ',
+        INVESTIGATION_NOTES: investigationNotes.trim() || null // เพิ่มบรรทัดนี้
       };
 
-      console.log('Sending treatment data with Dx text in DXCODE:', treatmentData);
+      console.log('Sending treatment data with INVESTIGATION_NOTES:', treatmentData);
 
       const response = await TreatmentService.updateTreatment(currentPatient.VNO, treatmentData);
 
       if (response.success) {
         if (onSaveSuccess) {
-          onSaveSuccess(); // ย้ายมาก่อน alert
+          onSaveSuccess();
         }
         alert('บันทึกข้อมูล Dx และ Treatment สำเร็จ!');
       } else {
