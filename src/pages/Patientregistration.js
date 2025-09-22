@@ -97,7 +97,7 @@ const PatientRegistration = () => {
       if (response.success) {
         // ✅ แสดงทุกคิว ไม่กรองเหมือนหน้าตรวจรักษา (เพราะหน้านี้ต้องเห็นทุกสถานะ)
         setTodayQueue(response.data);
-        
+
         console.log('✅ Loaded queue data from PatientService:', response.data);
       } else {
         showSnackbar('ไม่สามารถโหลดข้อมูลคิวได้', 'error');
@@ -123,7 +123,7 @@ const PatientRegistration = () => {
           waiting: response.data.today_queue.waiting || 0,
           completed: response.data.today_queue.completed || 0
         });
-        
+
         console.log('✅ Loaded queue stats:', response.data.today_queue);
       }
     } catch (error) {
@@ -190,6 +190,20 @@ const PatientRegistration = () => {
     setLoading(true);
 
     try {
+      // เช็ค HN ซ้ำก่อน
+      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000/api';
+      const checkResponse = await fetch(`${API_BASE_URL}/patients/check-hn/${patientData.HNCODE}`);
+      const checkResult = await checkResponse.json();
+
+      if (checkResult.success && checkResult.exists) {
+        const existingPatient = checkResult.patient;
+        showSnackbar(`HN ${patientData.HNCODE} มีอยู่แล้วในระบบ! ผู้ป่วย: ${existingPatient.NAME1} ${existingPatient.SURNAME}`, 'error');
+        setNewPatientTabIndex(0); // กลับไปหน้าแรก
+        setLoading(false);
+        return;
+      }
+
+      // ถ้า HN ไม่ซ้ำ ให้บันทึกต่อ
       const validationErrors = PatientService.validatePatientData(patientData);
       if (validationErrors.length > 0) {
         showSnackbar(validationErrors.join(', '), 'error');
@@ -214,14 +228,13 @@ const PatientRegistration = () => {
         };
 
         setNewlyRegisteredPatient(newPatientInfo);
-        showSnackbar(`ลงทะเบียนผู้ป่วยสำเร็จ! HN: ${result.data.HNCODE} - กรุณากรอง Vital Signs`, 'success');
-        
+        showSnackbar(`ลงทะเบียนผู้ป่วยสำเร็จ! HN: ${result.data.HNCODE}`, 'success');
+
         resetNewPatientForm();
 
-        // รีเฟรชข้อมูลคิว
         setTimeout(() => {
           setMainView('reception');
-          handleRefresh(); // ✅ รีเฟรชเพื่อดูข้อมูลล่าสุด
+          handleRefresh();
         }, 1000);
 
       } else {

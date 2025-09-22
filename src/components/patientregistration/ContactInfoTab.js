@@ -37,9 +37,53 @@ const ContactInfoTab = ({ onNext, onPrev, patientData, updatePatientData }) => {
   // API Base URL
   const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000/api';
 
+  const defaultAddress = {
+    PROVINCE_CODE: '50',
+    PROVINCE_NAME: 'เชียงใหม่',
+    AMPHER_CODE: '5002',
+    AMPHER_NAME: 'จอมทอง',
+    TUMBOL_CODE: '500201',
+    TUMBOL_NAME: 'บ้านหลวง',
+    ZIPCODE: '50160'
+  };
+
   // โหลดข้อมูลจังหวัดเมื่อ component mount
   useEffect(() => {
     fetchProvinces();
+  }, []);
+
+  useEffect(() => {
+    if (!patientData.CARD_PROVINCE_CODE) {
+      updatePatientData({
+        CARD_PROVINCE_CODE: defaultAddress.PROVINCE_CODE,
+        CARD_AMPHER_CODE: defaultAddress.AMPHER_CODE,
+        CARD_TUMBOL_CODE: defaultAddress.TUMBOL_CODE,
+        CARD_ZIPCODE: defaultAddress.ZIPCODE
+      });
+
+      const defaultProvince = {
+        PROVINCE_CODE: defaultAddress.PROVINCE_CODE,
+        PROVINCE_NAME: defaultAddress.PROVINCE_NAME
+      };
+
+      const defaultAmpher = {
+        AMPHER_CODE: defaultAddress.AMPHER_CODE,
+        AMPHER_NAME: defaultAddress.AMPHER_NAME
+      };
+
+      const defaultTumbol = {
+        TUMBOL_CODE: defaultAddress.TUMBOL_CODE,
+        TUMBOL_NAME: defaultAddress.TUMBOL_NAME,
+        zipcode: defaultAddress.ZIPCODE
+      };
+
+      setSelectedCardProvince(defaultProvince);
+      setSelectedCardAmpher(defaultAmpher);
+      setSelectedCardTumbol(defaultTumbol);
+
+      fetchAmphersByProvince(defaultAddress.PROVINCE_CODE, true);
+      fetchTumbolsByAmpher(defaultAddress.AMPHER_CODE, true);
+    }
   }, []);
 
   // ฟังก์ชันดึงข้อมูลจังหวัด

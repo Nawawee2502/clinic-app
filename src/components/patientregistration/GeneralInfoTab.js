@@ -22,6 +22,10 @@ const GeneralInfoTab = ({ onNext, patientData, updatePatientData }) => {
   const [selectedMonth, setSelectedMonth] = useState('');
   const [selectedYear, setSelectedYear] = useState('');
 
+  const [idCardError, setIdCardError] = useState('');
+  const [isCheckingIdCard, setIsCheckingIdCard] = useState(false);
+
+
   // Default values
   const defaultValues = {
     เชื้อชาติ: 'ไทย',
@@ -93,6 +97,47 @@ const GeneralInfoTab = ({ onNext, patientData, updatePatientData }) => {
       }
     }
   }, [patientData.SEX]);
+
+  const checkDuplicateIdCard = async (idno) => {
+    if (!idno || idno.length !== 13) {
+      setIdCardError('');
+      return false;
+    }
+
+    try {
+      setIsCheckingIdCard(true);
+      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000/api';
+
+      const response = await fetch(`${API_BASE_URL}/patients/check-idcard/${idno}`);
+      const result = await response.json();
+
+      if (result.success && result.exists) {
+        const existingPatient = result.patient;
+        setIdCardError(`บัตรประชาชนนี้มีอยู่แล้ว (HN: ${existingPatient.HNCODE} - ${existingPatient.NAME1} ${existingPatient.SURNAME})`);
+        return true;
+      } else {
+        setIdCardError('');
+        return false;
+      }
+    } catch (error) {
+      console.error('Error checking ID card:', error);
+      setIdCardError('ไม่สามารถตรวจสอบบัตรประชาชนได้');
+      return false;
+    } finally {
+      setIsCheckingIdCard(false);
+    }
+  };
+
+  const handleIdCardChange = async (event) => {
+    const value = event.target.value.replace(/[^0-9]/g, '').slice(0, 13);
+    updatePatientData({ IDNO: value });
+
+    if (value.length === 13) {
+      await checkDuplicateIdCard(value);
+    } else {
+      setIdCardError('');
+    }
+  };
 
   const generateHN = async () => {
     try {
@@ -298,7 +343,6 @@ const GeneralInfoTab = ({ onNext, patientData, updatePatientData }) => {
 
   // ฟังก์ชันสำหรับ validate ข้อมูลก่อน next
   const handleNext = () => {
-    // ตรวจสอบข้อมูลที่จำเป็น
     if (!patientData.HNCODE) {
       alert('กรุณากรอกรหัส HN');
       return;
@@ -311,7 +355,10 @@ const GeneralInfoTab = ({ onNext, patientData, updatePatientData }) => {
       alert('กรุณากรอกนามสกุล');
       return;
     }
-
+    if (idCardError) {
+      alert('กรุณาแก้ไขปัญหาบัตรประชาชนก่อน');
+      return;
+    }
     onNext();
   };
 
@@ -433,29 +480,28 @@ const GeneralInfoTab = ({ onNext, patientData, updatePatientData }) => {
               size="small"
               fullWidth
               value={patientData.IDNO || ''}
-              onChange={(e) => {
-                // ลบตัวอักษรที่ไม่ใช่ตัวเลขออก
-                const numericValue = e.target.value.replace(/[^0-9]/g, '');
-                // จำกัดที่ 13 ตัว
-                const limitedValue = numericValue.slice(0, 13);
-                handleInputChange('IDNO')({ target: { value: limitedValue } });
-              }}
-              onKeyPress={(e) => {
-                // ป้องกันไม่ให้พิมพ์อักขระที่ไม่ใช่ตัวเลข
-                if (!/[0-9]/.test(e.key) && !['Backspace', 'Delete', 'Tab', 'Escape', 'Enter', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
-                  e.preventDefault();
-                }
-              }}
-              inputProps={{
-                maxLength: 13,
-                inputMode: 'numeric', // แสดง keyboard ตัวเลขบนมือถือ
-                pattern: "[0-9]*"
-              }}
+              onChange={handleIdCardChange}
+              error={!!idCardError}
+              helperText={idCardError}
               sx={{
                 mt: 1,
                 '& .MuiOutlinedInput-root': {
                   borderRadius: '10px',
+                  borderColor: idCardError ? 'red' : undefined
                 },
+                '& .MuiFormHelperText-root': {
+                  color: 'red',
+                  fontSize: '0.75rem'
+                }
+              }}
+              InputProps={{
+                endAdornment: isCheckingIdCard && (
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <Typography variant="caption" color="text.secondary">
+                      กำลังตรวจสอบ...
+                    </Typography>
+                  </Box>
+                )
               }}
             />
           </Grid>
@@ -849,6 +895,7 @@ const GeneralInfoTab = ({ onNext, patientData, updatePatientData }) => {
           <Button
             variant="contained"
             onClick={handleNext}
+            disabled={isCheckingIdCard || !!idCardError}
             sx={{
               backgroundColor: "#BCD8FF",
               color: "#2B69AC",
