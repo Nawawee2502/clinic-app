@@ -213,11 +213,11 @@ const CustomSidebar = ({ activeMenu, onMenuClick, isOpen }) => {
         //     path: '/clinic/personnel',
         //     icon: <PeopleAltIcon />
         // },
-        // {
-        //     title: 'ระบบคลังยา/เวชภัณฑ์',
-        //     path: '/clinic/medicalstock',
-        //     icon: <InsertDriveFileIcon />
-        // },
+        {
+            title: 'ระบบคลังยา/เวชภัณฑ์',
+            path: '/clinic/medicalstock',
+            icon: <InsertDriveFileIcon />
+        },
         // {
         //     title: 'ระบบการเงิน/บัญชี',
         //     path: '/clinic/finance',

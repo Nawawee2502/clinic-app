@@ -359,6 +359,104 @@ class DrugService {
 
         return warnings;
     }
+
+    static async getStockReport(filters = {}) {
+        try {
+            const queryParams = new URLSearchParams();
+
+            if (filters.stockFilter && filters.stockFilter !== 'all') {
+                queryParams.append('stock_status', filters.stockFilter);
+            }
+            if (filters.searchTerm) {
+                queryParams.append('search', filters.searchTerm);
+            }
+            if (filters.dateRange) {
+                if (filters.dateRange.year) queryParams.append('year', filters.dateRange.year);
+                if (filters.dateRange.month) queryParams.append('month', filters.dateRange.month);
+                if (filters.dateRange.day) queryParams.append('day', filters.dateRange.day);
+            }
+
+            const url = `${API_BASE_URL}/drugs/stock/report${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
+            console.log('🔗 Calling API:', url);
+
+            const response = await fetch(url);
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('Error fetching stock report:', error);
+
+            // ✅ Fallback เป็น mock data ถ้า API ยังไม่พร้อม
+            const mockDrugs = this.getMockDrugs();
+            const stockData = mockDrugs.map((drug, index) => {
+                const stockQty = Math.floor(Math.random() * 200) + 5;
+                const minStock = Math.floor(Math.random() * 30) + 10;
+                const unitPrice = (Math.random() * 150 + 20).toFixed(2);
+
+                return {
+                    ...drug,
+                    STOCK_QTY: stockQty,
+                    MIN_STOCK: minStock,
+                    UNIT_PRICE: parseFloat(unitPrice),
+                    TOTAL_VALUE: stockQty * parseFloat(unitPrice),
+                    LAST_UPDATED: new Date().toISOString(),
+                    STOCK_STATUS: stockQty === 0 ? 'out' : stockQty <= minStock ? 'low' : 'normal',
+                    SUPPLIER: `ผู้จำหน่าย ${String.fromCharCode(65 + (index % 5))}`,
+                    LOCATION: `ชั้น ${Math.floor(index / 5) + 1} - ช่อง ${(index % 10) + 1}`,
+                    EXPIRY_DATE: new Date(Date.now() + Math.floor(Math.random() * 365 * 2) * 24 * 60 * 60 * 1000).toISOString(),
+                    LOT_NUMBER: `LOT${String(index + 1).padStart(4, '0')}`
+                };
+            });
+
+            return {
+                success: true,
+                data: stockData,
+                message: 'ใช้ข้อมูลจำลอง - API ยังไม่พร้อม'
+            };
+        }
+    }
+
+    static async updateStock(drugCode, stockData) {
+        try {
+            console.log('🔗 Calling API:', `${API_BASE_URL}/drugs/${drugCode}/stock`);
+            const response = await fetch(`${API_BASE_URL}/drugs/${drugCode}/stock`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(stockData)
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('Error updating stock:', error);
+            throw error;
+        }
+    }
+
+    static async getLowStockItems(threshold = 10) {
+        try {
+            console.log('🔗 Calling API:', `${API_BASE_URL}/drugs/stock/low-stock?threshold=${threshold}`);
+            const response = await fetch(`${API_BASE_URL}/drugs/stock/low-stock?threshold=${threshold}`);
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('Error fetching low stock items:', error);
+            throw error;
+        }
+    }
+
 }
 
 export default DrugService;

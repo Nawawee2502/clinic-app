@@ -4,20 +4,24 @@ import {
     InputAdornment, Box, IconButton, Checkbox, Autocomplete, Divider,
     CircularProgress, Table, TableBody, TableCell, TableContainer,
     TableHead, TableRow, Paper, Select, MenuItem, FormControl, InputLabel,
-    Alert, Snackbar
+    Alert, Snackbar, Dialog, DialogActions, DialogContent, DialogContentText,
+    DialogTitle
 } from "@mui/material";
 import SaveIcon from '@mui/icons-material/Save';
 import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import WarningIcon from '@mui/icons-material/Warning';
 import PropTypes from 'prop-types';
 
 // Import Services
 import TreatmentService from "../../services/treatmentService";
 import DrugService from "../../services/drugService";
+import QueueService from "../../services/queueService";
 
-const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
+const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => {
     const [medicineData, setMedicineData] = useState({
         drugName: '',
         drugCode: '',
@@ -36,6 +40,8 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
         message: '',
         severity: 'success'
     });
+
+
 
     const [unitOptions] = useState([
         { code: 'TAB', name: 'เม็ด' },
@@ -79,15 +85,6 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
         }
         loadDrugOptions();
     }, [currentPatient]);
-
-    // Debug logs
-    useEffect(() => {
-        console.log('Current medicineData:', medicineData);
-    }, [medicineData]);
-
-    useEffect(() => {
-        console.log('Drug options loaded:', drugOptions);
-    }, [drugOptions]);
 
     const showSnackbar = (message, severity = 'success') => {
         setSnackbar({ open: true, message, severity });
@@ -138,7 +135,7 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
                 }));
                 setDrugOptions(formattedDrugs);
                 setApiStatus('connected');
-                console.log('Formatted drugs:', formattedDrugs.slice(0, 3)); // Show first 3 for debug
+                console.log('Formatted drugs:', formattedDrugs.slice(0, 3));
                 return;
             } else {
                 throw new Error('Drug API not available');
@@ -188,14 +185,11 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
                 return;
             }
 
-            console.log('Selected drug:', newValue);
-            console.log('Unit Code:', newValue.UNIT_CODE);
-
             setMedicineData(prev => ({
                 ...prev,
                 drugCode: newValue.DRUG_CODE,
                 drugName: newValue.GENERIC_NAME,
-                unit: newValue.UNIT_CODE || 'TAB', // ใส่ค่าหน่วยจากยาไป แต่ยังเลือกเปลี่ยนได้
+                unit: newValue.UNIT_CODE || 'TAB',
                 unitPrice: newValue.UNIT_PRICE || 0
             }));
         } else {
@@ -334,17 +328,13 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
                 drugs: drugs
             };
 
-            console.log('💾 Saving medicine data:', treatmentData);
-
             const response = await TreatmentService.updateTreatment(currentPatient.VNO, treatmentData);
 
             if (response.success) {
                 showSnackbar('บันทึกข้อมูลยาสำเร็จ!', 'success');
 
                 try {
-                    const QueueService = await import('../../services/queueService');
-                    await QueueService.default.updateQueueStatus(currentPatient.queueId, 'กำลังตรวจ');
-                    console.log('✅ Queue status updated');
+                    await QueueService.updateQueueStatus(currentPatient.queueId, 'กำลังตรวจ');
                 } catch (error) {
                     console.warn('Could not update queue status:', error);
                 }
@@ -355,7 +345,6 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
             } else {
                 const errorMessage = response.message || 'ไม่สามารถบันทึกข้อมูลได้';
                 showSnackbar('ไม่สามารถบันทึกข้อมูลได้: ' + errorMessage, 'error');
-                console.error('API Error Response:', response);
             }
         } catch (error) {
             console.error('Error saving medicine data:', error);
@@ -375,6 +364,13 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
             showSnackbar(errorMessage, 'error');
         } finally {
             setSaving(false);
+        }
+    };
+
+    // เปิด Completion Confirmation Dialog - เรียกไปยัง parent component
+    const handleCompleteRequest = () => {
+        if (onCompletePatient) {
+            onCompletePatient('เสร็จแล้ว');
         }
     };
 
@@ -491,7 +487,6 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
                                         getOptionLabel={(option) => option.GENERIC_NAME || ''}
                                         value={availableDrugs.find(opt => opt.DRUG_CODE === medicineData.drugCode) || null}
                                         onChange={(event, newValue) => {
-                                            console.log('Autocomplete onChange:', newValue);
                                             handleDrugSelect(newValue);
                                         }}
                                         disabled={availableDrugs.length === 0 && editingIndex < 0}
@@ -695,9 +690,7 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
                         <Table stickyHeader>
                             <TableHead sx={{ bgcolor: '#F0F5FF' }}>
                                 <TableRow>
-                                    <TableCell sx={{ fontWeight: 'bold' }}>
-                                        ลำดับ
-                                    </TableCell>
+                                    <TableCell sx={{ fontWeight: 'bold' }}>ลำดับ</TableCell>
                                     <TableCell sx={{ fontWeight: 'bold' }}>ชื่อยา</TableCell>
                                     <TableCell sx={{ fontWeight: 'bold' }}>รหัสยา</TableCell>
                                     <TableCell sx={{ fontWeight: 'bold' }}>จำนวน</TableCell>
@@ -792,7 +785,7 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
                 </CardContent>
             </Card>
 
-            {/* Save Button */}
+            {/* Action Buttons */}
             <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end', mt: 2 }}>
                 <Button
                     variant="contained"
@@ -817,7 +810,7 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
                     {saving ? 'กำลังบันทึก...' : 'บันทึก'}
                 </Button>
 
-                <Button
+                {/* <Button
                     variant="outlined"
                     onClick={onSaveSuccess}
                     disabled={!onSaveSuccess}
@@ -834,6 +827,32 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
                     }}
                 >
                     ถัดไป →
+                </Button> */}
+
+                {/* Complete Treatment Button */}
+                <Button
+                    variant="contained"
+                    onClick={handleCompleteRequest}
+                    startIcon={<CheckCircleIcon />}
+                    sx={{
+                        minWidth: 200,
+                        height: 50,
+                        fontSize: '16px',
+                        fontWeight: 700,
+                        borderRadius: '12px',
+                        background: 'linear-gradient(135deg, #4caf50 0%, #45a049 100%)',
+                        color: 'white',
+                        boxShadow: '0 4px 16px rgba(76, 175, 80, 0.3)',
+                        border: '1px solid rgba(255, 255, 255, 0.2)',
+                        '&:hover': {
+                            background: 'linear-gradient(135deg, #45a049 0%, #388e3c 100%)',
+                            boxShadow: '0 6px 20px rgba(76, 175, 80, 0.4)',
+                            transform: 'translateY(-1px)'
+                        },
+                        transition: 'all 0.3s ease'
+                    }}
+                >
+                    เสร็จสิ้นการรักษา
                 </Button>
             </Box>
 
@@ -858,7 +877,8 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess }) => {
 
 Ordermedicine.propTypes = {
     currentPatient: PropTypes.object,
-    onSaveSuccess: PropTypes.func
+    onSaveSuccess: PropTypes.func,
+    onCompletePatient: PropTypes.func
 };
 
 export default Ordermedicine;

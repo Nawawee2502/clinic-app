@@ -46,6 +46,7 @@ import QueueService from "../services/queueService";
 import Todaypatientinformation from "../components/ตรวจรักษา/Todaypatientinformation";
 import ตรวจวินิจฉัย from "../components/ตรวจรักษา/ตรวจวินิจฉัย";
 import Medicalhistory from "../components/ตรวจรักษา/Medicalhistory";
+import DxandTreatment from "../components/ตรวจรักษา/DxandTreatment";
 import Procedure from "../components/ตรวจรักษา/Procedure";
 import Appointment from "../components/ตรวจรักษา/Appointment";
 import Medicalcertificate from "../components/ตรวจรักษา/Medicalcertificate";
@@ -53,7 +54,6 @@ import Ordermedicine from "../components/ตรวจรักษา/Ordermedici
 
 // Commented out unused components
 // import LabandXray from "../components/ตรวจรักษา/LabandX-ray";
-// import DxandTreatment from "../components/ตรวจรักษา/DxandTreatment";
 // import Doctor from "../components/ตรวจรักษา/Doctor";
 // import Cerwork from "../components/ตรวจรักษา/cerwork";
 // import Cerdriver from "../components/ตรวจรักษา/Cerdriver";
@@ -288,7 +288,7 @@ const ตรวจรักษา = () => {
   };
 
   const goToNextTab = () => {
-    if (tabIndex < 6) { // Updated to match new tab count
+    if (tabIndex < 7) { // Updated to match new tab count (now 8 tabs total: 0-7)
       setTabIndex(tabIndex + 1);
     }
   };
@@ -911,7 +911,16 @@ const ตรวจรักษา = () => {
                       </Box>
                     }
                   />
-                  {/* Tab 3: หัตถการ */}
+                  {/* Tab 3: วินิจฉัยและรักษา */}
+                  <Tab
+                    label={
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <span>🩺</span>
+                        <span>วินิจฉัยและรักษา</span>
+                      </Box>
+                    }
+                  />
+                  {/* Tab 4: หัตถการ */}
                   <Tab
                     label={
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -920,7 +929,7 @@ const ตรวจรักษา = () => {
                       </Box>
                     }
                   />
-                  {/* Tab 4: นัดหมายคนไข้ */}
+                  {/* Tab 5: นัดหมายคนไข้ */}
                   <Tab
                     label={
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -929,7 +938,7 @@ const ตรวจรักษา = () => {
                       </Box>
                     }
                   />
-                  {/* Tab 5: ใบรับรองแพทย์/การทำงาน/ใบขับขี่ */}
+                  {/* Tab 6: ใบรับรองแพทย์/การทำงาน/ใบขับขี่ */}
                   <Tab
                     label={
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -938,7 +947,7 @@ const ตรวจรักษา = () => {
                       </Box>
                     }
                   />
-                  {/* Tab 6: Order ยา */}
+                  {/* Tab 7: Order ยา */}
                   <Tab
                     label={
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -964,21 +973,23 @@ const ตรวจรักษา = () => {
                   {/* Tab 2: ประวัติ */}
                   {tabIndex === 2 && <Medicalhistory currentPatient={currentPatient} onSaveSuccess={goToNextTab} />}
 
-                  {/* Tab 3: หัตถการ */}
-                  {tabIndex === 3 && <Procedure currentPatient={currentPatient} />}
+                  {/* Tab 3: วินิจฉัยและรักษา */}
+                  {tabIndex === 3 && <DxandTreatment currentPatient={currentPatient} onSaveSuccess={goToNextTab} />}
 
-                  {/* Tab 4: นัดหมายคนไข้ */}
-                  {tabIndex === 4 && <Appointment currentPatient={currentPatient} />}
+                  {/* Tab 4: หัตถการ */}
+                  {tabIndex === 4 && <Procedure currentPatient={currentPatient} />}
 
-                  {/* Tab 5: ใบรับรอง (รวมใบรับรองแพทย์/การทำงาน/ใบขับขี่) */}
-                  {tabIndex === 5 && <Medicalcertificate currentPatient={currentPatient} />}
+                  {/* Tab 5: นัดหมายคนไข้ */}
+                  {tabIndex === 5 && <Appointment currentPatient={currentPatient} />}
 
-                  {/* Tab 6: Order ยา */}
-                  {tabIndex === 6 && <Ordermedicine currentPatient={currentPatient} />}
+                  {/* Tab 6: ใบรับรอง (รวมใบรับรองแพทย์/การทำงาน/ใบขับขี่) */}
+                  {tabIndex === 6 && <Medicalcertificate currentPatient={currentPatient} />}
+
+                  {/* Tab 7: Order ยา */}
+                  {tabIndex === 7 && <Ordermedicine currentPatient={currentPatient} onSaveSuccess={goToNextTab} onCompletePatient={handleStatusChangeRequest} />}
 
                   {/* Commented out unused tabs */}
                   {/* {tabIndex === X && <LabandXray currentPatient={currentPatient} onSaveSuccess={goToNextTab} />} */}
-                  {/* {tabIndex === X && <DxandTreatment currentPatient={currentPatient} onSaveSuccess={goToNextTab} />} */}
                   {/* {tabIndex === X && <Doctor />} */}
                   {/* {tabIndex === X && <Cerwork currentPatient={currentPatient} />} */}
                   {/* {tabIndex === X && <Cerdriver currentPatient={currentPatient} />} */}
@@ -1005,47 +1016,7 @@ const ตรวจรักษา = () => {
         </Snackbar>
       </Container>
 
-      {/* Floating Complete Button - ปุ่มลอยเสร็จสิ้น */}
-      {currentPatient && (
-        <Box
-          sx={{
-            position: 'fixed',
-            bottom: 30,
-            right: 30,
-            zIndex: 1000
-          }}
-        >
-          <Button
-            variant="contained"
-            size="large"
-            onClick={() => handleStatusChangeRequest('เสร็จแล้ว')}
-            sx={{
-              minWidth: 180,
-              height: 60,
-              fontSize: '16px',
-              fontWeight: 700,
-              borderRadius: '30px',
-              background: 'linear-gradient(135deg, #4caf50 0%, #45a049 100%)',
-              color: 'white',
-              boxShadow: '0 8px 25px rgba(76, 175, 80, 0.4)',
-              border: '2px solid rgba(255, 255, 255, 0.3)',
-              backdropFilter: 'blur(10px)',
-              '&:hover': {
-                background: 'linear-gradient(135deg, #45a049 0%, #388e3c 100%)',
-                boxShadow: '0 12px 35px rgba(76, 175, 80, 0.5)',
-                transform: 'translateY(-2px) scale(1.05)',
-                border: '2px solid rgba(255, 255, 255, 0.5)'
-              },
-              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-              '&:active': {
-                transform: 'translateY(0px) scale(0.98)'
-              }
-            }}
-          >
-            ✅ เสร็จสิ้นการรักษา
-          </Button>
-        </Box>
-      )}
+
 
       {/* Confirmation Modal สำหรับเสร็จสิ้นการรักษา */}
       <Dialog
