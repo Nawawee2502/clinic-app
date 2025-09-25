@@ -1,4 +1,4 @@
-// src/components/Report/DailyReport.js - Fixed Patient Selection
+// src/components/Report/DailyReport.js - Complete with DailyReportButton
 import React, { useState, useEffect } from 'react';
 import {
     Box, Grid, Card, CardContent, Typography, TextField, FormControl, InputLabel, Select, MenuItem, Button,
@@ -16,18 +16,21 @@ import TreatmentService from '../../services/treatmentService';
 import EmployeeService from '../../services/employeeService';
 import PatientService from '../../services/patientService';
 
+// Import Components
+import DailyReportButton from '../Dashboard/DailyReportButton';
+
 const DailyReport = () => {
     // States for filters
     const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
     const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
     const [selectedDoctor, setSelectedDoctor] = useState('');
     const [selectedPatient, setSelectedPatient] = useState('');
-    const [selectedPatientObject, setSelectedPatientObject] = useState(null); // เพิ่ม state สำหรับเก็บ object ผู้ป่วยที่เลือก
+    const [selectedPatientObject, setSelectedPatientObject] = useState(null);
     const [patientSearch, setPatientSearch] = useState('');
 
     // States for data
     const [doctors, setDoctors] = useState([]);
-    const [allPatients, setAllPatients] = useState([]); // เก็บข้อมูลผู้ป่วยทั้งหมด
+    const [allPatients, setAllPatients] = useState([]);
     const [reportData, setReportData] = useState([]);
     const [summaryStats, setSummaryStats] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -36,7 +39,7 @@ const DailyReport = () => {
     // Load doctors and patients on component mount
     useEffect(() => {
         loadDoctors();
-        loadAllPatients(); // โหลดผู้ป่วยทั้งหมดตั้งแต่เริ่ม
+        loadAllPatients();
     }, []);
 
     // Load report data when filters change
@@ -49,7 +52,7 @@ const DailyReport = () => {
     const loadAllPatients = async () => {
         try {
             console.log('Loading all patients...');
-            const response = await PatientService.getAllPatients(); // หรือ searchPatients('') ถ้าไม่มี getAllPatients
+            const response = await PatientService.getAllPatients();
             if (response.success) {
                 setAllPatients(response.data);
                 console.log(`Loaded ${response.data.length} patients`);
@@ -59,7 +62,6 @@ const DailyReport = () => {
             }
         } catch (error) {
             console.error('Error loading all patients:', error);
-            // ถ้าไม่มี getAllPatients ให้ใช้ searchPatients แทน
             try {
                 const response = await PatientService.searchPatients('');
                 if (response.success) {
@@ -223,6 +225,12 @@ const DailyReport = () => {
                     >
                         ส่งออก CSV
                     </Button>
+                    {/* เพิ่มปุ่มสร้างรายงาน PDF */}
+                    <DailyReportButton
+                        selectedDate={startDate}
+                        endDate={endDate} 
+                        revenueData={reportData}
+                    />
                 </Box>
             </Box>
 
@@ -270,21 +278,19 @@ const DailyReport = () => {
                         </Grid>
                         <Grid item xs={12} sm={6} md={3}>
                             <Autocomplete
-                                options={allPatients} // ใช้ allPatients แทน patients
+                                options={allPatients}
                                 getOptionLabel={(option) => `${option.HNCODE} - ${option.PRENAME || ''}${option.NAME1} ${option.SURNAME || ''}`}
                                 value={selectedPatientObject}
                                 onChange={(event, newValue) => {
                                     console.log('Patient selected:', newValue);
                                     setSelectedPatientObject(newValue);
                                     setSelectedPatient(newValue ? newValue.HNCODE : '');
-                                    setPatientSearch(''); // clear search หลังเลือก
+                                    setPatientSearch('');
                                 }}
                                 onInputChange={(event, newInputValue, reason) => {
                                     console.log('Input changed:', newInputValue, reason);
-                                    // เฉพาะเมื่อ user พิมพ์เท่านั้น
                                     if (reason === 'input') {
                                         setPatientSearch(newInputValue);
-                                        // ถ้าลบข้อความหมด ให้ clear selection
                                         if (!newInputValue) {
                                             setSelectedPatientObject(null);
                                             setSelectedPatient('');
@@ -294,11 +300,9 @@ const DailyReport = () => {
                                         setSelectedPatientObject(null);
                                         setSelectedPatient('');
                                     }
-                                    // ไม่ทำอะไรกับ reason === 'reset' (เกิดขึ้นเมื่อเลือก option)
                                 }}
-                                // ถ้ามีการเลือกแล้ว ให้แสดงชื่อเต็ม ไม่งั้นให้แสดง search text
-                                inputValue={selectedPatientObject ? 
-                                    `${selectedPatientObject.HNCODE} - ${selectedPatientObject.PRENAME || ''}${selectedPatientObject.NAME1} ${selectedPatientObject.SURNAME || ''}` : 
+                                inputValue={selectedPatientObject ?
+                                    `${selectedPatientObject.HNCODE} - ${selectedPatientObject.PRENAME || ''}${selectedPatientObject.NAME1} ${selectedPatientObject.SURNAME || ''}` :
                                     patientSearch
                                 }
                                 renderInput={(params) => (
@@ -330,8 +334,8 @@ const DailyReport = () => {
                                 loading={loading}
                                 loadingText="กำลังค้นหา..."
                                 noOptionsText="พิมพ์เพื่อค้นหาผู้ป่วย"
-                                clearOnBlur={false} // ป้องกัน clear เมื่อ blur
-                                selectOnFocus={false} // ป้องกัน select ทั้งหมดเมื่อ focus
+                                clearOnBlur={false}
+                                selectOnFocus={false}
                             />
                         </Grid>
                         <Grid item xs={12} sm={6} md={2}>

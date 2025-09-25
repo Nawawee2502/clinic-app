@@ -4,17 +4,15 @@ import TreatmentService from '../../services/treatmentService';
 /**
  * Component สำหรับสร้างรายงานรายรับประจำวัน
  * รับ props:
- * - selectedDate: วันที่ที่เลือกสำหรับสร้างรายงาน
- * - revenueData: ข้อมูลรายรับ (ไม่ได้ใช้ในโค้ดนี้)
+ * - selectedDate: วันที่เริ่มต้น
+ * - endDate: วันที่สิ้นสุด (ถ้าไม่ส่งมาจะใช้ selectedDate)
+ * - revenueData: ข้อมูลรายรับที่ส่งมาจาก parent component
  */
-const DailyReportButton = ({ selectedDate, revenueData }) => {
-    // State สำหรับแสดงสถานะ loading ขณะสร้างรายงาน
+const DailyReportButton = ({ selectedDate, endDate, revenueData = [] }) => {
     const [loading, setLoading] = useState(false);
 
     /**
      * ฟังก์ชันสำหรับจัดรูปแบบตัวเลขเป็นรูปแบบเงินไทย
-     * @param {number} amount - จำนวนเงิน
-     * @returns {string} - เงินในรูปแบบ ฿1,000
      */
     const formatCurrency = (amount) => {
         return new Intl.NumberFormat('th-TH', {
@@ -26,12 +24,9 @@ const DailyReportButton = ({ selectedDate, revenueData }) => {
 
     /**
      * ฟังก์ชันสำหรับแปลงวันที่เป็นรูปแบบไทย
-     * @param {string} dateString - วันที่ในรูปแบบ YYYY-MM-DD
-     * @returns {string} - วันที่ในรูปแบบ "1 มกราคม 2568"
      */
     const formatThaiDate = (dateString) => {
         const date = new Date(dateString);
-        // Array ของชื่อเดือนไทย
         const thaiMonths = [
             'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
             'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
@@ -39,7 +34,7 @@ const DailyReportButton = ({ selectedDate, revenueData }) => {
 
         const day = date.getDate();
         const month = thaiMonths[date.getMonth()];
-        const year = date.getFullYear() + 543; // แปลงเป็นปีไทย (พ.ศ.)
+        const year = date.getFullYear() + 543;
 
         return `${day} ${month} ${year}`;
     };
@@ -49,56 +44,128 @@ const DailyReportButton = ({ selectedDate, revenueData }) => {
      */
     const generatePDF = async () => {
         try {
-            // เริ่มต้น loading
             setLoading(true);
 
-            // ดึงข้อมูลผู้ป่วยที่ชำระเงินแล้วในวันที่เลือก
-            const treatmentsResponse = await TreatmentService.getPaidTreatments({
-                date_from: selectedDate,
-                date_to: selectedDate,
-                limit: 1000
-            });
+            // ใช้ข้อมูลที่ส่งมาจาก parent component ก่อน
+            let treatments = revenueData;
+            
+            // กำหนดวันที่สิ้นสุด
+            const actualEndDate = endDate || selectedDate;
 
-            // ตรวจสอบว่าดึงข้อมูลสำเร็จหรือไม่
-            if (!treatmentsResponse.success) {
-                alert('ไม่สามารถดึงข้อมูลได้: ' + treatmentsResponse.message);
-                return;
+            // ถ้าไม่มีข้อมูล หรือข้อมูลไม่ตรงวันที่ ให้เรียก API ใหม่
+            if (!treatments || treatments.length === 0) {
+                console.log('No data provided, fetching from API...');
+                const treatmentsResponse = await TreatmentService.getPaidTreatments({
+                    date_from: selectedDate,
+                    date_to: actualEndDate,
+                    limit: 1000
+                });
+
+                if (!treatmentsResponse.success) {
+                    alert('ไม่สามารถดึงข้อมูลได้: ' + treatmentsResponse.message);
+                    return;
+                }
+
+                treatments = treatmentsResponse.data || [];
             }
 
-            // เก็บข้อมูล treatments ไว้ในตัวแปร
-            const treatments = treatmentsResponse.data || [];
-            console.log('Paid treatments:', treatments);
+            console.log('Treatments data for PDF:', treatments);
+            console.log('Number of treatments:', treatments.length);
+            console.log('Date range selected:', selectedDate, 'to', actualEndDate);
+            
+            // Log วันที่ของข้อมูลจริงที่ได้มา
+            if (treatments.length > 0) {
+                const dates = treatments.map(t => t.PAYMENT_DATE || t.RDATE || t.DATE).filter(d => d);
+                const minDate = dates.length > 0 ? Math.min(...dates.map(d => new Date(d).getTime())) : null;
+                const maxDate = dates.length > 0 ? Math.max(...dates.map(d => new Date(d).getTime())) : null;
+                
+                console.log('Actual data date range:', 
+                    minDate ? new Date(minDate).toISOString().split('T')[0] : 'N/A', 
+                    'to', 
+                    maxDate ? new Date(maxDate).toISOString().split('T')[0] : 'N/A'
+                );
+            }
+
+            // ถ้ายังไม่มีข้อมูล
+            if (treatments.length === 0) {
+                const confirmEmpty = confirm(
+                    `ไม่มีข้อมูลในช่วงวันที่ ${selectedDate} ถึง ${actualEndDate}\n\nสาเหตุที่เป็นไปได้:\n- ไม่มีการรักษาที่ชำระเงินในช่วงวันที่นี้\n- ข้อมูลในระบบยังไม่ครบ\n- วันที่ที่เลือกไม่ถูกต้อง\n\nต้องการสร้างรายงานที่ว่างเปล่าหรือไม่?`
+                );
+                if (!confirmEmpty) {
+                    return;
+                }
+            } else {
+                // ตรวจสอบว่าข้อมูลตรงกับวันที่ที่เลือกหรือไม่
+                const dates = treatments.map(t => t.PAYMENT_DATE || t.RDATE || t.DATE).filter(d => d);
+                if (dates.length > 0) {
+                    const actualMinDate = new Date(Math.min(...dates.map(d => new Date(d).getTime())));
+                    const actualMaxDate = new Date(Math.max(...dates.map(d => new Date(d).getTime())));
+                    const selectedStartDate = new Date(selectedDate);
+                    const selectedEndDate = new Date(actualEndDate);
+                    
+                    const isDateMismatch = 
+                        actualMinDate < selectedStartDate || 
+                        actualMaxDate > selectedEndDate;
+                    
+                    if (isDateMismatch) {
+                        const confirmMismatch = confirm(
+                            `⚠️ แจ้งเตือน: ช่วงวันที่ของข้อมูลไม่ตรงกับที่เลือก\n\n` +
+                            `วันที่เลือก: ${selectedDate} ถึง ${actualEndDate}\n` +
+                            `วันที่ของข้อมูล: ${actualMinDate.toISOString().split('T')[0]} ถึง ${actualMaxDate.toISOString().split('T')[0]}\n\n` +
+                            `ต้องการสร้างรายงานต่อไปหรือไม่?\n` +
+                            `(รายงานจะแสดงข้อมูลตามวันที่จริงของข้อมูล)`
+                        );
+                        if (!confirmMismatch) {
+                            return;
+                        }
+                        
+                        // ใช้วันที่จริงของข้อมูลในรายงาน
+                        selectedDate = actualMinDate.toISOString().split('T')[0];
+                        actualEndDate = actualMaxDate.toISOString().split('T')[0];
+                    }
+                }
+            }
 
             // === คำนวณสถิติต่างๆ ===
-            const totalTreatments = treatments.length; // จำนวนผู้ป่วยทั้งหมด
+            const totalTreatments = treatments.length;
 
-            // รวมยอดรายรับทั้งหมด
-            const totalRevenue = treatments.reduce((sum, t) =>
-                sum + (parseFloat(t.NET_AMOUNT) || parseFloat(t.TOTAL_AMOUNT) || 0), 0
-            );
+            // รวมยอดรายรับทั้งหมด - ลองหลายฟิลด์
+            const totalRevenue = treatments.reduce((sum, t) => {
+                const amount = parseFloat(t.NET_AMOUNT) || 
+                             parseFloat(t.TOTAL_AMOUNT) || 
+                             parseFloat(t.AMOUNT) ||
+                             parseFloat(t.REVENUE) || 0;
+                console.log(`Treatment ${t.VNO || t.VN}: amount = ${amount}`);
+                return sum + amount;
+            }, 0);
+
+            console.log('Total revenue calculated:', totalRevenue);
 
             // คำนวณค่าเฉลี่ยต่อคน
             const averagePerPatient = totalTreatments > 0 ? totalRevenue / totalTreatments : 0;
 
             // รวมส่วนลดทั้งหมด
             const totalDiscount = treatments.reduce((sum, t) =>
-                sum + (parseFloat(t.DISCOUNT_AMOUNT) || 0), 0
+                sum + (parseFloat(t.DISCOUNT_AMOUNT) || parseFloat(t.DISCOUNT) || 0), 0
             );
 
             // === จัดกลุ่มตามวิธีการชำระเงิน ===
             const paymentMethods = {};
             treatments.forEach(t => {
-                const method = t.PAYMENT_METHOD || 'เงินสด'; // ถ้าไม่มีข้อมูล default เป็นเงินสด
-                const amount = parseFloat(t.NET_AMOUNT) || parseFloat(t.TOTAL_AMOUNT) || 0;
+                const method = t.PAYMENT_METHOD || 'เงินสด';
+                const amount = parseFloat(t.NET_AMOUNT) || 
+                              parseFloat(t.TOTAL_AMOUNT) || 
+                              parseFloat(t.AMOUNT) ||
+                              parseFloat(t.REVENUE) || 0;
 
-                // สร้าง object ถ้ายังไม่มี
                 if (!paymentMethods[method]) {
                     paymentMethods[method] = { count: 0, total: 0 };
                 }
-                // เพิ่มจำนวนรายการและยอดเงิน
                 paymentMethods[method].count += 1;
                 paymentMethods[method].total += amount;
             });
+
+            console.log('Payment methods summary:', paymentMethods);
 
             // === สร้าง HTML สำหรับรายงาน ===
             const htmlContent = `
@@ -108,10 +175,8 @@ const DailyReportButton = ({ selectedDate, revenueData }) => {
     <meta charset="UTF-8">
     <title>รายงานรายรับประจำวัน - ${formatThaiDate(selectedDate)}</title>
     <style>
-        /* นำเข้าฟอนต์ Sarabun สำหรับภาษาไทย */
         @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap');
         
-        /* Reset CSS และตั้งค่าพื้นฐาน */
         * {
             box-sizing: border-box;
         }
@@ -124,12 +189,10 @@ const DailyReportButton = ({ selectedDate, revenueData }) => {
             line-height: 1.4;
             color: #000000;
             background: white;
-            /* รักษาสีเมื่อพิมพ์ */
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
         }
         
-        /* สไตล์ส่วนหัว */
         .header {
             text-align: center;
             margin-bottom: 30px;
@@ -168,8 +231,17 @@ const DailyReportButton = ({ selectedDate, revenueData }) => {
             margin-bottom: 25px;
             font-weight: 500;
         }
+
+        .debug-info {
+            background: #f0f8ff;
+            border: 1px solid #b0d4f1;
+            padding: 10px;
+            margin: 10px 0;
+            font-size: 12px;
+            color: #333;
+            border-radius: 4px;
+        }
         
-        /* สไตล์ส่วนสรุป */
         .summary-section {
             margin: 20px 0;
             padding: 0;
@@ -183,10 +255,9 @@ const DailyReportButton = ({ selectedDate, revenueData }) => {
             text-align: left;
         }
         
-        /* Grid layout สำหรับสถิติ */
         .summary-stats {
             display: grid;
-            grid-template-columns: repeat(4, 1fr); /* 4 คอลัมน์เท่ากัน */
+            grid-template-columns: repeat(4, 1fr);
             gap: 15px;
             margin-bottom: 25px;
         }
@@ -214,10 +285,9 @@ const DailyReportButton = ({ selectedDate, revenueData }) => {
             color: #000000;
         }
         
-        /* สไตล์ตารางหลัก */
         .main-table {
             width: 100%;
-            border-collapse: collapse; /* รวมเส้นขอบเข้าด้วยกัน */
+            border-collapse: collapse;
             margin: 20px 0;
             background: white;
             border: 2px solid #000000;
@@ -246,19 +316,16 @@ const DailyReportButton = ({ selectedDate, revenueData }) => {
             vertical-align: middle;
         }
         
-        /* สลับสีแถว */
         .main-table tbody tr:nth-child(even) {
             background: #f9f9f9;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
         }
         
-        /* คลาสสำหรับจัดตำแหน่งข้อความ */
         .text-center { text-align: center; }
         .text-right { text-align: right; }
         .text-left { text-align: left; }
         
-        /* สไตล์แถวสรุป */
         .total-row {
             background: #d0d0d0;
             font-weight: 700;
@@ -272,7 +339,6 @@ const DailyReportButton = ({ selectedDate, revenueData }) => {
             font-size: 12px;
         }
         
-        /* สไตล์ตารางสรุป */
         .summary-table {
             width: 100%;
             border-collapse: collapse;
@@ -296,13 +362,12 @@ const DailyReportButton = ({ selectedDate, revenueData }) => {
             print-color-adjust: exact;
         }
         
-        /* ส่วนท้ายสำหรับลายเซ็น */
         .footer {
             margin-top: 40px;
             padding-top: 20px;
             border-top: 2px solid #000000;
             display: grid;
-            grid-template-columns: 1fr 1fr; /* 2 คอลัมน์เท่ากัน */
+            grid-template-columns: 1fr 1fr;
             gap: 50px;
         }
         
@@ -327,7 +392,6 @@ const DailyReportButton = ({ selectedDate, revenueData }) => {
             font-style: italic;
         }
         
-        /* กำหนดความกว้างของคอลัมน์ในตาราง */
         .col-no { width: 4%; }
         .col-vn { width: 8%; }
         .col-hn { width: 7%; }
@@ -343,8 +407,8 @@ const DailyReportButton = ({ selectedDate, revenueData }) => {
         .col-other { width: 7%; }
         .col-datetime { width: 10%; }
         
-        /* สไตล์สำหรับการพิมพ์ */
         @media print {
+            .debug-info { display: none; }
             body { 
                 margin: 0;
                 padding: 15mm 10mm;
@@ -366,7 +430,6 @@ const DailyReportButton = ({ selectedDate, revenueData }) => {
             .print-info { margin-top: 20px; font-size: 8px; }
         }
         
-        /* ตั้งค่าหน้ากระดาษ */
         @page {
             margin: 15mm 10mm;
             size: A4 portrait;
@@ -374,14 +437,37 @@ const DailyReportButton = ({ selectedDate, revenueData }) => {
     </style>
 </head>
 <body>
-    <!-- ส่วนหัวของรายงาน -->
+
     <div class="header">
         <div class="clinic-name">สัมพันธ์คลินิค</div>
         <div class="clinic-address">280 หมู่ 4 ถนน เชียงใหม่-ฮอด ต.บ้านหลวง อ.จอมทอง จ.เชียงใหม่ 50160</div>
         <div class="clinic-address">โทรศัพท์: 053-826-524</div>
         
         <div class="report-title">รายงานรายรับประจำวัน</div>
-        <div class="report-period">ตั้งแต่วันที่ ${formatThaiDate(selectedDate)} ถึงวันที่ ${formatThaiDate(selectedDate)}</div>
+        <div class="report-period">ตั้งแต่วันที่ ${formatThaiDate(selectedDate)} ถึงวันที่ ${formatThaiDate(actualEndDate)}</div>
+    </div>
+
+    <!-- ส่วนสรุปสถิติ -->
+    <div class="summary-section">
+        <div class="summary-title">สรุปรายรับ</div>
+        <div class="summary-stats">
+            <div class="stat-box">
+                <div class="stat-label">ผู้ป่วยทั้งหมด</div>
+                <div class="stat-value">${totalTreatments}</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">รายรับรวม</div>
+                <div class="stat-value">${formatCurrency(totalRevenue)}</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">เฉลี่ยต่อคน</div>
+                <div class="stat-value">${formatCurrency(averagePerPatient)}</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">ส่วนลดรวม</div>
+                <div class="stat-value">${formatCurrency(totalDiscount)}</div>
+            </div>
+        </div>
     </div>
 
     <!-- ตารางแสดงรายละเอียดผู้ป่วย -->
@@ -406,61 +492,139 @@ const DailyReportButton = ({ selectedDate, revenueData }) => {
         </thead>
         <tbody>
             ${treatments.length > 0 ? treatments.map((treatment, index) => {
-                // คำนวณยอดเงินรวม
-                const totalCost = parseFloat(treatment.NET_AMOUNT) || parseFloat(treatment.TOTAL_AMOUNT) || 0;
-                const discountAmount = parseFloat(treatment.DISCOUNT_AMOUNT) || 0;
-                const beforeDiscount = totalCost + discountAmount;
+                // คำนวณยอดเงินรวม - ลองหลายฟิลด์
+                const totalCost = parseFloat(treatment.NET_AMOUNT) || 
+                                 parseFloat(treatment.TOTAL_AMOUNT) || 
+                                 parseFloat(treatment.AMOUNT) ||
+                                 parseFloat(treatment.REVENUE) || 0;
+                                 
+                const discountAmount = parseFloat(treatment.DISCOUNT_AMOUNT) || 
+                                     parseFloat(treatment.DISCOUNT) || 0;
 
                 // แยกตามประเภทการชำระเงิน
                 const paymentMethod = treatment.PAYMENT_METHOD || 'เงินสด';
                 let cashAmount = 0, transferAmount = 0, otherAmount = 0;
 
-                // กำหนดยอดเงินในแต่ละช่องตามวิธีชำระเงิน
                 if (paymentMethod === 'เงินสด') {
                     cashAmount = totalCost;
-                } else if (paymentMethod === 'โอน' || paymentMethod === 'ประมาณโอน') {
+                } else if (paymentMethod === 'โอน' || paymentMethod === 'โอนเงิน' || paymentMethod === 'ประมาณโอน') {
                     transferAmount = totalCost;
                 } else {
                     otherAmount = totalCost;
                 }
 
                 // จัดรูปแบบวันที่และเวลา
-                const paymentDate = treatment.PAYMENT_DATE ?
-                    new Date(treatment.PAYMENT_DATE).toLocaleDateString('th-TH', {
-                        year: 'numeric',
-                        month: '2-digit',
-                        day: '2-digit'
-                    }) : '';
-                const paymentTime = treatment.PAYMENT_TIME ?
-                    treatment.PAYMENT_TIME.substring(0, 5) : '';
+                const paymentDate = treatment.PAYMENT_DATE || treatment.RDATE || treatment.DATE;
+                let formatDate = '';
+                let formatTime = '';
 
-                // สร้าง HTML สำหรับแถวแต่ละรายการ
+                // จัดการวันที่
+                if (paymentDate) {
+                    try {
+                        // สร้าง date object และปรับ timezone เป็นเวลาไทย
+                        const date = new Date(paymentDate);
+                        
+                        // ตรวจสอบว่าวันที่ valid หรือไม่
+                        if (!isNaN(date.getTime())) {
+                            // ใช้ toLocaleDateString แต่บังคับให้เป็นเวลาไทย
+                            formatDate = date.toLocaleDateString('th-TH', {
+                                year: 'numeric',
+                                month: '2-digit',
+                                day: '2-digit',
+                                timeZone: 'Asia/Bangkok'  // บังคับเป็นเวลาไทย
+                            });
+                        } else {
+                            // ถ้า date ไม่ valid ลองแปลงแบบ string
+                            formatDate = paymentDate.split('T')[0] || paymentDate;
+                        }
+                    } catch (error) {
+                        console.warn('Date parsing error:', error, paymentDate);
+                        formatDate = paymentDate.toString().substring(0, 10);
+                    }
+                }
+
+                // จัดการเวลา
+                const paymentTime = treatment.PAYMENT_TIME || treatment.TIME || '';
+                if (paymentTime) {
+                    try {
+                        // ถ้าเป็น full datetime
+                        if (paymentTime.includes('T') || paymentTime.includes(' ')) {
+                            const dateTime = new Date(paymentTime);
+                            if (!isNaN(dateTime.getTime())) {
+                                formatTime = dateTime.toLocaleTimeString('th-TH', {
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                    timeZone: 'Asia/Bangkok'
+                                });
+                            }
+                        } else {
+                            // ถ้าเป็นแค่เวลา เช่น "14:30:00"
+                            formatTime = paymentTime.substring(0, 5);
+                        }
+                    } catch (error) {
+                        console.warn('Time parsing error:', error, paymentTime);
+                        formatTime = paymentTime.toString().substring(0, 5);
+                    }
+                }
+
+                // ถ้าไม่มีเวลาแยก ลองดึงจาก datetime field อื่น
+                if (!formatTime && paymentDate && paymentDate.includes('T')) {
+                    try {
+                        const dateTime = new Date(paymentDate);
+                        if (!isNaN(dateTime.getTime())) {
+                            formatTime = dateTime.toLocaleTimeString('th-TH', {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                timeZone: 'Asia/Bangkok'
+                            });
+                        }
+                    } catch (error) {
+                        console.warn('DateTime parsing error:', error);
+                    }
+                }
+
+                // ดึงชื่อผู้ป่วย
+                const patientName = `${treatment.PRENAME || ''}${treatment.NAME1 || ''} ${treatment.SURNAME || ''}`.trim() ||
+                                  `${treatment.PNAME || ''} ${treatment.FNAME || ''} ${treatment.LNAME || ''}`.trim() ||
+                                  treatment.PATIENT_NAME || 'ไม่ระบุชื่อ';
+
+                // Debug เฉพาะรายการแรก
+                if (index === 0) {
+                    console.log('=== DEBUG DATETIME FORMATTING ===');
+                    console.log('Raw PAYMENT_DATE:', treatment.PAYMENT_DATE);
+                    console.log('Raw RDATE:', treatment.RDATE);
+                    console.log('Raw DATE:', treatment.DATE);
+                    console.log('Raw PAYMENT_TIME:', treatment.PAYMENT_TIME);
+                    console.log('Raw TIME:', treatment.TIME);
+                    console.log('Formatted Date:', formatDate);
+                    console.log('Formatted Time:', formatTime);
+                    console.log('===================================');
+                }
+
                 return `
                     <tr>
                         <td class="text-center">${index + 1}</td>
-                        <td class="text-center">${treatment.VNO || ''}</td>
-                        <td class="text-center">${treatment.HNNO || ''}</td>
-                        <td class="text-left">${(treatment.PRENAME || '') + (treatment.NAME1 || '') + ' ' + (treatment.SURNAME || '')}</td>
-                        <td class="text-left">${(treatment.TREATMENT1 || '').substring(0, 30)}${treatment.TREATMENT1 && treatment.TREATMENT1.length > 30 ? '...' : ''}</td>
+                        <td class="text-center">${treatment.VNO || treatment.VN || ''}</td>
+                        <td class="text-center">${treatment.HNNO || treatment.HN || treatment.HNCODE || ''}</td>
+                        <td class="text-left">${patientName}</td>
+                        <td class="text-left">${(treatment.TREATMENT1 || treatment.TREATMENT || treatment.SYMPTOM || '').substring(0, 30)}${(treatment.TREATMENT1 || treatment.TREATMENT || treatment.SYMPTOM || '').length > 30 ? '...' : ''}</td>
                         <td class="text-right">-</td>
                         <td class="text-right">-</td>
                         <td class="text-right">-</td>
                         <td class="text-right">${formatCurrency(totalCost)}</td>
-                        <td class="text-left">${treatment.EMP_NAME || 'พ.ปวีณา'}</td>
+                        <td class="text-left">${treatment.EMP_NAME || treatment.DOCTOR_NAME || treatment.DOCTOR || 'พ.ปวีณา'}</td>
                         <td class="text-right">${cashAmount > 0 ? formatCurrency(cashAmount) : '-'}</td>
                         <td class="text-right">${transferAmount > 0 ? formatCurrency(transferAmount) : '-'}</td>
                         <td class="text-right">${otherAmount > 0 ? formatCurrency(otherAmount) : '-'}</td>
-                        <td class="text-center">${paymentDate}<br>${paymentTime}</td>
+                        <td class="text-center">${formatDate}<br>${formatTime}</td>
                     </tr>`;
             }).join('') : `
-                <!-- ถ้าไม่มีข้อมูล แสดงข้อความนี้ -->
                 <tr>
                     <td colspan="14" class="text-center" style="padding: 30px;">ไม่มีข้อมูลการรักษาที่ชำระเงินในวันที่เลือก</td>
                 </tr>
             `}
             
             ${treatments.length > 0 ? `
-            <!-- แถวสรุปรวมทั้งหมด -->
             <tr class="total-row">
                 <td colspan="5" class="text-center">รวมทั้งหมด</td>
                 <td class="text-right">-</td>
@@ -469,9 +633,9 @@ const DailyReportButton = ({ selectedDate, revenueData }) => {
                 <td class="text-right">${formatCurrency(totalRevenue)}</td>
                 <td></td>
                 <td class="text-right">${formatCurrency(paymentMethods['เงินสด']?.total || 0)}</td>
-                <td class="text-right">${formatCurrency((paymentMethods['โอน']?.total || 0) + (paymentMethods['ประมาณโอน']?.total || 0))}</td>
+                <td class="text-right">${formatCurrency((paymentMethods['โอน']?.total || 0) + (paymentMethods['โอนเงิน']?.total || 0) + (paymentMethods['ประมาณโอน']?.total || 0))}</td>
                 <td class="text-right">${formatCurrency(Object.entries(paymentMethods).reduce((sum, [method, data]) => {
-                return method !== 'เงินสด' && method !== 'โอน' && method !== 'ประมาณโอน' ? sum + data.total : sum;
+                return method !== 'เงินสด' && method !== 'โอน' && method !== 'โอนเงิน' && method !== 'ประมาณโอน' ? sum + data.total : sum;
             }, 0))}</td>
                 <td></td>
             </tr>
@@ -479,7 +643,6 @@ const DailyReportButton = ({ selectedDate, revenueData }) => {
         </tbody>
     </table>
 
-    <!-- ส่วนท้ายสำหรับลายเซ็น -->
     <div class="footer">
         <div class="signature-box">
             <div>ผู้จัดทำรายงาน</div>
@@ -495,25 +658,17 @@ const DailyReportButton = ({ selectedDate, revenueData }) => {
         </div>
     </div>
 
-    <!-- ข้อมูลการพิมพ์ -->
     <div class="print-info">
         รายงานนี้สร้างโดยระบบอัตโนมัติ | วันที่พิมพ์: ${formatThaiDate(new Date().toISOString())} เวลา: ${new Date().toLocaleTimeString('th-TH')}
     </div>
 </body>
 </html>`;
 
-            // === สร้าง PDF และเปิดในแท็บใหม่ ===
-
-            // สร้าง Blob จาก HTML content
+            // สร้าง PDF และเปิดในแท็บใหม่
             const blob = new Blob([htmlContent], { type: 'text/html' });
-
-            // สร้าง URL สำหรับ Blob
             const url = URL.createObjectURL(blob);
-
-            // เปิดในแท็บใหม่
             const newTab = window.open(url, '_blank');
 
-            // ตรวจสอบว่าเปิดแท็บได้หรือไม่ (อาจถูก popup blocker บล็อก)
             if (!newTab) {
                 alert('กรุณาอนุญาตให้เปิดหน้าต่าง popup สำหรับการพิมพ์');
                 return;
@@ -522,16 +677,14 @@ const DailyReportButton = ({ selectedDate, revenueData }) => {
             // รอให้หน้าเว็บโหลดเสร็จแล้วเรียกคำสั่งพิมพ์
             newTab.onload = function () {
                 setTimeout(() => {
-                    newTab.print(); // เรียกคำสั่งพิมพ์
-                }, 1000); // รอ 1 วินาที
+                    newTab.print();
+                }, 1000);
             };
 
         } catch (error) {
-            // จัดการ error ที่อาจเกิดขึ้น
             console.error('Error generating PDF:', error);
             alert('เกิดข้อผิดพลาดในการสร้างรายงาน: ' + error.message);
         } finally {
-            // ปิด loading ไม่ว่าจะสำเร็จหรือไม่
             setLoading(false);
         }
     };
@@ -558,7 +711,6 @@ const DailyReportButton = ({ selectedDate, revenueData }) => {
         >
             {loading ? (
                 <>
-                    {/* แสดง loading spinner */}
                     <div style={{
                         width: '16px',
                         height: '16px',
@@ -575,7 +727,6 @@ const DailyReportButton = ({ selectedDate, revenueData }) => {
                 </>
             )}
 
-            {/* CSS animation สำหรับ spinner */}
             <style>{`
                 @keyframes spin {
                     0% { transform: rotate(0deg); }
