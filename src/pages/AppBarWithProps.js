@@ -223,11 +223,11 @@ const CustomSidebar = ({ activeMenu, onMenuClick, isOpen }) => {
         //     path: '/clinic/finance',
         //     icon: <PaymentIcon />
         // },
-        // {
-        //     title: 'รายงานสำหรับผู้บริหาร',
-        //     path: '/clinic/report',
-        //     icon: <DescriptionIcon />
-        // },
+        {
+            title: 'รายงาน',
+            path: '/clinic/report',
+            icon: <DescriptionIcon />
+        },
         // {
         //     title: 'ระบบการจัดการสิทธิ',
         //     path: '/clinic/rights',
@@ -314,18 +314,18 @@ const CustomSidebar = ({ activeMenu, onMenuClick, isOpen }) => {
                             },
                             fontWeight: activeMenu === item.path ? 'bold' : 'normal',
                             position: 'relative',
-                            '&::after': (index >= 3 && index <= 9) ? {
-                                content: '""',
-                                position: 'absolute',
-                                right: '16px',
-                                width: '0',
-                                height: '0',
-                                borderLeft: '5px solid transparent',
-                                borderRight: '5px solid transparent',
-                                borderTop: activeMenu === item.path
-                                    ? '5px solid white'
-                                    : '5px solid rgba(0, 48, 143, 0.9)',
-                            } : {}
+                            // '&::after': (index >= 3 && index <= 9) ? {
+                            //     content: '""',
+                            //     position: 'absolute',
+                            //     right: '16px',
+                            //     width: '0',
+                            //     height: '0',
+                            //     borderLeft: '5px solid transparent',
+                            //     borderRight: '5px solid transparent',
+                            //     borderTop: activeMenu === item.path
+                            //         ? '5px solid white'
+                            //         : '5px solid rgba(0, 48, 143, 0.9)',
+                            // } : {}
                         }}
                     >
                         {item.title}

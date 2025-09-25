@@ -926,21 +926,6 @@ class TreatmentService {
         }
     }
 
-    // ดึงการรักษาที่จ่ายเงินแล้ว
-    static async getPaidTreatments(params = {}) {
-        try {
-            const queryParams = {
-                ...params,
-                payment_status: 'ชำระเงินแล้ว'
-            };
-
-            return await this.getAllTreatments(queryParams);
-        } catch (error) {
-            console.error('Error fetching paid treatments:', error);
-            throw error;
-        }
-    }
-
     // คำนวณยอดรวมจากรายละเอียดการรักษา
     static calculateTreatmentTotal(treatmentData) {
         let total = 0;
@@ -1162,60 +1147,6 @@ class TreatmentService {
         };
     }
 
-    // ✅ ดึงข้อมูลการรักษาที่ชำระเงินแล้ว - ปรับปรุงใหม่
-    static async getPaidTreatments(params = {}) {
-        try {
-            console.log('💰 Fetching paid treatments with params:', params);
-
-            const queryParams = new URLSearchParams();
-
-            // เพิ่มพารามิเตอร์พื้นฐาน
-            if (params.page) queryParams.append('page', params.page);
-            if (params.limit) queryParams.append('limit', params.limit);
-            if (params.date_from) queryParams.append('date_from', params.date_from);
-            if (params.date_to) queryParams.append('date_to', params.date_to);
-
-            // ✅ บังคับให้ดึงเฉพาะที่ชำระเงินแล้ว
-            queryParams.append('payment_status', 'ชำระเงินแล้ว');
-
-            // หรือใช้ status แทน
-            // queryParams.append('status', 'ชำระเงินแล้ว');
-
-            const url = `${API_BASE_URL}/treatments${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
-            console.log('🔗 Calling API URL:', url);
-
-            const response = await fetch(url);
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-            }
-
-            const result = await response.json();
-            console.log('✅ Paid treatments response:', result);
-
-            // ✅ Double-check กรองข้อมูลที่ client-side ด้วย
-            if (result.success && result.data) {
-                const filteredData = result.data.filter(treatment =>
-                    treatment.PAYMENT_STATUS === 'ชำระเงินแล้ว' ||
-                    treatment.STATUS1 === 'ชำระเงินแล้ว'
-                );
-
-                console.log(`💳 Filtered paid treatments: ${filteredData.length} out of ${result.data.length}`);
-
-                return {
-                    ...result,
-                    data: filteredData
-                };
-            }
-
-            return result;
-        } catch (error) {
-            console.error('❌ Error fetching paid treatments:', error);
-            throw error;
-        }
-    }
-
     // ✅ ดึงข้อมูลผู้ป่วยที่ชำระเงินในช่วงวันที่กำหนด พร้อมรายละเอียดครบถ้วน
     static async getPaidTreatmentsWithDetails(params = {}) {
         try {
@@ -1297,6 +1228,7 @@ class TreatmentService {
         }
     }
 
+    // ดึงการรักษาที่ชำระเงินแล้ว - รองรับ filter หมอและผู้ป่วย
     static async getPaidTreatments(params = {}) {
         try {
             console.log('💰 Fetching paid treatments:', params);
@@ -1307,6 +1239,13 @@ class TreatmentService {
             if (params.limit) queryParams.append('limit', params.limit);
             if (params.date_from) queryParams.append('date_from', params.date_from);
             if (params.date_to) queryParams.append('date_to', params.date_to);
+
+            // เพิ่มการส่งพารามิเตอร์ filter หมอและผู้ป่วย
+            if (params.emp_code) queryParams.append('emp_code', params.emp_code);
+            if (params.hnno) queryParams.append('hnno', params.hnno);
+
+            // บังคับให้ดึงเฉพาะที่ชำระเงินแล้ว
+            queryParams.append('payment_status', 'ชำระเงินแล้ว');
 
             const url = `${API_BASE_URL}/treatments${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
             console.log('API URL:', url);
@@ -1320,15 +1259,12 @@ class TreatmentService {
 
             const result = await response.json();
 
-            // กรองเฉพาะที่ชำระเงินแล้ว
+            // Double-check กรองเฉพาะที่ชำระเงินแล้ว
             if (result.success && result.data) {
                 const paidTreatments = result.data.filter(treatment => {
-                    // เช็คทั้งสองฟิลด์
                     const isPaidStatus = treatment.PAYMENT_STATUS === 'ชำระเงินแล้ว';
                     const isPaidStatus1 = treatment.STATUS1 === 'ชำระเงินแล้ว';
-                    const hasAmount = parseFloat(treatment.TOTAL_AMOUNT || 0) > 0 || parseFloat(treatment.NET_AMOUNT || 0) > 0;
-
-                    return isPaidStatus || isPaidStatus1 || hasAmount;
+                    return isPaidStatus || isPaidStatus1;
                 });
 
                 console.log(`Found ${paidTreatments.length} paid treatments out of ${result.data.length} total`);

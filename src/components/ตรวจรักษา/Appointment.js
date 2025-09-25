@@ -384,24 +384,17 @@ const Appointment = ({ currentPatient }) => {
           <Grid container spacing={2}>
             <Grid item xs={12}>
               <Typography sx={{ mb: 1, fontWeight: 500 }}>เหตุผลการนัด *</Typography>
-              <FormControl fullWidth>
-                <Select
-                  value={reason}
-                  onChange={(e) => setReason(e.target.value)}
-                  displayEmpty
-                  sx={{ borderRadius: "10px" }}
-                >
-                  <MenuItem value="">เลือกเหตุผลการนัด</MenuItem>
-                  <MenuItem value="ตรวจสุขภาพทั่วไป">🩺 ตรวจสุขภาพทั่วไป</MenuItem>
-                  <MenuItem value="ตรวจติดตาม">📋 ตรวจติดตาม</MenuItem>
-                  <MenuItem value="รับผลแลป">🧪 รับผลแลป</MenuItem>
-                  <MenuItem value="รับยา">💊 รับยา</MenuItem>
-                  <MenuItem value="ฉีดวัคซีน">💉 ฉีดวัคซีน</MenuItem>
-                  <MenuItem value="ตรวจฟัน">🦷 ตรวจฟัน</MenuItem>
-                  <MenuItem value="ตรวจตา">👁️ ตรวจตา</MenuItem>
-                  <MenuItem value="อื่นๆ">📝 อื่นๆ</MenuItem>
-                </Select>
-              </FormControl>
+              <TextField
+                fullWidth
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder="กรอกเหตุผลการนัด เช่น ตรวจสุขภาพทั่วไป, ตรวจติดตาม, รับผลแลป, รับยา"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: '10px',
+                  },
+                }}
+              />
             </Grid>
 
             <Grid item xs={12}>

@@ -10,6 +10,7 @@ import Medicalstock from './pages/Drugandmedical';
 import Cerwork from "./components/ตรวจรักษา/cerwork";
 import Paymentanddispensingmedicine from "./pages/Paymentanddispensingmedicine";
 import PatientManagement from "./pages/PatientManagementPage";
+import Report from "./pages/Report";
 
 const ProtectedRoute = ({ children }) => {
   const isAuthenticated = useSelector((state) => state.authentication.token);
@@ -79,7 +80,7 @@ const Router = () => {
           <Route path="payment" element={<Paymentanddispensingmedicine />} />
           {/* <Route path="personnel" element={<Personnel />} /> */}
           {/* <Route path="finance" element={<Financialandaccounting />} /> */}
-          {/* <Route path="report" element={<Report />} /> */}
+          <Route path="report" element={<Report />} />
           {/* <Route path="rights" element={<Rightsmanagementsystem />} /> */}
         </Route>
 

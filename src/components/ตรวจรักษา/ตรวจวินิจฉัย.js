@@ -396,8 +396,8 @@ const ตรวจวินิจฉัย = ({ currentPatient, onSaveSuccess })
         await loadDiagnosisData();
 
         if (onSaveSuccess) {
-          // ไปหน้า DX โดยตรง (index 4) เนื่องจากรวม Lab/X-ray แล้ว
-          onSaveSuccess(4);
+          // ไปแท็บถัดไป (tab 2: ประวัติการรักษา)
+          onSaveSuccess();
         }
       } else {
         const errorMsg = response?.message || 'ไม่สามารถบันทึกข้อมูลได้';

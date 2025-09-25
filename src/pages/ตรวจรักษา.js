@@ -44,17 +44,19 @@ import QueueService from "../services/queueService";
 
 // Import components
 import Todaypatientinformation from "../components/ตรวจรักษา/Todaypatientinformation";
-import Medicalhistory from "../components/ตรวจรักษา/Medicalhistory";
 import ตรวจวินิจฉัย from "../components/ตรวจรักษา/ตรวจวินิจฉัย";
-import LabandXray from "../components/ตรวจรักษา/LabandX-ray";
-import DxandTreatment from "../components/ตรวจรักษา/DxandTreatment";
-import Ordermedicine from "../components/ตรวจรักษา/Ordermedicine";
+import Medicalhistory from "../components/ตรวจรักษา/Medicalhistory";
 import Procedure from "../components/ตรวจรักษา/Procedure";
 import Appointment from "../components/ตรวจรักษา/Appointment";
 import Medicalcertificate from "../components/ตรวจรักษา/Medicalcertificate";
-import Doctor from "../components/ตรวจรักษา/Doctor";
-import Cerwork from "../components/ตรวจรักษา/cerwork";
-import Cerdriver from "../components/ตรวจรักษา/Cerdriver";
+import Ordermedicine from "../components/ตรวจรักษา/Ordermedicine";
+
+// Commented out unused components
+// import LabandXray from "../components/ตรวจรักษา/LabandX-ray";
+// import DxandTreatment from "../components/ตรวจรักษา/DxandTreatment";
+// import Doctor from "../components/ตรวจรักษา/Doctor";
+// import Cerwork from "../components/ตรวจรักษา/cerwork";
+// import Cerdriver from "../components/ตรวจรักษา/Cerdriver";
 
 const ตรวจรักษา = () => {
   const navigate = useNavigate();
@@ -286,7 +288,7 @@ const ตรวจรักษา = () => {
   };
 
   const goToNextTab = () => {
-    if (tabIndex < 11) {
+    if (tabIndex < 6) { // Updated to match new tab count
       setTabIndex(tabIndex + 1);
     }
   };
@@ -822,7 +824,7 @@ const ตรวจรักษา = () => {
                   value={tabIndex}
                   onChange={handleTabChange}
                   variant="scrollable"
-                  scrollButtons="auto"
+                  scrollButtons="true" // เปลี่ยนจาก "auto" เป็น "true" หรือ true
                   sx={{
                     backgroundColor: 'transparent',
                     backgroundImage: 'linear-gradient(135deg, #5698E0 0%, #2B69AC 100%)',
@@ -854,7 +856,6 @@ const ตรวจรักษา = () => {
                       '&:hover': {
                         background: 'rgba(255, 255, 255, 0.2)',
                         color: 'white',
-                        transform: 'translateY(-2px)',
                         boxShadow: '0 8px 25px rgba(0, 0, 0, 0.15)'
                       }
                     },
@@ -865,39 +866,34 @@ const ตรวจรักษา = () => {
                       transform: 'translateY(-2px)',
                       boxShadow: '0 8px 25px rgba(255, 255, 255, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.6)',
                       border: '1px solid rgba(255, 255, 255, 0.8)',
-                      '&:hover': {
-                        background: 'linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%) !important',
-                        transform: 'translateY(-3px)'
-                      }
                     },
-                    '& .MuiTabs-indicator': {
-                      display: 'none'
-                    },
+                    // เพิ่มสไตล์สำหรับ scroll buttons
                     '& .MuiTabs-scrollButtons': {
                       color: 'rgba(255, 255, 255, 0.8)',
+                      backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                      borderRadius: '8px',
+                      margin: '0 4px',
+                      border: '1px solid rgba(255, 255, 255, 0.2)',
                       '&:hover': {
                         color: 'white',
-                        backgroundColor: 'rgba(255, 255, 255, 0.1)'
+                        backgroundColor: 'rgba(255, 255, 255, 0.2)'
+                      },
+                      '&.Mui-disabled': {
+                        opacity: 0.3
                       }
                     }
                   }}
                 >
+                  {/* Tab 0: ข้อมูลคนไข้วันนี้ */}
                   <Tab
                     label={
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <span>👥</span>
-                        <span>ข้อมูลคนไข้วันนี้</span>
+                        <span>ข้อมูลวันนี้</span>
                       </Box>
                     }
                   />
-                  <Tab
-                    label={
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <span>📋</span>
-                        <span>ประวัติการรักษา</span>
-                      </Box>
-                    }
-                  />
+                  {/* Tab 1: ตรวจวินิจฉัย */}
                   <Tab
                     label={
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -906,22 +902,16 @@ const ตรวจรักษา = () => {
                       </Box>
                     }
                   />
+                  {/* Tab 2: ประวัติการรักษา */}
                   <Tab
                     label={
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <span>📝</span>
-                        <span>Dx/ สรุป Treatment</span>
+                        <span>📋</span>
+                        <span>ประวัติ</span>
                       </Box>
                     }
                   />
-                  <Tab
-                    label={
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <span>💊</span>
-                        <span>Order ยา</span>
-                      </Box>
-                    }
-                  />
+                  {/* Tab 3: หัตถการ */}
                   <Tab
                     label={
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -930,6 +920,7 @@ const ตรวจรักษา = () => {
                       </Box>
                     }
                   />
+                  {/* Tab 4: นัดหมายคนไข้ */}
                   <Tab
                     label={
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -938,58 +929,59 @@ const ตรวจรักษา = () => {
                       </Box>
                     }
                   />
+                  {/* Tab 5: ใบรับรองแพทย์/การทำงาน/ใบขับขี่ */}
                   <Tab
                     label={
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <span>📄</span>
-                        <span>ใบรับรองแพทย์</span>
+                        <span>ใบรับรอง</span>
                       </Box>
                     }
                   />
+                  {/* Tab 6: Order ยา */}
                   <Tab
                     label={
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <span>🕐</span>
-                        <span>ตารางแพทย์</span>
-                      </Box>
-                    }
-                  />
-                  <Tab
-                    label={
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <span>💼</span>
-                        <span>ใบรับรองการทำงาน</span>
-                      </Box>
-                    }
-                  />
-                  <Tab
-                    label={
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <span>🚗</span>
-                        <span>ใบรับรองขับรถ</span>
+                        <span>💊</span>
+                        <span>Order ยา</span>
                       </Box>
                     }
                   />
                 </Tabs>
 
                 <CardContent>
+                  {/* Tab 0: ข้อมูลวันนี้ */}
                   {tabIndex === 0 && <Todaypatientinformation currentPatient={currentPatient} onSaveSuccess={goToNextTab} />}
-                  {tabIndex === 1 && <Medicalhistory currentPatient={currentPatient} onSaveSuccess={goToNextTab} />}
-                  {tabIndex === 2 && (
+
+                  {/* Tab 1: ตรวจวินิจฉัย */}
+                  {tabIndex === 1 && (
                     <ตรวจวินิจฉัย
                       currentPatient={currentPatient}
                       onSaveSuccess={handleDiagnosisSaveSuccess}
                     />
                   )}
-                  {/* {tabIndex === 3 && <LabandXray currentPatient={currentPatient} onSaveSuccess={goToNextTab} />} */}
-                  {tabIndex === 3 && <DxandTreatment currentPatient={currentPatient} onSaveSuccess={goToNextTab} />}
-                  {tabIndex === 4 && <Ordermedicine currentPatient={currentPatient} />}
-                  {tabIndex === 5 && <Procedure currentPatient={currentPatient} />}
-                  {tabIndex === 6 && <Appointment currentPatient={currentPatient} />}
-                  {tabIndex === 7 && <Medicalcertificate currentPatient={currentPatient} />}
-                  {tabIndex === 8 && <Doctor />}
-                  {tabIndex === 9 && <Cerwork currentPatient={currentPatient} />}
-                  {tabIndex === 10 && <Cerdriver currentPatient={currentPatient} />}
+
+                  {/* Tab 2: ประวัติ */}
+                  {tabIndex === 2 && <Medicalhistory currentPatient={currentPatient} onSaveSuccess={goToNextTab} />}
+
+                  {/* Tab 3: หัตถการ */}
+                  {tabIndex === 3 && <Procedure currentPatient={currentPatient} />}
+
+                  {/* Tab 4: นัดหมายคนไข้ */}
+                  {tabIndex === 4 && <Appointment currentPatient={currentPatient} />}
+
+                  {/* Tab 5: ใบรับรอง (รวมใบรับรองแพทย์/การทำงาน/ใบขับขี่) */}
+                  {tabIndex === 5 && <Medicalcertificate currentPatient={currentPatient} />}
+
+                  {/* Tab 6: Order ยา */}
+                  {tabIndex === 6 && <Ordermedicine currentPatient={currentPatient} />}
+
+                  {/* Commented out unused tabs */}
+                  {/* {tabIndex === X && <LabandXray currentPatient={currentPatient} onSaveSuccess={goToNextTab} />} */}
+                  {/* {tabIndex === X && <DxandTreatment currentPatient={currentPatient} onSaveSuccess={goToNextTab} />} */}
+                  {/* {tabIndex === X && <Doctor />} */}
+                  {/* {tabIndex === X && <Cerwork currentPatient={currentPatient} />} */}
+                  {/* {tabIndex === X && <Cerdriver currentPatient={currentPatient} />} */}
                 </CardContent>
               </Card>
             )}
@@ -1012,6 +1004,48 @@ const ตรวจรักษา = () => {
           </Alert>
         </Snackbar>
       </Container>
+
+      {/* Floating Complete Button - ปุ่มลอยเสร็จสิ้น */}
+      {currentPatient && (
+        <Box
+          sx={{
+            position: 'fixed',
+            bottom: 30,
+            right: 30,
+            zIndex: 1000
+          }}
+        >
+          <Button
+            variant="contained"
+            size="large"
+            onClick={() => handleStatusChangeRequest('เสร็จแล้ว')}
+            sx={{
+              minWidth: 180,
+              height: 60,
+              fontSize: '16px',
+              fontWeight: 700,
+              borderRadius: '30px',
+              background: 'linear-gradient(135deg, #4caf50 0%, #45a049 100%)',
+              color: 'white',
+              boxShadow: '0 8px 25px rgba(76, 175, 80, 0.4)',
+              border: '2px solid rgba(255, 255, 255, 0.3)',
+              backdropFilter: 'blur(10px)',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #45a049 0%, #388e3c 100%)',
+                boxShadow: '0 12px 35px rgba(76, 175, 80, 0.5)',
+                transform: 'translateY(-2px) scale(1.05)',
+                border: '2px solid rgba(255, 255, 255, 0.5)'
+              },
+              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+              '&:active': {
+                transform: 'translateY(0px) scale(0.98)'
+              }
+            }}
+          >
+            ✅ เสร็จสิ้นการรักษา
+          </Button>
+        </Box>
+      )}
 
       {/* Confirmation Modal สำหรับเสร็จสิ้นการรักษา */}
       <Dialog

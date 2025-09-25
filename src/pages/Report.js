@@ -2,6 +2,7 @@ import React from "react";
 import { Container, Tabs, Tab, Card, CardContent, Typography } from "@mui/material";
 import Income from '../components/Report/Income';
 import Expenses from "../components/Report/Expenses";
+import DailyReport from "../components/Report/DailyReport";
 
 const Report = () => {
   const [tabIndex, setTabIndex] = React.useState(0);
@@ -12,15 +13,15 @@ const Report = () => {
 
   return (
     <Container maxWidth={false} sx={{ mt: 4, maxWidth: "1400px" }}>
-       <Typography sx={{
-              fontWeight: '600',
-              fontSize: '24px',
-              fontFamily: 'Instrument Sans',
-              letterSpacing: '1.5px', // เพิ่มระยะห่างระหว่างตัวอักษร
-              lineHeight: '2',     // เพิ่มความสูงของบรรทัด
-              textShadow: '1px 1px 2px rgba(0, 0, 0, 0.1)' // เพิ่มเงาให้ตัวหนังสือ
-              }}>
-        รายงานสำหรับผู้บริหาร
+      <Typography sx={{
+        fontWeight: '600',
+        fontSize: '24px',
+        fontFamily: 'Instrument Sans',
+        letterSpacing: '1.5px', // เพิ่มระยะห่างระหว่างตัวอักษร
+        lineHeight: '2',     // เพิ่มความสูงของบรรทัด
+        textShadow: '1px 1px 2px rgba(0, 0, 0, 0.1)' // เพิ่มเงาให้ตัวหนังสือ
+      }}>
+        รายงาน
       </Typography>
       <Tabs
         value={tabIndex}
@@ -43,20 +44,21 @@ const Report = () => {
           "& .MuiTabs-indicator": {
             display: "none",
           },
-          maxWidth: "300px" ,
-          
+          maxWidth: "300px",
+
         }}
       >
-        <Tab label="สรุปรายได้" /> 
-        <Tab label="สรุปรายจ่าย"  />
+        <Tab label="รายงานประจำวัน" />
+        <Tab label="สรุปรายได้" />
+        <Tab label="สรุปรายจ่าย" />
         {/* sx={{  fontSize: '16px' }} */}
       </Tabs>
 
       <Card>
         <CardContent>
-          {tabIndex === 0 && <Income />}
-          {tabIndex === 1 && <Expenses />}
-          {/* {tabIndex === 2 && <HealthHistoryTab />} */}
+          {tabIndex === 0 && <DailyReport />}
+          {tabIndex === 1 && <Income />}
+          {tabIndex === 2 && <Expenses />}
         </CardContent>
       </Card>
     </Container>
