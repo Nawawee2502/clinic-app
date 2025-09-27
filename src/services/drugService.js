@@ -1,6 +1,5 @@
 // services/drugService.js
 
-// ✅ แก้ไข: ใช้ port 3001 ให้ตรงกับ patientService.js
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
 
 class DrugService {
@@ -169,37 +168,6 @@ class DrugService {
         }
     }
 
-    // ✅ เพิ่ม: ฟังก์ชันสำหรับดึงข้อมูลยาจำลองเมื่อ API ไม่พร้อม
-    static getMockDrugs() {
-        return [
-            { DRUG_CODE: 'MED001', GENERIC_NAME: 'Paracetamol 500mg', TRADE_NAME: 'Tylenol', DEFAULT_UNIT: 'TAB', UNIT_CODE: 'TAB' },
-            { DRUG_CODE: 'MED002', GENERIC_NAME: 'Amoxicillin 250mg', TRADE_NAME: 'Amoxil', DEFAULT_UNIT: 'CAP', UNIT_CODE: 'CAP' },
-            { DRUG_CODE: 'MED003', GENERIC_NAME: 'Omeprazole 20mg', TRADE_NAME: 'Losec', DEFAULT_UNIT: 'CAP', UNIT_CODE: 'CAP' },
-            { DRUG_CODE: 'MED004', GENERIC_NAME: 'Salbutamol 100mcg', TRADE_NAME: 'Ventolin', DEFAULT_UNIT: 'SPRAY', UNIT_CODE: 'SPRAY' },
-            { DRUG_CODE: 'MED005', GENERIC_NAME: 'Metformin 500mg', TRADE_NAME: 'Glucophage', DEFAULT_UNIT: 'TAB', UNIT_CODE: 'TAB' },
-            { DRUG_CODE: 'MED006', GENERIC_NAME: 'Eye Drop Chloramphenicol', TRADE_NAME: 'Chlorsig', DEFAULT_UNIT: 'BOT', UNIT_CODE: 'BOT' },
-            { DRUG_CODE: 'MED007', GENERIC_NAME: 'Betamethasone Cream', TRADE_NAME: 'Betnovate', DEFAULT_UNIT: 'TUBE', UNIT_CODE: 'TUBE' },
-            { DRUG_CODE: 'MED008', GENERIC_NAME: 'Ibuprofen 400mg', TRADE_NAME: 'Brufen', DEFAULT_UNIT: 'TAB', UNIT_CODE: 'TAB' },
-            { DRUG_CODE: 'MED009', GENERIC_NAME: 'Cetirizine 10mg', TRADE_NAME: 'Zyrtec', DEFAULT_UNIT: 'TAB', UNIT_CODE: 'TAB' },
-            { DRUG_CODE: 'MED010', GENERIC_NAME: 'Loratadine 10mg', TRADE_NAME: 'Claritin', DEFAULT_UNIT: 'TAB', UNIT_CODE: 'TAB' },
-            { DRUG_CODE: 'MED011', GENERIC_NAME: 'Aspirin 100mg', TRADE_NAME: 'Cardiprin', DEFAULT_UNIT: 'TAB', UNIT_CODE: 'TAB' },
-            { DRUG_CODE: 'MED012', GENERIC_NAME: 'Simvastatin 20mg', TRADE_NAME: 'Zocor', DEFAULT_UNIT: 'TAB', UNIT_CODE: 'TAB' },
-            { DRUG_CODE: 'MED013', GENERIC_NAME: 'Amlodipine 5mg', TRADE_NAME: 'Norvasc', DEFAULT_UNIT: 'TAB', UNIT_CODE: 'TAB' },
-            { DRUG_CODE: 'MED014', GENERIC_NAME: 'Enalapril 10mg', TRADE_NAME: 'Renitec', DEFAULT_UNIT: 'TAB', UNIT_CODE: 'TAB' },
-            { DRUG_CODE: 'MED015', GENERIC_NAME: 'Furosemide 40mg', TRADE_NAME: 'Lasix', DEFAULT_UNIT: 'TAB', UNIT_CODE: 'TAB' },
-            { DRUG_CODE: 'MED016', GENERIC_NAME: 'Prednisolone 5mg', TRADE_NAME: 'Solone', DEFAULT_UNIT: 'TAB', UNIT_CODE: 'TAB' },
-            { DRUG_CODE: 'MED017', GENERIC_NAME: 'Insulin Lispro', TRADE_NAME: 'Humalog', DEFAULT_UNIT: 'VIAL', UNIT_CODE: 'VIAL' },
-            { DRUG_CODE: 'MED018', GENERIC_NAME: 'Diazepam 5mg', TRADE_NAME: 'Valium', DEFAULT_UNIT: 'TAB', UNIT_CODE: 'TAB' },
-            { DRUG_CODE: 'MED019', GENERIC_NAME: 'Ranitidine 150mg', TRADE_NAME: 'Zantac', DEFAULT_UNIT: 'TAB', UNIT_CODE: 'TAB' },
-            { DRUG_CODE: 'MED020', GENERIC_NAME: 'Clotrimazole Cream', TRADE_NAME: 'Canesten', DEFAULT_UNIT: 'TUBE', UNIT_CODE: 'TUBE' },
-            { DRUG_CODE: 'MED021', GENERIC_NAME: 'Dexamethasone Eye Drop', TRADE_NAME: 'Maxidex', DEFAULT_UNIT: 'BOT', UNIT_CODE: 'BOT' },
-            { DRUG_CODE: 'MED022', GENERIC_NAME: 'Chlorpheniramine 4mg', TRADE_NAME: 'Piriton', DEFAULT_UNIT: 'TAB', UNIT_CODE: 'TAB' },
-            { DRUG_CODE: 'MED023', GENERIC_NAME: 'Domperidone 10mg', TRADE_NAME: 'Motilium', DEFAULT_UNIT: 'TAB', UNIT_CODE: 'TAB' },
-            { DRUG_CODE: 'MED024', GENERIC_NAME: 'Loperamide 2mg', TRADE_NAME: 'Imodium', DEFAULT_UNIT: 'CAP', UNIT_CODE: 'CAP' },
-            { DRUG_CODE: 'MED025', GENERIC_NAME: 'Paracetamol Syrup', TRADE_NAME: 'Tylenol Syrup', DEFAULT_UNIT: 'BOT', UNIT_CODE: 'BOT' }
-        ];
-    }
-
     // ตรวจสอบความถูกต้องของข้อมูล
     static validateDrugData(data) {
         const errors = [];
@@ -287,8 +255,8 @@ class DrugService {
         };
     }
 
-    // สร้างรหัสยาอัตโนมัติ
-    static generateDrugCode(prefix = 'DRG') {
+    // สร้างรหัสยาอัตโนมัติ (ไม่ใช้แล้ว - ย้ายไป component)
+    static generateDrugCode(prefix = 'D') {
         const now = new Date();
         const year = now.getFullYear().toString().slice(-2);
         const month = (now.getMonth() + 1).toString().padStart(2, '0');
@@ -337,7 +305,6 @@ class DrugService {
 
     // ตรวจสอบ Drug Interaction (ตัวอย่าง)
     static checkDrugInteraction(drugCodes) {
-        // ตัวอย่างการตรวจสอบปฏิกิริยาระหว่างยา
         const interactions = {
             'ASPIRIN-WARFARIN': 'เสี่ยงต่อการเลือดออก',
             'DIGOXIN-FUROSEMIDE': 'เสี่ยงต่อพิษจากดิก็อกซิน'
@@ -356,7 +323,6 @@ class DrugService {
                 }
             }
         }
-
         return warnings;
     }
 
@@ -388,34 +354,7 @@ class DrugService {
             return await response.json();
         } catch (error) {
             console.error('Error fetching stock report:', error);
-
-            // ✅ Fallback เป็น mock data ถ้า API ยังไม่พร้อม
-            const mockDrugs = this.getMockDrugs();
-            const stockData = mockDrugs.map((drug, index) => {
-                const stockQty = Math.floor(Math.random() * 200) + 5;
-                const minStock = Math.floor(Math.random() * 30) + 10;
-                const unitPrice = (Math.random() * 150 + 20).toFixed(2);
-
-                return {
-                    ...drug,
-                    STOCK_QTY: stockQty,
-                    MIN_STOCK: minStock,
-                    UNIT_PRICE: parseFloat(unitPrice),
-                    TOTAL_VALUE: stockQty * parseFloat(unitPrice),
-                    LAST_UPDATED: new Date().toISOString(),
-                    STOCK_STATUS: stockQty === 0 ? 'out' : stockQty <= minStock ? 'low' : 'normal',
-                    SUPPLIER: `ผู้จำหน่าย ${String.fromCharCode(65 + (index % 5))}`,
-                    LOCATION: `ชั้น ${Math.floor(index / 5) + 1} - ช่อง ${(index % 10) + 1}`,
-                    EXPIRY_DATE: new Date(Date.now() + Math.floor(Math.random() * 365 * 2) * 24 * 60 * 60 * 1000).toISOString(),
-                    LOT_NUMBER: `LOT${String(index + 1).padStart(4, '0')}`
-                };
-            });
-
-            return {
-                success: true,
-                data: stockData,
-                message: 'ใช้ข้อมูลจำลอง - API ยังไม่พร้อม'
-            };
+            throw error;
         }
     }
 

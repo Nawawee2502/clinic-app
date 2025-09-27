@@ -35,6 +35,8 @@ import DrugsTable from "../components/Paymentanddispensingmedicine/DrugsTable";
 import LabProceduresTable from "../components/Paymentanddispensingmedicine/LabProceduresTable";
 import ReceiptPrint from "../components/Paymentanddispensingmedicine/ReceiptPrint";
 import DrugLabelsPrint from "../components/Paymentanddispensingmedicine/DrugLabelsPrint";
+import CloseCaseButton from "../components/Paymentanddispensingmedicine/CloseCaseButton";
+
 
 const Paymentanddispensingmedicine = () => {
   const navigate = useNavigate();
@@ -115,17 +117,17 @@ const Paymentanddispensingmedicine = () => {
         changeAmount
       });
 
-      // Step 1: อัปเดต treatment record พร้อมข้อมูลการชำระเงิน
+      // อัปเดตเฉพาะ PAYMENT_STATUS และข้อมูลการชำระเงิน
       try {
         const treatmentUpdateData = {
           VNO: currentPatient.VNO,
-          STATUS1: 'ชำระเงินแล้ว',
+          // ไม่เปลี่ยน STATUS1 ให้ยังคงเป็น 'เสร็จแล้ว'
 
-          // ข้อมูลการชำระเงิน - ใช้ field ที่มีอยู่ในตาราง TREATMENT1
+          // ข้อมูลการชำระเงิน
           TOTAL_AMOUNT: totalAmount,
           DISCOUNT_AMOUNT: discount,
           NET_AMOUNT: netAmount,
-          PAYMENT_STATUS: 'ชำระเงินแล้ว',
+          PAYMENT_STATUS: 'ชำระเงินแล้ว', // เปลี่ยนเฉพาะตัวนี้
           PAYMENT_DATE: new Date().toISOString().split('T')[0],
           PAYMENT_TIME: new Date().toLocaleTimeString('th-TH', { hour12: false }),
           PAYMENT_METHOD: paymentData.paymentMethod,
@@ -134,9 +136,8 @@ const Paymentanddispensingmedicine = () => {
           CASHIER: 'PAYMENT_SYSTEM'
         };
 
-        console.log('🔄 Updating treatment with payment data:', treatmentUpdateData);
+        console.log('🔄 Updating treatment with payment data only:', treatmentUpdateData);
 
-        // เรียก API อัปเดต treatment พร้อมข้อมูลการชำระเงิน
         const treatmentResponse = await TreatmentService.processPayment(
           currentPatient.VNO,
           editablePrices,
@@ -144,40 +145,167 @@ const Paymentanddispensingmedicine = () => {
         );
 
         if (!treatmentResponse.success) {
-          throw new Error('ไม่สามารถอัปเดต treatment record ได้: ' + treatmentResponse.message);
+          throw new Error('ไม่สามารถอัปเดต payment status ได้: ' + treatmentResponse.message);
         }
 
-        console.log('✅ Treatment record updated successfully with payment data');
+        console.log('✅ Payment status updated successfully');
 
       } catch (treatmentError) {
-        console.error('❌ Error updating treatment record:', treatmentError);
+        console.error('❌ Error updating payment status:', treatmentError);
         throw treatmentError;
       }
 
-      // Step 2: อัปเดตสถานะคิว (ถ้ามี QueueService)
-      try {
-        if (typeof QueueService !== 'undefined' && currentPatient.queueId) {
-          const queueUpdateResponse = await QueueService.updateQueueStatus(
-            currentPatient.queueId,
-            'ชำระเงินแล้ว'
-          );
-
-          if (!queueUpdateResponse.success) {
-            console.warn('⚠️ Failed to update queue status:', queueUpdateResponse.message);
-          } else {
-            console.log('✅ Queue status updated successfully');
-          }
+      // อัปเดต local state - เปลี่ยนสถานะการชำระเงินในตัวแปร patients
+      const updatedPatients = patients.map((patient, index) => {
+        if (index === selectedPatientIndex) {
+          return {
+            ...patient,
+            PAYMENT_STATUS: 'ชำระเงินแล้ว',
+            paymentStatus: 'ชำระแล้ว',
+            totalAmount: netAmount,
+            paymentData: {
+              totalAmount,
+              discount,
+              netAmount,
+              receivedAmount,
+              changeAmount,
+              paymentMethod: paymentData.paymentMethod,
+              paymentDate: new Date().toISOString().split('T')[0],
+              paymentTime: new Date().toLocaleTimeString('th-TH', { hour12: false })
+            }
+          };
         }
-      } catch (queueError) {
-        console.error('❌ Error updating queue status:', queueError);
-        // ไม่ throw error เพราะ treatment record สำคัญกว่า
+        return patient;
+      });
+
+      setPatients(updatedPatients);
+
+      // Success message
+      setSnackbar({
+        open: true,
+        message: `✅ บันทึกการชำระเงินสำเร็จ ยอดชำระ: ฿${netAmount.toFixed(2)} - ${currentPatient.PRENAME} ${currentPatient.NAME1} ${currentPatient.SURNAME}`,
+        severity: 'success'
+      });
+
+      // รีเซ็ตข้อมูลการชำระเงิน
+      setPaymentData({
+        paymentMethod: 'เงินสด',
+        receivedAmount: '',
+        discount: 0,
+        remarks: ''
+      });
+
+      setTabIndex(1); // ไปหน้าใบเสร็จ
+
+    } catch (error) {
+      console.error('❌ Error processing payment:', error);
+      setSnackbar({
+        open: true,
+        message: 'เกิดข้อผิดพลาดในการบันทึกการชำระเงิน: ' + error.message,
+        severity: 'error'
+      });
+    }
+  };
+
+  const loadCompletedPatients = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const response = await PatientService.getTodayPatientsFromQueue({
+        refresh: true,
+        timestamp: Date.now()
+      });
+
+      if (response.success) {
+        console.log('Raw queue data:', response.data.length, 'patients');
+
+        const patientsWithTreatmentStatus = await Promise.all(
+          response.data.map(async (patient) => {
+            try {
+              if (patient.VNO) {
+                const treatmentResponse = await TreatmentService.getTreatmentByVNO(patient.VNO);
+                if (treatmentResponse.success && treatmentResponse.data.treatment) {
+                  patient.STATUS1 = treatmentResponse.data.treatment.STATUS1;
+                  patient.PAYMENT_STATUS = treatmentResponse.data.treatment.PAYMENT_STATUS; // เพิ่มบรรทัดนี้
+                }
+              }
+              return patient;
+            } catch (error) {
+              console.warn(`Failed to get treatment status for VNO ${patient.VNO}:`, error);
+              return patient;
+            }
+          })
+        );
+
+        // แก้ไขเงื่อนไขการกรอง
+        const filteredPatients = patientsWithTreatmentStatus.filter(patient => {
+          const queueStatus = patient.queueStatus || patient.QUEUE_STATUS || patient.STATUS || 'รอตรวจ';
+          const treatmentStatus = patient.STATUS1 || 'กำลังตรวจ';
+          const paymentStatus = patient.PAYMENT_STATUS || 'รอชำระ'; // เพิ่มบรรทัดนี้
+
+          console.log(`Patient ${patient.HNCODE}: queueStatus="${queueStatus}", treatmentStatus="${treatmentStatus}", paymentStatus="${paymentStatus}"`);
+
+          return queueStatus === 'เสร็จแล้ว' &&
+            treatmentStatus === 'เสร็จแล้ว' &&
+            paymentStatus !== 'ชำระเงินแล้ว'; // เช็ค PAYMENT_STATUS แทน
+        });
+
+        console.log(`Found ${filteredPatients.length} patients waiting for payment`);
+
+        setPatients(filteredPatients);
+
+
+      } else {
+        setError('ไม่สามารถโหลดข้อมูลผู้ป่วยได้: ' + response.message);
+      }
+    } catch (err) {
+      console.error('Error loading patients:', err);
+      setError('เกิดข้อผิดพลาดในการโหลดข้อมูล: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCloseCase = async () => {
+    try {
+      const currentPatient = patients[selectedPatientIndex];
+
+      if (!currentPatient) {
+        setSnackbar({
+          open: true,
+          message: 'ไม่พบข้อมูลผู้ป่วย',
+          severity: 'error'
+        });
+        return;
       }
 
-      // Step 3: ลบผู้ป่วยออกจาก state (UI)
+      // อัปเดต STATUS1 เป็น 'ปิดแล้ว' ใช้ updateTreatment แทน updateTreatmentStatus
+      const treatmentUpdateData = {
+        STATUS1: 'เสร็จแล้ว',
+        // เพิ่มข้อมูลเวลาปิดการรักษา (optional)
+        CLOSE_DATE: new Date().toISOString().split('T')[0],
+        CLOSE_TIME: new Date().toLocaleTimeString('th-TH', { hour12: false }),
+        CLOSED_BY: 'PAYMENT_SYSTEM'
+      };
+
+      console.log('🔒 Closing case for VNO:', currentPatient.VNO);
+
+      // ใช้ updateTreatment แทน updateTreatmentStatus
+      const treatmentResponse = await TreatmentService.updateTreatment(
+        currentPatient.VNO,
+        treatmentUpdateData
+      );
+
+      if (!treatmentResponse.success) {
+        throw new Error('ไม่สามารถปิดการรักษาได้: ' + treatmentResponse.message);
+      }
+
+      // ลบผู้ป่วยออกจาก state
       const updatedPatients = patients.filter((_, index) => index !== selectedPatientIndex);
       setPatients(updatedPatients);
 
-      // Step 4: อัพเดต selectedPatientIndex
+      // อัพเดต selectedPatientIndex
       if (updatedPatients.length === 0) {
         setSelectedPatientIndex(0);
         setTreatmentData(null);
@@ -192,99 +320,24 @@ const Paymentanddispensingmedicine = () => {
         }
       }
 
-      // Success message
       setSnackbar({
         open: true,
-        message: `✅ บันทึกการชำระเงินสำเร็จ ยอดชำระ: ฿${netAmount.toFixed(2)} - ${currentPatient.PRENAME} ${currentPatient.NAME1} ${currentPatient.SURNAME}`,
+        message: `✅ ปิดการรักษาเรียบร้อย - ${currentPatient.PRENAME} ${currentPatient.NAME1} ${currentPatient.SURNAME}`,
         severity: 'success'
       });
 
-      // Step 5: รีเซ็ตข้อมูลการชำระเงิน
-      setPaymentData({
-        paymentMethod: 'เงินสด',
-        receivedAmount: '',
-        discount: 0,
-        remarks: ''
-      });
-
-      setTabIndex(1); // ไปหน้าใบเสร็จ
-
-      // Step 6: รีเฟรชข้อมูลหลังจาก 1 วินาที
+      // รีเฟรชข้อมูล
       setTimeout(() => {
         loadCompletedPatients();
       }, 1000);
 
     } catch (error) {
-      console.error('❌ Error processing payment:', error);
+      console.error('❌ Error closing case:', error);
       setSnackbar({
         open: true,
-        message: 'เกิดข้อผิดพลาดในการบันทึกการชำระเงิน: ' + error.message,
+        message: 'เกิดข้อผิดพลาดในการปิดการรักษา: ' + error.message,
         severity: 'error'
       });
-    }
-  };
-
-  // แก้ไขฟังก์ชันโหลดข้อมูล - กรองตาม STATUS1
-  const loadCompletedPatients = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      const response = await PatientService.getTodayPatientsFromQueue({
-        refresh: true,
-        timestamp: Date.now()
-      });
-
-      if (response.success) {
-        console.log('Raw queue data:', response.data.length, 'patients');
-
-        // เพิ่มการดึงข้อมูล treatment status สำหรับแต่ละผู้ป่วย
-        const patientsWithTreatmentStatus = await Promise.all(
-          response.data.map(async (patient) => {
-            try {
-              // ดึง treatment status จาก VNO
-              if (patient.VNO) {
-                const treatmentResponse = await TreatmentService.getTreatmentByVNO(patient.VNO);
-                if (treatmentResponse.success && treatmentResponse.data.treatment) {
-                  patient.STATUS1 = treatmentResponse.data.treatment.STATUS1;
-                }
-              }
-              return patient;
-            } catch (error) {
-              console.warn(`Failed to get treatment status for VNO ${patient.VNO}:`, error);
-              return patient;
-            }
-          })
-        );
-
-        // กรองเฉพาะผู้ป่วยที่รอชำระเงิน
-        const filteredPatients = patientsWithTreatmentStatus.filter(patient => {
-          const queueStatus = patient.queueStatus || patient.QUEUE_STATUS || patient.STATUS || 'รอตรวจ';
-          const treatmentStatus = patient.STATUS1 || 'กำลังตรวจ';
-
-          console.log(`Patient ${patient.HNCODE}: queueStatus="${queueStatus}", treatmentStatus="${treatmentStatus}"`);
-
-          return queueStatus === 'เสร็จแล้ว' &&
-            treatmentStatus !== 'ชำระเงินแล้ว' &&
-            treatmentStatus !== 'ปิดแล้ว';
-        });
-
-        console.log(`Found ${filteredPatients.length} patients waiting for payment`);
-
-        setPatients(filteredPatients);
-
-        if (filteredPatients.length === 0) {
-          setError('ไม่มีผู้ป่วยที่รอการชำระเงิน');
-        }
-
-      } else {
-        setError('ไม่สามารถโหลดข้อมูลผู้ป่วยได้: ' + response.message);
-      }
-    } catch (err) {
-      console.error('Error loading patients:', err);
-      setError('เกิดข้อผิดพลาดในการโหลดข้อมูล: ' + err.message);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -578,22 +631,214 @@ const Paymentanddispensingmedicine = () => {
         {/* Main Content Area */}
         <Grid item xs={12} md={9.5}>
           {patients.length === 0 ? (
-            <Card>
-              <CardContent sx={{ textAlign: 'center', py: 8 }}>
-                <Typography variant="h5" color="text.secondary" sx={{ mb: 2 }}>
-                  ไม่มีผู้ป่วยรอการชำระเงิน
+            <Card sx={{
+              borderRadius: '24px',
+              background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
+              border: '1px solid rgba(148, 163, 184, 0.2)',
+              boxShadow: '0 10px 40px rgba(0, 0, 0, 0.08)',
+              overflow: 'hidden',
+              position: 'relative'
+            }}>
+              {/* Background decoration */}
+              <Box sx={{
+                position: 'absolute',
+                top: -50,
+                right: -50,
+                width: 200,
+                height: 200,
+                borderRadius: '50%',
+                background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(59, 130, 246, 0.1) 100%)',
+                filter: 'blur(20px)'
+              }} />
+
+              <CardContent sx={{
+                textAlign: 'center',
+                py: 8,
+                px: 6,
+                position: 'relative',
+                zIndex: 1
+              }}>
+                {/* Icon */}
+                <Box sx={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: 120,
+                  height: 120,
+                  borderRadius: '50%',
+                  background: 'linear-gradient(135deg, #22c55e 0%, #3b82f6 100%)',
+                  mb: 4,
+                  boxShadow: '0 20px 40px rgba(34, 197, 94, 0.3)',
+                  position: 'relative'
+                }}>
+                  <Box sx={{
+                    fontSize: 60,
+                    color: 'white',
+                    filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))'
+                  }}>
+                    ✓
+                  </Box>
+                </Box>
+
+                {/* Main Message */}
+                <Typography variant="h4" sx={{
+                  fontWeight: 700,
+                  color: '#1e293b',
+                  mb: 2,
+                  background: 'linear-gradient(135deg, #1e293b 0%, #475569 100%)',
+                  backgroundClip: 'text',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent'
+                }}>
+                  ทุกอย่างเรียบร้อย
                 </Typography>
-                <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-                  ผู้ป่วยทุกรายได้ชำระเงินเรียบร้อยแล้ว หรือยังไม่มีผู้ป่วยที่รักษาเสร็จ
+
+                <Typography variant="h6" sx={{
+                  color: '#64748b',
+                  mb: 4,
+                  fontWeight: 500,
+                  lineHeight: 1.6
+                }}>
+                  ไม่มีผู้ป่วยรอการชำระเงินในขณะนี้
                 </Typography>
-                <Button
-                  variant="contained"
-                  size="large"
-                  onClick={() => navigate('/clinic/ตรวจรักษา')}
-                  sx={{ px: 4, py: 1.5 }}
-                >
-                  ไปหน้าตรวจรักษา
-                </Button>
+
+                {/* Status Cards */}
+                {/* Status Cards */}
+                <Grid container spacing={3} sx={{ mb: 5 }}>
+                  <Grid item xs={12} md={4}>
+                    <Box sx={{
+                      p: 3,
+                      borderRadius: '16px',
+                      background: 'rgba(34, 197, 94, 0.1)',
+                      border: '1px solid rgba(34, 197, 94, 0.2)',
+                      textAlign: 'center'
+                    }}>
+                      <Typography sx={{ color: '#22c55e', mb: 1, fontSize: 32 }}>✅</Typography>
+                      <Typography variant="body1" fontWeight={600} color="#166534">
+                        ชำระเงินครบทุกราย
+                      </Typography>
+                      <Typography variant="body2" color="#166534" sx={{ opacity: 0.8 }}>
+                        ผู้ป่วยทุกรายได้ชำระเงินเรียบร้อย
+                      </Typography>
+                    </Box>
+                  </Grid>
+
+                  <Grid item xs={12} md={4}>
+                    <Box sx={{
+                      p: 3,
+                      borderRadius: '16px',
+                      background: 'rgba(59, 130, 246, 0.1)',
+                      border: '1px solid rgba(59, 130, 246, 0.2)',
+                      textAlign: 'center'
+                    }}>
+                      <Typography sx={{ color: '#3b82f6', mb: 1, fontSize: 32 }}>📊</Typography>
+                      <Typography variant="body1" fontWeight={600} color="#1e40af">
+                        ระบบพร้อมใช้งาน
+                      </Typography>
+                      <Typography variant="body2" color="#1e40af" sx={{ opacity: 0.8 }}>
+                        พร้อมรับผู้ป่วยรายถัดไป
+                      </Typography>
+                    </Box>
+                  </Grid>
+
+                  <Grid item xs={12} md={4}>
+                    <Box sx={{
+                      p: 3,
+                      borderRadius: '16px',
+                      background: 'rgba(251, 191, 36, 0.1)',
+                      border: '1px solid rgba(251, 191, 36, 0.2)',
+                      textAlign: 'center'
+                    }}>
+                      <Typography sx={{ color: '#f59e0b', mb: 1, fontSize: 32 }}>⏰</Typography>
+                      <Typography variant="body1" fontWeight={600} color="#92400e">
+                        เวลาปัจจุบัน
+                      </Typography>
+                      <Typography variant="body2" color="#92400e" sx={{ opacity: 0.8 }}>
+                        {new Date().toLocaleTimeString('th-TH')}
+                      </Typography>
+                    </Box>
+                  </Grid>
+                </Grid>
+
+                {/* Action */}
+                <Typography variant="body1" sx={{
+                  color: '#64748b',
+                  mb: 3,
+                  fontWeight: 500
+                }}>
+                  ต้องการดำเนินการอื่น?
+                </Typography>
+
+                <Box sx={{
+                  display: 'flex',
+                  flexDirection: { xs: 'column', sm: 'row' },
+                  gap: 2,
+                  justifyContent: 'center'
+                }}>
+                  <Button
+                    variant="contained"
+                    size="large"
+                    onClick={() => navigate('/clinic/ตรวจรักษา')}
+                    sx={{
+                      px: 4,
+                      py: 1.5,
+                      borderRadius: '12px',
+                      background: 'linear-gradient(135deg, #3b82f6 0%, #1e40af 100%)',
+                      boxShadow: '0 8px 25px rgba(59, 130, 246, 0.3)',
+                      fontWeight: 600,
+                      fontSize: '1rem',
+                      textTransform: 'none',
+                      '&:hover': {
+                        background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+                        transform: 'translateY(-2px)',
+                        boxShadow: '0 12px 30px rgba(59, 130, 246, 0.4)'
+                      },
+                      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                    }}
+                  >
+                    ไปหน้าตรวจรักษา
+                  </Button>
+
+                  <Button
+                    variant="outlined"
+                    size="large"
+                    onClick={() => window.location.reload()}
+                    sx={{
+                      px: 4,
+                      py: 1.5,
+                      borderRadius: '12px',
+                      borderColor: '#e2e8f0',
+                      color: '#64748b',
+                      fontWeight: 600,
+                      fontSize: '1rem',
+                      textTransform: 'none',
+                      '&:hover': {
+                        borderColor: '#cbd5e1',
+                        backgroundColor: 'rgba(148, 163, 184, 0.05)',
+                        transform: 'translateY(-1px)'
+                      },
+                      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                    }}
+                  >
+                    รีเฟรชหน้า
+                  </Button>
+                </Box>
+
+                {/* Footer tip */}
+                <Box sx={{
+                  mt: 5,
+                  p: 3,
+                  borderRadius: '12px',
+                  background: 'rgba(148, 163, 184, 0.05)',
+                  border: '1px solid rgba(148, 163, 184, 0.1)'
+                }}>
+                  <Typography variant="body2" sx={{
+                    color: '#64748b',
+                    fontStyle: 'italic'
+                  }}>
+                    เคล็ดลับ: หน้านี้จะอัปเดตอัตโนมัติเมื่อมีผู้ป่วยรอการชำระเงิน
+                  </Typography>
+                </Box>
               </CardContent>
             </Card>
           ) : (
@@ -658,7 +903,6 @@ const Paymentanddispensingmedicine = () => {
 
               <CardContent>
                 {/* Tab 0: Payment */}
-                {/* Tab 0: Payment - Layout ปรับปรุงใหม่ */}
                 {tabIndex === 0 && (
                   <Box>
                     {/* Patient Info Header */}
@@ -713,13 +957,13 @@ const Paymentanddispensingmedicine = () => {
                                 paymentData={paymentData}
                                 onPaymentDataChange={setPaymentData}
                                 onPayment={handlePayment}
+                                onCloseCase={handleCloseCase} // เพิ่ม prop ใหม่
+                                patient={currentPatient} // เพิ่ม prop ใหม่
                                 loading={false}
                               />
                             </Box>
                           </Grid>
                         </Grid>
-
-
                       </Box>
                     ) : (
                       <Alert
@@ -749,94 +993,108 @@ const Paymentanddispensingmedicine = () => {
                     </Typography>
 
                     {currentPatient && treatmentData ? (
-                      <Paper sx={{ p: 4, maxWidth: 600, mx: 'auto' }} id="receipt-print">
-                        {/* Receipt Header */}
-                        <Box sx={{ textAlign: 'center', mb: 3, borderBottom: '2px solid #1976d2', pb: 2 }}>
-                          <Typography variant="h5" fontWeight="bold">สัมพันธ์คลินิค</Typography>
-                          <Typography variant="body2">280 หมู่ 4 ถนน เชียงใหม่-ฮอด ต.บ้านหลวง อ. จอมทอง จ. เชียงใหม่ 50160</Typography>
-                          <Typography variant="body2">Tel: 053-826-524</Typography>
-                        </Box>
-
-                        {/* Patient Info */}
-                        <Grid container spacing={2} sx={{ mb: 3 }}>
-                          <Grid item xs={6}>
-                            <Typography variant="body2"><strong>VN:</strong> {currentPatient.VNO}</Typography>
-                            <Typography variant="body2"><strong>HN:</strong> {currentPatient.HNCODE}</Typography>
-                          </Grid>
-                          <Grid item xs={6}>
-                            <Typography variant="body2"><strong>วันที่:</strong> {new Date().toLocaleDateString('th-TH')}</Typography>
-                            <Typography variant="body2"><strong>เวลา:</strong> {new Date().toLocaleTimeString('th-TH')}</Typography>
-                          </Grid>
-                          <Grid item xs={12}>
-                            <Typography variant="body2">
-                              <strong>ชื่อผู้ป่วย:</strong> {currentPatient.PRENAME} {currentPatient.NAME1} {currentPatient.SURNAME}
-                            </Typography>
-                          </Grid>
-                        </Grid>
-
-                        {/* Items Table */}
-                        <TableContainer sx={{ mb: 3 }}>
-                          <Table size="small">
-                            <TableHead>
-                              <TableRow sx={{ bgcolor: '#f5f5f5' }}>
-                                <TableCell><strong>รายการ</strong></TableCell>
-                                <TableCell align="center"><strong>จำนวน</strong></TableCell>
-                                <TableCell align="right"><strong>ราคา</strong></TableCell>
-                              </TableRow>
-                            </TableHead>
-                            <TableBody>
-                              {editablePrices.labs.map((lab, index) => (
-                                <TableRow key={`lab-${index}`}>
-                                  <TableCell>{lab.LABNAME || lab.LABCODE}</TableCell>
-                                  <TableCell align="center">1</TableCell>
-                                  <TableCell align="right">{lab.editablePrice.toFixed(2)}</TableCell>
-                                </TableRow>
-                              ))}
-                              {editablePrices.procedures.map((proc, index) => (
-                                <TableRow key={`proc-${index}`}>
-                                  <TableCell>{proc.MED_PRO_NAME_THAI || proc.PROCEDURE_NAME || proc.MEDICAL_PROCEDURE_CODE}</TableCell>
-                                  <TableCell align="center">1</TableCell>
-                                  <TableCell align="right">{proc.editablePrice.toFixed(2)}</TableCell>
-                                </TableRow>
-                              ))}
-                              {editablePrices.drugs.map((drug, index) => (
-                                <TableRow key={`drug-${index}`}>
-                                  <TableCell>{drug.GENERIC_NAME || drug.DRUG_CODE}</TableCell>
-                                  <TableCell align="center">{drug.QTY || 0} {drug.UNIT_CODE || ''}</TableCell>
-                                  <TableCell align="right">{drug.editablePrice.toFixed(2)}</TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        </TableContainer>
-
-                        {/* Total */}
-                        <Box sx={{ borderTop: '2px solid #ddd', pt: 2 }}>
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                            <Typography>รวมค่ารักษา:</Typography>
-                            <Typography>{calculateTotalFromEditablePrices().toFixed(2)} บาท</Typography>
+                      <Box>
+                        <Paper sx={{ p: 4, maxWidth: 600, mx: 'auto', mb: 3 }} id="receipt-print">
+                          {/* Receipt Header */}
+                          <Box sx={{ textAlign: 'center', mb: 3, borderBottom: '2px solid #1976d2', pb: 2 }}>
+                            <Typography variant="h5" fontWeight="bold">สัมพันธ์คลินิค</Typography>
+                            <Typography variant="body2">280 หมู่ 4 ถนน เชียงใหม่-ฮอด ต.บ้านหลวง อ. จอมทอง จ. เชียงใหม่ 50160</Typography>
+                            <Typography variant="body2">Tel: 053-826-524</Typography>
                           </Box>
-                          {paymentData.discount > 0 && (
+
+                          {/* Patient Info */}
+                          <Grid container spacing={2} sx={{ mb: 3 }}>
+                            <Grid item xs={6}>
+                              <Typography variant="body2"><strong>VN:</strong> {currentPatient.VNO}</Typography>
+                              <Typography variant="body2"><strong>HN:</strong> {currentPatient.HNCODE}</Typography>
+                            </Grid>
+                            <Grid item xs={6}>
+                              <Typography variant="body2"><strong>วันที่:</strong> {new Date().toLocaleDateString('th-TH')}</Typography>
+                              <Typography variant="body2"><strong>เวลา:</strong> {new Date().toLocaleTimeString('th-TH')}</Typography>
+                            </Grid>
+                            <Grid item xs={12}>
+                              <Typography variant="body2">
+                                <strong>ชื่อผู้ป่วย:</strong> {currentPatient.PRENAME} {currentPatient.NAME1} {currentPatient.SURNAME}
+                              </Typography>
+                            </Grid>
+                          </Grid>
+
+                          {/* Items Table */}
+                          <TableContainer sx={{ mb: 3 }}>
+                            <Table size="small">
+                              <TableHead>
+                                <TableRow sx={{ bgcolor: '#f5f5f5' }}>
+                                  <TableCell><strong>รายการ</strong></TableCell>
+                                  <TableCell align="center"><strong>จำนวน</strong></TableCell>
+                                  <TableCell align="right"><strong>ราคา</strong></TableCell>
+                                </TableRow>
+                              </TableHead>
+                              <TableBody>
+                                {editablePrices.labs.map((lab, index) => (
+                                  <TableRow key={`lab-${index}`}>
+                                    <TableCell>{lab.LABNAME || lab.LABCODE}</TableCell>
+                                    <TableCell align="center">1</TableCell>
+                                    <TableCell align="right">{lab.editablePrice.toFixed(2)}</TableCell>
+                                  </TableRow>
+                                ))}
+                                {editablePrices.procedures.map((proc, index) => (
+                                  <TableRow key={`proc-${index}`}>
+                                    <TableCell>{proc.MED_PRO_NAME_THAI || proc.PROCEDURE_NAME || proc.MEDICAL_PROCEDURE_CODE}</TableCell>
+                                    <TableCell align="center">1</TableCell>
+                                    <TableCell align="right">{proc.editablePrice.toFixed(2)}</TableCell>
+                                  </TableRow>
+                                ))}
+                                {editablePrices.drugs.map((drug, index) => (
+                                  <TableRow key={`drug-${index}`}>
+                                    <TableCell>{drug.GENERIC_NAME || drug.DRUG_CODE}</TableCell>
+                                    <TableCell align="center">{drug.QTY || 0} {drug.UNIT_CODE || ''}</TableCell>
+                                    <TableCell align="right">{drug.editablePrice.toFixed(2)}</TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </TableContainer>
+
+                          {/* Total */}
+                          <Box sx={{ borderTop: '2px solid #ddd', pt: 2 }}>
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                              <Typography>ส่วนลด:</Typography>
-                              <Typography>-{paymentData.discount.toFixed(2)} บาท</Typography>
+                              <Typography>รวมค่ารักษา:</Typography>
+                              <Typography>{calculateTotalFromEditablePrices().toFixed(2)} บาท</Typography>
                             </Box>
-                          )}
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2, fontSize: '1.2rem', fontWeight: 'bold' }}>
-                            <Typography variant="h6">ยอดชำระ:</Typography>
-                            <Typography variant="h6" color="primary">{calculateTotal().toFixed(2)} บาท</Typography>
+                            {paymentData.discount > 0 && (
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                                <Typography>ส่วนลด:</Typography>
+                                <Typography>-{paymentData.discount.toFixed(2)} บาท</Typography>
+                              </Box>
+                            )}
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2, fontSize: '1.2rem', fontWeight: 'bold' }}>
+                              <Typography variant="h6">ยอดชำระ:</Typography>
+                              <Typography variant="h6" color="primary">{calculateTotal().toFixed(2)} บาท</Typography>
+                            </Box>
                           </Box>
-                        </Box>
+                        </Paper>
 
-                        {/* Print Button using ReceiptPrint component */}
-                        <Box sx={{ textAlign: 'center', mt: 3, '@media print': { display: 'none' } }}>
+                        {/* Buttons */}
+                        <Box sx={{
+                          display: 'flex',
+                          justifyContent: 'center',
+                          gap: 2,
+                          mt: 3,
+                          '@media print': { display: 'none' }
+                        }}>
                           <ReceiptPrint
                             patient={currentPatient}
                             items={getReceiptItems()}
                             paymentData={paymentData}
                           />
+
+                          {/* ปุ่มปิดการรักษา */}
+                          <CloseCaseButton
+                            patient={currentPatient}
+                            onCloseCase={handleCloseCase}
+                          />
                         </Box>
-                      </Paper>
+                      </Box>
                     ) : (
                       <Alert severity="info">กรุณาเลือกผู้ป่วยเพื่อดูใบเสร็จ</Alert>
                     )}
@@ -877,18 +1135,41 @@ const Paymentanddispensingmedicine = () => {
                           ))}
                         </Grid>
 
-                        {/* Print Button using DrugLabelsPrint component */}
-                        <Box sx={{ textAlign: 'center', mt: 3 }}>
+                        {/* Buttons */}
+                        <Box sx={{
+                          display: 'flex',
+                          justifyContent: 'center',
+                          gap: 2,
+                          mt: 3
+                        }}>
                           <DrugLabelsPrint
                             patient={currentPatient}
                             drugs={editablePrices.drugs}
                           />
+
+                          {/* ปุ่มปิดการรักษา */}
+                          <CloseCaseButton
+                            patient={currentPatient}
+                            onCloseCase={handleCloseCase}
+                          />
                         </Box>
                       </Box>
                     ) : (
-                      <Alert severity="info" sx={{ borderRadius: '12px', textAlign: 'center', py: 4 }}>
-                        {!currentPatient ? 'กรุณาเลือกผู้ป่วยเพื่อดูฉลากยา' : 'ผู้ป่วยรายนี้ไม่มีการสั่งยา'}
-                      </Alert>
+                      <Box>
+                        <Alert severity="info" sx={{ borderRadius: '12px', textAlign: 'center', py: 4, mb: 3 }}>
+                          {!currentPatient ? 'กรุณาเลือกผู้ป่วยเพื่อดูฉลากยา' : 'ผู้ป่วยรายนี้ไม่มีการสั่งยา'}
+                        </Alert>
+
+                        {/* ปุ่มปิดการรักษาแม้ไม่มียา */}
+                        {currentPatient && (
+                          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
+                            <CloseCaseButton
+                              patient={currentPatient}
+                              onCloseCase={handleCloseCase}
+                            />
+                          </Box>
+                        )}
+                      </Box>
                     )}
                   </Box>
                 )}

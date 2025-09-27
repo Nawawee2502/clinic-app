@@ -12,7 +12,6 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import CloseIcon from '@mui/icons-material/Close';
 import PrintIcon from '@mui/icons-material/Print';
-import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import DrugService from '../../services/drugService';
 
 const EnhancedDrugInformation = () => {
@@ -31,22 +30,13 @@ const EnhancedDrugInformation = () => {
     const [deleteDialog, setDeleteDialog] = useState({ open: false, drugCode: null });
     const [alert, setAlert] = useState({ open: false, message: '', severity: 'info' });
 
-    // Form states
+    // Form states - เหลือเฉพาะ field ที่มีจริง
     const [formData, setFormData] = useState({
         DRUG_CODE: '',
         GENERIC_NAME: '',
         TRADE_NAME: '',
-        OTHER_NAME: '',
-        PACKAGE_CODE: '',
         UNIT_CODE: '',
-        CONVERSION_RATIO: '',
-        UNIT_PRICE: '',
-        MIN_STOCK: '',
-        ROUTE_ADMIN: '',
-        DOSE_TIME: '',
-        BEFORE_AFTER: '',
-        PRECAUTIONS1: '',
-        INDICATION1: ''
+        UNIT_PRICE: ''
     });
 
     const itemsPerPage = 10;
@@ -69,51 +59,23 @@ const EnhancedDrugInformation = () => {
     const loadDrugs = async () => {
         setLoading(true);
         try {
-            // ✅ เปลี่ยนจาก mock เป็น API จริง
             const response = await DrugService.getAllDrugs({
                 page: 1,
-                limit: 1000 // ดึงทั้งหมดก่อน
+                limit: 1000
             });
 
             if (response.success && response.data) {
-                // แปลงข้อมูลให้ตรงกับรูปแบบที่ component ต้องการ
-                const formattedDrugs = response.data.map((drug, index) => ({
-                    ...drug,
-                    ID: index + 1,
-                    STOCK_QTY: drug.STOCK_QTY || Math.floor(Math.random() * 100) + 10 // ถ้าไม่มีข้อมูล stock ให้ใส่ค่าชั่วคราว
-                }));
-
-                setDrugs(formattedDrugs);
-                setFilteredDrugs(formattedDrugs);
+                setDrugs(response.data);
+                setFilteredDrugs(response.data);
                 showAlert('โหลดข้อมูลยาสำเร็จ', 'success');
             } else {
                 throw new Error('ไม่สามารถดึงข้อมูลยาได้');
             }
         } catch (error) {
             console.error('Error loading drugs:', error);
-
-            // ถ้า API ล้มเหลว ให้ fallback เป็น mock data
-            console.log('API failed, using mock data...');
-            const mockDrugs = DrugService.getMockDrugs();
-            const formattedDrugs = mockDrugs.map((drug, index) => ({
-                ...drug,
-                ID: index + 1,
-                OTHER_NAME: drug.TRADE_NAME + ' (Alternative)',
-                PACKAGE_CODE: 'PKG' + String(index + 1).padStart(3, '0'),
-                CONVERSION_RATIO: Math.floor(Math.random() * 10) + 1,
-                UNIT_PRICE: (Math.random() * 100 + 10).toFixed(2),
-                MIN_STOCK: Math.floor(Math.random() * 20) + 5,
-                ROUTE_ADMIN: 'รับประทาน',
-                DOSE_TIME: 'หลังอาหาร',
-                BEFORE_AFTER: 'หลังอาหาร',
-                PRECAUTIONS1: 'ควรดื่มน้ำตาม',
-                INDICATION1: 'บรรเทาอาการปวด',
-                STOCK_QTY: Math.floor(Math.random() * 100) + 10
-            }));
-
-            setDrugs(formattedDrugs);
-            setFilteredDrugs(formattedDrugs);
-            showAlert('ใช้ข้อมูลจำลอง เนื่องจาก API ยังไม่พร้อม', 'warning');
+            showAlert('ไม่สามารถโหลดข้อมูลยาได้ กรุณาลองอีกครั้ง', 'error');
+            setDrugs([]);
+            setFilteredDrugs([]);
         }
         setLoading(false);
     };
@@ -147,38 +109,54 @@ const EnhancedDrugInformation = () => {
             DRUG_CODE: '',
             GENERIC_NAME: '',
             TRADE_NAME: '',
-            OTHER_NAME: '',
-            PACKAGE_CODE: '',
             UNIT_CODE: '',
-            CONVERSION_RATIO: '',
-            UNIT_PRICE: '',
-            MIN_STOCK: '',
-            ROUTE_ADMIN: '',
-            DOSE_TIME: '',
-            BEFORE_AFTER: '',
-            PRECAUTIONS1: '',
-            INDICATION1: ''
+            UNIT_PRICE: ''
         });
         setEditingDrug(null);
     };
 
+    // ฟังก์ชันสร้าง DRUG_CODE อัตโนมัติ
+    const generateNextDrugCode = () => {
+        if (drugs.length === 0) {
+            return 'D001';
+        }
+
+        // หา DRUG_CODE ที่มีหมายเลขสูงสุด
+        const maxNumber = Math.max(
+            ...drugs
+                .filter(drug => drug.DRUG_CODE.startsWith('D'))
+                .map(drug => {
+                    const num = drug.DRUG_CODE.substring(1);
+                    return isNaN(num) ? 0 : parseInt(num);
+                })
+        );
+
+        const nextNumber = maxNumber + 1;
+        return `D${String(nextNumber).padStart(3, '0')}`;
+    };
+
     const handleSave = async () => {
         // ตรวจสอบข้อมูลที่จำเป็น
-        if (!formData.DRUG_CODE || !formData.GENERIC_NAME) {
-            showAlert('กรุณากรอกรหัสยาและชื่อยา', 'error');
+        if (!formData.GENERIC_NAME) {
+            showAlert('กรุณากรอกชื่อยา', 'error');
             return;
         }
 
         setLoading(true);
         try {
+            let dataToSave = { ...formData };
+
+            if (!editingDrug) {
+                // สร้าง DRUG_CODE อัตโนมัติสำหรับยาใหม่
+                dataToSave.DRUG_CODE = generateNextDrugCode();
+            }
+
             if (editingDrug) {
-                // ✅ เรียก API แก้ไขยา
-                const response = await DrugService.updateDrug(editingDrug.DRUG_CODE, formData);
+                const response = await DrugService.updateDrug(editingDrug.DRUG_CODE, dataToSave);
 
                 if (response.success) {
-                    // อัพเดต state
                     const updatedDrugs = drugs.map(drug =>
-                        drug.DRUG_CODE === editingDrug.DRUG_CODE ? { ...drug, ...formData } : drug
+                        drug.DRUG_CODE === editingDrug.DRUG_CODE ? { ...drug, ...dataToSave } : drug
                     );
                     setDrugs(updatedDrugs);
                     showAlert('แก้ไขข้อมูลยาสำเร็จ', 'success');
@@ -186,17 +164,10 @@ const EnhancedDrugInformation = () => {
                     throw new Error(response.message || 'แก้ไขข้อมูลยาไม่สำเร็จ');
                 }
             } else {
-                // ✅ เรียก API เพิ่มยาใหม่
-                const response = await DrugService.createDrug(formData);
+                const response = await DrugService.createDrug(dataToSave);
 
                 if (response.success) {
-                    // อัพเดต state
-                    const newDrug = {
-                        ...formData,
-                        ID: drugs.length + 1,
-                        STOCK_QTY: Math.floor(Math.random() * 100) + 10
-                    };
-                    setDrugs(prev => [...prev, newDrug]);
+                    setDrugs(prev => [...prev, dataToSave]);
                     showAlert('เพิ่มข้อมูลยาสำเร็จ', 'success');
                 } else {
                     throw new Error(response.message || 'เพิ่มข้อมูลยาไม่สำเร็จ');
@@ -276,11 +247,8 @@ const EnhancedDrugInformation = () => {
             'รหัสยา': drug.DRUG_CODE,
             'ชื่อยา': drug.GENERIC_NAME,
             'ชื่อทางการค้า': drug.TRADE_NAME,
-            'หน่วยใหญ่': drug.PACKAGE_CODE,
-            'หน่วยเล็ก': drug.UNIT_CODE,
-            'ราคาขาย': drug.UNIT_PRICE,
-            'คงเหลือ': drug.STOCK_QTY,
-            'แจ้งเตือนขั้นต่ำ': drug.MIN_STOCK
+            'หน่วย': drug.UNIT_CODE,
+            'ราคา': drug.UNIT_PRICE
         }));
 
         // สร้าง CSV content
@@ -304,26 +272,13 @@ const EnhancedDrugInformation = () => {
         setAlert({ open: true, message, severity });
     };
 
-    const getDosageFormOptions = () => [
-        { value: 'เม็ด', label: 'เม็ด' },
-        { value: 'แคปซูล', label: 'แคปซูล' },
-        { value: 'น้ำยา', label: 'น้ำยา' },
-        { value: 'ครีม', label: 'ครีม' },
-        { value: 'สเปรย์', label: 'สเปรย์' }
-    ];
-
-    const getRouteOptions = () => [
-        { value: 'รับประทาน', label: 'รับประทาน' },
-        { value: 'ทาภายนอก', label: 'ทาภายนอก' },
-        { value: 'หยดตา', label: 'หยดตา' },
-        { value: 'ฉีดเข้าเส้นเลือด', label: 'ฉีดเข้าเส้นเลือด' }
-    ];
-
-    const getTimeOptions = () => [
-        { value: 'ก่อนอาหาร', label: 'ก่อนอาหาร' },
-        { value: 'หลังอาหาร', label: 'หลังอาหาร' },
-        { value: 'ระหว่างอาหาร', label: 'ระหว่างอาหาร' },
-        { value: 'เมื่อมีอาการ', label: 'เมื่อมีอาการ' }
+    const getUnitOptions = () => [
+        { value: 'TAB', label: 'TAB (เม็ด)' },
+        { value: 'CAP', label: 'CAP (แคปซูล)' },
+        { value: 'BOT', label: 'BOT (ขวด)' },
+        { value: 'TUB', label: 'TUB (หลอด)' },
+        { value: 'AMP', label: 'AMP (หลอดฉีด)' },
+        { value: 'VIAL', label: 'VIAL (ไวอัล)' }
     ];
 
     if (currentView === "add" || currentView === "edit") {
@@ -350,16 +305,21 @@ const EnhancedDrugInformation = () => {
                         <Grid container spacing={3}>
                             <Grid item xs={12} sm={6}>
                                 <Typography sx={{ fontWeight: 400, fontSize: 16, mb: 1 }}>
-                                    รหัสยา *
+                                    รหัสยา {!editingDrug && "(สร้างอัตโนมัติ)"}
                                 </Typography>
                                 <TextField
                                     size="small"
-                                    placeholder="รหัสยา"
-                                    value={formData.DRUG_CODE}
+                                    placeholder={!editingDrug ? "จะสร้างอัตโนมัติเมื่อบันทึก" : "รหัสยา"}
+                                    value={editingDrug ? formData.DRUG_CODE : ""}
                                     onChange={(e) => handleFormChange('DRUG_CODE', e.target.value)}
                                     fullWidth
-                                    disabled={editingDrug} // ไม่ให้แก้ไขรหัสยาเมื่อแก้ไข
-                                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
+                                    disabled={true} // ปิดการแก้ไขทั้งหมด เพราะจะ gen เอง
+                                    sx={{
+                                        "& .MuiOutlinedInput-root": {
+                                            borderRadius: "10px",
+                                            backgroundColor: !editingDrug ? "#f5f5f5" : "white"
+                                        }
+                                    }}
                                 />
                             </Grid>
 
@@ -393,35 +353,7 @@ const EnhancedDrugInformation = () => {
 
                             <Grid item xs={12} sm={6}>
                                 <Typography sx={{ fontWeight: 400, fontSize: 16, mb: 1 }}>
-                                    ชื่ออื่น
-                                </Typography>
-                                <TextField
-                                    size="small"
-                                    placeholder="ชื่ออื่น"
-                                    value={formData.OTHER_NAME}
-                                    onChange={(e) => handleFormChange('OTHER_NAME', e.target.value)}
-                                    fullWidth
-                                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
-                                />
-                            </Grid>
-
-                            <Grid item xs={12} sm={6}>
-                                <Typography sx={{ fontWeight: 400, fontSize: 16, mb: 1 }}>
-                                    หน่วยใหญ่
-                                </Typography>
-                                <TextField
-                                    size="small"
-                                    placeholder="หน่วยใหญ่"
-                                    value={formData.PACKAGE_CODE}
-                                    onChange={(e) => handleFormChange('PACKAGE_CODE', e.target.value)}
-                                    fullWidth
-                                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
-                                />
-                            </Grid>
-
-                            <Grid item xs={12} sm={6}>
-                                <Typography sx={{ fontWeight: 400, fontSize: 16, mb: 1 }}>
-                                    หน่วยเล็ก
+                                    หน่วย
                                 </Typography>
                                 <FormControl fullWidth size="small">
                                     <Select
@@ -429,7 +361,7 @@ const EnhancedDrugInformation = () => {
                                         onChange={(e) => handleFormChange('UNIT_CODE', e.target.value)}
                                         sx={{ borderRadius: "10px" }}
                                     >
-                                        {getDosageFormOptions().map((option) => (
+                                        {getUnitOptions().map((option) => (
                                             <MenuItem key={option.value} value={option.value}>
                                                 {option.label}
                                             </MenuItem>
@@ -440,132 +372,16 @@ const EnhancedDrugInformation = () => {
 
                             <Grid item xs={12} sm={6}>
                                 <Typography sx={{ fontWeight: 400, fontSize: 16, mb: 1 }}>
-                                    จำนวนการแปลง
+                                    ราคา (บาท)
                                 </Typography>
                                 <TextField
                                     size="small"
                                     type="number"
-                                    placeholder="จำนวนการแปลง"
-                                    value={formData.CONVERSION_RATIO}
-                                    onChange={(e) => handleFormChange('CONVERSION_RATIO', e.target.value)}
-                                    fullWidth
-                                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
-                                />
-                            </Grid>
-
-                            <Grid item xs={12} sm={6}>
-                                <Typography sx={{ fontWeight: 400, fontSize: 16, mb: 1 }}>
-                                    ราคาขาย (บาท)
-                                </Typography>
-                                <TextField
-                                    size="small"
-                                    type="number"
-                                    placeholder="ราคาขาย"
+                                    step="0.01"
+                                    placeholder="ราคา"
                                     value={formData.UNIT_PRICE}
                                     onChange={(e) => handleFormChange('UNIT_PRICE', e.target.value)}
                                     fullWidth
-                                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
-                                />
-                            </Grid>
-
-                            <Grid item xs={12} sm={6}>
-                                <Typography sx={{ fontWeight: 400, fontSize: 16, mb: 1 }}>
-                                    แจ้งเตือนขั้นต่ำ
-                                </Typography>
-                                <TextField
-                                    size="small"
-                                    type="number"
-                                    placeholder="แจ้งเตือนขั้นต่ำ"
-                                    value={formData.MIN_STOCK}
-                                    onChange={(e) => handleFormChange('MIN_STOCK', e.target.value)}
-                                    fullWidth
-                                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
-                                />
-                            </Grid>
-
-                            <Grid item xs={12} sm={6}>
-                                <Typography sx={{ fontWeight: 400, fontSize: 16, mb: 1 }}>
-                                    วิธีใช้
-                                </Typography>
-                                <FormControl fullWidth size="small">
-                                    <Select
-                                        value={formData.ROUTE_ADMIN}
-                                        onChange={(e) => handleFormChange('ROUTE_ADMIN', e.target.value)}
-                                        sx={{ borderRadius: "10px" }}
-                                    >
-                                        {getRouteOptions().map((option) => (
-                                            <MenuItem key={option.value} value={option.value}>
-                                                {option.label}
-                                            </MenuItem>
-                                        ))}
-                                    </Select>
-                                </FormControl>
-                            </Grid>
-
-                            <Grid item xs={12} sm={6}>
-                                <Typography sx={{ fontWeight: 400, fontSize: 16, mb: 1 }}>
-                                    เวลา
-                                </Typography>
-                                <FormControl fullWidth size="small">
-                                    <Select
-                                        value={formData.DOSE_TIME}
-                                        onChange={(e) => handleFormChange('DOSE_TIME', e.target.value)}
-                                        sx={{ borderRadius: "10px" }}
-                                    >
-                                        {getTimeOptions().map((option) => (
-                                            <MenuItem key={option.value} value={option.value}>
-                                                {option.label}
-                                            </MenuItem>
-                                        ))}
-                                    </Select>
-                                </FormControl>
-                            </Grid>
-
-                            <Grid item xs={12} sm={6}>
-                                <Typography sx={{ fontWeight: 400, fontSize: 16, mb: 1 }}>
-                                    ก่อน/หลังอาหาร
-                                </Typography>
-                                <FormControl fullWidth size="small">
-                                    <Select
-                                        value={formData.BEFORE_AFTER}
-                                        onChange={(e) => handleFormChange('BEFORE_AFTER', e.target.value)}
-                                        sx={{ borderRadius: "10px" }}
-                                    >
-                                        <MenuItem value="ก่อนอาหาร">ก่อนอาหาร</MenuItem>
-                                        <MenuItem value="หลังอาหาร">หลังอาหาร</MenuItem>
-                                        <MenuItem value="ระหว่างอาหาร">ระหว่างอาหาร</MenuItem>
-                                    </Select>
-                                </FormControl>
-                            </Grid>
-
-                            <Grid item xs={12} sm={6}>
-                                <Typography sx={{ fontWeight: 400, fontSize: 16, mb: 1 }}>
-                                    ข้อควรระวัง
-                                </Typography>
-                                <TextField
-                                    size="small"
-                                    placeholder="ข้อควรระวัง"
-                                    value={formData.PRECAUTIONS1}
-                                    onChange={(e) => handleFormChange('PRECAUTIONS1', e.target.value)}
-                                    fullWidth
-                                    multiline
-                                    rows={2}
-                                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
-                                />
-                            </Grid>
-
-                            <Grid item xs={12} sm={6}>
-                                <Typography sx={{ fontWeight: 400, fontSize: 16, mb: 1 }}>
-                                    สรรพคุณ
-                                </Typography>
-                                <TextField
-                                    size="small"
-                                    placeholder="สรรพคุณ"
-                                    value={formData.INDICATION1}
-                                    onChange={(e) => handleFormChange('INDICATION1', e.target.value)}
-                                    fullWidth
-                                    multiline
-                                    rows={2}
                                     sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
                                 />
                             </Grid>
@@ -691,7 +507,6 @@ const EnhancedDrugInformation = () => {
                                         <th style={{ padding: '12px 8px', textAlign: 'left', color: '#696969' }}>ชื่อทางการค้า</th>
                                         <th style={{ padding: '12px 8px', textAlign: 'left', color: '#696969' }}>หน่วย</th>
                                         <th style={{ padding: '12px 8px', textAlign: 'left', color: '#696969' }}>ราคา</th>
-                                        <th style={{ padding: '12px 8px', textAlign: 'left', color: '#696969' }}>คงเหลือ</th>
                                         <th style={{ padding: '12px 8px', textAlign: 'center', color: '#696969' }}>จัดการ</th>
                                     </tr>
                                 </thead>
@@ -709,14 +524,8 @@ const EnhancedDrugInformation = () => {
                                             <td style={{ padding: '12px 8px' }}>{drug.GENERIC_NAME}</td>
                                             <td style={{ padding: '12px 8px' }}>{drug.TRADE_NAME || '-'}</td>
                                             <td style={{ padding: '12px 8px' }}>{drug.UNIT_CODE}</td>
-                                            <td style={{ padding: '12px 8px' }}>{drug.UNIT_PRICE ? `฿${drug.UNIT_PRICE}` : '-'}</td>
                                             <td style={{ padding: '12px 8px' }}>
-                                                <span style={{
-                                                    color: drug.STOCK_QTY <= (drug.MIN_STOCK || 0) ? '#f44336' : '#4caf50',
-                                                    fontWeight: drug.STOCK_QTY <= (drug.MIN_STOCK || 0) ? 'bold' : 'normal'
-                                                }}>
-                                                    {drug.STOCK_QTY || 0}
-                                                </span>
+                                                {drug.UNIT_PRICE ? `฿${drug.UNIT_PRICE}` : '-'}
                                             </td>
                                             <td style={{ padding: '12px 8px', textAlign: 'center' }}>
                                                 <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>

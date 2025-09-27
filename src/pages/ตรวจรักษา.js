@@ -902,21 +902,21 @@ const ตรวจรักษา = () => {
                       </Box>
                     }
                   />
-                  {/* Tab 2: ประวัติการรักษา */}
-                  <Tab
-                    label={
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <span>📋</span>
-                        <span>ประวัติ</span>
-                      </Box>
-                    }
-                  />
-                  {/* Tab 3: วินิจฉัยและรักษา */}
+                  {/* Tab 2: วินิจฉัยและรักษา */}
                   <Tab
                     label={
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <span>🩺</span>
                         <span>วินิจฉัยและรักษา</span>
+                      </Box>
+                    }
+                  />
+                  {/* Tab 3: ประวัติการรักษา */}
+                  <Tab
+                    label={
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <span>📋</span>
+                        <span>ประวัติ</span>
                       </Box>
                     }
                   />
@@ -970,11 +970,11 @@ const ตรวจรักษา = () => {
                     />
                   )}
 
-                  {/* Tab 2: ประวัติ */}
-                  {tabIndex === 2 && <Medicalhistory currentPatient={currentPatient} onSaveSuccess={goToNextTab} />}
-
                   {/* Tab 3: วินิจฉัยและรักษา */}
-                  {tabIndex === 3 && <DxandTreatment currentPatient={currentPatient} onSaveSuccess={goToNextTab} />}
+                  {tabIndex === 2 && <DxandTreatment currentPatient={currentPatient} onSaveSuccess={goToNextTab} />}
+
+                  {/* Tab 2: ประวัติ */}
+                  {tabIndex === 3 && <Medicalhistory currentPatient={currentPatient} onSaveSuccess={goToNextTab} />}
 
                   {/* Tab 4: หัตถการ */}
                   {tabIndex === 4 && <Procedure currentPatient={currentPatient} />}

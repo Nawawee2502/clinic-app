@@ -51,17 +51,17 @@ const Medicalstock = () => {
 
         }}
       >
-        <Tab label="การรับยา" />
+        {/* <Tab label="การรับยา" /> */}
         <Tab label="ข้อมูลยา" />
-        <Tab label="รายงานสต็อกยา/เวชภัณฑ์" />
+        {/* <Tab label="รายงานสต็อกยา/เวชภัณฑ์" /> */}
         {/* sx={{  fontSize: '16px' }} */}
       </Tabs>
 
       <Card>
         <CardContent>
-          {tabIndex === 0 && <Takingmedicine />}
-          {tabIndex === 1 && <EnhancedDrugInformation />}
-          {tabIndex === 2 && <EnhancedDrugStockReport />}
+          {/* {tabIndex === 0 && <Takingmedicine />} */}
+          {tabIndex === 0 && <EnhancedDrugInformation />}
+          {/* {tabIndex === 2 && <EnhancedDrugStockReport />} */}
         </CardContent>
       </Card>
     </Container>
