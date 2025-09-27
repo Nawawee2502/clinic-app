@@ -346,21 +346,6 @@ const DxandTreatment = ({ currentPatient, onSaveSuccess }) => {
                 <Typography sx={{ fontWeight: "bold", fontSize: "16px" }}>
                   สรุป Treatment *
                 </Typography>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  onClick={handleAutoFillSummary}
-                  sx={{
-                    color: "#5698E0",
-                    borderColor: "#5698E0",
-                    fontSize: "0.8rem",
-                    '&:hover': {
-                      backgroundColor: "#f0f8ff"
-                    }
-                  }}
-                >
-                  ดึงข้อมูลจากการวินิจฉัย
-                </Button>
               </Box>
               <TextField
                 fullWidth
