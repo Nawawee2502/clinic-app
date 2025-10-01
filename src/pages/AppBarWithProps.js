@@ -13,7 +13,10 @@ import {
     Container,
     Divider,
     IconButton,
-    Tooltip
+    Tooltip,
+    Menu,
+    ListItemIcon,
+    ListItemText
 } from "@mui/material";
 import PropTypes from 'prop-types';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
@@ -21,6 +24,8 @@ import DashboardIcon from '@mui/icons-material/Dashboard';
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
+import { logout } from '../store/authSlice';
 import AddCardIcon from '@mui/icons-material/AddCard';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import MoveToInboxIcon from '@mui/icons-material/MoveToInbox';
@@ -40,11 +45,8 @@ import KeyboardArrowLeftIcon from '@mui/icons-material/KeyboardArrowLeft';
 import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import MenuIcon from '@mui/icons-material/Menu';
-
-// Remove unnecessary imports that might be causing errors
-// import { AppProvider } from '@toolpad/core/AppProvider';
-// import { DashboardLayout } from '@toolpad/core/DashboardLayout';
-// import { Padding } from '@mui/icons-material';
+import AccountCircleIcon from '@mui/icons-material/AccountCircle';
+import ManageAccountsIcon from '@mui/icons-material/ManageAccounts';
 
 // กำหนดธีมให้ตรงกับ Design
 const demoTheme = createTheme({
@@ -108,6 +110,40 @@ const demoTheme = createTheme({
 
 // คอมโพเนนต์ CustomAppBar 
 const CustomAppBar = ({ userName = "Abu Fahim", userEmail = "hello@fahim.com", isSidebarOpen, toggleSidebar }) => {
+    const navigate = useNavigate();
+    const dispatch = useDispatch();
+    const user = useSelector((state) => state.auth?.user);
+    const [anchorEl, setAnchorEl] = React.useState(null);
+    const open = Boolean(anchorEl);
+
+    const handleClick = (event) => {
+        setAnchorEl(event.currentTarget);
+    };
+
+    const handleClose = () => {
+        setAnchorEl(null);
+    };
+
+    const handleProfile = () => {
+        handleClose();
+        navigate('/clinic/settings');
+    };
+
+    const handleLogout = () => {
+        handleClose();
+        dispatch(logout());
+        navigate('/login');
+    };
+
+    const handleAdminUsers = () => {
+        handleClose();
+        navigate('/clinic/admin/users');
+    };
+
+    const displayName = user?.fullName || userName;
+    const displayEmail = user?.email || userEmail;
+    const isAdmin = user?.role === 'admin';
+
     return (
         <Box
             sx={{
@@ -149,32 +185,92 @@ const CustomAppBar = ({ userName = "Abu Fahim", userEmail = "hello@fahim.com", i
                 {/* User Profile */}
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                     <Avatar
-                        alt={userName}
-                        sx={{ width: 36, height: 36 }}
-                    />
+                        alt={displayName}
+                        sx={{ width: 36, height: 36, bgcolor: '#4285F4' }}
+                    >
+                        {displayName.charAt(0).toUpperCase()}
+                    </Avatar>
                     <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
                         <Typography variant="subtitle2" fontWeight="bold">
-                            {userName}
+                            {displayName}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
-                            {userEmail}
+                            {displayEmail}
                         </Typography>
                     </Box>
                 </Box>
 
                 {/* More Options */}
-                <IconButton
-                    sx={{
-                        bgcolor: '#4285F4',
-                        color: 'white',
-                        borderRadius: 2,
-                        width: 32,
-                        height: 32,
-                        '&:hover': { bgcolor: '#3b77db' }
+                <Tooltip title="เมนู">
+                    <IconButton
+                        onClick={handleClick}
+                        sx={{
+                            bgcolor: '#4285F4',
+                            color: 'white',
+                            borderRadius: 2,
+                            width: 32,
+                            height: 32,
+                            '&:hover': { bgcolor: '#3b77db' }
+                        }}
+                    >
+                        <MoreHorizIcon fontSize="small" />
+                    </IconButton>
+                </Tooltip>
+
+                {/* Dropdown Menu */}
+                <Menu
+                    anchorEl={anchorEl}
+                    open={open}
+                    onClose={handleClose}
+                    anchorOrigin={{
+                        vertical: 'bottom',
+                        horizontal: 'right',
+                    }}
+                    transformOrigin={{
+                        vertical: 'top',
+                        horizontal: 'right',
+                    }}
+                    PaperProps={{
+                        sx: {
+                            mt: 1.5,
+                            minWidth: 200,
+                            boxShadow: '0px 4px 20px rgba(0, 0, 0, 0.1)',
+                            borderRadius: 2
+                        }
                     }}
                 >
-                    <MoreHorizIcon fontSize="small" />
-                </IconButton>
+                    <MenuItem onClick={handleProfile}>
+                        <ListItemIcon>
+                            <AccountCircleIcon fontSize="small" />
+                        </ListItemIcon>
+                        <ListItemText>โปรไฟล์</ListItemText>
+                    </MenuItem>
+
+                    <MenuItem onClick={() => { handleClose(); navigate('/clinic/settings'); }}>
+                        <ListItemIcon>
+                            <SettingsIcon fontSize="small" />
+                        </ListItemIcon>
+                        <ListItemText>ตั้งค่า</ListItemText>
+                    </MenuItem>
+
+                    {isAdmin && (
+                        <MenuItem onClick={handleAdminUsers}>
+                            <ListItemIcon>
+                                <ManageAccountsIcon fontSize="small" />
+                            </ListItemIcon>
+                            <ListItemText>จัดการผู้ใช้</ListItemText>
+                        </MenuItem>
+                    )}
+
+                    <Divider sx={{ my: 1 }} />
+
+                    <MenuItem onClick={handleLogout} sx={{ color: 'error.main' }}>
+                        <ListItemIcon>
+                            <LogoutIcon fontSize="small" color="error" />
+                        </ListItemIcon>
+                        <ListItemText>ออกจากระบบ</ListItemText>
+                    </MenuItem>
+                </Menu>
             </Box>
         </Box>
     );
@@ -243,11 +339,6 @@ const CustomSidebar = ({ activeMenu, onMenuClick, isOpen }) => {
             path: '/clinic/settings',
             icon: <SettingsIcon />
         },
-        {
-            title: 'ออกจากระบบ',
-            path: '/logout',
-            icon: <LogoutIcon />
-        }
     ];
 
     return (
@@ -314,18 +405,6 @@ const CustomSidebar = ({ activeMenu, onMenuClick, isOpen }) => {
                             },
                             fontWeight: activeMenu === item.path ? 'bold' : 'normal',
                             position: 'relative',
-                            // '&::after': (index >= 3 && index <= 9) ? {
-                            //     content: '""',
-                            //     position: 'absolute',
-                            //     right: '16px',
-                            //     width: '0',
-                            //     height: '0',
-                            //     borderLeft: '5px solid transparent',
-                            //     borderRight: '5px solid transparent',
-                            //     borderTop: activeMenu === item.path
-                            //         ? '5px solid white'
-                            //         : '5px solid rgba(0, 48, 143, 0.9)',
-                            // } : {}
                         }}
                     >
                         {item.title}
@@ -342,16 +421,14 @@ const AppBarWithProps = ({ children }) => {
     const location = useLocation();
     const [sidebarOpen, setSidebarOpen] = React.useState(true);
 
-    // ใช้ pathname จาก location ของ react-router
     const pathname = location.pathname;
 
-    // Toggle sidebar function
     const toggleSidebar = () => {
         setSidebarOpen(!sidebarOpen);
     };
 
     const handleMenuClick = (path) => {
-        navigate(path); // ใช้ navigate ของ react-router-dom
+        navigate(path);
     };
 
     return (

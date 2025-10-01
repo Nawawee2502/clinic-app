@@ -4,7 +4,7 @@ const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api
 
 class DrugService {
 
-    // สร้างยาใหม่
+    // ✅ สร้างยาใหม่ - รองรับ fields ทั้งหมด
     static async createDrug(drugData) {
         try {
             console.log('🔗 Calling API:', `${API_BASE_URL}/drugs`);
@@ -28,7 +28,7 @@ class DrugService {
         }
     }
 
-    // ดึงข้อมูลยาทั้งหมด
+    // ✅ ดึงข้อมูลยาทั้งหมด - เพิ่ม filters
     static async getAllDrugs(params = {}) {
         try {
             const queryParams = new URLSearchParams();
@@ -36,8 +36,9 @@ class DrugService {
             if (params.search) queryParams.append('search', params.search);
             if (params.page) queryParams.append('page', params.page);
             if (params.limit) queryParams.append('limit', params.limit);
-            if (params.package_code) queryParams.append('package_code', params.package_code);
+            if (params.type) queryParams.append('type', params.type);
             if (params.unit_code) queryParams.append('unit_code', params.unit_code);
+            if (params.drug_formulations) queryParams.append('drug_formulations', params.drug_formulations);
 
             const url = `${API_BASE_URL}/drugs${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
             console.log('🔗 Calling API:', url);
@@ -55,7 +56,7 @@ class DrugService {
         }
     }
 
-    // ดึงข้อมูลยาตามรหัส
+    // ✅ ดึงข้อมูลยาตามรหัส
     static async getDrugByCode(drugCode) {
         try {
             console.log('🔗 Calling API:', `${API_BASE_URL}/drugs/${drugCode}`);
@@ -73,41 +74,7 @@ class DrugService {
         }
     }
 
-    // ค้นหายา
-    static async searchDrugs(searchTerm) {
-        try {
-            console.log('🔗 Calling API:', `${API_BASE_URL}/drugs/search/${encodeURIComponent(searchTerm)}`);
-            const response = await fetch(`${API_BASE_URL}/drugs/search/${encodeURIComponent(searchTerm)}`);
-
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            return await response.json();
-        } catch (error) {
-            console.error('Error searching drugs:', error);
-            throw error;
-        }
-    }
-
-    // ดึงยาตามข้อบ่งใช้
-    static async getDrugsByIndication(indication) {
-        try {
-            console.log('🔗 Calling API:', `${API_BASE_URL}/drugs/indication/${encodeURIComponent(indication)}`);
-            const response = await fetch(`${API_BASE_URL}/drugs/indication/${encodeURIComponent(indication)}`);
-
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            return await response.json();
-        } catch (error) {
-            console.error('Error fetching drugs by indication:', error);
-            throw error;
-        }
-    }
-
-    // อัพเดทข้อมูลยา
+    // ✅ อัพเดทข้อมูลยา - รองรับ fields ทั้งหมด
     static async updateDrug(drugCode, drugData) {
         try {
             console.log('🔗 Calling API:', `${API_BASE_URL}/drugs/${drugCode}`);
@@ -131,7 +98,7 @@ class DrugService {
         }
     }
 
-    // ลบยา
+    // ✅ ลบยา
     static async deleteDrug(drugCode) {
         try {
             console.log('🔗 Calling API:', `${API_BASE_URL}/drugs/${drugCode}`);
@@ -151,24 +118,31 @@ class DrugService {
         }
     }
 
-    // ดึงสถิติยา
-    static async getDrugStats() {
+    // ✅ ดึงประเภทยา (Type1)
+    static async getDrugTypes() {
         try {
-            console.log('🔗 Calling API:', `${API_BASE_URL}/drugs/stats/summary`);
-            const response = await fetch(`${API_BASE_URL}/drugs/stats/summary`);
-
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
+            const response = await fetch(`${API_BASE_URL}/drugs/filters/types`);
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
             return await response.json();
         } catch (error) {
-            console.error('Error fetching drug stats:', error);
+            console.error('Error fetching drug types:', error);
             throw error;
         }
     }
 
-    // ตรวจสอบความถูกต้องของข้อมูล
+    // ✅ ดึงรูปแบบยา (Drug_formulations)
+    static async getDrugFormulations() {
+        try {
+            const response = await fetch(`${API_BASE_URL}/drugs/filters/formulations`);
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            return await response.json();
+        } catch (error) {
+            console.error('Error fetching drug formulations:', error);
+            throw error;
+        }
+    }
+
+    // ✅ ตรวจสอบความถูกต้องของข้อมูล - อัปเดตตาม TABLE_DRUG
     static validateDrugData(data) {
         const errors = [];
 
@@ -193,16 +167,19 @@ class DrugService {
 
         // ตรวจสอบความยาวข้อความ
         const maxLengths = {
+            DRUG_CODE: 10,
             GENERIC_NAME: 100,
             TRADE_NAME: 255,
-            DOSAGE_FORM: 255,
-            STRENGTH1: 255,
-            ROUTE_ADMIN: 255,
-            DOSE1: 255,
-            INDICATION1: 255,
-            CONTRAINDICATION1: 255,
-            SIDE_EFFECTS: 255,
-            PRECAUTIONS1: 255
+            UNIT_CODE: 10,
+            Type1: 255,
+            Dose1: 255,
+            Indication1: 255,
+            Effect1: 255,
+            Contraindications1: 255,
+            Comment1: 255,
+            Drug_formulations: 255,
+            SOCIAL_CARD: 50,
+            UCS_CARD: 50
         };
 
         Object.entries(maxLengths).forEach(([field, maxLength]) => {
@@ -214,188 +191,147 @@ class DrugService {
         return errors;
     }
 
-    // แปลชื่อฟิลด์เป็นภาษาไทย
+    // ✅ แปลชื่อฟิลด์เป็นภาษาไทย - อัปเดตตาม TABLE_DRUG
     static getFieldName(fieldName) {
         const fieldNames = {
             DRUG_CODE: 'รหัสยา',
             GENERIC_NAME: 'ชื่อสามัญ',
             TRADE_NAME: 'ชื่อทางการค้า',
-            DOSAGE_FORM: 'รูปแบบยา',
-            STRENGTH1: 'ขนาดความแรง',
-            ROUTE_ADMIN: 'วิธีใช้',
-            DOSE1: 'ขนาดยา',
-            INDICATION1: 'ข้อบ่งใช้',
-            CONTRAINDICATION1: 'ข้อห้ามใช้',
-            SIDE_EFFECTS: 'อาการข้างเคียง',
-            PRECAUTIONS1: 'ข้อควรระวัง',
-            UNIT_PRICE: 'ราคา'
+            UNIT_CODE: 'หน่วย',
+            UNIT_PRICE: 'ราคา',
+            Type1: 'ประเภท',
+            Dose1: 'ขนาดยา',
+            Indication1: 'ข้อบ่งใช้',
+            Effect1: 'ผลข้างเคียง',
+            Contraindications1: 'ข้อห้ามใช้',
+            Comment1: 'หมายเหตุ',
+            Drug_formulations: 'รูปแบบยา',
+            SOCIAL_CARD: 'บัตรสวัสดิการ',
+            UCS_CARD: 'บัตรทอง'
         };
         return fieldNames[fieldName] || fieldName;
     }
 
-    // จัดรูปแบบข้อมูลก่อนส่ง API
+    // ✅ จัดรูปแบบข้อมูลก่อนส่ง API
     static formatDrugData(data) {
         return {
             DRUG_CODE: data.DRUG_CODE?.trim().toUpperCase(),
             GENERIC_NAME: data.GENERIC_NAME?.trim(),
             TRADE_NAME: data.TRADE_NAME?.trim(),
-            DOSAGE_FORM: data.DOSAGE_FORM?.trim(),
-            STRENGTH1: data.STRENGTH1?.trim(),
-            PACKAGE_CODE: data.PACKAGE_CODE?.trim(),
-            ROUTE_ADMIN: data.ROUTE_ADMIN?.trim(),
-            DOSE1: data.DOSE1?.trim(),
-            INDICATION1: data.INDICATION1?.trim(),
-            CONTRAINDICATION1: data.CONTRAINDICATION1?.trim(),
-            SIDE_EFFECTS: data.SIDE_EFFECTS?.trim(),
-            PRECAUTIONS1: data.PRECAUTIONS1?.trim(),
-            NATION_LIST_CODE: data.NATION_LIST_CODE?.trim(),
-            NARCOTICS1: data.NARCOTICS1?.trim(),
             UNIT_CODE: data.UNIT_CODE?.trim(),
-            UNIT_PRICE: data.UNIT_PRICE ? parseFloat(data.UNIT_PRICE) : null
+            UNIT_PRICE: data.UNIT_PRICE ? parseFloat(data.UNIT_PRICE) : null,
+            Type1: data.Type1?.trim(),
+            Dose1: data.Dose1?.trim(),
+            Indication1: data.Indication1?.trim(),
+            Effect1: data.Effect1?.trim() || 'None',
+            Contraindications1: data.Contraindications1?.trim() || 'None',
+            Comment1: data.Comment1?.trim() || 'None',
+            Drug_formulations: data.Drug_formulations?.trim(),
+            SOCIAL_CARD: data.SOCIAL_CARD || 'N',
+            UCS_CARD: data.UCS_CARD || 'N'
         };
     }
 
-    // สร้างรหัสยาอัตโนมัติ (ไม่ใช้แล้ว - ย้ายไป component)
-    static generateDrugCode(prefix = 'D') {
-        const now = new Date();
-        const year = now.getFullYear().toString().slice(-2);
-        const month = (now.getMonth() + 1).toString().padStart(2, '0');
-        const day = now.getDate().toString().padStart(2, '0');
-        const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-
-        return `${prefix}${year}${month}${day}${random}`;
-    }
-
-    // ดึงรายการรูปแบบยา
-    static getDosageForms() {
+    // ✅ ดึงรายการหน่วยยา
+    static getUnitCodes() {
         return [
             { value: 'เม็ด', label: 'เม็ด' },
             { value: 'แคปซูล', label: 'แคปซูล' },
-            { value: 'น้ำยา', label: 'น้ำยา' },
-            { value: 'ครีม', label: 'ครีม' },
-            { value: 'แผ่น', label: 'แผ่น' },
-            { value: 'หยด', label: 'หยด' },
-            { value: 'ฉีด', label: 'ฉีด' },
-            { value: 'พ่น', label: 'พ่น' },
-            { value: 'ผง', label: 'ผง' }
+            { value: 'ขวด', label: 'ขวด' },
+            { value: 'หลอด', label: 'หลอด' },
+            { value: 'กล่อง', label: 'กล่อง' },
+            { value: 'แผง', label: 'แผง' },
+            { value: 'Amp', label: 'Amp' },
+            { value: 'Vial', label: 'Vial' }
         ];
     }
 
-    // ดึงรายการวิธีใช้ยา
-    static getRouteAdmin() {
+    // ✅ ดึงรายการรูปแบบยา
+    static getDrugFormulationsList() {
         return [
-            { value: 'รับประทาน', label: 'รับประทาน' },
-            { value: 'ฉีดเข้าเส้นเลือด', label: 'ฉีดเข้าเส้นเลือด' },
-            { value: 'ฉีดเข้ากล้ามเนื้อ', label: 'ฉีดเข้ากล้ามเนื้อ' },
-            { value: 'ทาภายนอก', label: 'ทาภายนอก' },
-            { value: 'หยดตา', label: 'หยดตา' },
-            { value: 'หยดหู', label: 'หยดหู' },
-            { value: 'หยดจมูก', label: 'หยดจมูก' },
-            { value: 'ใส่ทวาร', label: 'ใส่ทวาร' },
-            { value: 'แปะ', label: 'แปะ' }
+            { value: 'Tablets', label: 'เม็ด (Tablets)' },
+            { value: 'Capsules', label: 'แคปซูล (Capsules)' },
+            { value: 'Topical', label: 'ยาทาภายนอก (Topical)' },
+            { value: 'Injections', label: 'ยาฉีด (Injections)' },
+            { value: 'ยาน้ำ', label: 'ยาน้ำ' },
+            { value: 'Syrup', label: 'ยาน้ำเชื่อม (Syrup)' },
+            { value: 'Drops', label: 'ยาหยด (Drops)' },
+            { value: 'Spray', label: 'ยาพ่น (Spray)' }
         ];
     }
 
-    // คำนวณราคารวม
+    // ✅ ดึงรายการประเภทยา
+    static getDrugTypesList() {
+        return [
+            { value: 'ยาอันตราย', label: 'ยาอันตราย' },
+            { value: 'ยาสามัญประจำบ้าน', label: 'ยาสามัญประจำบ้าน' },
+            { value: 'ยาใช้ภายนอก', label: 'ยาใช้ภายนอก' },
+            { value: 'วัถุอออกฤทธิ์', label: 'วัถุอออกฤทธิ์' }
+        ];
+    }
+
+    // ✅ สร้างรหัสยาอัตโนมัติ
+    static async generateNextDrugCode() {
+        try {
+            // ดึงรหัสยาล่าสุดจาก API
+            const response = await this.getAllDrugs({ limit: 1, page: 1 });
+            
+            if (response.success && response.data.length > 0) {
+                const lastCode = response.data[0].DRUG_CODE;
+                // สมมติว่ารหัสเป็น D0001, D0002, ...
+                const match = lastCode.match(/^D(\d+)$/);
+                if (match) {
+                    const nextNum = parseInt(match[1]) + 1;
+                    return `D${nextNum.toString().padStart(4, '0')}`;
+                }
+            }
+            
+            return 'D0001'; // รหัสเริ่มต้น
+        } catch (error) {
+            console.error('Error generating drug code:', error);
+            // สร้างรหัสแบบสุ่ม
+            const random = Math.floor(Math.random() * 10000);
+            return `D${random.toString().padStart(4, '0')}`;
+        }
+    }
+
+    // ✅ คำนวณราคารวม
     static calculateTotalPrice(drugs) {
         return drugs.reduce((total, drug) => {
             return total + (parseFloat(drug.UNIT_PRICE) || 0) * (parseInt(drug.QTY) || 0);
         }, 0);
     }
 
-    // ตรวจสอบ Drug Interaction (ตัวอย่าง)
-    static checkDrugInteraction(drugCodes) {
-        const interactions = {
-            'ASPIRIN-WARFARIN': 'เสี่ยงต่อการเลือดออก',
-            'DIGOXIN-FUROSEMIDE': 'เสี่ยงต่อพิษจากดิก็อกซิน'
-        };
-
-        const warnings = [];
-        for (let i = 0; i < drugCodes.length; i++) {
-            for (let j = i + 1; j < drugCodes.length; j++) {
-                const pair1 = `${drugCodes[i]}-${drugCodes[j]}`;
-                const pair2 = `${drugCodes[j]}-${drugCodes[i]}`;
-
-                if (interactions[pair1]) {
-                    warnings.push(`${drugCodes[i]} + ${drugCodes[j]}: ${interactions[pair1]}`);
-                } else if (interactions[pair2]) {
-                    warnings.push(`${drugCodes[j]} + ${drugCodes[i]}: ${interactions[pair2]}`);
-                }
-            }
-        }
-        return warnings;
+    // ✅ ฟอร์แมตราคา
+    static formatPrice(price) {
+        return new Intl.NumberFormat('th-TH', {
+            style: 'currency',
+            currency: 'THB',
+            minimumFractionDigits: 2
+        }).format(price || 0);
     }
 
-    static async getStockReport(filters = {}) {
-        try {
-            const queryParams = new URLSearchParams();
+    // ✅ ฟังก์ชันเปรียบเทียบยา
+    static compareDrugs(drug1, drug2) {
+        const differences = [];
+        
+        const fieldsToCompare = [
+            'GENERIC_NAME', 'TRADE_NAME', 'UNIT_PRICE', 'Type1', 
+            'Dose1', 'Indication1', 'Drug_formulations'
+        ];
 
-            if (filters.stockFilter && filters.stockFilter !== 'all') {
-                queryParams.append('stock_status', filters.stockFilter);
+        fieldsToCompare.forEach(field => {
+            if (drug1[field] !== drug2[field]) {
+                differences.push({
+                    field: this.getFieldName(field),
+                    value1: drug1[field],
+                    value2: drug2[field]
+                });
             }
-            if (filters.searchTerm) {
-                queryParams.append('search', filters.searchTerm);
-            }
-            if (filters.dateRange) {
-                if (filters.dateRange.year) queryParams.append('year', filters.dateRange.year);
-                if (filters.dateRange.month) queryParams.append('month', filters.dateRange.month);
-                if (filters.dateRange.day) queryParams.append('day', filters.dateRange.day);
-            }
+        });
 
-            const url = `${API_BASE_URL}/drugs/stock/report${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
-            console.log('🔗 Calling API:', url);
-
-            const response = await fetch(url);
-
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            return await response.json();
-        } catch (error) {
-            console.error('Error fetching stock report:', error);
-            throw error;
-        }
+        return differences;
     }
-
-    static async updateStock(drugCode, stockData) {
-        try {
-            console.log('🔗 Calling API:', `${API_BASE_URL}/drugs/${drugCode}/stock`);
-            const response = await fetch(`${API_BASE_URL}/drugs/${drugCode}/stock`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(stockData)
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            return await response.json();
-        } catch (error) {
-            console.error('Error updating stock:', error);
-            throw error;
-        }
-    }
-
-    static async getLowStockItems(threshold = 10) {
-        try {
-            console.log('🔗 Calling API:', `${API_BASE_URL}/drugs/stock/low-stock?threshold=${threshold}`);
-            const response = await fetch(`${API_BASE_URL}/drugs/stock/low-stock?threshold=${threshold}`);
-
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            return await response.json();
-        } catch (error) {
-            console.error('Error fetching low stock items:', error);
-            throw error;
-        }
-    }
-
 }
 
 export default DrugService;
