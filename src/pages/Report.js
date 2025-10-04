@@ -21,7 +21,7 @@ const Report = () => {
         lineHeight: '2',     // เพิ่มความสูงของบรรทัด
         textShadow: '1px 1px 2px rgba(0, 0, 0, 0.1)' // เพิ่มเงาให้ตัวหนังสือ
       }}>
-        รายงาน
+        รายงานประจำวัน
       </Typography>
       <Tabs
         value={tabIndex}
@@ -44,13 +44,13 @@ const Report = () => {
           "& .MuiTabs-indicator": {
             display: "none",
           },
-          maxWidth: "300px",
+          // maxWidth: "300px",
 
         }}
       >
-        <Tab label="รายงานประจำวัน" />
-        <Tab label="สรุปรายได้" />
-        <Tab label="สรุปรายจ่าย" />
+        <Tab label="รายรับประจำวัน" />
+        <Tab label="รายจ่ายประจำวัน" />
+        <Tab label="สรุปรายรับรายจ่ายประจำวัน" />
         {/* sx={{  fontSize: '16px' }} */}
       </Tabs>
 

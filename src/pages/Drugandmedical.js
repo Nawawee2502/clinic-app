@@ -1,11 +1,7 @@
 import React from "react";
 import { Container, Tabs, Tab, Card, CardContent, Typography } from "@mui/material";
-import Takingmedicine from '../components/Drugandmedical/Takingmedicine';
-import Druginformation from '../components/Drugandmedical/Druginformation';
-import Drugstockreport from '../components/Drugandmedical/Drugstockreport';
 import EnhancedDrugInformation from '../components/Drugandmedical/EnhancedDrugInformation';
-import EnhancedDrugStockReport from '../components/Drugandmedical/EnhancedDrugStockReport';
-
+import EnhancedMedicalProcedures from '../components/Drugandmedical/EnhancedMedicalProcedures';
 
 const Medicalstock = () => {
   const [tabIndex, setTabIndex] = React.useState(0);
@@ -20,9 +16,9 @@ const Medicalstock = () => {
         fontWeight: '600',
         fontSize: '24px',
         fontFamily: 'Instrument Sans',
-        letterSpacing: '1.5px', // เพิ่มระยะห่างระหว่างตัวอักษร
-        lineHeight: '2',     // เพิ่มความสูงของบรรทัด
-        textShadow: '1px 1px 2px rgba(0, 0, 0, 0.1)' // เพิ่มเงาให้ตัวหนังสือ
+        letterSpacing: '1.5px',
+        lineHeight: '2',
+        textShadow: '1px 1px 2px rgba(0, 0, 0, 0.1)'
       }}>
         ระบบคลังยา/เวชภัณฑ์
       </Typography>
@@ -47,21 +43,26 @@ const Medicalstock = () => {
           "& .MuiTabs-indicator": {
             display: "none",
           },
-          maxWidth: "500px",
-
+          // maxWidth: "500px",
         }}
       >
-        {/* <Tab label="การรับยา" /> */}
-        <Tab label="ข้อมูลยา" />
-        {/* <Tab label="รายงานสต็อกยา/เวชภัณฑ์" /> */}
-        {/* sx={{  fontSize: '16px' }} */}
+        <Tab label="ข้อมูลยา"/>
+        <Tab label="ข้อมูลหัตถการ"/>
+        <Tab label="ตัวแทนจำหน่าย"/>
+        <Tab label="ใบรับยา/เวชภัณฑ์"/>
+        <Tab label="ใบคืนยา/เวชภัณฑ์"/>
+        <Tab label="บันทึกจำนวนสินค้าประจำเดือน"/>
+        <Tab label="สินค้าคงเหลือ"/>
+        <Tab label="สต็อกการ์ด"/>
+        <Tab label="รายงานการเคลื่อนไหวสินค้า"/>
+        <Tab label="รายงานยาเวชภัณฑ์ที่ต้องสั่งซื้อ"/>
+        <Tab label="รายงานยาเวชภัณฑ์ใกล้หมดอายุ"/>
       </Tabs>
 
       <Card>
         <CardContent>
-          {/* {tabIndex === 0 && <Takingmedicine />} */}
           {tabIndex === 0 && <EnhancedDrugInformation />}
-          {/* {tabIndex === 2 && <EnhancedDrugStockReport />} */}
+          {tabIndex === 1 && <EnhancedMedicalProcedures />}
         </CardContent>
       </Card>
     </Container>

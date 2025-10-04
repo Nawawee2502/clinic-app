@@ -411,7 +411,10 @@ class PatientService {
             // ประวัติสุขภาพ
             DISEASE1: data.DISEASE1?.trim(),
             DRUG_ALLERGY: data.DRUG_ALLERGY?.trim(),
-            FOOD_ALLERGIES: data.FOOD_ALLERGIES?.trim()
+            FOOD_ALLERGIES: data.FOOD_ALLERGIES?.trim(),
+
+            SOCIAL_CARD: data.SOCIAL_CARD || 'N',
+            UCS_CARD: data.UCS_CARD || 'N'
         };
     }
 

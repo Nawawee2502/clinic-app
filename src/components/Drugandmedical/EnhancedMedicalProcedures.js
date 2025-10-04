@@ -11,36 +11,28 @@ import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import CloseIcon from '@mui/icons-material/Close';
-import PrintIcon from '@mui/icons-material/Print';
 
-const EnhancedDrugInformation = () => {
+const EnhancedMedicalProcedures = () => {
     // States
     const [currentView, setCurrentView] = useState("list");
-    const [drugs, setDrugs] = useState([]);
-    const [filteredDrugs, setFilteredDrugs] = useState([]);
-    const [selectedDrugs, setSelectedDrugs] = useState([]);
+    const [procedures, setProcedures] = useState([]);
+    const [filteredProcedures, setFilteredProcedures] = useState([]);
+    const [selectedProcedures, setSelectedProcedures] = useState([]);
     const [searchTerm, setSearchTerm] = useState("");
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [loading, setLoading] = useState(false);
-    const [editingDrug, setEditingDrug] = useState(null);
-    const [deleteDialog, setDeleteDialog] = useState({ open: false, drugCode: null });
+    const [editingProcedure, setEditingProcedure] = useState(null);
+    const [deleteDialog, setDeleteDialog] = useState({ open: false, procedureCode: null });
     const [alert, setAlert] = useState({ open: false, message: '', severity: 'info' });
 
-    // Form states - ครบทุก fields ตาม TABLE_DRUG
+    // Form states
     const [formData, setFormData] = useState({
-        DRUG_CODE: '',
-        GENERIC_NAME: '',
-        TRADE_NAME: '',
-        UNIT_CODE: '',
+        MEDICAL_PROCEDURE_CODE: '',
+        MED_PRO_NAME_THAI: '',
+        MED_PRO_NAME_ENG: '',
+        MED_PRO_TYPE: '',
         UNIT_PRICE: '',
-        Type1: '',
-        Dose1: '',
-        Indication1: '',
-        Effect1: 'None',
-        Contraindications1: 'None',
-        Comment1: 'None',
-        Drug_formulations: '',
         SOCIAL_CARD: 'N',
         UCS_CARD: 'N'
     });
@@ -48,65 +40,64 @@ const EnhancedDrugInformation = () => {
     const itemsPerPage = 10;
 
     useEffect(() => {
-        loadDrugs();
+        loadProcedures();
     }, []);
 
     useEffect(() => {
-        filterDrugs();
-    }, [drugs, searchTerm]);
+        filterProcedures();
+    }, [procedures, searchTerm]);
 
     useEffect(() => {
-        setTotalPages(Math.ceil(filteredDrugs.length / itemsPerPage));
-    }, [filteredDrugs]);
+        setTotalPages(Math.ceil(filteredProcedures.length / itemsPerPage));
+    }, [filteredProcedures]);
 
-    const loadDrugs = async () => {
+    const loadProcedures = async () => {
         setLoading(true);
         try {
             const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
-            // เพิ่ม limit=10000 เพื่อดึงข้อมูลยาทั้งหมด
-            const response = await fetch(`${API_BASE_URL}/drugs?limit=10000`);
-            
+            const response = await fetch(`${API_BASE_URL}/procedures?limit=10000`);
+
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
-            
+
             const result = await response.json();
-            
+
             if (result.success && result.data) {
-                console.log(`✅ โหลดข้อมูลยา ${result.data.length} รายการ`);
-                setDrugs(result.data);
-                setFilteredDrugs(result.data);
-                showAlert(`โหลดข้อมูลยาสำเร็จ ${result.data.length} รายการ`, 'success');
+                console.log(`✅ โหลดข้อมูลหัตถการ ${result.data.length} รายการ`);
+                setProcedures(result.data);
+                setFilteredProcedures(result.data);
+                showAlert(`โหลดข้อมูลหัตถการสำเร็จ ${result.data.length} รายการ`, 'success');
             } else {
-                throw new Error('ไม่สามารถดึงข้อมูลยาได้');
+                throw new Error('ไม่สามารถดึงข้อมูลหัตถการได้');
             }
         } catch (error) {
-            console.error('❌ Error loading drugs:', error);
-            showAlert('ไม่สามารถโหลดข้อมูลยาได้ กรุณาตรวจสอบการเชื่อมต่อ API', 'error');
-            setDrugs([]);
-            setFilteredDrugs([]);
+            console.error('❌ Error loading procedures:', error);
+            showAlert('ไม่สามารถโหลดข้อมูลหัตถการได้ กรุณาตรวจสอบการเชื่อมต่อ API', 'error');
+            setProcedures([]);
+            setFilteredProcedures([]);
         }
         setLoading(false);
     };
 
-    const filterDrugs = () => {
+    const filterProcedures = () => {
         if (!searchTerm) {
-            setFilteredDrugs(drugs);
+            setFilteredProcedures(procedures);
         } else {
-            const filtered = drugs.filter(drug =>
-                drug.DRUG_CODE?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                drug.GENERIC_NAME?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                drug.TRADE_NAME?.toLowerCase().includes(searchTerm.toLowerCase())
+            const filtered = procedures.filter(proc =>
+                proc.MEDICAL_PROCEDURE_CODE?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                proc.MED_PRO_NAME_THAI?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                proc.MED_PRO_NAME_ENG?.toLowerCase().includes(searchTerm.toLowerCase())
             );
-            setFilteredDrugs(filtered);
+            setFilteredProcedures(filtered);
         }
         setPage(1);
     };
 
-    const getPaginatedDrugs = () => {
+    const getPaginatedProcedures = () => {
         const startIndex = (page - 1) * itemsPerPage;
         const endIndex = startIndex + itemsPerPage;
-        return filteredDrugs.slice(startIndex, endIndex);
+        return filteredProcedures.slice(startIndex, endIndex);
     };
 
     const handleFormChange = (field, value) => {
@@ -115,58 +106,58 @@ const EnhancedDrugInformation = () => {
 
     const resetForm = () => {
         setFormData({
-            DRUG_CODE: '',
-            GENERIC_NAME: '',
-            TRADE_NAME: '',
-            UNIT_CODE: '',
+            MEDICAL_PROCEDURE_CODE: '',
+            MED_PRO_NAME_THAI: '',
+            MED_PRO_NAME_ENG: '',
+            MED_PRO_TYPE: '',
             UNIT_PRICE: '',
-            Type1: '',
-            Dose1: '',
-            Indication1: '',
-            Effect1: 'None',
-            Contraindications1: 'None',
-            Comment1: 'None',
-            Drug_formulations: '',
             SOCIAL_CARD: 'N',
             UCS_CARD: 'N'
         });
-        setEditingDrug(null);
+        setEditingProcedure(null);
     };
 
-    // สร้าง DRUG_CODE แบบ D0001, D0002, ...
-    const generateNextDrugCode = () => {
-        if (drugs.length === 0) {
-            return 'D0001';
+    const generateNextProcedureCode = () => {
+        if (procedures.length === 0) {
+            return 'P0001';
         }
 
         const maxNumber = Math.max(
-            ...drugs
-                .filter(drug => /^D\d{4}$/.test(drug.DRUG_CODE))
-                .map(drug => parseInt(drug.DRUG_CODE.substring(1)))
+            ...procedures
+                .filter(proc => /^P\d{4}$/.test(proc.MEDICAL_PROCEDURE_CODE))
+                .map(proc => parseInt(proc.MEDICAL_PROCEDURE_CODE.substring(1)))
         );
 
         const nextNumber = maxNumber + 1;
-        return `D${String(nextNumber).padStart(4, '0')}`;
+        return `P${String(nextNumber).padStart(4, '0')}`;
     };
 
     const handleSave = async () => {
-        if (!formData.GENERIC_NAME) {
-            showAlert('กรุณากรอกชื่อยา', 'error');
+        if (!formData.MED_PRO_NAME_THAI) {
+            showAlert('กรุณากรอกชื่อหัตถการภาษาไทย', 'error');
             return;
         }
 
         setLoading(true);
-        
+
         try {
             const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
-            let dataToSave = { ...formData };
 
-            if (!editingDrug) {
-                // สร้างรหัสใหม่
-                dataToSave.DRUG_CODE = generateNextDrugCode();
-                
-                // เรียก API เพื่อสร้างยาใหม่
-                const response = await fetch(`${API_BASE_URL}/drugs`, {
+            if (!editingProcedure) {
+                // สร้างข้อมูลที่จะส่งไป - ตรงกับ field ใน database
+                const dataToSave = {
+                    MEDICAL_PROCEDURE_CODE: generateNextProcedureCode(),
+                    MED_PRO_NAME_THAI: formData.MED_PRO_NAME_THAI || null,
+                    MED_PRO_NAME_ENG: formData.MED_PRO_NAME_ENG || null,
+                    MED_PRO_TYPE: formData.MED_PRO_TYPE || null,
+                    UNIT_PRICE: formData.UNIT_PRICE ? parseFloat(formData.UNIT_PRICE) : null,
+                    SOCIAL_CARD: formData.SOCIAL_CARD || 'N',
+                    UCS_CARD: formData.UCS_CARD || 'N'
+                };
+
+                console.log('📤 Sending data:', dataToSave);
+
+                const response = await fetch(`${API_BASE_URL}/procedures`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -174,15 +165,28 @@ const EnhancedDrugInformation = () => {
                     body: JSON.stringify(dataToSave)
                 });
 
+                const result = await response.json();
+                console.log('📥 Backend response:', result);
+
                 if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.message || 'เพิ่มข้อมูลยาไม่สำเร็จ');
+                    throw new Error(result.message || 'เพิ่มข้อมูลหัตถการไม่สำเร็จ');
                 }
 
-                showAlert('เพิ่มข้อมูลยาสำเร็จ', 'success');
+                showAlert('เพิ่มข้อมูลหัตถการสำเร็จ', 'success');
             } else {
-                // เรียก API เพื่ออัปเดตยา
-                const response = await fetch(`${API_BASE_URL}/drugs/${editingDrug.DRUG_CODE}`, {
+                // อัปเดต
+                const dataToSave = {
+                    MED_PRO_NAME_THAI: formData.MED_PRO_NAME_THAI || null,
+                    MED_PRO_NAME_ENG: formData.MED_PRO_NAME_ENG || null,
+                    MED_PRO_TYPE: formData.MED_PRO_TYPE || null,
+                    UNIT_PRICE: formData.UNIT_PRICE ? parseFloat(formData.UNIT_PRICE) : null,
+                    SOCIAL_CARD: formData.SOCIAL_CARD || 'N',
+                    UCS_CARD: formData.UCS_CARD || 'N'
+                };
+
+                console.log('📤 Updating data:', dataToSave);
+
+                const response = await fetch(`${API_BASE_URL}/procedures/${editingProcedure.MEDICAL_PROCEDURE_CODE}`, {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',
@@ -190,104 +194,108 @@ const EnhancedDrugInformation = () => {
                     body: JSON.stringify(dataToSave)
                 });
 
+                const result = await response.json();
+                console.log('📥 Backend response:', result);
+
                 if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.message || 'แก้ไขข้อมูลยาไม่สำเร็จ');
+                    throw new Error(result.message || 'แก้ไขข้อมูลหัตถการไม่สำเร็จ');
                 }
 
-                showAlert('แก้ไขข้อมูลยาสำเร็จ', 'success');
+                showAlert('แก้ไขข้อมูลหัตถการสำเร็จ', 'success');
             }
 
-            // โหลดข้อมูลใหม่หลังบันทึกสำเร็จ
-            await loadDrugs();
+            await loadProcedures();
             resetForm();
             setCurrentView("list");
         } catch (error) {
-            console.error('Error saving drug:', error);
+            console.error('❌ Error:', error);
             showAlert(error.message || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล', 'error');
         }
-        
+
         setLoading(false);
     };
 
-    const handleEdit = (drug) => {
-        setFormData(drug);
-        setEditingDrug(drug);
+    const handleEdit = (procedure) => {
+        setFormData(procedure);
+        setEditingProcedure(procedure);
         setCurrentView("edit");
     };
 
-    const handleDeleteClick = (drugCode) => {
-        setDeleteDialog({ open: true, drugCode });
+    const handleDeleteClick = (procedureCode) => {
+        setDeleteDialog({ open: true, procedureCode });
     };
 
     const handleDeleteConfirm = async () => {
-        const { drugCode } = deleteDialog;
+        const { procedureCode } = deleteDialog;
 
         try {
             const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
-            const response = await fetch(`${API_BASE_URL}/drugs/${drugCode}`, {
+            const response = await fetch(`${API_BASE_URL}/procedures/${procedureCode}`, {
                 method: 'DELETE'
             });
 
             if (!response.ok) {
                 const errorData = await response.json();
-                throw new Error(errorData.message || 'ลบข้อมูลยาไม่สำเร็จ');
+                throw new Error(errorData.message || 'ลบข้อมูลหัตถการไม่สำเร็จ');
             }
 
-            showAlert('ลบข้อมูลยาสำเร็จ', 'success');
-            
-            // โหลดข้อมูลใหม่หลังลบสำเร็จ
-            await loadDrugs();
+            showAlert('ลบข้อมูลหัตถการสำเร็จ', 'success');
+            await loadProcedures();
         } catch (error) {
-            console.error('Error deleting drug:', error);
+            console.error('Error deleting procedure:', error);
             showAlert(error.message || 'เกิดข้อผิดพลาดในการลบข้อมูล', 'error');
         }
 
-        setDeleteDialog({ open: false, drugCode: null });
+        setDeleteDialog({ open: false, procedureCode: null });
     };
 
     const handleSelectAll = (checked) => {
         if (checked) {
-            setSelectedDrugs(getPaginatedDrugs().map(drug => drug.DRUG_CODE));
+            setSelectedProcedures(getPaginatedProcedures().map(proc => proc.MEDICAL_PROCEDURE_CODE));
         } else {
-            setSelectedDrugs([]);
+            setSelectedProcedures([]);
         }
     };
 
-    const handleSelectDrug = (drugCode) => {
-        setSelectedDrugs(prev =>
-            prev.includes(drugCode)
-                ? prev.filter(code => code !== drugCode)
-                : [...prev, drugCode]
+    const handleSelectProcedure = (procedureCode) => {
+        setSelectedProcedures(prev =>
+            prev.includes(procedureCode)
+                ? prev.filter(code => code !== procedureCode)
+                : [...prev, procedureCode]
         );
     };
 
-    const handleBulkDelete = () => {
-        if (selectedDrugs.length === 0) {
-            showAlert('กรุณาเลือกยาที่ต้องการลบ', 'warning');
+    const handleBulkDelete = async () => {
+        if (selectedProcedures.length === 0) {
+            showAlert('กรุณาเลือกหัตถการที่ต้องการลบ', 'warning');
             return;
         }
 
-        const updatedDrugs = drugs.filter(drug => !selectedDrugs.includes(drug.DRUG_CODE));
-        setDrugs(updatedDrugs);
-        setSelectedDrugs([]);
-        showAlert(`ลบข้อมูลยา ${selectedDrugs.length} รายการสำเร็จ`, 'success');
+        try {
+            const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
+
+            for (const code of selectedProcedures) {
+                await fetch(`${API_BASE_URL}/procedures/${code}`, {
+                    method: 'DELETE'
+                });
+            }
+
+            showAlert(`ลบข้อมูลหัตถการ ${selectedProcedures.length} รายการสำเร็จ`, 'success');
+            setSelectedProcedures([]);
+            await loadProcedures();
+        } catch (error) {
+            console.error('Error bulk deleting:', error);
+            showAlert('เกิดข้อผิดพลาดในการลบข้อมูล', 'error');
+        }
     };
 
     const showAlert = (message, severity) => {
         setAlert({ open: true, message, severity });
     };
 
-    const getUnitOptions = () => [
-        'เม็ด', 'แคปซูล', 'ขวด', 'หลอด', 'กล่อง', 'แผง', 'Amp', 'Vial'
-    ];
-
-    const getTypeOptions = () => [
-        'ยาอันตราย', 'ยาสามัญประจำบ้าน', 'ยาใช้ภายนอก', 'วัถุอออกฤทธิ์'
-    ];
-
-    const getFormulationOptions = () => [
-        'Tablets', 'Capsules', 'Topical', 'Injections', 'ยาน้ำ', 'Drops'
+    const getProcedureTypeOptions = () => [
+        'ตรวจร่างกาย', 'รักษาทั่วไป', 'ผ่าตัดเล็ก', 'ทันตกรรม',
+        'ฟื้นฟูสมรรถภาพ', 'ฉีดวัคซีน', 'ตรวจเลือด', 'เอ็กซ์เรย์'
     ];
 
     // Form View
@@ -296,7 +304,7 @@ const EnhancedDrugInformation = () => {
             <Container maxWidth="lg" sx={{ mt: 4 }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
                     <Typography variant="h5" fontWeight="bold">
-                        {currentView === "add" ? "เพิ่มข้อมูลยาใหม่" : "แก้ไขข้อมูลยา"}
+                        {currentView === "add" ? "เพิ่มข้อมูลหัตถการใหม่" : "แก้ไขข้อมูลหัตถการ"}
                     </Typography>
                     <Button
                         variant="outlined"
@@ -313,15 +321,15 @@ const EnhancedDrugInformation = () => {
                 <Card>
                     <CardContent>
                         <Grid container spacing={2}>
-                            {/* รหัสยา - แสดงว่าจะสร้างอัตโนมัติ */}
+                            {/* รหัสหัตถการ */}
                             <Grid item xs={12} sm={6}>
                                 <Typography sx={{ fontWeight: 400, fontSize: 16, mb: 1 }}>
-                                    รหัสยา {!editingDrug && "(จะสร้างอัตโนมัติ)"}
+                                    รหัสหัตถการ {!editingProcedure && "(จะสร้างอัตโนมัติ)"}
                                 </Typography>
                                 <TextField
                                     size="small"
-                                    placeholder={!editingDrug ? generateNextDrugCode() : "รหัสยา"}
-                                    value={editingDrug ? formData.DRUG_CODE : ""}
+                                    placeholder={!editingProcedure ? generateNextProcedureCode() : "รหัสหัตถการ"}
+                                    value={editingProcedure ? formData.MEDICAL_PROCEDURE_CODE : ""}
                                     disabled={true}
                                     fullWidth
                                     sx={{
@@ -333,48 +341,48 @@ const EnhancedDrugInformation = () => {
                                 />
                             </Grid>
 
-                            {/* ชื่อยา */}
+                            {/* ชื่อหัตถการ (ไทย) */}
                             <Grid item xs={12} sm={6}>
                                 <Typography sx={{ fontWeight: 400, fontSize: 16, mb: 1 }}>
-                                    ชื่อยา / เวชภัณฑ์ *
+                                    ชื่อหัตถการ (ภาษาไทย) *
                                 </Typography>
                                 <TextField
                                     size="small"
-                                    placeholder="ชื่อยา"
-                                    value={formData.GENERIC_NAME}
-                                    onChange={(e) => handleFormChange('GENERIC_NAME', e.target.value)}
+                                    placeholder="ชื่อหัตถการภาษาไทย"
+                                    value={formData.MED_PRO_NAME_THAI}
+                                    onChange={(e) => handleFormChange('MED_PRO_NAME_THAI', e.target.value)}
                                     fullWidth
                                     sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
                                 />
                             </Grid>
 
-                            {/* ชื่อทางการค้า */}
+                            {/* ชื่อหัตถการ (อังกฤษ) */}
                             <Grid item xs={12} sm={6}>
                                 <Typography sx={{ fontWeight: 400, fontSize: 16, mb: 1 }}>
-                                    ชื่อทางการค้า
+                                    ชื่อหัตถการ (ภาษาอังกฤษ)
                                 </Typography>
                                 <TextField
                                     size="small"
-                                    placeholder="ชื่อทางการค้า"
-                                    value={formData.TRADE_NAME}
-                                    onChange={(e) => handleFormChange('TRADE_NAME', e.target.value)}
+                                    placeholder="Medical Procedure Name (English)"
+                                    value={formData.MED_PRO_NAME_ENG}
+                                    onChange={(e) => handleFormChange('MED_PRO_NAME_ENG', e.target.value)}
                                     fullWidth
                                     sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
                                 />
                             </Grid>
 
-                            {/* หน่วย */}
+                            {/* ประเภทหัตถการ */}
                             <Grid item xs={12} sm={6}>
                                 <Typography sx={{ fontWeight: 400, fontSize: 16, mb: 1 }}>
-                                    หน่วย
+                                    ประเภทหัตถการ
                                 </Typography>
                                 <FormControl fullWidth size="small">
                                     <Select
-                                        value={formData.UNIT_CODE}
-                                        onChange={(e) => handleFormChange('UNIT_CODE', e.target.value)}
+                                        value={formData.MED_PRO_TYPE}
+                                        onChange={(e) => handleFormChange('MED_PRO_TYPE', e.target.value)}
                                         sx={{ borderRadius: "10px" }}
                                     >
-                                        {getUnitOptions().map((option) => (
+                                        {getProcedureTypeOptions().map((option) => (
                                             <MenuItem key={option} value={option}>{option}</MenuItem>
                                         ))}
                                     </Select>
@@ -397,125 +405,10 @@ const EnhancedDrugInformation = () => {
                                 />
                             </Grid>
 
-                            {/* ประเภท */}
+                            {/* บัตรสวัสดิการ */}
                             <Grid item xs={12} sm={6}>
                                 <Typography sx={{ fontWeight: 400, fontSize: 16, mb: 1 }}>
-                                    ประเภท
-                                </Typography>
-                                <FormControl fullWidth size="small">
-                                    <Select
-                                        value={formData.Type1}
-                                        onChange={(e) => handleFormChange('Type1', e.target.value)}
-                                        sx={{ borderRadius: "10px" }}
-                                    >
-                                        {getTypeOptions().map((option) => (
-                                            <MenuItem key={option} value={option}>{option}</MenuItem>
-                                        ))}
-                                    </Select>
-                                </FormControl>
-                            </Grid>
-
-                            {/* ขนาดยา */}
-                            <Grid item xs={12} sm={6}>
-                                <Typography sx={{ fontWeight: 400, fontSize: 16, mb: 1 }}>
-                                    ขนาดยา
-                                </Typography>
-                                <TextField
-                                    size="small"
-                                    placeholder="เช่น 500 mg"
-                                    value={formData.Dose1}
-                                    onChange={(e) => handleFormChange('Dose1', e.target.value)}
-                                    fullWidth
-                                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
-                                />
-                            </Grid>
-
-                            {/* รูปแบบยา */}
-                            <Grid item xs={12} sm={6}>
-                                <Typography sx={{ fontWeight: 400, fontSize: 16, mb: 1 }}>
-                                    รูปแบบยา
-                                </Typography>
-                                <FormControl fullWidth size="small">
-                                    <Select
-                                        value={formData.Drug_formulations}
-                                        onChange={(e) => handleFormChange('Drug_formulations', e.target.value)}
-                                        sx={{ borderRadius: "10px" }}
-                                    >
-                                        {getFormulationOptions().map((option) => (
-                                            <MenuItem key={option} value={option}>{option}</MenuItem>
-                                        ))}
-                                    </Select>
-                                </FormControl>
-                            </Grid>
-
-                            {/* ข้อบ่งใช้ */}
-                            <Grid item xs={12}>
-                                <Typography sx={{ fontWeight: 400, fontSize: 16, mb: 1 }}>
-                                    ข้อบ่งใช้ / สรรพคุณ
-                                </Typography>
-                                <TextField
-                                    size="small"
-                                    placeholder="เช่น แก้ปวด ลดไข้"
-                                    value={formData.Indication1}
-                                    onChange={(e) => handleFormChange('Indication1', e.target.value)}
-                                    fullWidth
-                                    multiline
-                                    rows={2}
-                                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
-                                />
-                            </Grid>
-
-                            {/* ผลข้างเคียง */}
-                            <Grid item xs={12} sm={6}>
-                                <Typography sx={{ fontWeight: 400, fontSize: 16, mb: 1 }}>
-                                    ผลข้างเคียง
-                                </Typography>
-                                <TextField
-                                    size="small"
-                                    placeholder="ผลข้างเคียง"
-                                    value={formData.Effect1}
-                                    onChange={(e) => handleFormChange('Effect1', e.target.value)}
-                                    fullWidth
-                                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
-                                />
-                            </Grid>
-
-                            {/* ข้อควรระวัง */}
-                            <Grid item xs={12} sm={6}>
-                                <Typography sx={{ fontWeight: 400, fontSize: 16, mb: 1 }}>
-                                    ข้อควรระวัง / ข้อห้ามใช้
-                                </Typography>
-                                <TextField
-                                    size="small"
-                                    placeholder="ข้อควรระวัง"
-                                    value={formData.Contraindications1}
-                                    onChange={(e) => handleFormChange('Contraindications1', e.target.value)}
-                                    fullWidth
-                                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
-                                />
-                            </Grid>
-
-                            {/* หมายเหตุ */}
-                            <Grid item xs={12}>
-                                <Typography sx={{ fontWeight: 400, fontSize: 16, mb: 1 }}>
-                                    หมายเหตุ
-                                </Typography>
-                                <TextField
-                                    size="small"
-                                    placeholder="หมายเหตุเพิ่มเติม"
-                                    value={formData.Comment1}
-                                    onChange={(e) => handleFormChange('Comment1', e.target.value)}
-                                    fullWidth
-                                    multiline
-                                    rows={2}
-                                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
-                                />
-                            </Grid>
-
-                            {/* ประกันสังคม */}
-                            <Grid item xs={12} sm={6}>
-                                <Typography sx={{ fontWeight: 400, fontSize: 16, mb: 1 }}>
-                                    ประกันสังคม
+                                    บัตรสวัสดิการ
                                 </Typography>
                                 <FormControl fullWidth size="small">
                                     <Select
@@ -578,7 +471,7 @@ const EnhancedDrugInformation = () => {
         <Container maxWidth="lg" sx={{ mt: 4 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
                 <Typography variant="h5" fontWeight="bold">
-                    ระบบข้อมูลยา ({filteredDrugs.length} รายการ)
+                    ระบบข้อมูลหัตถการ ({filteredProcedures.length} รายการ)
                 </Typography>
                 <Button
                     variant="contained"
@@ -586,7 +479,7 @@ const EnhancedDrugInformation = () => {
                     onClick={() => setCurrentView("add")}
                     sx={{ backgroundColor: '#5698E0' }}
                 >
-                    เพิ่มยา
+                    เพิ่มหัตถการ
                 </Button>
             </Box>
 
@@ -596,7 +489,7 @@ const EnhancedDrugInformation = () => {
                         <Grid item xs={12} sm={6}>
                             <TextField
                                 size="small"
-                                placeholder="ค้นหายา (รหัสยา, ชื่อยา, ชื่อทางการค้า)"
+                                placeholder="ค้นหาหัตถการ (รหัส, ชื่อภาษาไทย, ชื่อภาษาอังกฤษ)"
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 fullWidth
@@ -616,9 +509,9 @@ const EnhancedDrugInformation = () => {
                                 color="error"
                                 startIcon={<DeleteIcon />}
                                 onClick={handleBulkDelete}
-                                disabled={selectedDrugs.length === 0}
+                                disabled={selectedProcedures.length === 0}
                             >
-                                ลบที่เลือก ({selectedDrugs.length})
+                                ลบที่เลือก ({selectedProcedures.length})
                             </Button>
                         </Grid>
                     </Grid>
@@ -627,10 +520,10 @@ const EnhancedDrugInformation = () => {
 
             <Card>
                 <CardContent>
-                    {filteredDrugs.length === 0 ? (
+                    {filteredProcedures.length === 0 ? (
                         <Box sx={{ textAlign: 'center', py: 4 }}>
                             <Typography variant="h6" color="text.secondary">
-                                {searchTerm ? 'ไม่พบข้อมูลที่ค้นหา' : 'ยังไม่มีข้อมูลยา'}
+                                {searchTerm ? 'ไม่พบข้อมูลที่ค้นหา' : 'ยังไม่มีข้อมูลหัตถการ'}
                             </Typography>
                         </Box>
                     ) : (
@@ -640,48 +533,48 @@ const EnhancedDrugInformation = () => {
                                     <tr>
                                         <th style={{ padding: '12px 8px', textAlign: 'left', color: '#696969' }}>
                                             <Checkbox
-                                                checked={selectedDrugs.length === getPaginatedDrugs().length}
+                                                checked={selectedProcedures.length === getPaginatedProcedures().length}
                                                 onChange={(e) => handleSelectAll(e.target.checked)}
                                             />
                                             ลำดับ
                                         </th>
-                                        <th style={{ padding: '12px 8px', textAlign: 'left', color: '#696969' }}>รหัสยา</th>
-                                        <th style={{ padding: '12px 8px', textAlign: 'left', color: '#696969' }}>ชื่อยา</th>
-                                        <th style={{ padding: '12px 8px', textAlign: 'left', color: '#696969' }}>ชื่อทางการค้า</th>
+                                        <th style={{ padding: '12px 8px', textAlign: 'left', color: '#696969' }}>รหัสหัตถการ</th>
+                                        <th style={{ padding: '12px 8px', textAlign: 'left', color: '#696969' }}>ชื่อหัตถการ (ไทย)</th>
+                                        <th style={{ padding: '12px 8px', textAlign: 'left', color: '#696969' }}>ชื่อหัตถการ (อังกฤษ)</th>
                                         <th style={{ padding: '12px 8px', textAlign: 'left', color: '#696969' }}>ประเภท</th>
                                         <th style={{ padding: '12px 8px', textAlign: 'left', color: '#696969' }}>ราคา</th>
                                         <th style={{ padding: '12px 8px', textAlign: 'center', color: '#696969' }}>จัดการ</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {getPaginatedDrugs().map((drug, index) => (
-                                        <tr key={drug.DRUG_CODE} style={{ borderTop: '1px solid #e0e0e0' }}>
+                                    {getPaginatedProcedures().map((procedure, index) => (
+                                        <tr key={procedure.MEDICAL_PROCEDURE_CODE} style={{ borderTop: '1px solid #e0e0e0' }}>
                                             <td style={{ padding: '12px 8px' }}>
                                                 <Checkbox
-                                                    checked={selectedDrugs.includes(drug.DRUG_CODE)}
-                                                    onChange={() => handleSelectDrug(drug.DRUG_CODE)}
+                                                    checked={selectedProcedures.includes(procedure.MEDICAL_PROCEDURE_CODE)}
+                                                    onChange={() => handleSelectProcedure(procedure.MEDICAL_PROCEDURE_CODE)}
                                                 />
                                                 {(page - 1) * itemsPerPage + index + 1}
                                             </td>
-                                            <td style={{ padding: '12px 8px', fontWeight: 500 }}>{drug.DRUG_CODE}</td>
-                                            <td style={{ padding: '12px 8px' }}>{drug.GENERIC_NAME}</td>
-                                            <td style={{ padding: '12px 8px' }}>{drug.TRADE_NAME || '-'}</td>
-                                            <td style={{ padding: '12px 8px' }}>{drug.Type1 || '-'}</td>
+                                            <td style={{ padding: '12px 8px', fontWeight: 500 }}>{procedure.MEDICAL_PROCEDURE_CODE}</td>
+                                            <td style={{ padding: '12px 8px' }}>{procedure.MED_PRO_NAME_THAI}</td>
+                                            <td style={{ padding: '12px 8px' }}>{procedure.MED_PRO_NAME_ENG || '-'}</td>
+                                            <td style={{ padding: '12px 8px' }}>{procedure.MED_PRO_TYPE || '-'}</td>
                                             <td style={{ padding: '12px 8px' }}>
-                                                {drug.UNIT_PRICE ? `฿${drug.UNIT_PRICE}` : '-'}
+                                                {procedure.UNIT_PRICE ? `฿${procedure.UNIT_PRICE}` : '-'}
                                             </td>
                                             <td style={{ padding: '12px 8px', textAlign: 'center' }}>
                                                 <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
                                                     <IconButton
                                                         size="small"
-                                                        onClick={() => handleEdit(drug)}
+                                                        onClick={() => handleEdit(procedure)}
                                                         sx={{ border: '1px solid #5698E0', borderRadius: '7px' }}
                                                     >
                                                         <EditIcon sx={{ color: '#5698E0' }} />
                                                     </IconButton>
                                                     <IconButton
                                                         size="small"
-                                                        onClick={() => handleDeleteClick(drug.DRUG_CODE)}
+                                                        onClick={() => handleDeleteClick(procedure.MEDICAL_PROCEDURE_CODE)}
                                                         sx={{ border: '1px solid #F62626', borderRadius: '7px' }}
                                                     >
                                                         <DeleteIcon sx={{ color: '#F62626' }} />
@@ -709,16 +602,16 @@ const EnhancedDrugInformation = () => {
 
             <Dialog
                 open={deleteDialog.open}
-                onClose={() => setDeleteDialog({ open: false, drugCode: null })}
+                onClose={() => setDeleteDialog({ open: false, procedureCode: null })}
             >
                 <DialogTitle>ยืนยันการลบข้อมูล</DialogTitle>
                 <DialogContent>
                     <Typography>
-                        คุณแน่ใจหรือไม่ที่ต้องการลบยา "{deleteDialog.drugCode}"?
+                        คุณแน่ใจหรือไม่ที่ต้องการลบหัตถการ "{deleteDialog.procedureCode}"?
                     </Typography>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={() => setDeleteDialog({ open: false, drugCode: null })}>
+                    <Button onClick={() => setDeleteDialog({ open: false, procedureCode: null })}>
                         ยกเลิก
                     </Button>
                     <Button
@@ -749,4 +642,4 @@ const EnhancedDrugInformation = () => {
     );
 };
 
-export default EnhancedDrugInformation;
+export default EnhancedMedicalProcedures;

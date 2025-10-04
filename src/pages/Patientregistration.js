@@ -77,7 +77,9 @@ const PatientRegistration = () => {
     DISEASE1: '',
     DRUG_ALLERGY: '',
     FOOD_ALLERGIES: '',
-    useCardAddress: false
+    useCardAddress: false,
+    SOCIAL_CARD: 'N',
+    UCS_CARD: 'N'
   });
 
   // Load initial data
@@ -281,7 +283,9 @@ const PatientRegistration = () => {
       DISEASE1: '',
       DRUG_ALLERGY: '',
       FOOD_ALLERGIES: '',
-      useCardAddress: false
+      useCardAddress: false,
+      SOCIAL_CARD: 'N',
+      UCS_CARD: 'N'
     });
     setNewPatientTabIndex(0);
   };

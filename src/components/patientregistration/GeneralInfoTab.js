@@ -11,7 +11,8 @@ import {
   Divider,
   IconButton,
   Tooltip,
-  Autocomplete
+  Autocomplete,
+  Checkbox
 } from "@mui/material";
 import AutorenewIcon from '@mui/icons-material/Autorenew';
 
@@ -506,6 +507,8 @@ const GeneralInfoTab = ({ onNext, patientData, updatePatientData }) => {
             />
           </Grid>
 
+
+
           <Grid item xs={12} sm={3}>
             <Typography sx={{ fontWeight: '400', fontSize: '16px', textAlign: "left" }}>
               คำนำหน้า
@@ -882,6 +885,55 @@ const GeneralInfoTab = ({ onNext, patientData, updatePatientData }) => {
                 },
               }}
             />
+          </Grid>
+
+          <Grid item xs={12} sm={6}>
+            <Typography sx={{ fontWeight: '400', fontSize: '16px', textAlign: "left", mb: 1 }}>
+              สิทธิการรักษา
+            </Typography>
+            <Box sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 1,
+              p: 2,
+              border: '1px solid #e0e0e0',
+              borderRadius: '10px',
+              backgroundColor: '#fafafa'
+            }}>
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <Checkbox
+                  checked={patientData.SOCIAL_CARD === 'Y'}
+                  onChange={(e) => updatePatientData({
+                    SOCIAL_CARD: e.target.checked ? 'Y' : 'N'
+                  })}
+                  sx={{
+                    '&.Mui-checked': {
+                      color: '#70A1E5',
+                    },
+                  }}
+                />
+                <Typography sx={{ fontSize: '14px' }}>
+                  ประกันสังคม (Social Security)
+                </Typography>
+              </Box>
+
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <Checkbox
+                  checked={patientData.UCS_CARD === 'Y'}
+                  onChange={(e) => updatePatientData({
+                    UCS_CARD: e.target.checked ? 'Y' : 'N'
+                  })}
+                  sx={{
+                    '&.Mui-checked': {
+                      color: '#70A1E5',
+                    },
+                  }}
+                />
+                <Typography sx={{ fontSize: '14px' }}>
+                  บัตรทอง (UCS - Universal Coverage)
+                </Typography>
+              </Box>
+            </Box>
           </Grid>
         </Grid>
 

@@ -426,14 +426,6 @@ const SettingsPage = () => {
                                                             </Typography>
                                                         </>
                                                     )}
-                                                    {u.EMP_CODE && (
-                                                        <>
-                                                            {' | '}
-                                                            <Typography variant="body2" component="span">
-                                                                รหัส: {u.EMP_CODE}
-                                                            </Typography>
-                                                        </>
-                                                    )}
                                                 </>
                                             }
                                         />
