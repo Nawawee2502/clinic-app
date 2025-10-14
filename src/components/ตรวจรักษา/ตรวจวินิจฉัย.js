@@ -191,7 +191,7 @@ const ตรวจวินิจฉัย = ({ currentPatient, onSaveSuccess })
 
             // แยกข้อมูล [Imaging] และ [Laboratory] จาก INVESTIGATION_NOTES
             const lines = investigationNotes.split('\n\n');
-            
+
             lines.forEach(line => {
               if (line.startsWith('[Imaging]')) {
                 imagingNote = line.replace('[Imaging]', '').trim();
@@ -354,11 +354,11 @@ const ตรวจวินิจฉัย = ({ currentPatient, onSaveSuccess })
 
       // เพิ่มข้อมูล Imaging และ Laboratory เป็น text notes แทนการใช้ foreign key
       const notes = [];
-      
+
       if (diagnosisData.investigations.imaging && diagnosisData.radiological.note.trim()) {
         notes.push(`[Imaging] ${diagnosisData.radiological.note.trim()}`);
       }
-      
+
       if (diagnosisData.investigations.lab && diagnosisData.laboratory.note.trim()) {
         notes.push(`[Laboratory] ${diagnosisData.laboratory.note.trim()}`);
       }
@@ -381,7 +381,7 @@ const ตรวจวินิจฉัย = ({ currentPatient, onSaveSuccess })
           QUEUE_ID: currentPatient.queueId,
           RDATE: new Date().toISOString().split('T')[0]
         };
-        
+
         if (currentPatient.queueId) {
           response = await TreatmentService.createTreatmentWithQueue(newTreatmentData, currentPatient.queueId);
         } else {
@@ -406,7 +406,7 @@ const ตรวจวินิจฉัย = ({ currentPatient, onSaveSuccess })
 
     } catch (error) {
       console.error('❌ Error saving diagnosis:', error);
-      
+
       // ให้รายละเอียดข้อผิดพลาดมากขึ้น
       let errorMsg = 'เกิดข้อผิดพลาดในการบันทึกข้อมูล';
       if (error.response?.data?.message) {
@@ -414,7 +414,7 @@ const ตรวจวินิจฉัย = ({ currentPatient, onSaveSuccess })
       } else if (error.message) {
         errorMsg += ': ' + error.message;
       }
-      
+
       alert(errorMsg);
     } finally {
       setSaving(false);
@@ -547,6 +547,18 @@ const ตรวจวินิจฉัย = ({ currentPatient, onSaveSuccess })
                   }}>
                     {currentPatient.HNCODE}
                   </Typography>
+                  <Box sx={{
+                    bgcolor: TreatmentService.getPatientRight(currentPatient).bgColor,
+                    color: TreatmentService.getPatientRight(currentPatient).color,
+                    p: 1,
+                    borderRadius: 1,
+                    border: `1px solid ${TreatmentService.getPatientRight(currentPatient).color}`,
+                    textAlign: 'center',
+                    fontWeight: 600,
+                    fontSize: '12px'
+                  }}>
+                    {TreatmentService.getPatientRight(currentPatient).name}
+                  </Box>
                 </Box>
               </Grid>
             </Grid>
@@ -692,7 +704,7 @@ const ตรวจวินิจฉัย = ({ currentPatient, onSaveSuccess })
                       }
                       label="Imaging"
                     />
-                    
+
                     {/* Imaging TextBox */}
                     {diagnosisData.investigations.imaging && (
                       <TextField

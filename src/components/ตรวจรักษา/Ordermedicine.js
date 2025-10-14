@@ -454,6 +454,18 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
                                     }}>
                                         {currentPatient.HNCODE}
                                     </Typography>
+                                    <Box sx={{
+                                        bgcolor: TreatmentService.getPatientRight(currentPatient).bgColor,
+                                        color: TreatmentService.getPatientRight(currentPatient).color,
+                                        p: 1,
+                                        borderRadius: 1,
+                                        border: `1px solid ${TreatmentService.getPatientRight(currentPatient).color}`,
+                                        textAlign: 'center',
+                                        fontWeight: 600,
+                                        fontSize: '12px'
+                                    }}>
+                                        {TreatmentService.getPatientRight(currentPatient).name}
+                                    </Box>
                                 </Box>
                             </Grid>
                         </Grid>
@@ -480,7 +492,7 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
                                 {/* Drug Name */}
                                 <Grid item xs={6}>
                                     <Typography sx={{ fontWeight: "400", fontSize: "16px", mb: 1 }}>
-                                        ชื่อยา * 
+                                        ชื่อยา *
                                     </Typography>
                                     <Autocomplete
                                         options={availableDrugs}

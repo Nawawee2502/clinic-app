@@ -17,10 +17,21 @@ import Paymentanddispensingmedicine from "./pages/Paymentanddispensingmedicine";
 import PatientManagement from "./pages/PatientManagementPage";
 import Report from "./pages/Report";
 import SettingsPage from "./pages/SettingsPage";
+import DrugInventory from "./pages/DrugInventory";
+import ReportMonthly from "./pages/ReportMonthly";
+import ReportYearly from "./pages/ReportYearly";
+import ExpenseCategories from "./pages/ExpenseCategories";
+import GeneralExpenses from "./pages/GeneralExpenses";
+import IncomeCategories from "./pages/IncomeCategories";
+import GeneralIncomes from "./pages/GeneralIncomes";
 
 // Import หน้าใหม่ (Lazy loading)
 const UserManagement = lazy(() => import("./pages/UserManagement"));
 const RegisterPage = lazy(() => import("./pages/RegisterPage"));
+
+// Import หน้าระบบการเงิน/บัญชี (Lazy loading)
+// const ExpenseCategories = lazy(() => import("./pages/Finance/ExpenseCategories"));
+// const GeneralExpenses = lazy(() => import("./pages/Finance/GeneralExpenses"));
 
 // ProtectedRoute
 const ProtectedRoute = ({ children, requiredRole = null }) => {
@@ -99,12 +110,27 @@ const Router = () => {
               <Route path="patientregistration" element={<Patientregistration />} />
               <Route path="patients" element={<PatientManagement />} />
               <Route path="treatment" element={<ตรวจรักษา />} />
-              <Route path="medicalstock" element={<Medicalstock />} />
               <Route path="cerwork" element={<Cerwork />} />
               <Route path="payment" element={<Paymentanddispensingmedicine />} />
-              <Route path="report" element={<Report />} />
-              <Route path="settings" element={<SettingsPage />} />
+              
+              {/* Medical Stock Routes */}
+              <Route path="medicalstock/settings" element={<Medicalstock />} />
+              <Route path="medicalstock/inventory" element={<DrugInventory />} />
+              
+              {/* Finance Routes */}
+              <Route path="finance/expense-categories" element={<ExpenseCategories />} />
+              <Route path="finance/general-expenses" element={<GeneralExpenses />} />
+              <Route path="finance/income-categories" element={<IncomeCategories />} />
+              <Route path="finance/general-incomes" element={<GeneralIncomes />} />
+              
 
+              {/* Report Routes */}
+              <Route path="report" element={<Report />} />
+              <Route path="report/daily" element={<Report />} />
+              <Route path="report/monthly" element={<ReportMonthly />} />
+              <Route path="report/yearly" element={<ReportYearly />} />
+              
+              <Route path="settings" element={<SettingsPage />} />
 
               {/* Admin Only */}
               <Route path="admin/users" element={
@@ -121,12 +147,11 @@ const Router = () => {
             <Route path="/dashboard" element={<Navigate to="/clinic/dashboard" replace />} />
             <Route path="/patientregistration" element={<Navigate to="/clinic/patientregistration" replace />} />
             <Route path="/ตรวจรักษา" element={<Navigate to="/clinic/treatment" replace />} />
-            <Route path="/Medicalstock" element={<Navigate to="/clinic/medicalstock" replace />} />
+            <Route path="/Medicalstock" element={<Navigate to="/clinic/medicalstock/settings" replace />} />
             <Route path="/cerwork" element={<Navigate to="/clinic/cerwork" replace />} />
             <Route path="/payment" element={<Navigate to="/clinic/payment" replace />} />
             <Route path="/Report" element={<Navigate to="/clinic/report" replace />} />
             <Route path="/settings" element={<Navigate to="/clinic/settings" replace />} />
-
 
             {/* 404 */}
             <Route path="*" element={<Navigate to="/" replace />} />

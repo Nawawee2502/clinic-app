@@ -758,7 +758,7 @@ class TreatmentService {
             SYMPTOM: queueData.CHIEF_COMPLAINT || '',
             STATUS1: 'ทำงานอยู่',
 
-            // ข้อมูลผู้ป่วยจาก Queue
+            // ✅ ข้อมูลผู้ป่วยจาก Queue พร้อมบัตร
             patientInfo: {
                 HNCODE: queueData.HNCODE,
                 PRENAME: queueData.PRENAME,
@@ -766,7 +766,10 @@ class TreatmentService {
                 SURNAME: queueData.SURNAME,
                 AGE: queueData.AGE,
                 SEX: queueData.SEX,
-                TEL1: queueData.TEL1
+                TEL1: queueData.TEL1,
+                // ✅ เพิ่มข้อมูลบัตรจากคิว
+                SOCIAL_CARD: queueData.SOCIAL_CARD,
+                UCS_CARD: queueData.UCS_CARD
             },
 
             // ✅ เริ่มต้นด้วยข้อมูลหัตถการว่าง
@@ -1280,6 +1283,35 @@ class TreatmentService {
         } catch (error) {
             console.error('Error fetching paid treatments:', error);
             throw error;
+        }
+    }
+
+    static getPatientRight(patient) {
+        // ตรวจสอบจากข้อมูลผู้ป่วยโดยตรง หรือจาก treatment
+        const socialCard = patient?.SOCIAL_CARD || patient?.treatment?.SOCIAL_CARD || 'N';
+        const ucsCard = patient?.UCS_CARD || patient?.treatment?.UCS_CARD || 'N';
+
+        if (socialCard === 'Y') {
+            return {
+                code: 'SOCIAL',
+                name: '🏢 ประกันสังคม',
+                color: '#1976d2',
+                bgColor: '#e3f2fd'
+            };
+        } else if (ucsCard === 'Y') {
+            return {
+                code: 'UCS',
+                name: '🏥 บัตรทอง (สปสช.)',
+                color: '#2e7d32',
+                bgColor: '#e8f5e9'
+            };
+        } else {
+            return {
+                code: 'SELF',
+                name: '💰 จ่ายเอง',
+                color: '#f57c00',
+                bgColor: '#fff3e0'
+            };
         }
     }
 }

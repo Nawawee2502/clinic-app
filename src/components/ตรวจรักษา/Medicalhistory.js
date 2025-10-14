@@ -132,7 +132,7 @@ export default function MedicalHistory({ currentPatient, onSaveSuccess }) {
         console.log('==== FULL API RESPONSE ====');
         console.log('Treatment history response:', response);
         console.log('Treatment history data:', response.data);
-        
+
         // โหลดรายละเอียดของแต่ละ treatment เพื่อให้ได้ DXCODE
         const treatmentsWithDetails = await Promise.all(
           response.data.map(async (treatment) => {
@@ -295,6 +295,18 @@ export default function MedicalHistory({ currentPatient, onSaveSuccess }) {
                   }}>
                     {currentPatient.HNCODE}
                   </Typography>
+                  <Box sx={{
+                    bgcolor: TreatmentService.getPatientRight(currentPatient).bgColor,
+                    color: TreatmentService.getPatientRight(currentPatient).color,
+                    p: 1,
+                    borderRadius: 1,
+                    border: `1px solid ${TreatmentService.getPatientRight(currentPatient).color}`,
+                    textAlign: 'center',
+                    fontWeight: 600,
+                    fontSize: '12px'
+                  }}>
+                    {TreatmentService.getPatientRight(currentPatient).name}
+                  </Box>
                 </Box>
               </Grid>
             </Grid>
@@ -364,7 +376,7 @@ export default function MedicalHistory({ currentPatient, onSaveSuccess }) {
                       DXCODE: treatment.DXCODE,
                       date: treatment.RDATE || treatment.TRDATE
                     });
-                    
+
                     return (
                       <ListItem
                         key={treatment.VNO}
@@ -401,8 +413,8 @@ export default function MedicalHistory({ currentPatient, onSaveSuccess }) {
                           secondary={
                             <Typography variant="body2" color="primary.main" sx={{ mt: 0.5 }}>
                               {/* แสดง DXCODE จากข้อมูล treatmentHistory โดยตรง */}
-                              {hasValidDxCode(treatment.DXCODE) 
-                                ? treatment.DXCODE 
+                              {hasValidDxCode(treatment.DXCODE)
+                                ? treatment.DXCODE
                                 : 'ไม่ระบุการวินิจฉัย'}
                             </Typography>
                           }

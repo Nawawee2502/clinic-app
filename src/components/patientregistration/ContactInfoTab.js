@@ -14,6 +14,7 @@ import {
   Autocomplete
 } from "@mui/material";
 import EmailIcon from '@mui/icons-material/Email';
+import ClinicOrgService from "../../services/clinicOrgService";
 
 const ContactInfoTab = ({ onNext, onPrev, patientData, updatePatientData }) => {
   // State สำหรับเก็บข้อมูลจาก API
@@ -35,56 +36,42 @@ const ContactInfoTab = ({ onNext, onPrev, patientData, updatePatientData }) => {
   const [selectedTumbol, setSelectedTumbol] = useState(null);
 
   // API Base URL
-  const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000/api';
+  const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
 
-  const defaultAddress = {
-    PROVINCE_CODE: '50',
-    PROVINCE_NAME: 'เชียงใหม่',
-    AMPHER_CODE: '5002',
-    AMPHER_NAME: 'จอมทอง',
-    TUMBOL_CODE: '500201',
-    TUMBOL_NAME: 'บ้านหลวง',
-    ZIPCODE: '50160'
-  };
+  // State สำหรับเก็บข้อมูล Clinic
+  const [clinicData, setClinicData] = useState(null);
+  const [loadingClinic, setLoadingClinic] = useState(true);
 
   // โหลดข้อมูลจังหวัดเมื่อ component mount
   useEffect(() => {
     fetchProvinces();
+    loadClinicData();
   }, []);
 
-  useEffect(() => {
-    if (!patientData.CARD_PROVINCE_CODE) {
-      updatePatientData({
-        CARD_PROVINCE_CODE: defaultAddress.PROVINCE_CODE,
-        CARD_AMPHER_CODE: defaultAddress.AMPHER_CODE,
-        CARD_TUMBOL_CODE: defaultAddress.TUMBOL_CODE,
-        CARD_ZIPCODE: defaultAddress.ZIPCODE
-      });
-
-      const defaultProvince = {
-        PROVINCE_CODE: defaultAddress.PROVINCE_CODE,
-        PROVINCE_NAME: defaultAddress.PROVINCE_NAME
-      };
-
-      const defaultAmpher = {
-        AMPHER_CODE: defaultAddress.AMPHER_CODE,
-        AMPHER_NAME: defaultAddress.AMPHER_NAME
-      };
-
-      const defaultTumbol = {
-        TUMBOL_CODE: defaultAddress.TUMBOL_CODE,
-        TUMBOL_NAME: defaultAddress.TUMBOL_NAME,
-        zipcode: defaultAddress.ZIPCODE
-      };
-
-      setSelectedCardProvince(defaultProvince);
-      setSelectedCardAmpher(defaultAmpher);
-      setSelectedCardTumbol(defaultTumbol);
-
-      fetchAmphersByProvince(defaultAddress.PROVINCE_CODE, true);
-      fetchTumbolsByAmpher(defaultAddress.AMPHER_CODE, true);
+  // โหลดข้อมูลคลินิก
+  const loadClinicData = async () => {
+    try {
+      setLoadingClinic(true);
+      const response = await ClinicOrgService.getClinicOrg();
+      if (response.success && response.data) {
+        setClinicData(response.data);
+        console.log('✅ Clinic data loaded:', response.data);
+      }
+    } catch (error) {
+      console.error('Error loading clinic data:', error);
+    } finally {
+      setLoadingClinic(false);
     }
-  }, []);
+  };
+
+  // ตั้งค่า default address จาก clinic data
+  useEffect(() => {
+    if (!loadingClinic && clinicData && !patientData.CARD_PROVINCE_CODE && provinces.length > 0) {
+      setDefaultAddressFromClinic();
+    }
+  }, [loadingClinic, clinicData, provinces]);
+
+  // ฟังก์ชันตั้งค่า default address จาก clinic
 
   // ฟังก์ชันดึงข้อมูลจังหวัด
   const fetchProvinces = async () => {
@@ -99,7 +86,7 @@ const ContactInfoTab = ({ onNext, onPrev, patientData, updatePatientData }) => {
     }
   };
 
-  // ฟังก์ชันดึงข้อมูลอำเภอตามจังหวัด
+  // แก้ไข fetch functions ให้ return data
   const fetchAmphersByProvince = async (provinceCode, isCardAddress = false) => {
     try {
       const response = await fetch(`${API_BASE_URL}/amphers/province/${provinceCode}`);
@@ -110,13 +97,15 @@ const ContactInfoTab = ({ onNext, onPrev, patientData, updatePatientData }) => {
         } else {
           setAmphers(result.data);
         }
+        return result.data; // เพิ่มบรรทัดนี้
       }
+      return []; // เพิ่มบรรทัดนี้
     } catch (error) {
       console.error('Error fetching amphers:', error);
+      return []; // เพิ่มบรรทัดนี้
     }
   };
 
-  // ฟังก์ชันดึงข้อมูลตำบลตามอำเภอ
   const fetchTumbolsByAmpher = async (ampherCode, isCardAddress = false) => {
     try {
       const response = await fetch(`${API_BASE_URL}/tumbols/ampher/${ampherCode}`);
@@ -127,10 +116,55 @@ const ContactInfoTab = ({ onNext, onPrev, patientData, updatePatientData }) => {
         } else {
           setTumbols(result.data);
         }
+        return result.data; // เพิ่มบรรทัดนี้
       }
+      return []; // เพิ่มบรรทัดนี้
     } catch (error) {
       console.error('Error fetching tumbols:', error);
+      return []; // เพิ่มบรรทัดนี้
     }
+  };
+
+  // แก้ไข setDefaultAddressFromClinic ให้ใช้ return values
+  const setDefaultAddressFromClinic = async () => {
+    if (!clinicData) return;
+
+    const defaultProvCode = clinicData.PROVINCE_CODE;
+    const defaultAmpCode = clinicData.AMPHER_CODE;
+    const defaultTumCode = clinicData.TUMBOL_CODE;
+    const defaultZipcode = clinicData.ZIPCODE;
+
+    // 1. Set province
+    const province = provinces.find(p => p.PROVINCE_CODE === defaultProvCode);
+    if (province) {
+      setSelectedCardProvince(province);
+    }
+
+    // 2. Load amphers และใช้ข้อมูลที่ return มา
+    if (defaultProvCode && defaultAmpCode) {
+      const amphersData = await fetchAmphersByProvince(defaultProvCode, true);
+      const ampher = amphersData.find(a => a.AMPHER_CODE === defaultAmpCode);
+      if (ampher) {
+        setSelectedCardAmpher(ampher);
+
+        // 3. Load tumbols และใช้ข้อมูลที่ return มา
+        if (defaultTumCode) {
+          const tumbolsData = await fetchTumbolsByAmpher(defaultAmpCode, true);
+          const tumbol = tumbolsData.find(t => t.TUMBOL_CODE === defaultTumCode);
+          if (tumbol) {
+            setSelectedCardTumbol(tumbol);
+          }
+        }
+      }
+    }
+
+    // 4. Update patient data
+    updatePatientData({
+      CARD_PROVINCE_CODE: defaultProvCode,
+      CARD_AMPHER_CODE: defaultAmpCode,
+      CARD_TUMBOL_CODE: defaultTumCode,
+      CARD_ZIPCODE: defaultZipcode
+    });
   };
 
   // Handle การเปลี่ยนจังหวัดสำหรับที่อยู่ตามบัตรประชาชน
@@ -250,17 +284,15 @@ const ContactInfoTab = ({ onNext, onPrev, patientData, updatePatientData }) => {
         TUMBOL_CODE: patientData.CARD_TUMBOL_CODE,
         AMPHER_CODE: patientData.CARD_AMPHER_CODE,
         PROVINCE_CODE: patientData.CARD_PROVINCE_CODE,
-        ZIPCODE: patientData.CARD_ZIPCODE // ใช้ zipcode จากบัตรประชาชน
+        ZIPCODE: patientData.CARD_ZIPCODE
       });
     } else {
-      // รีเซ็ตค่าเมื่อยกเลิก checkbox
       setSelectedProvince(null);
       setSelectedAmpher(null);
       setSelectedTumbol(null);
       setAmphers([]);
       setTumbols([]);
 
-      // เคลียร์ข้อมูลที่อยู่ปัจจุบัน
       updatePatientData({
         ADDR1: '',
         TUMBOL_CODE: '',
@@ -273,7 +305,6 @@ const ContactInfoTab = ({ onNext, onPrev, patientData, updatePatientData }) => {
 
   // ฟังก์ชันสำหรับ validate ข้อมูลก่อน next
   const handleNext = () => {
-    // ตรวจสอบข้อมูลที่จำเป็น
     if (!patientData.CARD_ADDR1) {
       alert('กรุณากรอกที่อยู่ตามบัตรประชาชน');
       return;
@@ -355,7 +386,26 @@ const ContactInfoTab = ({ onNext, onPrev, patientData, updatePatientData }) => {
 
         <Divider sx={{ borderColor: '#5698E0', borderWidth: 1 }} />
 
-        <h4 style={{ textAlign: "left", paddingLeft: "16px", color: '#5698E0' }}>
+        {/* แสดงข้อมูลคลินิกที่ใช้เป็น default */}
+        {clinicData && (
+          <Box sx={{
+            mt: 2,
+            p: 2,
+            bgcolor: '#e3f2fd',
+            borderRadius: 2,
+            mx: 2,
+            border: '1px solid #90caf9'
+          }}>
+            <Typography variant="body2" sx={{ color: '#1976d2', fontWeight: 600, mb: 1 }}>
+              🏥 ที่อยู่เริ่มต้นจากข้อมูลคลินิก
+            </Typography>
+            <Typography variant="caption" sx={{ color: '#1565c0' }}>
+              {clinicData.ADDR1 || 'ไม่มีข้อมูล'}
+            </Typography>
+          </Box>
+        )}
+
+        <h4 style={{ textAlign: "left", paddingLeft: "16px", color: '#5698E0', marginTop: "20px" }}>
           ที่อยู่ตามบัตรประชาชน
         </h4>
 
@@ -631,7 +681,6 @@ const ContactInfoTab = ({ onNext, onPrev, patientData, updatePatientData }) => {
               value={patientData.TEL1 || ''}
               onChange={(event) => {
                 const value = event.target.value;
-                // อนุญาตเฉพาะตัวเลขและจำกัดที่ 10 หลัก
                 const numericValue = value.replace(/[^0-9]/g, '').slice(0, 10);
                 updatePatientData({ TEL1: numericValue });
               }}

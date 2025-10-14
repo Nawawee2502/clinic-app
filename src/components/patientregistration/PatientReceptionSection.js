@@ -260,7 +260,7 @@ const PatientReceptionSection = ({
             return;
         }
 
-        const requiredVitals = ['WEIGHT1', 'HIGH1', 'BT1', 'BP1', 'BP2', 'RR1', 'PR1', 'SPO2'];  // ✅ แก้ไขจาก HIGHT1 เป็น HIGH1
+        const requiredVitals = ['WEIGHT1', 'HIGH1', 'BT1', 'BP1', 'BP2', 'RR1', 'PR1', 'SPO2'];
         const missingVitals = requiredVitals.filter(field => !vitalsData[field]);
 
         if (missingVitals.length > 0) {
@@ -271,14 +271,17 @@ const PatientReceptionSection = ({
         setLoading(true);
 
         try {
-            // Step 1: สร้างคิวก่อน
+            // ✅ Step 1: สร้างคิวพร้อมข้อมูลบัตร
             const queueData = {
                 HNCODE: selectedPatient.HNCODE,
                 CHIEF_COMPLAINT: vitalsData.SYMPTOM || 'รับบริการทั่วไป',
-                CREATED_BY: 'RECEPTION_SYSTEM'
+                CREATED_BY: 'RECEPTION_SYSTEM',
+                // ✅ เพิ่มข้อมูลบัตรที่นี่
+                SOCIAL_CARD: selectedPatient.SOCIAL_CARD,
+                UCS_CARD: selectedPatient.UCS_CARD
             };
 
-            console.log('🏥 Creating queue first...');
+            console.log('🏥 Creating queue with card info:', queueData);
             const queueResponse = await QueueService.createWalkInQueue(queueData);
 
             if (!queueResponse.success) {
@@ -298,7 +301,7 @@ const PatientReceptionSection = ({
 
                 // Vital Signs ที่กรอกในหน้ารับผู้ป่วย
                 WEIGHT1: parseFloat(vitalsData.WEIGHT1),
-                HIGHT1: parseFloat(vitalsData.HIGH1),  // ✅ ใช้ HIGH1 ใน state แต่ส่งเป็น HIGHT1 ให้ API
+                HIGHT1: parseFloat(vitalsData.HIGH1),
                 BT1: parseFloat(vitalsData.BT1),
                 BP1: parseInt(vitalsData.BP1),
                 BP2: parseInt(vitalsData.BP2),
@@ -327,7 +330,7 @@ const PatientReceptionSection = ({
             // Step 4: Reset forms
             setVitalsData({
                 WEIGHT1: '',
-                HIGH1: '',  // ✅ แก้ไขจาก HIGHT1 เป็น HIGH1
+                HIGH1: '',
                 BT1: '',
                 BP1: '',
                 BP2: '',

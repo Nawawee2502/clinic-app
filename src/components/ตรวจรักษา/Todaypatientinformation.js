@@ -62,7 +62,7 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
   // ✅ ฟังก์ชันตรวจสอบว่า vital sign แต่ละตัวผิดปกติหรือไม่
   const isVitalAbnormal = (vitalName) => {
     if (!warnings || warnings.length === 0) return false;
-    
+
     // แมป warning messages กับ field names
     const warningMap = {
       'WEIGHT1': ['น้ำหนัก', 'BMI'],
@@ -76,8 +76,8 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
     };
 
     const keywords = warningMap[vitalName] || [];
-    return warnings.some(warning => 
-      keywords.some(keyword => 
+    return warnings.some(warning =>
+      keywords.some(keyword =>
         warning.toLowerCase().includes(keyword.toLowerCase())
       )
     );
@@ -464,6 +464,22 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
                 <Typography variant="body2" fontWeight="bold">เวลาคิว</Typography>
                 <Typography variant="body2">{currentPatient.queueTime}</Typography>
               </Grid>
+              <Grid item xs={12}>
+                <Typography variant="body2" fontWeight="bold" sx={{ mb: 0.5 }}>สิทธิการรักษา</Typography>
+                <Box sx={{
+                  bgcolor: TreatmentService.getPatientRight(currentPatient).bgColor,
+                  color: TreatmentService.getPatientRight(currentPatient).color,
+                  px: 1.5,
+                  py: 0.5,
+                  borderRadius: 1,
+                  border: `1px solid ${TreatmentService.getPatientRight(currentPatient).color}`,
+                  textAlign: 'center',
+                  fontWeight: 600,
+                  fontSize: '13px'
+                }}>
+                  {TreatmentService.getPatientRight(currentPatient).name}
+                </Box>
+              </Grid>
             </Grid>
 
             {/* BMI Display */}
@@ -528,9 +544,9 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
             <Box sx={{ p: 3 }}>
               <Grid container spacing={2}>
                 <Grid item xs={6}>
-                  <Typography sx={{ 
-                    fontWeight: 400, 
-                    fontSize: '16px', 
+                  <Typography sx={{
+                    fontWeight: 400,
+                    fontSize: '16px',
                     mb: 1,
                     color: isVitalAbnormal('VNO') ? '#d32f2f' : 'inherit'
                   }}>
@@ -571,9 +587,9 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
                 </Grid>
 
                 <Grid item xs={6}>
-                  <Typography sx={{ 
-                    fontWeight: 400, 
-                    fontSize: '16px', 
+                  <Typography sx={{
+                    fontWeight: 400,
+                    fontSize: '16px',
                     mb: 1,
                     color: isVitalAbnormal('WEIGHT1') ? '#d32f2f' : 'inherit',
                     fontWeight: isVitalAbnormal('WEIGHT1') ? 'bold' : 400
@@ -593,9 +609,9 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
                 </Grid>
 
                 <Grid item xs={6}>
-                  <Typography sx={{ 
-                    fontWeight: 400, 
-                    fontSize: '16px', 
+                  <Typography sx={{
+                    fontWeight: 400,
+                    fontSize: '16px',
                     mb: 1,
                     color: isVitalAbnormal('HIGHT1') ? '#d32f2f' : 'inherit',
                     fontWeight: isVitalAbnormal('HIGHT1') ? 'bold' : 400
@@ -615,9 +631,9 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
                 </Grid>
 
                 <Grid item xs={6}>
-                  <Typography sx={{ 
-                    fontWeight: 400, 
-                    fontSize: '16px', 
+                  <Typography sx={{
+                    fontWeight: 400,
+                    fontSize: '16px',
                     mb: 1,
                     color: isVitalAbnormal('BT1') ? '#d32f2f' : 'inherit',
                     fontWeight: isVitalAbnormal('BT1') ? 'bold' : 400
@@ -637,9 +653,9 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
                 </Grid>
 
                 <Grid item xs={6}>
-                  <Typography sx={{ 
-                    fontWeight: 400, 
-                    fontSize: '16px', 
+                  <Typography sx={{
+                    fontWeight: 400,
+                    fontSize: '16px',
                     mb: 1,
                     color: isVitalAbnormal('SPO2') ? '#d32f2f' : 'inherit',
                     fontWeight: isVitalAbnormal('SPO2') ? 'bold' : 400
@@ -659,9 +675,9 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
                 </Grid>
 
                 <Grid item xs={4}>
-                  <Typography sx={{ 
-                    fontWeight: 400, 
-                    fontSize: '16px', 
+                  <Typography sx={{
+                    fontWeight: 400,
+                    fontSize: '16px',
                     mb: 1,
                     color: isVitalAbnormal('BP1') ? '#d32f2f' : 'inherit',
                     fontWeight: isVitalAbnormal('BP1') ? 'bold' : 400
@@ -681,9 +697,9 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
                 </Grid>
 
                 <Grid item xs={4}>
-                  <Typography sx={{ 
-                    fontWeight: 400, 
-                    fontSize: '16px', 
+                  <Typography sx={{
+                    fontWeight: 400,
+                    fontSize: '16px',
                     mb: 1,
                     color: isVitalAbnormal('BP2') ? '#d32f2f' : 'inherit',
                     fontWeight: isVitalAbnormal('BP2') ? 'bold' : 400
@@ -703,9 +719,9 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
                 </Grid>
 
                 <Grid item xs={4}>
-                  <Typography sx={{ 
-                    fontWeight: 400, 
-                    fontSize: '16px', 
+                  <Typography sx={{
+                    fontWeight: 400,
+                    fontSize: '16px',
                     mb: 1,
                     color: isVitalAbnormal('RR1') ? '#d32f2f' : 'inherit',
                     fontWeight: isVitalAbnormal('RR1') ? 'bold' : 400
@@ -725,9 +741,9 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
                 </Grid>
 
                 <Grid item xs={12}>
-                  <Typography sx={{ 
-                    fontWeight: 400, 
-                    fontSize: '16px', 
+                  <Typography sx={{
+                    fontWeight: 400,
+                    fontSize: '16px',
                     mb: 1,
                     color: isVitalAbnormal('PR1') ? '#d32f2f' : 'inherit',
                     fontWeight: isVitalAbnormal('PR1') ? 'bold' : 400

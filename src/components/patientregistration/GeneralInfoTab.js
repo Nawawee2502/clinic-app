@@ -68,6 +68,11 @@ const GeneralInfoTab = ({ onNext, patientData, updatePatientData }) => {
     if (!patientData.RELIGION1) updates.RELIGION1 = defaultValues.ศาสนา;
     if (!patientData.STATUS1) updates.STATUS1 = defaultValues.สถานภาพ;
 
+    if (!patientData.SOCIAL_CARD && !patientData.UCS_CARD) {
+      updates.SOCIAL_CARD = 'N';
+      updates.UCS_CARD = 'N';
+    }
+
     if (Object.keys(updates).length > 0) {
       updatePatientData(updates);
     }
@@ -888,52 +893,49 @@ const GeneralInfoTab = ({ onNext, patientData, updatePatientData }) => {
           </Grid>
 
           <Grid item xs={12} sm={6}>
-            <Typography sx={{ fontWeight: '400', fontSize: '16px', textAlign: "left", mb: 1 }}>
-              สิทธิการรักษา
+            <Typography sx={{ fontWeight: '400', fontSize: '16px', textAlign: "left" }}>
+              สิทธิการรักษา <span style={{ color: 'red' }}>*</span>
             </Typography>
-            <Box sx={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 1,
-              p: 2,
-              border: '1px solid #e0e0e0',
-              borderRadius: '10px',
-              backgroundColor: '#fafafa'
-            }}>
-              <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <Checkbox
-                  checked={patientData.SOCIAL_CARD === 'Y'}
-                  onChange={(e) => updatePatientData({
-                    SOCIAL_CARD: e.target.checked ? 'Y' : 'N'
-                  })}
-                  sx={{
-                    '&.Mui-checked': {
-                      color: '#70A1E5',
-                    },
-                  }}
-                />
-                <Typography sx={{ fontSize: '14px' }}>
-                  ประกันสังคม (Social Security)
-                </Typography>
-              </Box>
-
-              <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <Checkbox
-                  checked={patientData.UCS_CARD === 'Y'}
-                  onChange={(e) => updatePatientData({
-                    UCS_CARD: e.target.checked ? 'Y' : 'N'
-                  })}
-                  sx={{
-                    '&.Mui-checked': {
-                      color: '#70A1E5',
-                    },
-                  }}
-                />
-                <Typography sx={{ fontSize: '14px' }}>
-                  บัตรทอง (UCS - Universal Coverage)
-                </Typography>
-              </Box>
-            </Box>
+            <TextField
+              select
+              // label="เลือกสิทธิการรักษา"
+              size="small"
+              fullWidth
+              value={
+                patientData.SOCIAL_CARD === 'Y' ? 'social' :
+                  patientData.UCS_CARD === 'Y' ? 'ucs' :
+                    'self'
+              }
+              onChange={(e) => {
+                const value = e.target.value;
+                if (value === 'social') {
+                  updatePatientData({
+                    SOCIAL_CARD: 'Y',
+                    UCS_CARD: 'N'
+                  });
+                } else if (value === 'ucs') {
+                  updatePatientData({
+                    UCS_CARD: 'Y',
+                    SOCIAL_CARD: 'N'
+                  });
+                } else if (value === 'self') {
+                  updatePatientData({
+                    SOCIAL_CARD: 'N',
+                    UCS_CARD: 'N'
+                  });
+                }
+              }}
+              sx={{
+                mt: 1,
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: '10px',
+                },
+              }}
+            >
+              <MenuItem value="social">ประกันสังคม (Social Security)</MenuItem>
+              <MenuItem value="ucs">บัตรทอง (UCS - Universal Coverage)</MenuItem>
+              <MenuItem value="self">จ่ายเอง (Self-Pay)</MenuItem>
+            </TextField>
           </Grid>
         </Grid>
 

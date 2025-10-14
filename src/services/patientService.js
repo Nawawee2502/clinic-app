@@ -111,7 +111,7 @@ class PatientService {
                         const treatmentDetail = detailResponse.data.treatment;
                         console.log('✅ Treatment details loaded');
 
-                        // รวมข้อมูล Vital Signs เข้ากับข้อมูลผู้ป่วย
+                        // ✅ รวมข้อมูล Vital Signs + SOCIAL_CARD + UCS_CARD
                         return {
                             ...patient,
                             WEIGHT1: treatmentDetail.WEIGHT1 || patient.WEIGHT1,
@@ -123,7 +123,10 @@ class PatientService {
                             PR1: treatmentDetail.PR1,
                             SPO2: treatmentDetail.SPO2,
                             SYMPTOM: treatmentDetail.SYMPTOM,
-                            VNO: treatmentDetail.VNO
+                            VNO: treatmentDetail.VNO,
+                            // ✅ เพิ่มข้อมูลบัตร
+                            SOCIAL_CARD: patient.SOCIAL_CARD,
+                            UCS_CARD: patient.UCS_CARD
                         };
                     }
                 } else {
@@ -131,12 +134,15 @@ class PatientService {
                 }
             } catch (treatmentError) {
                 console.log('⚠️ Could not load treatment history:', treatmentError.message);
-                // ไม่ throw error เพื่อให้ส่งคืนข้อมูลผู้ป่วยได้
             }
 
-            // ส่งคืนข้อมูลผู้ป่วยอย่างเดียว
+            // ✅ ส่งคืนข้อมูลผู้ป่วยพร้อมบัตร
             console.log('✅ Returning patient data without vitals');
-            return patient;
+            return {
+                ...patient,
+                SOCIAL_CARD: patient.SOCIAL_CARD,
+                UCS_CARD: patient.UCS_CARD
+            };
 
         } catch (error) {
             console.error('Error getting patient with vitals:', error);
@@ -182,6 +188,10 @@ class PatientService {
 
                 // Avatar placeholder
                 avatar: this.generateAvatarUrl(queueItem.SEX, queueItem.NAME1),
+
+                // ✅ เพิ่มข้อมูลบัตร
+                SOCIAL_CARD: queueItem.SOCIAL_CARD,
+                UCS_CARD: queueItem.UCS_CARD,
 
                 // ข้อมูลสำหรับ Vital Signs (ยังไม่มี จะได้จาก Treatment)
                 WEIGHT1: null,
@@ -413,8 +423,8 @@ class PatientService {
             DRUG_ALLERGY: data.DRUG_ALLERGY?.trim(),
             FOOD_ALLERGIES: data.FOOD_ALLERGIES?.trim(),
 
-            SOCIAL_CARD: data.SOCIAL_CARD || 'N',
-            UCS_CARD: data.UCS_CARD || 'N'
+            SOCIAL_CARD: data.SOCIAL_CARD,
+            UCS_CARD: data.UCS_CARD
         };
     }
 

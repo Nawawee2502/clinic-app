@@ -381,6 +381,18 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
                   }}>
                     {currentPatient.HNCODE}
                   </Typography>
+                  <Box sx={{
+                    bgcolor: TreatmentService.getPatientRight(currentPatient).bgColor,
+                    color: TreatmentService.getPatientRight(currentPatient).color,
+                    p: 1,
+                    borderRadius: 1,
+                    border: `1px solid ${TreatmentService.getPatientRight(currentPatient).color}`,
+                    textAlign: 'center',
+                    fontWeight: 600,
+                    fontSize: '12px'
+                  }}>
+                    {TreatmentService.getPatientRight(currentPatient).name}
+                  </Box>
                 </Box>
               </Grid>
             </Grid>

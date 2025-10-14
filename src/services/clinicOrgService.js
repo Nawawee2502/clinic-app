@@ -31,7 +31,7 @@ class ClinicOrgService {
         }
     }
 
-    // Update Clinic Organization Info
+    // Update Clinic Organization Info (รองรับ bank fields ใหม่)
     static async updateClinicOrg(orgData) {
         try {
             const response = await fetch(`${API_BASE_URL}/clinic-org`, {
@@ -40,7 +40,21 @@ class ClinicOrgService {
                     'Authorization': `Bearer ${this.getToken()}`,
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify(orgData)
+                body: JSON.stringify({
+                    clinicCode: orgData.clinicCode,
+                    clinicName: orgData.clinicName,
+                    addr1: orgData.addr1,
+                    tumbolCode: orgData.tumbolCode,
+                    ampherCode: orgData.ampherCode,
+                    provinceCode: orgData.provinceCode,
+                    zipcode: orgData.zipcode,
+                    tel1: orgData.tel1,
+                    logo1: orgData.logo1,
+                    bankCode: orgData.bankCode,
+                    bankNo: orgData.bankNo,
+                    bankBranch: orgData.bankBranch,
+                    bankType: orgData.bankType
+                })
             });
 
             if (!response.ok) {
