@@ -351,19 +351,14 @@ const CustomSidebar = ({ activeMenu, onMenuClick, isOpen }) => {
     // เมนูย่อยสำหรับระบบการเงิน/บัญชี
     const financeSubItems = [
         {
-            title: 'ประเภทรายจ่าย',
-            path: '/clinic/finance/expense-categories',
+            title: 'ประเภทรายรับรายจ่าย',
+            path: '/clinic/finance/financetypes',
             icon: <AccountBalanceWalletIcon />
         },
         {
             title: 'รายจ่ายทั่วไป',
             path: '/clinic/finance/general-expenses',
             icon: <ReceiptLongIcon />
-        },
-        {
-            title: 'ประเภทรายรับ',
-            path: '/clinic/finance/income-categories',
-            icon: <AccountBalanceWalletIcon />
         },
         {
             title: 'รายรับทั่วไป',

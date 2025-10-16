@@ -20,9 +20,8 @@ import SettingsPage from "./pages/SettingsPage";
 import DrugInventory from "./pages/DrugInventory";
 import ReportMonthly from "./pages/ReportMonthly";
 import ReportYearly from "./pages/ReportYearly";
-import ExpenseCategories from "./pages/ExpenseCategories";
+import FinanceTypes from "./pages/FinanceTypes";
 import GeneralExpenses from "./pages/GeneralExpenses";
-import IncomeCategories from "./pages/IncomeCategories";
 import GeneralIncomes from "./pages/GeneralIncomes";
 
 // Import หน้าใหม่ (Lazy loading)
@@ -118,9 +117,8 @@ const Router = () => {
               <Route path="medicalstock/inventory" element={<DrugInventory />} />
               
               {/* Finance Routes */}
-              <Route path="finance/expense-categories" element={<ExpenseCategories />} />
+              <Route path="finance/financetypes" element={<FinanceTypes />} />
               <Route path="finance/general-expenses" element={<GeneralExpenses />} />
-              <Route path="finance/income-categories" element={<IncomeCategories />} />
               <Route path="finance/general-incomes" element={<GeneralIncomes />} />
               
 

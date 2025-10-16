@@ -2,7 +2,7 @@ import React from "react";
 import { Container, Tabs, Tab, Card, CardContent, Typography } from "@mui/material";
 
 
-function DrugInventory() {
+function DrugReport() {
     const [tabIndex, setTabIndex] = React.useState(0);
 
     const handleTabChange = (event, newIndex) => {
@@ -45,15 +45,9 @@ function DrugInventory() {
                     // maxWidth: "500px",
                 }}
             >
-                {/* <Tab label="ข้อมูลยา" />
-                <Tab label="ข้อมูลหัตถการ" /> */}
-                <Tab label="ยอดยกมา" />
-                <Tab label="ใบรับยา/เวชภัณฑ์" />
-                <Tab label="ใบคืนยา/เวชภัณฑ์" />
-                <Tab label="ใบเบิกยา" />
-                <Tab label="บันทึกจำนวนสินค้าประจำเดือน" />
-                <Tab label="สินค้าคงเหลือ" />
-                <Tab label="สต็อกการ์ด" />
+                <Tab label="รายงานการเคลื่อนไหวสินค้า" />
+                <Tab label="รายงานยาเวชภัณฑ์ที่ต้องสั่งซื้อ" />
+                <Tab label="รายงานยาเวชภัณฑ์ใกล้หมดอายุ" />
             </Tabs>
 
             <Card>
@@ -65,4 +59,4 @@ function DrugInventory() {
     );
 };
 
-export default DrugInventory
+export default DrugReport

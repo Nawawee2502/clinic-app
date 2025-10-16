@@ -1,8 +1,9 @@
 import React from "react";
 import { Container, Tabs, Tab, Card, CardContent, Typography } from "@mui/material";
+import TypePayManagement from '../components/financeType/TypePayManagement';
+import TypeIncomeManagement from '../components/financeType/TypeIncomeManagement';
 
-
-function DrugInventory() {
+const FinanceTypes = () => {
     const [tabIndex, setTabIndex] = React.useState(0);
 
     const handleTabChange = (event, newIndex) => {
@@ -19,8 +20,9 @@ function DrugInventory() {
                 lineHeight: '2',
                 textShadow: '1px 1px 2px rgba(0, 0, 0, 0.1)'
             }}>
-                ระบบคลังยา/เวชภัณฑ์
+                ระบบจัดการประเภทรายรับ/รายจ่าย
             </Typography>
+
             <Tabs
                 value={tabIndex}
                 onChange={handleTabChange}
@@ -42,27 +44,20 @@ function DrugInventory() {
                     "& .MuiTabs-indicator": {
                         display: "none",
                     },
-                    // maxWidth: "500px",
                 }}
             >
-                {/* <Tab label="ข้อมูลยา" />
-                <Tab label="ข้อมูลหัตถการ" /> */}
-                <Tab label="ยอดยกมา" />
-                <Tab label="ใบรับยา/เวชภัณฑ์" />
-                <Tab label="ใบคืนยา/เวชภัณฑ์" />
-                <Tab label="ใบเบิกยา" />
-                <Tab label="บันทึกจำนวนสินค้าประจำเดือน" />
-                <Tab label="สินค้าคงเหลือ" />
-                <Tab label="สต็อกการ์ด" />
+                <Tab label="ประเภทรายจ่าย" />
+                <Tab label="ประเภทรายรับ" />
             </Tabs>
 
-            <Card>
+            <Card sx={{ mt: 2 }}>
                 <CardContent>
-
+                    {tabIndex === 0 && <TypePayManagement />}
+                    {tabIndex === 1 && <TypeIncomeManagement />}
                 </CardContent>
             </Card>
         </Container>
     );
 };
 
-export default DrugInventory
+export default FinanceTypes;

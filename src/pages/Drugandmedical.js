@@ -2,6 +2,7 @@ import React from "react";
 import { Container, Tabs, Tab, Card, CardContent, Typography } from "@mui/material";
 import EnhancedDrugInformation from '../components/Drugandmedical/EnhancedDrugInformation';
 import EnhancedMedicalProcedures from '../components/Drugandmedical/EnhancedMedicalProcedures';
+import SupplierManagement from "../components/Drugandmedical/SupplierManagement";
 
 const Medicalstock = () => {
   const [tabIndex, setTabIndex] = React.useState(0);
@@ -46,9 +47,9 @@ const Medicalstock = () => {
           // maxWidth: "500px",
         }}
       >
-        <Tab label="ข้อมูลยา"/>
-        <Tab label="ข้อมูลหัตถการ"/>
-        <Tab label="ตัวแทนจำหน่าย"/>
+        <Tab label="ข้อมูลยา" />
+        <Tab label="ข้อมูลหัตถการ" />
+        <Tab label="ตัวแทนจำหน่าย" />
         {/* <Tab label="ใบรับยา/เวชภัณฑ์"/>
         <Tab label="ใบคืนยา/เวชภัณฑ์"/>
         <Tab label="บันทึกจำนวนสินค้าประจำเดือน"/>
@@ -63,6 +64,7 @@ const Medicalstock = () => {
         <CardContent>
           {tabIndex === 0 && <EnhancedDrugInformation />}
           {tabIndex === 1 && <EnhancedMedicalProcedures />}
+          {tabIndex === 2 && <SupplierManagement />}
         </CardContent>
       </Card>
     </Container>
