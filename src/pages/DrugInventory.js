@@ -52,8 +52,7 @@ function DrugInventory() {
                 <Tab label="ใบคืนยา/เวชภัณฑ์" />
                 <Tab label="ใบเบิกยา" />
                 <Tab label="บันทึกจำนวนสินค้าประจำเดือน" />
-                <Tab label="สินค้าคงเหลือ" />
-                <Tab label="สต็อกการ์ด" />
+
             </Tabs>
 
             <Card>

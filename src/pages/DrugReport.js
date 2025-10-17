@@ -45,9 +45,12 @@ function DrugReport() {
                     // maxWidth: "500px",
                 }}
             >
+                <Tab label="สินค้าคงเหลือ" />
+                <Tab label="สต็อกการ์ด" />
                 <Tab label="รายงานการเคลื่อนไหวสินค้า" />
                 <Tab label="รายงานยาเวชภัณฑ์ที่ต้องสั่งซื้อ" />
                 <Tab label="รายงานยาเวชภัณฑ์ใกล้หมดอายุ" />
+
             </Tabs>
 
             <Card>

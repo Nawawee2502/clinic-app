@@ -23,6 +23,9 @@ import ReportYearly from "./pages/ReportYearly";
 import FinanceTypes from "./pages/FinanceTypes";
 import GeneralExpenses from "./pages/GeneralExpenses";
 import GeneralIncomes from "./pages/GeneralIncomes";
+import Pay1Management from "./pages/Pay1Management";
+import Income1Management from "./pages/Income1Management";
+import DrugReport from "./pages/DrugReport";
 
 // Import หน้าใหม่ (Lazy loading)
 const UserManagement = lazy(() => import("./pages/UserManagement"));
@@ -111,23 +114,24 @@ const Router = () => {
               <Route path="treatment" element={<ตรวจรักษา />} />
               <Route path="cerwork" element={<Cerwork />} />
               <Route path="payment" element={<Paymentanddispensingmedicine />} />
-              
+
               {/* Medical Stock Routes */}
               <Route path="medicalstock/settings" element={<Medicalstock />} />
               <Route path="medicalstock/inventory" element={<DrugInventory />} />
-              
+              <Route path="medicalstock/report" element={<DrugReport />} />
+
               {/* Finance Routes */}
               <Route path="finance/financetypes" element={<FinanceTypes />} />
-              <Route path="finance/general-expenses" element={<GeneralExpenses />} />
-              <Route path="finance/general-incomes" element={<GeneralIncomes />} />
-              
+              <Route path="finance/general-pay" element={<Pay1Management />} />
+              <Route path="finance/general-incomes" element={<Income1Management />} />
+
 
               {/* Report Routes */}
               <Route path="report" element={<Report />} />
               <Route path="report/daily" element={<Report />} />
               <Route path="report/monthly" element={<ReportMonthly />} />
               <Route path="report/yearly" element={<ReportYearly />} />
-              
+
               <Route path="settings" element={<SettingsPage />} />
 
               {/* Admin Only */}

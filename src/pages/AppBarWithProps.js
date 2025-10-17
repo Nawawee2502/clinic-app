@@ -346,6 +346,11 @@ const CustomSidebar = ({ activeMenu, onMenuClick, isOpen }) => {
             path: '/clinic/medicalstock/inventory',
             icon: <LocalPharmacyIcon />
         },
+        {
+            title: 'รายงาน',
+            path: '/clinic/medicalstock/report',
+            icon: <ReceiptLongIcon />
+        },
     ];
 
     // เมนูย่อยสำหรับระบบการเงิน/บัญชี
@@ -357,7 +362,7 @@ const CustomSidebar = ({ activeMenu, onMenuClick, isOpen }) => {
         },
         {
             title: 'รายจ่ายทั่วไป',
-            path: '/clinic/finance/general-expenses',
+            path: '/clinic/finance/general-pay',
             icon: <ReceiptLongIcon />
         },
         {
