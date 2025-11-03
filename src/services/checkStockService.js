@@ -179,6 +179,26 @@ class CheckStockService {
         }
     }
 
+    // ดึงจำนวนในโปรแกรมจาก BAL_DRUG
+    // ดึงจำนวนในโปรแกรมจาก BAL_DRUG (ถ้าไม่มีให้ดึงจาก DRUG)
+    static async getDrugBalance(drugCode) {
+        try {
+            // ลองดึงจาก BAL_DRUG ก่อน
+            let response = await fetch(`${API_BASE_URL}/bal_drug/${drugCode}`);
+
+            if (response.ok) {
+                const result = await response.json();
+                return result.success && result.data ? parseFloat(result.data.QTY) || 0 : 0;
+            }
+
+            // ถ้าไม่มีใน BAL_DRUG ให้ return 0
+            return 0;
+
+        } catch (error) {
+            console.error('Error fetching drug balance:', error);
+            return 0;
+        }
+    }
     // ตรวจสอบความถูกต้องของข้อมูลหัว
     static validateHeaderData(data, requireRefno = true) {
         const errors = [];
@@ -208,8 +228,8 @@ class CheckStockService {
                 errors.push(`รายการที่ ${index + 1}: กรุณาเลือกรหัสยา`);
             }
 
-            if (!detail.QTY || parseFloat(detail.QTY) < 0) {
-                errors.push(`รายการที่ ${index + 1}: กรุณาระบุจำนวนที่ถูกต้อง`);
+            if (detail.QTY_BAL === undefined || detail.QTY_BAL === '' || parseFloat(detail.QTY_BAL) < 0) {
+                errors.push(`รายการที่ ${index + 1}: กรุณาระบุจำนวนคงเหลือที่ถูกต้อง`);
             }
 
             if (!detail.UNIT_COST || parseFloat(detail.UNIT_COST) <= 0) {
@@ -229,14 +249,36 @@ class CheckStockService {
             MYEAR: headerData.MYEAR || new Date().getFullYear().toString(),
             MONTHH: headerData.MONTHH || (new Date().getMonth() + 1),
             STATUS: headerData.STATUS || 'ทำงานอยู่',
-            details: details.map(d => ({
-                DRUG_CODE: d.DRUG_CODE?.trim(),
-                QTY: parseFloat(d.QTY),
-                UNIT_COST: parseFloat(d.UNIT_COST),
-                UNIT_CODE1: d.UNIT_CODE1?.trim(),
-                AMT: parseFloat(d.AMT)
-            }))
+            details: details.map(d => {
+                const qtyProgram = parseFloat(d.QTY_PROGRAM) || 0;
+                const qtyBal = parseFloat(d.QTY_BAL) || 0;
+                const qtyAdjust = qtyBal - qtyProgram;
+
+                // ✅ เอา Math.abs() ออก
+                const amt = qtyAdjust * parseFloat(d.UNIT_COST);
+
+                return {
+                    DRUG_CODE: d.DRUG_CODE?.trim(),
+                    QTY_PROGRAM: qtyProgram,
+                    QTY_BAL: qtyBal,
+                    QTY: qtyAdjust,
+                    UNIT_COST: parseFloat(d.UNIT_COST),
+                    UNIT_CODE1: d.UNIT_CODE1?.trim(),
+                    AMT: amt  // ✅ ส่งค่าที่มีเครื่องหมาย
+                };
+            })
         };
+    }
+
+    // คำนวณจำนวนเงินแต่ละรายการ (ใช้จำนวนปรับปรุง)
+    static calculateLineAmount(qtyAdjust, unitCost) {
+        // ✅ เอา Math.abs() ออก เพื่อให้แสดงค่าติดลบได้
+        return parseFloat(qtyAdjust) * parseFloat(unitCost);
+    }
+
+    // คำนวณจำนวนปรับปรุง
+    static calculateAdjustment(qtyBal, qtyProgram) {
+        return (parseFloat(qtyBal) || 0) - (parseFloat(qtyProgram) || 0);
     }
 
     // คำนวณยอดรวม
@@ -247,11 +289,6 @@ class CheckStockService {
             const amount = parseFloat(item.AMT) || 0;
             return sum + amount;
         }, 0);
-    }
-
-    // คำนวณจำนวนเงินแต่ละรายการ
-    static calculateLineAmount(qty, unitCost) {
-        return parseFloat(qty) * parseFloat(unitCost);
     }
 
     // จัดรูปแบบตัวเลขเป็นเงิน
@@ -291,7 +328,9 @@ class CheckStockService {
     static createEmptyDetail() {
         return {
             DRUG_CODE: '',
-            QTY: '',
+            QTY_PROGRAM: 0,
+            QTY_BAL: '',
+            QTY: 0,
             UNIT_COST: '',
             UNIT_CODE1: '',
             AMT: ''
@@ -395,25 +434,32 @@ class CheckStockService {
                 <table>
                     <thead>
                         <tr>
-                            <th class="text-center" style="width: 60px;">ลำดับ</th>
+                            <th class="text-center" style="width: 50px;">ลำดับ</th>
                             <th>รหัสยา</th>
-                            <th class="text-right" style="width: 100px;">จำนวน</th>
-                            <th class="text-right" style="width: 120px;">ราคา/หน่วย</th>
-                            <th class="text-right" style="width: 150px;">จำนวนเงิน</th>
+                            <th class="text-right" style="width: 90px;">จน.ในโปรแกรม</th>
+                            <th class="text-right" style="width: 90px;">จน.คงเหลือ</th>
+                            <th class="text-right" style="width: 90px;">จน.ปรับปรุง</th>
+                            <th class="text-right" style="width: 100px;">ราคา/หน่วย</th>
+                            <th class="text-right" style="width: 120px;">จำนวนเงิน</th>
                         </tr>
                     </thead>
                     <tbody>
-                        ${details.map((item, index) => `
-                            <tr>
-                                <td class="text-center">${index + 1}</td>
-                                <td>${item.DRUG_CODE}</td>
-                                <td class="text-right">${item.QTY} ${item.UNIT_CODE1 || ''}</td>
-                                <td class="text-right">${this.formatCurrency(item.UNIT_COST)}</td>
-                                <td class="text-right">${this.formatCurrency(item.AMT)}</td>
-                            </tr>
-                        `).join('')}
+                        ${details.map((item, index) => {
+            const qtyAdjust = this.calculateAdjustment(item.QTY_BAL, item.QTY_PROGRAM);
+            return `
+                                <tr>
+                                    <td class="text-center">${index + 1}</td>
+                                    <td>${item.DRUG_CODE}</td>
+                                    <td class="text-right">${item.QTY_PROGRAM || 0}</td>
+                                    <td class="text-right">${item.QTY_BAL || 0}</td>
+                                    <td class="text-right">${qtyAdjust}</td>
+                                    <td class="text-right">${this.formatCurrency(item.UNIT_COST)}</td>
+                                    <td class="text-right">${this.formatCurrency(item.AMT)}</td>
+                                </tr>
+                            `;
+        }).join('')}
                         <tr class="total-row">
-                            <td colspan="4" class="text-right">รวมทั้งสิ้น</td>
+                            <td colspan="6" class="text-right">รวมทั้งสิ้น</td>
                             <td class="text-right">${this.formatCurrency(total)}</td>
                         </tr>
                     </tbody>

@@ -3,7 +3,8 @@ import {
     Container, Grid, TextField, Button, Card, CardContent, Typography,
     InputAdornment, IconButton, Stack, Pagination, Dialog,
     DialogTitle, DialogContent, DialogActions, Alert, Snackbar, Box,
-    Select, MenuItem, FormControl, Divider, Chip
+    Select, MenuItem, FormControl, Divider, Chip, Autocomplete,
+    Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper
 } from "@mui/material";
 import SaveIcon from '@mui/icons-material/Save';
 import SearchIcon from '@mui/icons-material/Search';
@@ -14,12 +15,79 @@ import CloseIcon from '@mui/icons-material/Close';
 import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutline';
 import PrintIcon from '@mui/icons-material/Print';
 import Borrow1Service from "../services/borrow1Service";
+import DrugService from "../services/drugService";
+import EmployeeService from "../services/employeeService";
+import BalDrugService from "../services/balDrugService";
 
 const Borrow1Management = () => {
+    // Helper functions สำหรับจัดการปี พ.ศ.
+    const toBuddhistYear = (gregorianYear) => {
+        return parseInt(gregorianYear) + 543;
+    };
+
+    const toGregorianYear = (buddhistYear) => {
+        return parseInt(buddhistYear) - 543;
+    };
+
+    const formatDateBE = (dateString) => {
+        if (!dateString) return '-';
+        const date = new Date(dateString);
+        const day = date.getDate().toString().padStart(2, '0');
+        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+        const year = date.getFullYear() + 543; // แปลงเป็น พ.ศ.
+        return `${day}/${month}/${year}`;
+    };
+
+    // แปลงวันที่จาก input (ค.ศ.) เป็น พ.ศ. สำหรับแสดงผล
+    const convertDateCEToBE = (ceDate) => {
+        if (!ceDate) return '';
+        const [year, month, day] = ceDate.split('-');
+        const beYear = parseInt(year) + 543;
+        return `${beYear}-${month}-${day}`;
+    };
+
+    // แปลงวันที่จาก พ.ศ. กลับเป็น ค.ศ. สำหรับเก็บใน state
+    const convertDateBEToCE = (beDate) => {
+        if (!beDate) return '';
+        const [year, month, day] = beDate.split('-');
+        const ceYear = parseInt(year) - 543;
+        return `${ceYear}-${month}-${day}`;
+    };
+
+    // Component สำหรับ Date Input ที่แสดงเป็น พ.ศ.
+    const DateInputBE = ({ label, value, onChange, disabled, ...props }) => {
+        const displayValue = value ? convertDateCEToBE(value) : '';
+
+        const handleChange = (e) => {
+            const beValue = e.target.value;
+            const ceValue = beValue ? convertDateBEToCE(beValue) : '';
+            onChange(ceValue);
+        };
+
+        return (
+            <TextField
+                {...props}
+                fullWidth
+                label={label}
+                type="date"
+                value={displayValue}
+                onChange={handleChange}
+                disabled={disabled}
+                size="small"
+                InputLabelProps={{ shrink: true }}
+                inputProps={{
+                    max: convertDateCEToBE('9999-12-31') // ปี พ.ศ. สูงสุด
+                }}
+                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
+            />
+        );
+    };
+
     const [currentView, setCurrentView] = useState("list");
     const [borrow1List, setBorrow1List] = useState([]);
     const [filteredList, setFilteredList] = useState([]);
     const [searchTerm, setSearchTerm] = useState("");
+    const [searchDate, setSearchDate] = useState(new Date().toISOString().slice(0, 10));
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [loading, setLoading] = useState(false);
@@ -27,33 +95,123 @@ const Borrow1Management = () => {
     const [deleteDialog, setDeleteDialog] = useState({ open: false, refno: null });
     const [alert, setAlert] = useState({ open: false, message: '', severity: 'info' });
 
+    const [drugList, setDrugList] = useState([]);
+    const [employeeList, setEmployeeList] = useState([]);
+    const [selectedEmployee, setSelectedEmployee] = useState(null);
+
+    // State สำหรับ LOT
+    const [lotList, setLotList] = useState([]);
+    const [selectedLot, setSelectedLot] = useState(null);
+
     const [headerData, setHeaderData] = useState({
         REFNO: '',
         RDATE: new Date().toISOString().slice(0, 10),
         TRDATE: new Date().toISOString().slice(0, 10),
-        MYEAR: new Date().getFullYear().toString(),
+        MYEAR: (new Date().getFullYear() + 543).toString(), // เปลี่ยนเป็น พ.ศ.
         MONTHH: new Date().getMonth() + 1,
         EMP_CODE: '',
         STATUS: 'ทำงานอยู่'
     });
 
-    const [details, setDetails] = useState([
-        { DRUG_CODE: '', QTY: '', UNIT_COST: '', UNIT_CODE1: '', AMT: '', LOT_NO: '', EXPIRE_DATE: '' }
-    ]);
+    // State สำหรับเก็บ runno ที่สร้างไว้แล้ว
+    const [generatedRefno, setGeneratedRefno] = useState('');
+
+    const [details, setDetails] = useState([]);
+
+    const [openModal, setOpenModal] = useState(false);
+    const [editingIndex, setEditingIndex] = useState(null);
+    const [modalData, setModalData] = useState({
+        DRUG_CODE: '',
+        QTY: '',
+        UNIT_COST: '',
+        UNIT_CODE1: '',
+        UNIT_NAME1: '',
+        GENERIC_NAME: '',
+        AMT: '',
+        LOT_NO: '',
+        EXPIRE_DATE: ''
+    });
 
     const itemsPerPage = 10;
 
     useEffect(() => {
         loadData();
+        loadDrugs();
+        loadEmployees();
     }, []);
 
     useEffect(() => {
         filterData();
-    }, [borrow1List, searchTerm]);
+    }, [borrow1List, searchTerm, searchDate]);
 
     useEffect(() => {
         setTotalPages(Math.ceil(filteredList.length / itemsPerPage));
     }, [filteredList]);
+
+    // สร้าง runno เมื่อเปิดหน้าเพิ่มใหม่
+    useEffect(() => {
+        if (currentView === "add" && !editingItem) {
+            generateAndSetRefno();
+        }
+    }, [currentView, editingItem]);
+
+    // สร้าง runno อัตโนมัติ
+    const generateAndSetRefno = async () => {
+        try {
+            const date = new Date(headerData.RDATE);
+            const year = date.getFullYear();
+            const month = date.getMonth() + 1;
+
+            // สร้าง runno ในรูปแบบ REQ6810001
+            const yearShort = (year + 543).toString().slice(-2); // เอา 2 ตัวท้ายของปี พ.ศ.
+            const monthStr = month.toString().padStart(2, '0');
+            const prefix = `REQ${yearShort}${monthStr}`;
+
+            // หาเลข running ล่าสุด
+            const existingDocs = borrow1List.filter(item =>
+                item.REFNO && item.REFNO.startsWith(prefix)
+            );
+
+            let maxRunning = 0;
+            existingDocs.forEach(item => {
+                const running = parseInt(item.REFNO.slice(-3));
+                if (!isNaN(running) && running > maxRunning) {
+                    maxRunning = running;
+                }
+            });
+
+            const newRunning = (maxRunning + 1).toString().padStart(3, '0');
+            const newRefno = `${prefix}${newRunning}`;
+
+            setGeneratedRefno(newRefno);
+            setHeaderData(prev => ({ ...prev, REFNO: newRefno }));
+        } catch (error) {
+            console.error('Error generating refno:', error);
+            showAlert('ไม่สามารถสร้างเลขที่อัตโนมัติได้', 'error');
+        }
+    };
+
+    const loadDrugs = async () => {
+        try {
+            const response = await DrugService.getAllDrugs();
+            if (response.success && response.data) {
+                setDrugList(response.data);
+            }
+        } catch (error) {
+            console.error('Error loading drugs:', error);
+        }
+    };
+
+    const loadEmployees = async () => {
+        try {
+            const response = await EmployeeService.getAllEmployees();
+            if (response.success && response.data) {
+                setEmployeeList(response.data);
+            }
+        } catch (error) {
+            console.error('Error loading employees:', error);
+        }
+    };
 
     const loadData = async () => {
         setLoading(true);
@@ -75,15 +233,26 @@ const Borrow1Management = () => {
     };
 
     const filterData = () => {
-        if (!searchTerm) {
-            setFilteredList(borrow1List);
-        } else {
-            const filtered = borrow1List.filter(item =>
+        let filtered = borrow1List;
+
+        // Filter by search term
+        if (searchTerm) {
+            filtered = filtered.filter(item =>
                 item.REFNO?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 item.EMP_CODE?.toLowerCase().includes(searchTerm.toLowerCase())
             );
-            setFilteredList(filtered);
         }
+
+        // Filter by date
+        if (searchDate) {
+            filtered = filtered.filter(item => {
+                if (!item.RDATE) return false;
+                const itemDate = new Date(item.RDATE).toISOString().slice(0, 10);
+                return itemDate === searchDate;
+            });
+        }
+
+        setFilteredList(filtered);
         setPage(1);
     };
 
@@ -98,36 +267,215 @@ const Borrow1Management = () => {
             const newData = { ...prev, [field]: value };
             if (field === 'RDATE') {
                 const date = new Date(value);
-                newData.MYEAR = date.getFullYear().toString();
+                newData.MYEAR = toBuddhistYear(date.getFullYear()).toString(); // แปลงเป็น พ.ศ.
                 newData.MONTHH = date.getMonth() + 1;
                 newData.TRDATE = value;
+
+                // สร้าง refno ใหม่เมื่อเปลี่ยนวันที่ (เฉพาะโหมดเพิ่มใหม่)
+                if (!editingItem) {
+                    setTimeout(() => generateAndSetRefno(), 100);
+                }
             }
             return newData;
         });
     };
 
-    const handleDetailChange = (index, field, value) => {
-        const newDetails = [...details];
-        newDetails[index][field] = value;
-
-        if (field === 'QTY' || field === 'UNIT_COST') {
-            const qty = field === 'QTY' ? value : newDetails[index].QTY;
-            const unitCost = field === 'UNIT_COST' ? value : newDetails[index].UNIT_COST;
-            newDetails[index].AMT = Borrow1Service.calculateLineAmount(qty, unitCost);
-        }
-
-        setDetails(newDetails);
+    const showAlert = (message, severity = 'info') => {
+        setAlert({ open: true, message, severity });
     };
 
-    const addDetailRow = () => {
-        setDetails([...details, Borrow1Service.createEmptyDetail()]);
+    const handleEmployeeChange = (event, newValue) => {
+        setSelectedEmployee(newValue);
+        if (newValue) {
+            setHeaderData(prev => ({
+                ...prev,
+                EMP_CODE: newValue.EMP_CODE
+            }));
+        } else {
+            setHeaderData(prev => ({
+                ...prev,
+                EMP_CODE: ''
+            }));
+        }
     };
 
-    const removeDetailRow = (index) => {
-        if (details.length > 1) {
-            const newDetails = details.filter((_, i) => i !== index);
-            setDetails(newDetails);
+    const handleOpenModal = () => {
+        setModalData({
+            DRUG_CODE: '',
+            QTY: '',
+            UNIT_COST: '',
+            UNIT_CODE1: '',
+            UNIT_NAME1: '',
+            GENERIC_NAME: '',
+            AMT: '',
+            LOT_NO: '',
+            EXPIRE_DATE: ''
+        });
+        setEditingIndex(null);
+        setLotList([]);
+        setSelectedLot(null);
+        setOpenModal(true);
+    };
+
+    const handleEditDetail = async (index) => {
+        const detail = details[index];
+
+        // โหลด LOT list ของยานี้
+        try {
+            const lotsResponse = await BalDrugService.getLotsByDrugCode(detail.DRUG_CODE);
+            if (lotsResponse.success && lotsResponse.data) {
+                setLotList(lotsResponse.data);
+
+                // หา lot ที่ตรงกับที่บันทึกไว้
+                const matchedLot = lotsResponse.data.find(lot =>
+                    lot.LOT_NO === detail.LOT_NO
+                );
+                setSelectedLot(matchedLot || null);
+            }
+        } catch (error) {
+            console.error('Error loading lots:', error);
+            setLotList([]);
+            setSelectedLot(null);
         }
+
+        setModalData({
+            ...detail,
+            EXPIRE_DATE: detail.EXPIRE_DATE || '',
+            UNIT_NAME1: detail.UNIT_NAME1 || ''
+        });
+        setEditingIndex(index);
+        setOpenModal(true);
+    };
+
+    const handleCloseModal = () => {
+        setOpenModal(false);
+        setEditingIndex(null);
+        setLotList([]);
+        setSelectedLot(null);
+    };
+
+    const handleModalChange = (field, value) => {
+        setModalData(prev => {
+            const updated = { ...prev, [field]: value };
+            if (field === 'QTY' || field === 'UNIT_COST') {
+                const qty = parseFloat(field === 'QTY' ? value : updated.QTY) || 0;
+                const unitCost = parseFloat(field === 'UNIT_COST' ? value : updated.UNIT_COST) || 0;
+                updated.AMT = (qty * unitCost).toFixed(2);
+            }
+            return updated;
+        });
+    };
+
+    const handleModalDrugChange = async (event, value) => {
+        if (value) {
+            try {
+                const response = await DrugService.getDrugByCode(value.DRUG_CODE);
+
+                let drug = null;
+                if (response.success && response.data) {
+                    drug = response.data;
+                } else if (response.DRUG_CODE) {
+                    drug = response;
+                }
+
+                if (drug) {
+                    // ดึงรายการ LOT_NO จาก bal_drug
+                    const lotsResponse = await BalDrugService.getLotsByDrugCode(drug.DRUG_CODE);
+
+                    if (lotsResponse.success && lotsResponse.data) {
+                        setLotList(lotsResponse.data);
+                    } else {
+                        setLotList([]);
+                    }
+
+                    setModalData(prev => ({
+                        ...prev,
+                        DRUG_CODE: drug.DRUG_CODE,
+                        UNIT_COST: '', // ไม่ดึงราคามา ให้กรอกเอง
+                        GENERIC_NAME: drug.GENERIC_NAME || '',
+                        UNIT_CODE1: drug.UNIT_CODE1 || '', // ⭐ บันทึก CODE
+                        UNIT_NAME1: drug.UNIT_NAME1 || '',  // ⭐ เพิ่ม NAME สำหรับแสดงผล
+                        LOT_NO: '',
+                        EXPIRE_DATE: ''
+                    }));
+                    setSelectedLot(null);
+                }
+            } catch (error) {
+                console.error('❌ Error loading drug details:', error);
+            }
+        } else {
+            setModalData(prev => ({
+                ...prev,
+                DRUG_CODE: '',
+                UNIT_COST: '',
+                GENERIC_NAME: '',
+                UNIT_CODE1: '',
+                UNIT_NAME1: '',
+                LOT_NO: '',
+                EXPIRE_DATE: ''
+            }));
+            setLotList([]);
+            setSelectedLot(null);
+        }
+    };
+
+    // จัดการเลือก LOT_NO
+    const handleLotChange = (event, value) => {
+        setSelectedLot(value);
+        if (value) {
+            setModalData(prev => ({
+                ...prev,
+                LOT_NO: value.LOT_NO,
+                EXPIRE_DATE: Borrow1Service.formatDateForInput(value.EXPIRE_DATE)
+            }));
+        } else {
+            setModalData(prev => ({
+                ...prev,
+                LOT_NO: '',
+                EXPIRE_DATE: ''
+            }));
+        }
+    };
+
+    const handleAddDetail = () => {
+        if (!modalData.DRUG_CODE || !modalData.QTY || !modalData.UNIT_COST) {
+            showAlert('กรุณากรอกข้อมูลให้ครบถ้วน', 'warning');
+            return;
+        }
+
+        if (!modalData.LOT_NO) {
+            showAlert('กรุณาเลือก LOT NO', 'warning');
+            return;
+        }
+
+        const newDetail = {
+            DRUG_CODE: modalData.DRUG_CODE,
+            QTY: parseFloat(modalData.QTY),
+            UNIT_COST: parseFloat(modalData.UNIT_COST),
+            UNIT_CODE1: modalData.UNIT_CODE1, // ⭐ บันทึก CODE
+            UNIT_NAME1: modalData.UNIT_NAME1, // ⭐ เก็บ NAME ไว้แสดงผล
+            GENERIC_NAME: modalData.GENERIC_NAME,
+            AMT: parseFloat(modalData.AMT),
+            LOT_NO: modalData.LOT_NO,
+            EXPIRE_DATE: modalData.EXPIRE_DATE
+        };
+
+        if (editingIndex !== null) {
+            const updatedDetails = [...details];
+            updatedDetails[editingIndex] = newDetail;
+            setDetails(updatedDetails);
+            showAlert('แก้ไขรายการสำเร็จ', 'success');
+        } else {
+            setDetails([...details, newDetail]);
+            showAlert('เพิ่มรายการสำเร็จ', 'success');
+        }
+
+        handleCloseModal();
+    };
+
+    const handleRemoveDetail = (index) => {
+        setDetails(details.filter((_, i) => i !== index));
+        showAlert('ลบรายการสำเร็จ', 'success');
     };
 
     const resetForm = () => {
@@ -135,33 +483,26 @@ const Borrow1Management = () => {
             REFNO: '',
             RDATE: new Date().toISOString().slice(0, 10),
             TRDATE: new Date().toISOString().slice(0, 10),
-            MYEAR: new Date().getFullYear().toString(),
+            MYEAR: (new Date().getFullYear() + 543).toString(), // เปลี่ยนเป็น พ.ศ.
             MONTHH: new Date().getMonth() + 1,
             EMP_CODE: '',
             STATUS: 'ทำงานอยู่'
         });
-        setDetails([Borrow1Service.createEmptyDetail()]);
+        setDetails([]); // เปลี่ยนเป็น array ว่าง
         setEditingItem(null);
-    };
-
-    const generateRefno = async () => {
-        try {
-            const response = await Borrow1Service.generateRefno(
-                headerData.MYEAR,
-                headerData.MONTHH.toString().padStart(2, '0')
-            );
-            if (response.success) {
-                return response.data.refno;
-            }
-        } catch (error) {
-            console.error('Error generating refno:', error);
-            showAlert('ไม่สามารถสร้างเลขที่อัตโนมัติได้', 'error');
-        }
-        return null;
+        setSelectedEmployee(null);
+        setGeneratedRefno('');
+        setLotList([]);
+        setSelectedLot(null);
     };
 
     const handleSave = async () => {
         console.log('🔵 handleSave called');
+
+        if (details.length === 0) {
+            showAlert('กรุณาเพิ่มรายการสินค้าอย่างน้อย 1 รายการ', 'warning');
+            return;
+        }
 
         const headerErrors = Borrow1Service.validateHeaderData(headerData, !!editingItem);
         const detailErrors = Borrow1Service.validateDetailData(details);
@@ -179,18 +520,35 @@ const Borrow1Management = () => {
             let dataToSave = headerData;
 
             if (!editingItem) {
-                const newRefno = await generateRefno();
-                if (!newRefno) {
-                    throw new Error('ไม่สามารถสร้างเลขที่ได้');
+                // เช็คว่า REFNO ซ้ำหรือไม่
+                const isDuplicate = borrow1List.some(item => item.REFNO === headerData.REFNO);
+
+                if (isDuplicate) {
+                    // ถ้าซ้ำ ให้สร้าง runno ใหม่โดยบวก 1
+                    const prefix = headerData.REFNO.slice(0, -3);
+                    const currentRunning = parseInt(headerData.REFNO.slice(-3));
+                    const newRunning = (currentRunning + 1).toString().padStart(3, '0');
+                    const newRefno = `${prefix}${newRunning}`;
+
+                    dataToSave = { ...headerData, REFNO: newRefno };
+                    setGeneratedRefno(newRefno);
+                    console.log('⚠️ REFNO ซ้ำ, สร้างใหม่:', newRefno);
+                } else {
+                    dataToSave = { ...headerData };
+                    console.log('➕ CREATE mode - REFNO:', headerData.REFNO);
                 }
-                dataToSave = { ...headerData, REFNO: newRefno };
-                console.log('➕ CREATE mode - Generated REFNO:', newRefno);
             } else {
                 console.log('✏️ UPDATE mode - REFNO:', editingItem.REFNO);
                 dataToSave = { ...headerData, REFNO: editingItem.REFNO };
             }
 
-            const formattedData = Borrow1Service.formatBorrow1Data(dataToSave, details);
+            // แปลงปี พ.ศ. เป็น ค.ศ. ก่อนบันทึก
+            const dataToSaveWithCE = {
+                ...dataToSave,
+                MYEAR: toGregorianYear(dataToSave.MYEAR).toString()
+            };
+
+            const formattedData = Borrow1Service.formatBorrow1Data(dataToSaveWithCE, details);
             console.log('📝 Formatted data:', formattedData);
 
             let result;
@@ -227,13 +585,17 @@ const Borrow1Management = () => {
                     REFNO: header.REFNO,
                     RDATE: Borrow1Service.formatDateForInput(header.RDATE),
                     TRDATE: Borrow1Service.formatDateForInput(header.TRDATE),
-                    MYEAR: header.MYEAR,
+                    MYEAR: toBuddhistYear(header.MYEAR).toString(), // แปลงเป็น พ.ศ.
                     MONTHH: header.MONTHH,
                     EMP_CODE: header.EMP_CODE,
                     STATUS: header.STATUS
                 });
 
-                setDetails(detailsData.length > 0 ? detailsData : [Borrow1Service.createEmptyDetail()]);
+                // Set selected employee
+                const employee = employeeList.find(e => e.EMP_CODE === header.EMP_CODE);
+                setSelectedEmployee(employee || null);
+
+                setDetails(detailsData.length > 0 ? detailsData : []);
                 setEditingItem(header);
                 setCurrentView("edit");
             }
@@ -276,10 +638,6 @@ const Borrow1Management = () => {
         }
     };
 
-    const showAlert = (message, severity) => {
-        setAlert({ open: true, message, severity });
-    };
-
     const calculateTotal = () => {
         return Borrow1Service.calculateTotal(details);
     };
@@ -287,126 +645,121 @@ const Borrow1Management = () => {
     if (currentView === "add" || currentView === "edit") {
         return (
             <Container maxWidth="lg" sx={{ mt: 2 }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                    <Typography variant="h5" fontWeight="bold">
-                        {currentView === "add" ? "สร้างใบเบิกสินค้า" : "แก้ไขใบเบิกสินค้า"}
-                    </Typography>
-                    <Button variant="outlined" startIcon={<CloseIcon />} onClick={() => { resetForm(); setCurrentView("list"); }}>
-                        ปิด
-                    </Button>
-                </Box>
-
-                <Card sx={{ mb: 2 }}>
+                <Card>
                     <CardContent>
-                        <Typography variant="h6" sx={{ mb: 2, color: '#5698E0' }}>ข้อมูลหัวใบเบิกสินค้า</Typography>
-                        <Grid container spacing={2}>
-                            <Grid item xs={12} md={4}>
-                                <Typography sx={{ fontWeight: 400, fontSize: 14, mb: 1 }}>
-                                    เลขที่ {!editingItem && "(สร้างอัตโนมัติ)"}
-                                </Typography>
-                                <TextField size="small" value={editingItem ? headerData.REFNO : "สร้างอัตโนมัติ"} disabled fullWidth
-                                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px", backgroundColor: "#f5f5f5" } }} />
-                            </Grid>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                            <Typography variant="h6" fontWeight="bold">
+                                {editingItem ? 'แก้ไขใบเบิกสินค้า' : 'สร้างใบเบิกสินค้า'}
+                            </Typography>
+                            <IconButton onClick={() => { resetForm(); setCurrentView("list"); }}>
+                                <CloseIcon />
+                            </IconButton>
+                        </Box>
 
-                            <Grid item xs={12} md={4}>
-                                <Typography sx={{ fontWeight: 400, fontSize: 14, mb: 1 }}>วันที่ *</Typography>
-                                <TextField type="date" size="small" value={headerData.RDATE} onChange={(e) => handleHeaderChange('RDATE', e.target.value)}
-                                    fullWidth sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }} />
+                        <Grid container spacing={2} sx={{ mb: 3 }}>
+                            <Grid item xs={12} md={6}>
+                                <TextField
+                                    fullWidth
+                                    label="เลขที่เอกสาร"
+                                    value={editingItem ? headerData.REFNO : generatedRefno}
+                                    disabled
+                                    size="small"
+                                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
+                                />
                             </Grid>
-
-                            <Grid item xs={12} md={4}>
-                                <Typography sx={{ fontWeight: 400, fontSize: 14, mb: 1 }}>สถานะ</Typography>
+                            <Grid item xs={12} md={6}>
+                                <DateInputBE
+                                    label="วันที่"
+                                    value={headerData.RDATE}
+                                    onChange={(value) => handleHeaderChange('RDATE', value)}
+                                />
+                            </Grid>
+                            <Grid item xs={12} md={6}>
+                                <Autocomplete
+                                    fullWidth
+                                    options={employeeList}
+                                    getOptionLabel={(option) => option.EMP_NAME || `${option.EMP_CODE}`}
+                                    value={selectedEmployee}
+                                    onChange={handleEmployeeChange}
+                                    size="small"
+                                    renderInput={(params) => (
+                                        <TextField {...params} label="พนักงาน" sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }} />
+                                    )}
+                                />
+                            </Grid>
+                            <Grid item xs={12} md={6}>
                                 <FormControl fullWidth size="small">
-                                    <Select value={headerData.STATUS} onChange={(e) => handleHeaderChange('STATUS', e.target.value)} sx={{ borderRadius: "10px" }}>
+                                    <Select
+                                        value={headerData.STATUS}
+                                        onChange={(e) => handleHeaderChange('STATUS', e.target.value)}
+                                        sx={{ borderRadius: "10px" }}
+                                    >
                                         <MenuItem value="ทำงานอยู่">ทำงานอยู่</MenuItem>
                                         <MenuItem value="ยกเลิก">ยกเลิก</MenuItem>
                                     </Select>
                                 </FormControl>
                             </Grid>
-
-                            <Grid item xs={12} md={6}>
-                                <Typography sx={{ fontWeight: 400, fontSize: 14, mb: 1 }}>รหัสพนักงาน *</Typography>
-                                <TextField size="small" placeholder="กรอกรหัสพนักงาน" value={headerData.EMP_CODE}
-                                    onChange={(e) => handleHeaderChange('EMP_CODE', e.target.value)} fullWidth
-                                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }} />
-                            </Grid>
                         </Grid>
-                    </CardContent>
-                </Card>
 
-                <Card>
-                    <CardContent>
+                        <Divider sx={{ my: 3 }} />
+
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                            <Typography variant="h6" sx={{ color: '#5698E0' }}>รายละเอียดการเบิก</Typography>
-                            <Button variant="contained" startIcon={<AddIcon />} onClick={addDetailRow} sx={{ backgroundColor: '#5698E0' }} size="small">
+                            <Typography variant="h6" fontWeight="bold">รายการสินค้า</Typography>
+                            <Button
+                                variant="contained"
+                                startIcon={<AddIcon />}
+                                onClick={handleOpenModal}
+                                sx={{ backgroundColor: '#5698E0' }}
+                            >
                                 เพิ่มรายการ
                             </Button>
                         </Box>
 
-                        {details.map((detail, index) => (
-                            <Card key={index} sx={{ mb: 2, border: '1px solid #e0e0e0' }}>
-                                <CardContent>
-                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                                        <Typography variant="subtitle2" fontWeight="bold">รายการที่ {index + 1}</Typography>
-                                        {details.length > 1 && (
-                                            <IconButton size="small" color="error" onClick={() => removeDetailRow(index)}>
-                                                <RemoveCircleOutlineIcon />
-                                            </IconButton>
-                                        )}
-                                    </Box>
-
-                                    <Grid container spacing={2}>
-                                        <Grid item xs={12} md={3}>
-                                            <Typography sx={{ fontWeight: 400, fontSize: 14, mb: 1 }}>รหัสยา *</Typography>
-                                            <TextField size="small" placeholder="รหัสยา" value={detail.DRUG_CODE}
-                                                onChange={(e) => handleDetailChange(index, 'DRUG_CODE', e.target.value)} fullWidth
-                                                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }} />
-                                        </Grid>
-
-                                        <Grid item xs={12} md={2}>
-                                            <Typography sx={{ fontWeight: 400, fontSize: 14, mb: 1 }}>จำนวน *</Typography>
-                                            <TextField type="number" size="small" placeholder="0" value={detail.QTY}
-                                                onChange={(e) => handleDetailChange(index, 'QTY', e.target.value)} fullWidth
-                                                inputProps={{ step: "1", min: "0" }} sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }} />
-                                        </Grid>
-
-                                        <Grid item xs={12} md={2}>
-                                            <Typography sx={{ fontWeight: 400, fontSize: 14, mb: 1 }}>หน่วย</Typography>
-                                            <TextField size="small" placeholder="หน่วย" value={detail.UNIT_CODE1}
-                                                onChange={(e) => handleDetailChange(index, 'UNIT_CODE1', e.target.value)} fullWidth
-                                                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }} />
-                                        </Grid>
-
-                                        <Grid item xs={12} md={2}>
-                                            <Typography sx={{ fontWeight: 400, fontSize: 14, mb: 1 }}>ราคา/หน่วย *</Typography>
-                                            <TextField type="number" size="small" placeholder="0.00" value={detail.UNIT_COST}
-                                                onChange={(e) => handleDetailChange(index, 'UNIT_COST', e.target.value)} fullWidth
-                                                inputProps={{ step: "0.01", min: "0" }} sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }} />
-                                        </Grid>
-
-                                        <Grid item xs={12} md={3}>
-                                            <Typography sx={{ fontWeight: 400, fontSize: 14, mb: 1 }}>จำนวนเงิน</Typography>
-                                            <TextField size="small" value={Borrow1Service.formatCurrency(detail.AMT)} disabled fullWidth
-                                                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px", backgroundColor: "#f5f5f5" } }} />
-                                        </Grid>
-
-                                        <Grid item xs={12} md={4}>
-                                            <Typography sx={{ fontWeight: 400, fontSize: 14, mb: 1 }}>Lot No</Typography>
-                                            <TextField size="small" placeholder="เลข Lot" value={detail.LOT_NO}
-                                                onChange={(e) => handleDetailChange(index, 'LOT_NO', e.target.value)} fullWidth
-                                                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }} />
-                                        </Grid>
-
-                                        <Grid item xs={12} md={4}>
-                                            <Typography sx={{ fontWeight: 400, fontSize: 14, mb: 1 }}>วันหมดอายุ</Typography>
-                                            <TextField type="date" size="small" value={detail.EXPIRE_DATE}
-                                                onChange={(e) => handleDetailChange(index, 'EXPIRE_DATE', e.target.value)} fullWidth
-                                                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }} />
-                                        </Grid>
-                                    </Grid>
-                                </CardContent>
-                            </Card>
-                        ))}
+                        <TableContainer component={Paper} sx={{ mb: 3 }}>
+                            <Table size="small">
+                                <TableHead sx={{ backgroundColor: "#F0F5FF" }}>
+                                    <TableRow>
+                                        <TableCell>ชื่อยา</TableCell>
+                                        <TableCell align="right">จำนวน</TableCell>
+                                        <TableCell>หน่วย</TableCell>
+                                        <TableCell align="right">ราคา/หน่วย</TableCell>
+                                        <TableCell align="right">รวม</TableCell>
+                                        <TableCell>LOT NO</TableCell>
+                                        <TableCell>วันหมดอายุ</TableCell>
+                                        <TableCell align="center">จัดการ</TableCell>
+                                    </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                    {details.length === 0 ? (
+                                        <TableRow>
+                                            <TableCell colSpan={8} align="center" sx={{ py: 3, color: 'text.secondary' }}>
+                                                ยังไม่มีรายการสินค้า กรุณาเพิ่มรายการ
+                                            </TableCell>
+                                        </TableRow>
+                                    ) : (
+                                        details.map((detail, index) => (
+                                            <TableRow key={index}>
+                                                <TableCell>{detail.GENERIC_NAME}</TableCell>
+                                                <TableCell align="right">{detail.QTY}</TableCell>
+                                                <TableCell>{detail.UNIT_NAME1 || '-'}</TableCell>
+                                                <TableCell align="right">{Borrow1Service.formatCurrency(detail.UNIT_COST)}</TableCell>
+                                                <TableCell align="right">{Borrow1Service.formatCurrency(detail.AMT)}</TableCell>
+                                                <TableCell>{detail.LOT_NO || '-'}</TableCell>
+                                                <TableCell>{formatDateBE(detail.EXPIRE_DATE)}</TableCell>
+                                                <TableCell align="center">
+                                                    <IconButton size="small" onClick={() => handleEditDetail(index)} sx={{ color: '#5698E0' }}>
+                                                        <EditIcon fontSize="small" />
+                                                    </IconButton>
+                                                    <IconButton size="small" onClick={() => handleRemoveDetail(index)} sx={{ color: '#F62626' }}>
+                                                        <DeleteIcon fontSize="small" />
+                                                    </IconButton>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </TableContainer>
 
                         <Divider sx={{ my: 2 }} />
 
@@ -425,6 +778,114 @@ const Borrow1Management = () => {
                         </Box>
                     </CardContent>
                 </Card>
+
+                {/* Modal สำหรับเพิ่ม/แก้ไขรายการ */}
+                <Dialog open={openModal} onClose={handleCloseModal} maxWidth="md" fullWidth>
+                    <DialogTitle>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <Typography variant="h6">
+                                {editingIndex !== null ? 'แก้ไขรายการสินค้า' : 'เพิ่มรายการสินค้า'}
+                            </Typography>
+                            <IconButton onClick={handleCloseModal} size="small">
+                                <CloseIcon />
+                            </IconButton>
+                        </Box>
+                    </DialogTitle>
+                    <DialogContent>
+                        <Grid container spacing={2} sx={{ mt: 1 }}>
+                            <Grid item xs={12}>
+                                <Autocomplete
+                                    fullWidth
+                                    options={drugList}
+                                    getOptionLabel={(option) => `${option.GENERIC_NAME || ''}`}
+                                    value={drugList.find(d => d.DRUG_CODE === modalData.DRUG_CODE) || null}
+                                    onChange={handleModalDrugChange}
+                                    size="small"
+                                    renderInput={(params) => (
+                                        <TextField {...params} label="รหัสยา *" sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }} />
+                                    )}
+                                />
+                            </Grid>
+                            <Grid item xs={12} md={6}>
+                                <Autocomplete
+                                    fullWidth
+                                    options={lotList}
+                                    getOptionLabel={(option) => option.LOT_NO || ''}
+                                    value={selectedLot}
+                                    onChange={handleLotChange}
+                                    disabled={!modalData.DRUG_CODE || lotList.length === 0}
+                                    size="small"
+                                    renderInput={(params) => (
+                                        <TextField
+                                            {...params}
+                                            label="LOT NO *"
+                                            sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
+                                            helperText={!modalData.DRUG_CODE ? "เลือกยาก่อน" : lotList.length === 0 ? "ไม่มี LOT" : ""}
+                                        />
+                                    )}
+                                />
+                            </Grid>
+                            <Grid item xs={12} md={6}>
+                                <DateInputBE
+                                    label="วันหมดอายุ"
+                                    value={modalData.EXPIRE_DATE}
+                                    onChange={(value) => { }} // ไม่ให้แก้ไข
+                                    disabled={true}
+                                />
+                            </Grid>
+                            <Grid item xs={12} md={6}>
+                                <TextField
+                                    fullWidth
+                                    label="จำนวน *"
+                                    type="number"
+                                    value={modalData.QTY}
+                                    onChange={(e) => handleModalChange('QTY', e.target.value)}
+                                    inputProps={{ step: "1", min: "0" }}
+                                    size="small"
+                                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
+                                />
+                            </Grid>
+                            <Grid item xs={12} md={6}>
+                                <TextField
+                                    fullWidth
+                                    label="หน่วย"
+                                    value={modalData.UNIT_NAME1}
+                                    disabled
+                                    size="small"
+                                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
+                                />
+                            </Grid>
+                            <Grid item xs={12} md={6}>
+                                <TextField
+                                    fullWidth
+                                    label="ราคา/หน่วย *"
+                                    type="number"
+                                    value={modalData.UNIT_COST}
+                                    onChange={(e) => handleModalChange('UNIT_COST', e.target.value)}
+                                    inputProps={{ step: "0.01", min: "0" }}
+                                    size="small"
+                                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
+                                />
+                            </Grid>
+                            <Grid item xs={12} md={6}>
+                                <TextField
+                                    fullWidth
+                                    label="รวม"
+                                    value={modalData.AMT}
+                                    disabled
+                                    size="small"
+                                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
+                                />
+                            </Grid>
+                        </Grid>
+                    </DialogContent>
+                    <DialogActions>
+                        <Button onClick={handleCloseModal}>ยกเลิก</Button>
+                        <Button variant="contained" onClick={handleAddDetail} sx={{ backgroundColor: '#5698E0' }}>
+                            {editingIndex !== null ? 'บันทึก' : 'เพิ่ม'}
+                        </Button>
+                    </DialogActions>
+                </Dialog>
             </Container>
         );
     }
@@ -440,10 +901,21 @@ const Borrow1Management = () => {
 
             <Card sx={{ mb: 2 }}>
                 <CardContent>
-                    <TextField size="small" placeholder="ค้นหา (เลขที่, รหัสพนักงาน)" value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)} fullWidth
-                        InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon color="action" /></InputAdornment> }}
-                        sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }} />
+                    <Grid container spacing={2}>
+                        <Grid item xs={12} md={8}>
+                            <TextField size="small" placeholder="ค้นหา (เลขที่, รหัสพนักงาน)" value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)} fullWidth
+                                InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon color="action" /></InputAdornment> }}
+                                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }} />
+                        </Grid>
+                        <Grid item xs={12} md={4}>
+                            <DateInputBE
+                                label="วันที่"
+                                value={searchDate}
+                                onChange={(value) => setSearchDate(value)}
+                            />
+                        </Grid>
+                    </Grid>
                 </CardContent>
             </Card>
 
@@ -452,20 +924,20 @@ const Borrow1Management = () => {
                     {filteredList.length === 0 ? (
                         <Box sx={{ textAlign: 'center', py: 4 }}>
                             <Typography variant="h6" color="text.secondary">
-                                {searchTerm ? 'ไม่พบข้อมูลที่ค้นหา' : 'ยังไม่มีข้อมูล'}
+                                {searchTerm || searchDate ? 'ไม่พบข้อมูลที่ค้นหา' : 'ยังไม่มีข้อมูล'}
                             </Typography>
                         </Box>
                     ) : (
                         <>
                             <Box sx={{ overflowX: 'auto' }}>
-                                <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '900px' }}>
+                                <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '1000px' }}>
                                     <thead style={{ backgroundColor: "#F0F5FF" }}>
                                         <tr>
                                             <th style={{ padding: '12px 8px', textAlign: 'left', color: '#696969' }}>ลำดับ</th>
                                             <th style={{ padding: '12px 8px', textAlign: 'left', color: '#696969' }}>เลขที่</th>
                                             <th style={{ padding: '12px 8px', textAlign: 'left', color: '#696969' }}>วันที่</th>
-                                            <th style={{ padding: '12px 8px', textAlign: 'left', color: '#696969' }}>รหัสพนักงาน</th>
-                                            <th style={{ padding: '12px 8px', textAlign: 'right', color: '#696969' }}>จำนวนเงิน</th>
+                                            <th style={{ padding: '12px 8px', textAlign: 'left', color: '#696969' }}>ชื่อพนักงาน</th>
+                                            <th style={{ padding: '12px 8px', textAlign: 'right', color: '#696969' }}>จำนวนเงินรวม</th>
                                             <th style={{ padding: '12px 8px', textAlign: 'center', color: '#696969' }}>สถานะ</th>
                                             <th style={{ padding: '12px 8px', textAlign: 'center', color: '#696969' }}>จัดการ</th>
                                         </tr>
@@ -475,8 +947,8 @@ const Borrow1Management = () => {
                                             <tr key={item.REFNO} style={{ borderTop: '1px solid #e0e0e0' }}>
                                                 <td style={{ padding: '12px 8px' }}>{(page - 1) * itemsPerPage + index + 1}</td>
                                                 <td style={{ padding: '12px 8px', fontWeight: 500 }}>{item.REFNO}</td>
-                                                <td style={{ padding: '12px 8px' }}>{Borrow1Service.formatDate(item.RDATE)}</td>
-                                                <td style={{ padding: '12px 8px' }}>{item.EMP_CODE}</td>
+                                                <td style={{ padding: '12px 8px' }}>{formatDateBE(item.RDATE)}</td>
+                                                <td style={{ padding: '12px 8px' }}>{item.EMP_NAME}</td>
                                                 <td style={{ padding: '12px 8px', textAlign: 'right', fontWeight: 500 }}>
                                                     {Borrow1Service.formatCurrency(item.TOTAL)}
                                                 </td>

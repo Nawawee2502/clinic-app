@@ -4,6 +4,7 @@ import Borrow1Management from "./Borrow1Management";
 import CheckStockManagement from "./CheckStockManagement";
 import Receipt1Management from "./Receipt1Management";
 import Return1Management from "./Return1Management";
+import BalMonthDrugManagement from "./BalMonthDrugManagement";
 
 
 function DrugInventory() {
@@ -55,12 +56,13 @@ function DrugInventory() {
                 <Tab label="ใบรับยา/เวชภัณฑ์" />
                 <Tab label="ใบคืนยา/เวชภัณฑ์" />
                 <Tab label="ใบเบิกยา" />
-                <Tab label="บันทึกจำนวนสินค้าประจำเดือน" />
+                <Tab label="ใบตรวจนับสต๊อก" />
 
             </Tabs>
 
             <Card>
                 <CardContent>
+                    {tabIndex === 0 && <BalMonthDrugManagement />}
                     {tabIndex === 1 && <Receipt1Management />}
                     {tabIndex === 2 && <Return1Management />}
                     {tabIndex === 3 && <Borrow1Management />}

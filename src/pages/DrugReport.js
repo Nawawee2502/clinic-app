@@ -1,6 +1,6 @@
 import React from "react";
 import { Container, Tabs, Tab, Card, CardContent, Typography } from "@mui/material";
-
+import BalanceDrugReport from "../components/Report/BalanceDrugReport";
 
 function DrugReport() {
     const [tabIndex, setTabIndex] = React.useState(0);
@@ -42,24 +42,24 @@ function DrugReport() {
                     "& .MuiTabs-indicator": {
                         display: "none",
                     },
-                    // maxWidth: "500px",
                 }}
             >
                 <Tab label="สินค้าคงเหลือ" />
                 <Tab label="สต็อกการ์ด" />
                 <Tab label="รายงานการเคลื่อนไหวสินค้า" />
-                <Tab label="รายงานยาเวชภัณฑ์ที่ต้องสั่งซื้อ" />
                 <Tab label="รายงานยาเวชภัณฑ์ใกล้หมดอายุ" />
-
             </Tabs>
 
-            <Card>
+            <Card sx={{ mt: 2 }}>
                 <CardContent>
-
+                    {tabIndex === 0 && <BalanceDrugReport />}
+                    {tabIndex === 1 && <Typography>สต็อกการ์ด - Coming Soon</Typography>}
+                    {tabIndex === 2 && <Typography>รายงานการเคลื่อนไหวสินค้า - Coming Soon</Typography>}
+                    {tabIndex === 3 && <Typography>รายงานยาเวชภัณฑ์ใกล้หมดอายุ - Coming Soon</Typography>}
                 </CardContent>
             </Card>
         </Container>
     );
-};
+}
 
-export default DrugReport
+export default DrugReport;
