@@ -362,7 +362,19 @@ const BalMonthDrugManagement = () => {
                                     value={selectedDrug}
                                     onChange={handleDrugSelect}
                                     options={drugList}
-                                    getOptionLabel={(option) => `${option.GENERIC_NAME || ''}`}
+                                    getOptionLabel={(option) => {
+                                        const genericName = option.GENERIC_NAME || '';
+                                        const tradeName = option.TRADE_NAME ? ` (${option.TRADE_NAME})` : '';
+                                        return `${genericName}${tradeName}`;
+                                    }}
+                                    filterOptions={(options, { inputValue }) => {
+                                        const searchTerm = inputValue.toLowerCase();
+                                        return options.filter(option => 
+                                            (option.GENERIC_NAME || '').toLowerCase().includes(searchTerm) ||
+                                            (option.TRADE_NAME || '').toLowerCase().includes(searchTerm) ||
+                                            (option.DRUG_CODE || '').toLowerCase().includes(searchTerm)
+                                        );
+                                    }}
                                     renderInput={(params) => <TextField {...params} placeholder="เลือกยา" size="small" />}
                                     disabled={!!editingItem}
                                     sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px", backgroundColor: editingItem ? "#f5f5f5" : "white" } }}

@@ -131,7 +131,11 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
                     GENERIC_NAME: drug.GENERIC_NAME,
                     TRADE_NAME: drug.TRADE_NAME || '',
                     UNIT_CODE: drug.UNIT_CODE || 'TAB',
-                    UNIT_PRICE: drug.UNIT_PRICE || 0
+                    UNIT_PRICE: drug.UNIT_PRICE || 0,
+                    // ✅ เพิ่ม default regimen จาก drug data
+                    Dose1: drug.Dose1 || '',
+                    Indication1: drug.Indication1 || '',
+                    Comment1: drug.Comment1 || ''
                 }));
                 setDrugOptions(formattedDrugs);
                 setApiStatus('connected');
@@ -149,15 +153,21 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
     };
 
     const getAvailableDrugs = () => {
+        // ✅ กรองยาที่ไม่มีชื่อ (GENERIC_NAME หรือ TRADE_NAME) ออก
+        const drugsWithName = drugOptions.filter(drug => 
+            (drug.GENERIC_NAME && drug.GENERIC_NAME.trim() !== '') || 
+            (drug.TRADE_NAME && drug.TRADE_NAME.trim() !== '')
+        );
+        
         if (editingIndex >= 0) {
             const currentEditingDrugCode = savedMedicines[editingIndex]?.drugCode;
-            return drugOptions.filter(drug =>
+            return drugsWithName.filter(drug =>
                 !savedMedicines.some((med, index) =>
                     med.drugCode === drug.DRUG_CODE && index !== editingIndex
                 ) || drug.DRUG_CODE === currentEditingDrugCode
             );
         }
-        return drugOptions.filter(drug =>
+        return drugsWithName.filter(drug =>
             !savedMedicines.some(med => med.drugCode === drug.DRUG_CODE)
         );
     };
@@ -185,12 +195,23 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
                 return;
             }
 
+            // ✅ สร้าง default regimen จาก drug data หรือ default values
+            const defaultUsage = newValue.Indication1 || 'รับประทาน';
+            const defaultQuantity = newValue.Dose1 || '1';
+            const defaultBeforeAfter = 'หลังอาหาร';
+            const defaultTime = newValue.Comment1 || 'วันละ 3 ครั้งหลังอาหาร';
+
             setMedicineData(prev => ({
                 ...prev,
                 drugCode: newValue.DRUG_CODE,
                 drugName: newValue.GENERIC_NAME,
                 unit: newValue.UNIT_CODE || 'TAB',
-                unitPrice: newValue.UNIT_PRICE || 0
+                unitPrice: newValue.UNIT_PRICE || 0,
+                // ✅ เซ็ต default regimen
+                usage: prev.usage || defaultUsage,
+                quantity: prev.quantity || defaultQuantity,
+                beforeAfter: prev.beforeAfter || defaultBeforeAfter,
+                time: prev.time || defaultTime
             }));
         } else {
             setMedicineData(prev => ({
@@ -198,7 +219,11 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
                 drugCode: '',
                 drugName: '',
                 unit: '',
-                unitPrice: 0
+                unitPrice: 0,
+                usage: '',
+                quantity: '',
+                beforeAfter: '',
+                time: ''
             }));
         }
     };
@@ -496,7 +521,33 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
                                     </Typography>
                                     <Autocomplete
                                         options={availableDrugs}
-                                        getOptionLabel={(option) => option.GENERIC_NAME || ''}
+                                        getOptionLabel={(option) => {
+                                            const genericName = option.GENERIC_NAME || '';
+                                            const tradeName = option.TRADE_NAME ? ` (${option.TRADE_NAME})` : '';
+                                            return `${genericName}${tradeName}`;
+                                        }}
+                                        filterOptions={(options, { inputValue }) => {
+                                            if (!inputValue) return options;
+                                            
+                                            const searchTerm = inputValue.toLowerCase().trim();
+                                            
+                                            // ✅ กรองยาที่ไม่มีชื่อออกก่อน
+                                            const drugsWithName = options.filter(option => 
+                                                (option.GENERIC_NAME && option.GENERIC_NAME.trim() !== '') || 
+                                                (option.TRADE_NAME && option.TRADE_NAME.trim() !== '')
+                                            );
+                                            
+                                            // ✅ ค้นหาใน GENERIC_NAME, TRADE_NAME, และ DRUG_CODE
+                                            return drugsWithName.filter(option => {
+                                                const genericName = (option.GENERIC_NAME || '').toLowerCase();
+                                                const tradeName = (option.TRADE_NAME || '').toLowerCase();
+                                                const drugCode = (option.DRUG_CODE || '').toLowerCase();
+                                                
+                                                return genericName.includes(searchTerm) ||
+                                                       tradeName.includes(searchTerm) ||
+                                                       drugCode.includes(searchTerm);
+                                            });
+                                        }}
                                         value={availableDrugs.find(opt => opt.DRUG_CODE === medicineData.drugCode) || null}
                                         onChange={(event, newValue) => {
                                             handleDrugSelect(newValue);

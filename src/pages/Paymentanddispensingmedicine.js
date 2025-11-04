@@ -27,6 +27,14 @@ import { Print as PrintIcon } from "@mui/icons-material";
 import PatientService from "../services/patientService";
 import TreatmentService from "../services/treatmentService";
 
+// Import Utilities
+import { 
+  getCurrentDateForDB, 
+  getCurrentTimeForDB, 
+  getCurrentDateForDisplay, 
+  getCurrentTimeForDisplay 
+} from "../utils/dateTimeUtils";
+
 // Import Components
 import PatientQueueSidebar from "../components/Paymentanddispensingmedicine/PatientQueueSidebar";
 import PatientInfoHeader from "../components/Paymentanddispensingmedicine/PatientInfoHeader";
@@ -128,8 +136,8 @@ const Paymentanddispensingmedicine = () => {
           DISCOUNT_AMOUNT: discount,
           NET_AMOUNT: netAmount,
           PAYMENT_STATUS: 'ชำระเงินแล้ว', // เปลี่ยนเฉพาะตัวนี้
-          PAYMENT_DATE: new Date().toISOString().split('T')[0],
-          PAYMENT_TIME: new Date().toLocaleTimeString('th-TH', { hour12: false }),
+          PAYMENT_DATE: getCurrentDateForDB(), // ✅ ใช้ utility สำหรับบันทึก DB (ค.ศ.)
+          PAYMENT_TIME: getCurrentTimeForDB(), // ✅ ใช้ utility สำหรับบันทึก DB (เวลาไทย)
           PAYMENT_METHOD: paymentData.paymentMethod,
           RECEIVED_AMOUNT: receivedAmount,
           CHANGE_AMOUNT: changeAmount,
@@ -170,8 +178,8 @@ const Paymentanddispensingmedicine = () => {
               receivedAmount,
               changeAmount,
               paymentMethod: paymentData.paymentMethod,
-              paymentDate: new Date().toISOString().split('T')[0],
-              paymentTime: new Date().toLocaleTimeString('th-TH', { hour12: false })
+              paymentDate: getCurrentDateForDB(), // ✅ ใช้ utility สำหรับบันทึก DB (ค.ศ.)
+              paymentTime: getCurrentTimeForDB() // ✅ ใช้ utility สำหรับบันทึก DB (เวลาไทย)
             }
           };
         }
@@ -284,8 +292,8 @@ const Paymentanddispensingmedicine = () => {
       const treatmentUpdateData = {
         STATUS1: 'เสร็จแล้ว',
         // เพิ่มข้อมูลเวลาปิดการรักษา (optional)
-        CLOSE_DATE: new Date().toISOString().split('T')[0],
-        CLOSE_TIME: new Date().toLocaleTimeString('th-TH', { hour12: false }),
+        CLOSE_DATE: getCurrentDateForDB(), // ✅ ใช้ utility สำหรับบันทึก DB (ค.ศ.)
+        CLOSE_TIME: getCurrentTimeForDB(), // ✅ ใช้ utility สำหรับบันทึก DB (เวลาไทย)
         CLOSED_BY: 'PAYMENT_SYSTEM'
       };
 
@@ -437,6 +445,31 @@ const Paymentanddispensingmedicine = () => {
             ...item,
             editablePrice: parseFloat(item.AMT || 0),
             originalPrice: parseFloat(item.AMT || 0)
+          }));
+        }
+
+        // ✅ เช็คบัตรทอง (UCS_CARD) จาก patient หรือ treatment
+        const currentPatient = patients[selectedPatientIndex];
+        const isGoldCard = currentPatient?.UCS_CARD === 'Y' || 
+                          response.data.treatment?.UCS_CARD === 'Y' ||
+                          response.data.patient?.UCS_CARD === 'Y';
+
+        // ✅ ถ้าผู้ป่วยเป็นบัตรทอง ให้ตั้งราคาเริ่มต้นเป็น 0 (แต่ยังแก้ไขได้)
+        if (isGoldCard) {
+          labsArray = labsArray.map(item => ({
+            ...item,
+            editablePrice: 0, // ตั้งราคาเริ่มต้นเป็น 0
+            originalPrice: item.originalPrice // เก็บราคาเดิมไว้
+          }));
+          proceduresArray = proceduresArray.map(item => ({
+            ...item,
+            editablePrice: 0,
+            originalPrice: item.originalPrice
+          }));
+          drugsArray = drugsArray.map(item => ({
+            ...item,
+            editablePrice: 0,
+            originalPrice: item.originalPrice
           }));
         }
 
@@ -754,7 +787,7 @@ const Paymentanddispensingmedicine = () => {
                         เวลาปัจจุบัน
                       </Typography>
                       <Typography variant="body2" color="#92400e" sx={{ opacity: 0.8 }}>
-                        {new Date().toLocaleTimeString('th-TH')}
+                        {getCurrentTimeForDisplay()}
                       </Typography>
                     </Box>
                   </Grid>
@@ -1009,8 +1042,8 @@ const Paymentanddispensingmedicine = () => {
                               <Typography variant="body2"><strong>HN:</strong> {currentPatient.HNCODE}</Typography>
                             </Grid>
                             <Grid item xs={6}>
-                              <Typography variant="body2"><strong>วันที่:</strong> {new Date().toLocaleDateString('th-TH')}</Typography>
-                              <Typography variant="body2"><strong>เวลา:</strong> {new Date().toLocaleTimeString('th-TH')}</Typography>
+                              <Typography variant="body2"><strong>วันที่:</strong> {getCurrentDateForDisplay()}</Typography>
+                              <Typography variant="body2"><strong>เวลา:</strong> {getCurrentTimeForDisplay()}</Typography>
                             </Grid>
                             <Grid item xs={12}>
                               <Typography variant="body2">

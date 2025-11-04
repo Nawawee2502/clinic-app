@@ -140,6 +140,7 @@ const Return1Management = () => {
         LOT_NO: '',
         EXPIRE_DATE: ''
     });
+    const [qtyError, setQtyError] = useState('');
 
     const itemsPerPage = 10;
 
@@ -506,6 +507,7 @@ const Return1Management = () => {
         setEditingIndex(null);
         setLotList([]);
         setSelectedLot(null);
+        setQtyError('');
         setOpenModal(true);
     };
 
@@ -516,18 +518,33 @@ const Return1Management = () => {
         try {
             const lotsResponse = await BalDrugService.getLotsByDrugCode(detail.DRUG_CODE);
             if (lotsResponse.success && lotsResponse.data) {
-                setLotList(lotsResponse.data);
+                // กรองเฉพาะ LOT ที่มีจำนวนคงเหลือ > 0
+                const availableLots = lotsResponse.data.filter(lot => parseFloat(lot.QTY || 0) > 0);
+                setLotList(availableLots);
 
                 // หา lot ที่ตรงกับที่บันทึกไว้
-                const matchedLot = lotsResponse.data.find(lot =>
+                const matchedLot = availableLots.find(lot =>
                     lot.LOT_NO === detail.LOT_NO
                 );
                 setSelectedLot(matchedLot || null);
+                
+                // ✅ เช็คจำนวนเมื่อโหลดรายการแก้ไข
+                const currentQty = parseFloat(detail.QTY) || 0;
+                const availableQty = matchedLot ? parseFloat(matchedLot.QTY) || 0 : 0;
+                
+                if (currentQty > 0 && availableQty > 0 && currentQty > availableQty) {
+                    setQtyError(`⚠️ จำนวนเกิน! คงเหลือเพียง ${availableQty} ${detail.UNIT_NAME1 || ''}`);
+                } else {
+                    setQtyError('');
+                }
+            } else {
+                setQtyError('');
             }
         } catch (error) {
             console.error('Error loading lots:', error);
             setLotList([]);
             setSelectedLot(null);
+            setQtyError('');
         }
 
         setModalData({
@@ -544,6 +561,7 @@ const Return1Management = () => {
         setEditingIndex(null);
         setLotList([]);
         setSelectedLot(null);
+        setQtyError('');
     };
 
     const handleModalChange = (field, value) => {
@@ -554,6 +572,21 @@ const Return1Management = () => {
                 const unitCost = parseFloat(field === 'UNIT_COST' ? value : updated.UNIT_COST) || 0;
                 updated.AMT = (qty * unitCost).toFixed(2);
             }
+            
+            // ✅ เช็คจำนวนเกินเมื่อเปลี่ยน QTY
+            if (field === 'QTY') {
+                const returnQty = parseFloat(value) || 0;
+                const availableQty = selectedLot ? parseFloat(selectedLot.QTY) || 0 : 0;
+                
+                if (returnQty > 0 && availableQty > 0 && returnQty > availableQty) {
+                    setQtyError(`⚠️ จำนวนเกิน! คงเหลือเพียง ${availableQty} ${updated.UNIT_NAME1 || ''}`);
+                } else if (returnQty <= 0) {
+                    setQtyError('กรุณากรอกจำนวนมากกว่า 0');
+                } else {
+                    setQtyError('');
+                }
+            }
+            
             return updated;
         });
     };
@@ -571,11 +604,13 @@ const Return1Management = () => {
                 }
 
                 if (drug) {
-                    // ดึงรายการ LOT_NO จาก bal_drug
+                    // ดึงรายการ LOT_NO จาก bal_drug (เฉพาะที่มี QTY > 0)
                     const lotsResponse = await BalDrugService.getLotsByDrugCode(drug.DRUG_CODE);
 
                     if (lotsResponse.success && lotsResponse.data) {
-                        setLotList(lotsResponse.data);
+                        // ✅ กรองเฉพาะ LOT ที่มีจำนวนคงเหลือ > 0
+                        const availableLots = lotsResponse.data.filter(lot => parseFloat(lot.QTY || 0) > 0);
+                        setLotList(availableLots);
                     } else {
                         setLotList([]);
                     }
@@ -585,8 +620,8 @@ const Return1Management = () => {
                         DRUG_CODE: drug.DRUG_CODE,
                         UNIT_COST: '', // ไม่ดึงราคามา ให้กรอกเอง
                         GENERIC_NAME: drug.GENERIC_NAME || '',
-                        UNIT_CODE1: drug.UNIT_CODE1 || '', // ⭐ บันทึก CODE
-                        UNIT_NAME1: drug.UNIT_NAME1 || '',  // ⭐ เพิ่ม NAME สำหรับแสดงผล
+                        UNIT_CODE1: drug.UNIT_CODE1 || '',
+                        UNIT_NAME1: drug.UNIT_NAME1 || '',
                         LOT_NO: '',
                         EXPIRE_DATE: ''
                     }));
@@ -620,12 +655,23 @@ const Return1Management = () => {
                 LOT_NO: value.LOT_NO,
                 EXPIRE_DATE: Return1Service.formatDateForInput(value.EXPIRE_DATE)
             }));
+            
+            // ✅ เช็คจำนวนอีกครั้งเมื่อเปลี่ยน LOT
+            const currentQty = parseFloat(modalData.QTY) || 0;
+            const availableQty = parseFloat(value.QTY) || 0;
+            
+            if (currentQty > 0 && availableQty > 0 && currentQty > availableQty) {
+                setQtyError(`⚠️ จำนวนเกิน! คงเหลือเพียง ${availableQty} ${modalData.UNIT_NAME1 || ''}`);
+            } else {
+                setQtyError('');
+            }
         } else {
             setModalData(prev => ({
                 ...prev,
                 LOT_NO: '',
                 EXPIRE_DATE: ''
             }));
+            setQtyError('');
         }
     };
 
@@ -640,12 +686,32 @@ const Return1Management = () => {
             return;
         }
 
+        // ✅ เช็คจำนวนคงเหลือ
+        const returnQty = parseFloat(modalData.QTY) || 0;
+        const availableQty = selectedLot ? parseFloat(selectedLot.QTY) || 0 : 0;
+
+        if (returnQty <= 0) {
+            setQtyError('กรุณากรอกจำนวนมากกว่า 0');
+            showAlert('❌ กรุณากรอกจำนวนมากกว่า 0', 'error');
+            return;
+        }
+
+        if (returnQty > availableQty) {
+            const errorMsg = `❌ จำนวนเกิน! คงเหลือเพียง ${availableQty} ${modalData.UNIT_NAME1 || ''} แต่ต้องการคืน ${returnQty} ${modalData.UNIT_NAME1 || ''}`;
+            setQtyError(`⚠️ จำนวนเกิน! คงเหลือเพียง ${availableQty}`);
+            showAlert(errorMsg, 'error');
+            return;
+        }
+
+        // ถ้าไม่มี error ให้ clear error state
+        setQtyError('');
+
         const newDetail = {
             DRUG_CODE: modalData.DRUG_CODE,
             QTY: parseFloat(modalData.QTY),
             UNIT_COST: parseFloat(modalData.UNIT_COST),
-            UNIT_CODE1: modalData.UNIT_CODE1, // ⭐ บันทึก CODE
-            UNIT_NAME1: modalData.UNIT_NAME1, // ⭐ เก็บ NAME ไว้แสดงผล
+            UNIT_CODE1: modalData.UNIT_CODE1,
+            UNIT_NAME1: modalData.UNIT_NAME1,
             GENERIC_NAME: modalData.GENERIC_NAME,
             AMT: parseFloat(modalData.AMT),
             LOT_NO: modalData.LOT_NO,
@@ -765,11 +831,25 @@ const Return1Management = () => {
             if (!editingItem) {
                 result = await Return1Service.createReturn1(formattedData);
                 console.log('✅ CREATE response:', result);
-                showAlert('สร้างใบคืนสินค้าสำเร็จ', 'success');
+
+                if (result.success) {
+                    showAlert('สร้างใบคืนสินค้าสำเร็จ', 'success');
+                } else {
+                    showAlert(result.message || 'เกิดข้อผิดพลาด', 'error');
+                    setLoading(false);
+                    return;
+                }
             } else {
                 result = await Return1Service.updateReturn1(editingItem.REFNO, formattedData);
                 console.log('✅ UPDATE response:', result);
-                showAlert('แก้ไขใบคืนสินค้าสำเร็จ', 'success');
+
+                if (result.success) {
+                    showAlert('แก้ไขใบคืนสินค้าสำเร็จ', 'success');
+                } else {
+                    showAlert(result.message || 'เกิดข้อผิดพลาด', 'error');
+                    setLoading(false);
+                    return;
+                }
             }
 
             await loadData();
@@ -995,7 +1075,19 @@ const Return1Management = () => {
                                 <Autocomplete
                                     fullWidth
                                     options={drugList}
-                                    getOptionLabel={(option) => `${option.DRUG_CODE} - ${option.GENERIC_NAME}`}
+                                    getOptionLabel={(option) => {
+                                        const genericName = option.GENERIC_NAME || '';
+                                        const tradeName = option.TRADE_NAME ? ` (${option.TRADE_NAME})` : '';
+                                        return `${option.DRUG_CODE} - ${genericName}${tradeName}`;
+                                    }}
+                                    filterOptions={(options, { inputValue }) => {
+                                        const searchTerm = inputValue.toLowerCase();
+                                        return options.filter(option => 
+                                            (option.GENERIC_NAME || '').toLowerCase().includes(searchTerm) ||
+                                            (option.TRADE_NAME || '').toLowerCase().includes(searchTerm) ||
+                                            (option.DRUG_CODE || '').toLowerCase().includes(searchTerm)
+                                        );
+                                    }}
                                     value={drugList.find(d => d.DRUG_CODE === modalData.DRUG_CODE) || null}
                                     onChange={handleModalDrugChange}
                                     size="small"
@@ -1008,7 +1100,7 @@ const Return1Management = () => {
                                 <Autocomplete
                                     fullWidth
                                     options={lotList}
-                                    getOptionLabel={(option) => option.LOT_NO || ''}
+                                    getOptionLabel={(option) => `${option.LOT_NO} (คงเหลือ: ${option.QTY} ${option.UNIT_NAME1 || ''})`}
                                     value={selectedLot}
                                     onChange={handleLotChange}
                                     disabled={!modalData.DRUG_CODE || lotList.length === 0}
@@ -1018,7 +1110,7 @@ const Return1Management = () => {
                                             {...params}
                                             label="LOT NO *"
                                             sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
-                                            helperText={!modalData.DRUG_CODE ? "เลือกยาก่อน" : lotList.length === 0 ? "ไม่มี LOT" : ""}
+                                            helperText={!modalData.DRUG_CODE ? "เลือกยาก่อน" : lotList.length === 0 ? "ไม่มี LOT คงเหลือ" : ""}
                                         />
                                     )}
                                 />
@@ -1034,12 +1126,43 @@ const Return1Management = () => {
                             <Grid item xs={12} md={6}>
                                 <TextField
                                     fullWidth
-                                    label="จำนวน *"
+                                    label={`จำนวน * ${selectedLot ? `(คงเหลือ: ${selectedLot.QTY})` : ''}`}
                                     type="number"
                                     value={modalData.QTY}
                                     onChange={(e) => handleModalChange('QTY', e.target.value)}
                                     size="small"
-                                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
+                                    error={!!qtyError}
+                                    sx={{ 
+                                        "& .MuiOutlinedInput-root": { 
+                                            borderRadius: "10px",
+                                            ...(qtyError && {
+                                                borderColor: '#d32f2f',
+                                                '& fieldset': {
+                                                    borderColor: '#d32f2f',
+                                                    borderWidth: '2px'
+                                                },
+                                                '&:hover fieldset': {
+                                                    borderColor: '#d32f2f'
+                                                },
+                                                '&.Mui-focused fieldset': {
+                                                    borderColor: '#d32f2f',
+                                                    borderWidth: '2px'
+                                                }
+                                            })
+                                        }
+                                    }}
+                                    helperText={
+                                        qtyError 
+                                            ? qtyError 
+                                            : selectedLot 
+                                                ? `สูงสุด: ${selectedLot.QTY} ${modalData.UNIT_NAME1 || ''}` 
+                                                : ''
+                                    }
+                                    inputProps={{ 
+                                        step: "1", 
+                                        min: "0",
+                                        max: selectedLot ? selectedLot.QTY : undefined
+                                    }}
                                 />
                             </Grid>
                             <Grid item xs={12} md={6}>

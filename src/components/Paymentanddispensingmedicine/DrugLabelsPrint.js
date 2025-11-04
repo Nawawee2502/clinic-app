@@ -1,4 +1,5 @@
 import React from "react";
+import { formatThaiDateShort } from "../../utils/dateTimeUtils";
 
 const DrugLabelsPrint = ({ patient, drugs }) => {
     if (!patient || drugs.length === 0) return null;
@@ -49,7 +50,27 @@ const DrugLabelsPrint = ({ patient, drugs }) => {
           }
 
           .checkbox-row { display: flex; align-items: center; margin-bottom: 3px; font-size: 8px; }
-          .checkbox { width: 9px; height: 9px; border: 1px solid #000; margin-right: 4px; }
+          .checkbox { 
+            width: 9px; 
+            height: 9px; 
+            border: 1px solid #000; 
+            margin-right: 4px; 
+            position: relative;
+            display: inline-block;
+          }
+          .checkbox.checked {
+            background: #2c5aa0;
+            border-color: #2c5aa0;
+          }
+          .checkbox.checked::after {
+            content: "✓";
+            color: white;
+            font-size: 7px;
+            position: absolute;
+            top: -1px;
+            left: 1px;
+            font-weight: bold;
+          }
 
           .time-grid {
             display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px;
@@ -92,12 +113,27 @@ const DrugLabelsPrint = ({ patient, drugs }) => {
       <body>
         <div class="labels-container">
           ${drugs.map(drug => {
-            const dosage = drug.DOSAGE || "1";
-            const freq = parseInt(drug.FREQUENCY || "3");
+            const dosage = drug.DOSAGE || drug.Dose1 || "1";
+            const freq = parseInt(drug.FREQUENCY || drug.TIME1 || "3");
             const qty = drug.QTY || 1;
             const unit = drug.UNIT_CODE || "เม็ด";
             const name = drug.GENERIC_NAME || drug.DRUG_CODE || "ยา";
             const expire = drug.EXPIRE_DATE || "...............";
+            
+            // ✅ ดึงข้อมูลวิธีการกินยาเพื่อ auto-check
+            const note1 = drug.NOTE1 || drug.Comment1 || '';
+            const beforeAfter = drug.beforeAfter || '';
+            const usage = drug.usage || drug.Indication1 || '';
+            const time1 = drug.TIME1 || '';
+            
+            // ✅ ตรวจสอบว่าต้องเช็ค checkbox อะไรบ้าง
+            const isBeforeMeal = beforeAfter.includes('ก่อน') || note1.includes('ก่อน') || usage.includes('ก่อน');
+            const isAfterMeal = beforeAfter.includes('หลัง') || note1.includes('หลัง') || usage.includes('หลัง') || time1.includes('หลัง');
+            const isBeforeMealHalfHour = note1.includes('ก่อนอาหารครึ่ง') || note1.includes('ก่อนอาหาร') || time1.includes('ก่อนอาหารครึ่ง');
+            const isAfterMealImmediately = note1.includes('หลังอาหารทันที') || note1.includes('หลังอาหาร') || time1.includes('หลังอาหารทันที');
+            const isContinueUntilFinished = note1.includes('ติดต่อกันจนหมด') || note1.includes('จนหมด') || time1.includes('จนหมด');
+            const isDrinkWater = note1.includes('ดื่มน้ำ') || note1.includes('น้ำตาม') || time1.includes('ดื่มน้ำ');
+            const isDrowsy = note1.includes('ง่วง') || note1.includes('ง่วงซึม') || time1.includes('ง่วง');
 
             return `
               <div class="drug-label">
@@ -107,7 +143,7 @@ const DrugLabelsPrint = ({ patient, drugs }) => {
                   <div class="phone">โทร : 053-341-723</div>
                 </div>
 
-                <div class="line-field"><span>ชื่อผู้ป่วย</span> ${patient.PRENAME}${patient.NAME1} ${patient.SURNAME} <span style="margin-left:4px;">วันที่</span> ${new Date().toLocaleDateString("th-TH")}</div>
+                <div class="line-field"><span>ชื่อผู้ป่วย</span> ${patient.PRENAME}${patient.NAME1} ${patient.SURNAME} <span style="margin-left:4px;">วันที่</span> ${formatThaiDateShort(new Date().toISOString().split('T')[0])}</div>
                 <div class="line-field"><span>HN</span> ${patient.HNCODE}</div>
                 <div class="line-field"><span>ชื่อยา</span> ${name}</div>
                 <div class="line-field"><span>จำนวน</span> ${qty} ${unit}</div>
@@ -115,8 +151,8 @@ const DrugLabelsPrint = ({ patient, drugs }) => {
                 <div class="line-field">รับประทานครั้งละ ${dosage} เม็ด วันละ ${freq} ครั้ง</div>
 
                 <div class="meal-row">
-                    <div class="checkbox"></div> ก่อนอาหาร (Before meal)
-                    <div class="checkbox" style="margin-left:12px;"></div> หลังอาหาร (After meal)
+                    <div class="checkbox ${isBeforeMeal ? 'checked' : ''}"></div> ก่อนอาหาร (Before meal)
+                    <div class="checkbox ${isAfterMeal ? 'checked' : ''}" style="margin-left:12px;"></div> หลังอาหาร (After meal)
                 </div>
 
                 <div class="time-grid">
@@ -129,11 +165,11 @@ const DrugLabelsPrint = ({ patient, drugs }) => {
                 <div class="instructions">
                   <div class="title">คำแนะนำ</div>
                   <div class="grid">
-                    <div class="item"><div class="checkbox"></div> ก่อนอาหารครึ่ง-หนึ่งชั่วโมง</div>
-                    <div class="item"><div class="checkbox"></div> ทานยาติดต่อกันจนหมด</div>
-                    <div class="item"><div class="checkbox"></div> ทานหลังอาหารทันที</div>
-                    <div class="item"><div class="checkbox"></div> ดื่มน้ำตามมากๆ</div>
-                    <div class="item"><div class="checkbox"></div> ยานี้อาจทำให้ง่วงซึม</div>
+                    <div class="item"><div class="checkbox ${isBeforeMealHalfHour ? 'checked' : ''}"></div> ก่อนอาหารครึ่ง-หนึ่งชั่วโมง</div>
+                    <div class="item"><div class="checkbox ${isContinueUntilFinished ? 'checked' : ''}"></div> ทานยาติดต่อกันจนหมด</div>
+                    <div class="item"><div class="checkbox ${isAfterMealImmediately ? 'checked' : ''}"></div> ทานหลังอาหารทันที</div>
+                    <div class="item"><div class="checkbox ${isDrinkWater ? 'checked' : ''}"></div> ดื่มน้ำตามมากๆ</div>
+                    <div class="item"><div class="checkbox ${isDrowsy ? 'checked' : ''}"></div> ยานี้อาจทำให้ง่วงซึม</div>
                     <div class="item"><div class="checkbox"></div> อื่นๆ...........................</div>
                   </div>
                 </div>

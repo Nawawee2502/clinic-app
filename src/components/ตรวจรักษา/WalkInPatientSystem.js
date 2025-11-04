@@ -139,7 +139,7 @@ const WalkInPatientSystem = ({
                     const patientData = {
                         queueId: response.data.QUEUE_ID,
                         queueNumber: response.data.QUEUE_NUMBER,
-                        queueTime: new Date().toLocaleTimeString('th-TH'),
+                        queueTime: response.data.QUEUE_TIME || new Date().toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok' }),
                         queueStatus: 'รอตรวจ',
                         HNCODE: selectedPatient.HNCODE,
                         PRENAME: selectedPatient.PRENAME,

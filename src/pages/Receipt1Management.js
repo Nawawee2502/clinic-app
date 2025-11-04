@@ -961,7 +961,19 @@ const Receipt1Management = () => {
                                 <Autocomplete
                                     fullWidth
                                     options={drugList}
-                                    getOptionLabel={(option) => `${option.DRUG_CODE} - ${option.GENERIC_NAME}`}
+                                    getOptionLabel={(option) => {
+                                        const genericName = option.GENERIC_NAME || '';
+                                        const tradeName = option.TRADE_NAME ? ` (${option.TRADE_NAME})` : '';
+                                        return `${option.DRUG_CODE} - ${genericName}${tradeName}`;
+                                    }}
+                                    filterOptions={(options, { inputValue }) => {
+                                        const searchTerm = inputValue.toLowerCase();
+                                        return options.filter(option => 
+                                            (option.GENERIC_NAME || '').toLowerCase().includes(searchTerm) ||
+                                            (option.TRADE_NAME || '').toLowerCase().includes(searchTerm) ||
+                                            (option.DRUG_CODE || '').toLowerCase().includes(searchTerm)
+                                        );
+                                    }}
                                     value={drugList.find(d => d.DRUG_CODE === modalData.DRUG_CODE) || null}
                                     onChange={handleModalDrugChange}
                                     size="small"

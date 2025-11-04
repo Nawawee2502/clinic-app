@@ -39,6 +39,14 @@ const PaymentSummaryCard = ({
     const calculateTotal = () => {
         const totalCost = calculateTotalFromEditablePrices();
         const discount = parseFloat(paymentData.discount || 0);
+        
+        // ✅ ถ้าผู้ป่วยเป็นบัตรทอง (UCS_CARD = 'Y') ให้ราคาเป็น 0
+        const isGoldCard = patient?.UCS_CARD === 'Y' || patient?.treatment?.UCS_CARD === 'Y';
+        
+        if (isGoldCard) {
+            return 0; // บัตรทอง = 0 บาท
+        }
+        
         return Math.max(0, totalCost - discount);
     };
 
@@ -130,9 +138,13 @@ const PaymentSummaryCard = ({
                         fullWidth
                         margin="normal"
                         type="number"
-                        value={paymentData.discount}
-                        onChange={(e) => onPaymentDataChange({ ...paymentData, discount: parseFloat(e.target.value) || 0 })}
+                        value={paymentData.discount || ''}
+                        onChange={(e) => {
+                            const discountValue = parseFloat(e.target.value) || 0;
+                            onPaymentDataChange({ ...paymentData, discount: discountValue });
+                        }}
                         size="small"
+                        inputProps={{ step: "0.01", min: "0" }}
                         sx={{
                             '& .MuiOutlinedInput-root': {
                                 borderRadius: '10px',
@@ -142,12 +154,12 @@ const PaymentSummaryCard = ({
                     />
                 )}
 
-                {/* แสดงส่วนลดเมื่อชำระแล้ว */}
-                {isPaymentCompleted && paymentData.discount > 0 && (
+                {/* ✅ แสดงส่วนลดเมื่อชำระแล้ว หรือเมื่อกรอกส่วนลด */}
+                {(isPaymentCompleted || (paymentData.discount && paymentData.discount > 0)) && (
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                         <Typography variant="body2">ส่วนลด:</Typography>
                         <Typography variant="body2" fontWeight="bold" color="error">
-                            -{paymentData.discount.toFixed(2)} บาท
+                            -{parseFloat(paymentData.discount || 0).toFixed(2)} บาท
                         </Typography>
                     </Box>
                 )}

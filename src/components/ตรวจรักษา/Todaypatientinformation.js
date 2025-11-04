@@ -11,9 +11,20 @@ import {
   Chip,
   Alert,
   Paper,
-  CircularProgress
+  CircularProgress,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  List,
+  ListItem,
+  ListItemText,
+  IconButton
 } from "@mui/material";
 import LocalHospitalIcon from '@mui/icons-material/LocalHospital';
+import HistoryIcon from '@mui/icons-material/History';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import CloseIcon from '@mui/icons-material/Close';
 import PropTypes from 'prop-types';
 
 // Import Services
@@ -58,6 +69,8 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [patientHistory, setPatientHistory] = useState(null);
+  const [treatmentHistory, setTreatmentHistory] = useState([]);
+  const [showHistoryDialog, setShowHistoryDialog] = useState(false);
 
   // ✅ ฟังก์ชันตรวจสอบว่า vital sign แต่ละตัวผิดปกติหรือไม่
   const isVitalAbnormal = (vitalName) => {
@@ -204,6 +217,21 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
         }
       } catch (error) {
         console.log('⚠️ Could not load patient history:', error.message);
+      }
+
+      // ✅ โหลดประวัติการรักษา (ไม่ต้องลงทะเบียนใหม่)
+      try {
+        const historyResponse = await TreatmentService.getTreatmentsByPatient(currentPatient.HNCODE, {
+          page: 1,
+          limit: 10
+        });
+        if (historyResponse.success && historyResponse.data) {
+          setTreatmentHistory(historyResponse.data);
+          console.log('📋 Treatment history loaded:', historyResponse.data.length, 'records');
+        }
+      } catch (error) {
+        console.log('⚠️ Could not load treatment history:', error.message);
+        setTreatmentHistory([]);
       }
 
     } catch (error) {
@@ -480,6 +508,29 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
                   {TreatmentService.getPatientRight(currentPatient).name}
                 </Box>
               </Grid>
+              
+              {/* ✅ ปุ่มดูประวัติการรักษา */}
+              {treatmentHistory.length > 0 && (
+                <Grid item xs={12}>
+                  <Button
+                    variant="outlined"
+                    startIcon={<HistoryIcon />}
+                    fullWidth
+                    onClick={() => setShowHistoryDialog(true)}
+                    sx={{
+                      borderRadius: '10px',
+                      borderColor: '#5698E0',
+                      color: '#5698E0',
+                      '&:hover': {
+                        borderColor: '#4285d1',
+                        bgcolor: '#e3f2fd'
+                      }
+                    }}
+                  >
+                    ดูประวัติการรักษา ({treatmentHistory.length} รายการ)
+                  </Button>
+                </Grid>
+              )}
             </Grid>
 
             {/* BMI Display */}
@@ -810,6 +861,77 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
           </Paper>
         </Grid>
       </Grid>
+
+      {/* ✅ Dialog แสดงประวัติการรักษา (read-only) */}
+      <Dialog
+        open={showHistoryDialog}
+        onClose={() => setShowHistoryDialog(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Typography variant="h6">ประวัติการรักษา - {currentPatient?.PRENAME}{currentPatient?.NAME1} {currentPatient?.SURNAME}</Typography>
+            <IconButton onClick={() => setShowHistoryDialog(false)} size="small">
+              <CloseIcon />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          {treatmentHistory.length === 0 ? (
+            <Typography color="text.secondary" textAlign="center" sx={{ py: 4 }}>
+              ไม่พบประวัติการรักษา
+            </Typography>
+          ) : (
+            <List>
+              {treatmentHistory.map((treatment, index) => (
+                <ListItem
+                  key={treatment.VNO || index}
+                  sx={{
+                    border: '1px solid #e0e0e0',
+                    borderRadius: '8px',
+                    mb: 1,
+                    bgcolor: '#f9f9f9'
+                  }}
+                >
+                  <ListItemText
+                    primary={
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Typography variant="body1" fontWeight="600">
+                          {formatThaiDate(treatment.RDATE || treatment.TRDATE)}
+                        </Typography>
+                        <Chip label={treatment.VNO} size="small" color="primary" />
+                      </Box>
+                    }
+                    secondary={
+                      <Box sx={{ mt: 1 }}>
+                        {treatment.DXCODE && (
+                          <Typography variant="body2" color="primary" sx={{ mb: 0.5 }}>
+                            <strong>การวินิจฉัย:</strong> {treatment.DXCODE}
+                          </Typography>
+                        )}
+                        {treatment.DXNAME_THAI && (
+                          <Typography variant="body2" color="text.secondary">
+                            {treatment.DXNAME_THAI}
+                          </Typography>
+                        )}
+                        {treatment.SYMPTOM && (
+                          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                            <strong>อาการ:</strong> {treatment.SYMPTOM}
+                          </Typography>
+                        )}
+                      </Box>
+                    }
+                  />
+                </ListItem>
+              ))}
+            </List>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowHistoryDialog(false)}>ปิด</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

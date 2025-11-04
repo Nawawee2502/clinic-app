@@ -1,4 +1,16 @@
 // services/treatmentService.js - แก้ไขเพื่อรองรับ Freestyle Procedures
+import { 
+    getCurrentDateForDB, 
+    getCurrentTimeForDB, 
+    getCurrentDateForDisplay, 
+    getCurrentTimeForDisplay,
+    formatThaiDate,
+    formatThaiDateShort,
+    formatThaiDateTime,
+    formatThaiTime,
+    formatThaiTimeShort
+} from '../utils/dateTimeUtils';
+
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
 
 class TreatmentService {
@@ -446,8 +458,8 @@ class TreatmentService {
             WEIGHT1: { min: 0, max: 1000, name: 'น้ำหนัก' },
             HIGHT1: { min: 0, max: 300, name: 'ส่วนสูง' },
             BT1: { min: 30, max: 45, name: 'อุณหภูมิ' },
-            BP1: { min: 50, max: 300, name: 'ความดันโลหิตตัวบน' },
-            BP2: { min: 30, max: 200, name: 'ความดันโลหิตตัวล่าง' },
+            BP1: { min: 90, max: 140, name: 'ความดันโลหิตตัวบน' }, // ✅ แก้ไขเป็น 90-140
+            BP2: { min: 60, max: 100, name: 'ความดันโลหิตตัวล่าง' }, // ✅ แก้ไขเป็น 60-100
             RR1: { min: 5, max: 60, name: 'อัตราการหายใจ' },
             PR1: { min: 30, max: 200, name: 'อัตราการเต้นของชีพจร' },
             SPO2: { min: 50, max: 100, name: 'ค่าออกซิเจน' }
@@ -584,10 +596,28 @@ class TreatmentService {
         }
 
         if (vitals.BP1 && vitals.BP2) {
-            if (vitals.BP1 > 140 || vitals.BP2 > 90) {
-                warnings.push(`ความดันโลหิตสูง: ${vitals.BP1}/${vitals.BP2} mmHg`);
-            } else if (vitals.BP1 < 90 || vitals.BP2 < 60) {
-                warnings.push(`ความดันโลหิตต่ำ: ${vitals.BP1}/${vitals.BP2} mmHg`);
+            // ✅ แก้ไขช่วงความดันปกติ: 90-140 (ตัวบน) / 60-100 (ตัวล่าง)
+            const bp1Normal = vitals.BP1 >= 90 && vitals.BP1 <= 140;
+            const bp2Normal = vitals.BP2 >= 60 && vitals.BP2 <= 100;
+            
+            if (!bp1Normal || !bp2Normal) {
+                if (vitals.BP1 > 140 || vitals.BP2 > 100) {
+                    warnings.push(`ความดันโลหิตสูง: ${vitals.BP1}/${vitals.BP2} mmHg (ปกติ: 90-140/60-100)`);
+                } else if (vitals.BP1 < 90 || vitals.BP2 < 60) {
+                    warnings.push(`ความดันโลหิตต่ำ: ${vitals.BP1}/${vitals.BP2} mmHg (ปกติ: 90-140/60-100)`);
+                } else {
+                    warnings.push(`ความดันโลหิตผิดปกติ: ${vitals.BP1}/${vitals.BP2} mmHg (ปกติ: 90-140/60-100)`);
+                }
+            }
+        } else if (vitals.BP1) {
+            // เช็คเฉพาะตัวบน
+            if (vitals.BP1 > 140 || vitals.BP1 < 90) {
+                warnings.push(`ความดันโลหิตตัวบนผิดปกติ: ${vitals.BP1} mmHg (ปกติ: 90-140)`);
+            }
+        } else if (vitals.BP2) {
+            // เช็คเฉพาะตัวล่าง
+            if (vitals.BP2 > 100 || vitals.BP2 < 60) {
+                warnings.push(`ความดันโลหิตตัวล่างผิดปกติ: ${vitals.BP2} mmHg (ปกติ: 60-100)`);
             }
         }
 
@@ -879,8 +909,8 @@ class TreatmentService {
                 DISCOUNT_AMOUNT: paymentData.discountAmount || 0,
                 NET_AMOUNT: paymentData.netAmount,
                 PAYMENT_STATUS: 'ชำระเงินแล้ว',
-                PAYMENT_DATE: new Date().toISOString().split('T')[0],
-                PAYMENT_TIME: new Date().toLocaleTimeString('th-TH', { hour12: false }),
+                PAYMENT_DATE: getCurrentDateForDB(),
+                PAYMENT_TIME: getCurrentTimeForDB(),
                 PAYMENT_METHOD: paymentData.paymentMethod || 'เงินสด',
                 RECEIVED_AMOUNT: paymentData.receivedAmount,
                 CHANGE_AMOUNT: paymentData.changeAmount,
@@ -1033,8 +1063,8 @@ class TreatmentService {
             DISCOUNT_AMOUNT: discount,
             NET_AMOUNT: netAmount,
             PAYMENT_STATUS: 'ชำระเงินแล้ว',
-            PAYMENT_DATE: new Date().toISOString().split('T')[0],
-            PAYMENT_TIME: new Date().toLocaleTimeString('th-TH', { hour12: false }),
+            PAYMENT_DATE: getCurrentDateForDB(),
+            PAYMENT_TIME: getCurrentTimeForDB(),
             PAYMENT_METHOD: paymentInfo.paymentMethod || 'เงินสด',
             RECEIVED_AMOUNT: receivedAmount,
             CHANGE_AMOUNT: changeAmount,
@@ -1144,8 +1174,8 @@ class TreatmentService {
                 changeAmount: changeAmount
             },
             datetime: {
-                date: new Date().toLocaleDateString('th-TH'),
-                time: new Date().toLocaleTimeString('th-TH')
+                date: getCurrentDateForDisplay(),
+                time: getCurrentTimeForDisplay()
             }
         };
     }

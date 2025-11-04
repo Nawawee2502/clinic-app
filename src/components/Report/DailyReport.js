@@ -3,12 +3,13 @@ import React, { useState, useEffect } from 'react';
 import {
     Box, Grid, Card, CardContent, Typography, TextField, FormControl, InputLabel, Select, MenuItem, Button,
     Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Chip, Avatar,
-    CircularProgress, Alert, Autocomplete, Divider
+    CircularProgress, Alert, Autocomplete, Divider, Dialog, DialogTitle, DialogContent, DialogActions,
+    IconButton, List, ListItem, ListItemText
 } from '@mui/material';
 import {
     Search as SearchIcon, Refresh as RefreshIcon, Download as DownloadIcon,
     TrendingUp as TrendingUpIcon, People as PeopleIcon, AttachMoney as MoneyIcon,
-    LocalHospital as HospitalIcon
+    LocalHospital as HospitalIcon, Visibility as VisibilityIcon, Close as CloseIcon
 } from '@mui/icons-material';
 
 // Import Services
@@ -16,13 +17,16 @@ import TreatmentService from '../../services/treatmentService';
 import EmployeeService from '../../services/employeeService';
 import PatientService from '../../services/patientService';
 
+// Import Utilities
+import { formatThaiDate as formatThaiDateUtil, getCurrentDateForDB } from '../../utils/dateTimeUtils';
+
 // Import Components
 import DailyReportButton from '../Dashboard/DailyReportButton';
 
 const DailyReport = () => {
     // States for filters
-    const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
-    const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
+    const [startDate, setStartDate] = useState(getCurrentDateForDB());
+    const [endDate, setEndDate] = useState(getCurrentDateForDB());
     const [selectedDoctor, setSelectedDoctor] = useState('');
     const [selectedPatient, setSelectedPatient] = useState('');
     const [selectedPatientObject, setSelectedPatientObject] = useState(null);
@@ -35,6 +39,9 @@ const DailyReport = () => {
     const [summaryStats, setSummaryStats] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+    
+    // ✅ States for treatment history dialog
+    const [historyDialog, setHistoryDialog] = useState({ open: false, vno: null, treatmentData: null });
 
     // Load doctors and patients on component mount
     useEffect(() => {
@@ -186,10 +193,10 @@ const DailyReport = () => {
         }).format(amount || 0);
     };
 
+    // ✅ ใช้ utility function สำหรับ format Thai date
     const formatThaiDate = (dateString) => {
         if (!dateString) return '';
-        const date = new Date(dateString);
-        return date.toLocaleDateString('th-TH');
+        return formatThaiDateUtil(dateString);
     };
 
     const getStatusColor = (status) => {
@@ -481,6 +488,7 @@ const DailyReport = () => {
                                         <TableCell align="right">สุทธิ</TableCell>
                                         <TableCell>วิธีชำระ</TableCell>
                                         <TableCell>สถานะ</TableCell>
+                                        <TableCell align="center">จัดการ</TableCell>
                                     </TableRow>
                                 </TableHead>
                                 <TableBody>
@@ -549,6 +557,31 @@ const DailyReport = () => {
                                                     size="small"
                                                 />
                                             </TableCell>
+                                            <TableCell align="center">
+                                                <IconButton
+                                                    size="small"
+                                                    onClick={async () => {
+                                                        try {
+                                                            const response = await TreatmentService.getTreatmentByVNO(row.VNO);
+                                                            if (response.success) {
+                                                                setHistoryDialog({ open: true, vno: row.VNO, treatmentData: response.data });
+                                                            }
+                                                        } catch (error) {
+                                                            console.error('Error loading treatment:', error);
+                                                        }
+                                                    }}
+                                                    sx={{
+                                                        border: '1px solid #5698E0',
+                                                        borderRadius: '7px',
+                                                        color: '#5698E0',
+                                                        '&:hover': {
+                                                            bgcolor: '#e3f2fd'
+                                                        }
+                                                    }}
+                                                >
+                                                    <VisibilityIcon fontSize="small" />
+                                                </IconButton>
+                                            </TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>
@@ -571,6 +604,122 @@ const DailyReport = () => {
                     </CardContent>
                 </Card>
             )}
+
+            {/* ✅ Dialog แสดงประวัติการรักษา (read-only) */}
+            <Dialog
+                open={historyDialog.open}
+                onClose={() => setHistoryDialog({ open: false, vno: null, treatmentData: null })}
+                maxWidth="lg"
+                fullWidth
+            >
+                <DialogTitle>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Typography variant="h6">ประวัติการรักษา - VN: {historyDialog.vno}</Typography>
+                        <IconButton onClick={() => setHistoryDialog({ open: false, vno: null, treatmentData: null })} size="small">
+                            <CloseIcon />
+                        </IconButton>
+                    </Box>
+                </DialogTitle>
+                <DialogContent>
+                    {historyDialog.treatmentData ? (
+                        <Box>
+                            {/* ข้อมูลการรักษา */}
+                            {historyDialog.treatmentData.treatment && (
+                                <Card sx={{ mb: 2 }}>
+                                    <CardContent>
+                                        <Typography variant="h6" sx={{ mb: 2 }}>ข้อมูลการรักษา</Typography>
+                                        <Grid container spacing={2}>
+                                            <Grid item xs={6}>
+                                                <Typography variant="body2" color="text.secondary">วันที่:</Typography>
+                                                <Typography variant="body1">{formatThaiDate(historyDialog.treatmentData.treatment.RDATE)}</Typography>
+                                            </Grid>
+                                            <Grid item xs={6}>
+                                                <Typography variant="body2" color="text.secondary">อาการ:</Typography>
+                                                <Typography variant="body1">{historyDialog.treatmentData.treatment.SYMPTOM || '-'}</Typography>
+                                            </Grid>
+                                            <Grid item xs={6}>
+                                                <Typography variant="body2" color="text.secondary">การวินิจฉัย:</Typography>
+                                                <Typography variant="body1" color="primary">
+                                                    {historyDialog.treatmentData.treatment.DXCODE || '-'}
+                                                </Typography>
+                                            </Grid>
+                                            <Grid item xs={6}>
+                                                <Typography variant="body2" color="text.secondary">ชื่อการวินิจฉัย:</Typography>
+                                                <Typography variant="body1">
+                                                    {historyDialog.treatmentData.treatment.DXNAME_THAI || '-'}
+                                                </Typography>
+                                            </Grid>
+                                        </Grid>
+                                    </CardContent>
+                                </Card>
+                            )}
+
+                            {/* รายการยา */}
+                            {historyDialog.treatmentData.drugs && historyDialog.treatmentData.drugs.length > 0 && (
+                                <Card sx={{ mb: 2 }}>
+                                    <CardContent>
+                                        <Typography variant="h6" sx={{ mb: 2 }}>รายการยา ({historyDialog.treatmentData.drugs.length} รายการ)</Typography>
+                                        <TableContainer>
+                                            <Table size="small">
+                                                <TableHead>
+                                                    <TableRow>
+                                                        <TableCell>ชื่อยา</TableCell>
+                                                        <TableCell align="right">จำนวน</TableCell>
+                                                        <TableCell>หน่วย</TableCell>
+                                                        <TableCell align="right">ราคา</TableCell>
+                                                    </TableRow>
+                                                </TableHead>
+                                                <TableBody>
+                                                    {historyDialog.treatmentData.drugs.map((drug, index) => (
+                                                        <TableRow key={index}>
+                                                            <TableCell>{drug.GENERIC_NAME || drug.DRUG_CODE}</TableCell>
+                                                            <TableCell align="right">{drug.QTY}</TableCell>
+                                                            <TableCell>{drug.UNIT_CODE}</TableCell>
+                                                            <TableCell align="right">{formatCurrency(drug.AMT)}</TableCell>
+                                                        </TableRow>
+                                                    ))}
+                                                </TableBody>
+                                            </Table>
+                                        </TableContainer>
+                                    </CardContent>
+                                </Card>
+                            )}
+
+                            {/* หัตถการ */}
+                            {historyDialog.treatmentData.procedures && historyDialog.treatmentData.procedures.length > 0 && (
+                                <Card sx={{ mb: 2 }}>
+                                    <CardContent>
+                                        <Typography variant="h6" sx={{ mb: 2 }}>หัตถการ ({historyDialog.treatmentData.procedures.length} รายการ)</Typography>
+                                        <TableContainer>
+                                            <Table size="small">
+                                                <TableHead>
+                                                    <TableRow>
+                                                        <TableCell>ชื่อหัตถการ</TableCell>
+                                                        <TableCell align="right">ราคา</TableCell>
+                                                    </TableRow>
+                                                </TableHead>
+                                                <TableBody>
+                                                    {historyDialog.treatmentData.procedures.map((proc, index) => (
+                                                        <TableRow key={index}>
+                                                            <TableCell>{proc.MED_PRO_NAME_THAI || proc.PROCEDURE_NAME}</TableCell>
+                                                            <TableCell align="right">{formatCurrency(proc.AMT)}</TableCell>
+                                                        </TableRow>
+                                                    ))}
+                                                </TableBody>
+                                            </Table>
+                                        </TableContainer>
+                                    </CardContent>
+                                </Card>
+                            )}
+                        </Box>
+                    ) : (
+                        <CircularProgress />
+                    )}
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setHistoryDialog({ open: false, vno: null, treatmentData: null })}>ปิด</Button>
+                </DialogActions>
+            </Dialog>
         </Box>
     );
 };

@@ -316,7 +316,22 @@ class BalDrugService {
                 throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
             }
 
-            return await response.json();
+            const result = await response.json();
+            console.log('📦 API Response for getLotsByDrugCode:', result);
+            console.log('📦 Response structure:', JSON.stringify(result, null, 2));
+            
+            // ตรวจสอบ structure ของ data
+            if (result.data && Array.isArray(result.data)) {
+                console.log('📦 First lot item:', result.data[0]);
+                if (result.data[0]) {
+                    console.log('📦 Available fields in lot:', Object.keys(result.data[0]));
+                    console.log('📦 QTY value:', result.data[0].QTY);
+                    console.log('📦 QTY_BAL value:', result.data[0].QTY_BAL);
+                    console.log('📦 AMT value:', result.data[0].AMT);
+                }
+            }
+
+            return result;
         } catch (error) {
             console.error('Error fetching drug lots:', error);
             throw error;

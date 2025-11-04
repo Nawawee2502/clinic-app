@@ -16,6 +16,7 @@ import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutline';
 import PrintIcon from '@mui/icons-material/Print';
 import CheckStockService from "../services/checkStockService";
 import DrugService from "../services/drugService";
+import BalDrugService from "../services/balDrugService";
 
 const CheckStockManagement = () => {
     // Helper functions สำหรับจัดการปี พ.ศ.
@@ -94,6 +95,8 @@ const CheckStockManagement = () => {
     const [alert, setAlert] = useState({ open: false, message: '', severity: 'info' });
 
     const [drugList, setDrugList] = useState([]);
+    const [lotList, setLotList] = useState([]);
+    const [selectedLot, setSelectedLot] = useState(null);
 
     const [headerData, setHeaderData] = useState({
         REFNO: '',
@@ -120,7 +123,9 @@ const CheckStockManagement = () => {
         UNIT_CODE1: '',
         UNIT_NAME1: '',
         GENERIC_NAME: '',
-        AMT: ''
+        AMT: '',
+        LOT_NO: '',
+        EXPIRE_DATE: ''
     });
 
     const itemsPerPage = 10;
@@ -268,17 +273,43 @@ const CheckStockManagement = () => {
             UNIT_CODE1: '',
             UNIT_NAME1: '',
             GENERIC_NAME: '',
-            AMT: ''
+            AMT: '',
+            LOT_NO: '',
+            EXPIRE_DATE: ''
         });
         setEditingIndex(null);
+        setLotList([]);
+        setSelectedLot(null);
         setOpenModal(true);
     };
 
-    const handleEditDetail = (index) => {
+    const handleEditDetail = async (index) => {
         const detail = details[index];
+        
+        // โหลด LOT list ของยานี้
+        try {
+            const lotsResponse = await BalDrugService.getLotsByDrugCode(detail.DRUG_CODE);
+            if (lotsResponse.success && lotsResponse.data) {
+                setLotList(lotsResponse.data);
+                
+                // หา lot ที่ตรงกับที่บันทึกไว้
+                const savedLot = lotsResponse.data.find(lot => lot.LOT_NO === detail.LOT_NO);
+                setSelectedLot(savedLot || null);
+            } else {
+                setLotList([]);
+                setSelectedLot(null);
+            }
+        } catch (error) {
+            console.error('Error loading lots:', error);
+            setLotList([]);
+            setSelectedLot(null);
+        }
+        
         setModalData({
             ...detail,
-            UNIT_NAME1: detail.UNIT_NAME1 || ''
+            UNIT_NAME1: detail.UNIT_NAME1 || '',
+            LOT_NO: detail.LOT_NO || '',
+            EXPIRE_DATE: detail.EXPIRE_DATE || ''
         });
         setEditingIndex(index);
         setOpenModal(true);
@@ -287,6 +318,8 @@ const CheckStockManagement = () => {
     const handleCloseModal = () => {
         setOpenModal(false);
         setEditingIndex(null);
+        setLotList([]);
+        setSelectedLot(null);
     };
 
     const handleModalChange = (field, value) => {
@@ -318,31 +351,61 @@ const CheckStockManagement = () => {
 
     const handleModalDrugChange = async (event, newValue) => {
         if (newValue) {
-            // ดึงจำนวนในโปรแกรมจาก BAL_DRUG
-            const qtyProgram = await CheckStockService.getDrugBalance(newValue.DRUG_CODE);
+            try {
+                const response = await DrugService.getDrugByCode(newValue.DRUG_CODE);
 
-            setModalData(prev => {
-                const updated = {
-                    ...prev,
-                    DRUG_CODE: newValue.DRUG_CODE,
-                    GENERIC_NAME: newValue.GENERIC_NAME || '',
-                    UNIT_CODE1: newValue.UNIT_CODE1 || '', // ⭐ บันทึก CODE
-                    UNIT_NAME1: newValue.UNIT_NAME1 || '', // ⭐ เพิ่ม NAME สำหรับแสดงผล
-                    QTY_PROGRAM: qtyProgram
-                };
-
-                // คำนวณจำนวนปรับปรุงใหม่ (ถ้ามี QTY_BAL)
-                if (prev.QTY_BAL) {
-                    const qtyBal = parseFloat(prev.QTY_BAL) || 0;
-                    updated.QTY = qtyBal - qtyProgram;
-
-                    // คำนวณจำนวนเงินใหม่
-                    const unitCost = parseFloat(prev.UNIT_COST) || 0;
-                    updated.AMT = (Math.abs(updated.QTY) * unitCost).toFixed(2);
+                let drug = null;
+                if (response.success && response.data) {
+                    drug = response.data;
+                } else if (response.DRUG_CODE) {
+                    drug = response;
                 }
 
-                return updated;
-            });
+                if (drug) {
+                    // ดึงรายการ LOT_NO จาก bal_drug
+                    const lotsResponse = await BalDrugService.getLotsByDrugCode(drug.DRUG_CODE);
+                    
+                    console.log('🔍 CheckStockManagement - lotsResponse:', lotsResponse);
+                    console.log('🔍 CheckStockManagement - lotsResponse.data:', lotsResponse.data);
+                    
+                    if (lotsResponse.success && lotsResponse.data) {
+                        console.log('🔍 CheckStockManagement - lotList before setting:', lotsResponse.data);
+                        // Debug: ดูว่าแต่ละ lot มี QTY เป็นเท่าไหร่
+                        lotsResponse.data.forEach((lot, index) => {
+                            console.log(`🔍 Lot ${index}:`, {
+                                LOT_NO: lot.LOT_NO,
+                                QTY: lot.QTY,
+                                EXPIRE_DATE: lot.EXPIRE_DATE,
+                                UNIT_CODE1: lot.UNIT_CODE1,
+                                UNIT_PRICE: lot.UNIT_PRICE,
+                                AMT: lot.AMT,
+                                allFields: Object.keys(lot)
+                            });
+                        });
+                        setLotList(lotsResponse.data);
+                    } else {
+                        console.warn('⚠️ CheckStockManagement - No lots data or response not success');
+                        setLotList([]);
+                    }
+
+                    setModalData(prev => ({
+                        ...prev,
+                        DRUG_CODE: drug.DRUG_CODE,
+                        GENERIC_NAME: drug.GENERIC_NAME || '',
+                        UNIT_CODE1: drug.UNIT_CODE1 || '',
+                        UNIT_NAME1: drug.UNIT_NAME1 || '',
+                        QTY_PROGRAM: 0, // จะถูกอัปเดตเมื่อเลือก LOT
+                        LOT_NO: '',
+                        EXPIRE_DATE: '',
+                        QTY: 0, // รีเซ็ตเมื่อเปลี่ยนยา
+                        AMT: '' // รีเซ็ตเมื่อเปลี่ยนยา
+                    }));
+                    setSelectedLot(null);
+                }
+            } catch (error) {
+                console.error('❌ Error loading drug details:', error);
+                showAlert('ไม่สามารถโหลดข้อมูลยาได้', 'error');
+            }
         } else {
             setModalData(prev => ({
                 ...prev,
@@ -352,7 +415,45 @@ const CheckStockManagement = () => {
                 UNIT_NAME1: '',
                 QTY_PROGRAM: 0,
                 QTY: 0,
-                AMT: ''
+                AMT: '',
+                LOT_NO: '',
+                EXPIRE_DATE: ''
+            }));
+            setLotList([]);
+            setSelectedLot(null);
+        }
+    };
+
+    const handleLotChange = (event, value) => {
+        setSelectedLot(value);
+        if (value) {
+            const lotQty = parseFloat(value.QTY) || 0;
+            setModalData(prev => {
+                const updated = {
+                    ...prev,
+                    LOT_NO: value.LOT_NO,
+                    EXPIRE_DATE: CheckStockService.formatDateForInput(value.EXPIRE_DATE),
+                    QTY_PROGRAM: lotQty // อัปเดต QTY_PROGRAM ตาม LOT ที่เลือก
+                };
+                
+                // คำนวณจำนวนปรับปรุงใหม่ (ถ้ามี QTY_BAL)
+                if (prev.QTY_BAL) {
+                    const qtyBal = parseFloat(prev.QTY_BAL) || 0;
+                    updated.QTY = qtyBal - lotQty;
+                    
+                    // คำนวณจำนวนเงินใหม่
+                    const unitCost = parseFloat(prev.UNIT_COST) || 0;
+                    updated.AMT = (updated.QTY * unitCost).toFixed(2);
+                }
+                
+                return updated;
+            });
+        } else {
+            setModalData(prev => ({
+                ...prev,
+                LOT_NO: '',
+                EXPIRE_DATE: '',
+                QTY_PROGRAM: 0
             }));
         }
     };
@@ -363,10 +464,17 @@ const CheckStockManagement = () => {
             return;
         }
 
+        if (!modalData.LOT_NO) {
+            showAlert('กรุณาเลือก LOT NO', 'warning');
+            return;
+        }
+
         const newDetail = {
             ...modalData,
-            UNIT_CODE1: modalData.UNIT_CODE1, // ⭐ บันทึก CODE
-            UNIT_NAME1: modalData.UNIT_NAME1  // ⭐ เก็บ NAME ไว้แสดงผล
+            UNIT_CODE1: modalData.UNIT_CODE1,
+            UNIT_NAME1: modalData.UNIT_NAME1,
+            LOT_NO: modalData.LOT_NO,
+            EXPIRE_DATE: modalData.EXPIRE_DATE
         };
 
         if (editingIndex !== null) {
@@ -600,6 +708,8 @@ const CheckStockManagement = () => {
                                 <TableHead sx={{ backgroundColor: "#F0F5FF" }}>
                                     <TableRow>
                                         <TableCell>ชื่อยา</TableCell>
+                                        <TableCell>LOT NO</TableCell>
+                                        <TableCell>วันหมดอายุ</TableCell>
                                         <TableCell align="right">จน.ในโปรแกรม</TableCell>
                                         <TableCell align="right">จน.คงเหลือ</TableCell>
                                         <TableCell align="right">จน.ปรับปรุง</TableCell>
@@ -612,7 +722,7 @@ const CheckStockManagement = () => {
                                 <TableBody>
                                     {details.length === 0 ? (
                                         <TableRow>
-                                            <TableCell colSpan={8} align="center" sx={{ py: 3, color: 'text.secondary' }}>
+                                            <TableCell colSpan={10} align="center" sx={{ py: 3, color: 'text.secondary' }}>
                                                 ยังไม่มีรายการ กรุณาเพิ่มรายการสินค้า
                                             </TableCell>
                                         </TableRow>
@@ -622,6 +732,8 @@ const CheckStockManagement = () => {
                                             return (
                                                 <TableRow key={index}>
                                                     <TableCell>{detail.GENERIC_NAME}</TableCell>
+                                                    <TableCell>{detail.LOT_NO || '-'}</TableCell>
+                                                    <TableCell>{detail.EXPIRE_DATE ? formatDateBE(detail.EXPIRE_DATE) : '-'}</TableCell>
                                                     <TableCell align="right">{detail.QTY_PROGRAM || 0}</TableCell>
                                                     <TableCell align="right">{detail.QTY_BAL || 0}</TableCell>
                                                     <TableCell align="right" sx={{
@@ -689,13 +801,54 @@ const CheckStockManagement = () => {
                                 <Autocomplete
                                     fullWidth
                                     options={drugList}
-                                    getOptionLabel={(option) => `${option.GENERIC_NAME || ''} (${option.DRUG_CODE})`}
+                                    getOptionLabel={(option) => {
+                                        const genericName = option.GENERIC_NAME || '';
+                                        const tradeName = option.TRADE_NAME ? ` (${option.TRADE_NAME})` : '';
+                                        return `${genericName}${tradeName} (${option.DRUG_CODE})`;
+                                    }}
+                                    filterOptions={(options, { inputValue }) => {
+                                        const searchTerm = inputValue.toLowerCase();
+                                        return options.filter(option => 
+                                            (option.GENERIC_NAME || '').toLowerCase().includes(searchTerm) ||
+                                            (option.TRADE_NAME || '').toLowerCase().includes(searchTerm) ||
+                                            (option.DRUG_CODE || '').toLowerCase().includes(searchTerm)
+                                        );
+                                    }}
                                     value={drugList.find(d => d.DRUG_CODE === modalData.DRUG_CODE) || null}
                                     onChange={handleModalDrugChange}
                                     size="small"
                                     renderInput={(params) => (
                                         <TextField {...params} label="รหัสยา *" sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }} />
                                     )}
+                                />
+                            </Grid>
+
+                            <Grid item xs={12} md={6}>
+                                <Autocomplete
+                                    fullWidth
+                                    options={lotList}
+                                    getOptionLabel={(option) => `${option.LOT_NO || ''} (QTY: ${option.QTY || 0})`}
+                                    value={selectedLot}
+                                    onChange={handleLotChange}
+                                    disabled={!modalData.DRUG_CODE || lotList.length === 0}
+                                    size="small"
+                                    renderInput={(params) => (
+                                        <TextField
+                                            {...params}
+                                            label="LOT NO *"
+                                            sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
+                                            helperText={!modalData.DRUG_CODE ? "เลือกยาก่อน" : lotList.length === 0 ? "ไม่มี LOT" : ""}
+                                        />
+                                    )}
+                                />
+                            </Grid>
+
+                            <Grid item xs={12} md={6}>
+                                <DateInputBE
+                                    label="วันหมดอายุ"
+                                    value={modalData.EXPIRE_DATE}
+                                    onChange={(value) => { }} // ไม่ให้แก้ไข
+                                    disabled={true}
                                 />
                             </Grid>
 
