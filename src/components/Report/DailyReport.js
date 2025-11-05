@@ -18,12 +18,75 @@ import EmployeeService from '../../services/employeeService';
 import PatientService from '../../services/patientService';
 
 // Import Utilities
-import { formatThaiDate as formatThaiDateUtil, getCurrentDateForDB } from '../../utils/dateTimeUtils';
+import { formatThaiDate as formatThaiDateUtil, formatThaiDateShort, getCurrentDateForDB } from '../../utils/dateTimeUtils';
 
 // Import Components
 import DailyReportButton from '../Dashboard/DailyReportButton';
 
 const DailyReport = () => {
+    // Helper functions สำหรับจัดการปี พ.ศ.
+    const toBuddhistYear = (gregorianYear) => {
+        return parseInt(gregorianYear) + 543;
+    };
+
+    const toGregorianYear = (buddhistYear) => {
+        return parseInt(buddhistYear) - 543;
+    };
+
+    // แปลงวันที่จาก input (ค.ศ.) เป็น พ.ศ. สำหรับแสดงผล
+    const convertDateCEToBE = (ceDate) => {
+        if (!ceDate) return '';
+        const [year, month, day] = ceDate.split('-');
+        const beYear = parseInt(year) + 543;
+        return `${beYear}-${month}-${day}`;
+    };
+
+    // แปลงวันที่จาก พ.ศ. กลับเป็น ค.ศ. สำหรับเก็บใน state
+    const convertDateBEToCE = (beDate) => {
+        if (!beDate) return '';
+        const [year, month, day] = beDate.split('-');
+        const ceYear = parseInt(year) - 543;
+        return `${ceYear}-${month}-${day}`;
+    };
+
+    // Component สำหรับ Date Input ที่แสดงเป็น พ.ศ.
+    const DateInputBE = ({ label, value, onChange, disabled, ...props }) => {
+        const displayValue = value ? convertDateCEToBE(value) : '';
+
+        const handleChange = (e) => {
+            const beValue = e.target.value;
+            const ceValue = beValue ? convertDateBEToCE(beValue) : '';
+            if (onChange) {
+                // ถ้า onChange เป็น function ที่รับ event ให้เรียกด้วย event
+                // ถ้าเป็น function ที่รับ value โดยตรง ให้เรียกด้วย value
+                if (typeof onChange === 'function') {
+                    // สร้าง event object ใหม่ที่มี value เป็น ceValue
+                    const syntheticEvent = {
+                        target: { value: ceValue },
+                        currentTarget: { value: ceValue }
+                    };
+                    onChange(syntheticEvent);
+                }
+            }
+        };
+
+        return (
+            <TextField
+                {...props}
+                fullWidth
+                label={label}
+                type="date"
+                value={displayValue}
+                onChange={handleChange}
+                disabled={disabled}
+                InputLabelProps={{ shrink: true }}
+                inputProps={{
+                    max: convertDateCEToBE('9999-12-31') // ปี พ.ศ. สูงสุด
+                }}
+            />
+        );
+    };
+
     // States for filters
     const [startDate, setStartDate] = useState(getCurrentDateForDB());
     const [endDate, setEndDate] = useState(getCurrentDateForDB());
@@ -199,6 +262,12 @@ const DailyReport = () => {
         return formatThaiDateUtil(dateString);
     };
 
+    // ✅ ใช้ utility function สำหรับ format Thai date แบบสั้น (DD/MM/YYYY พ.ศ.)
+    const formatThaiDateShortDisplay = (dateString) => {
+        if (!dateString) return '';
+        return formatThaiDateShort(dateString);
+    };
+
     const getStatusColor = (status) => {
         switch (status) {
             case 'ชำระเงินแล้ว': return 'success';
@@ -247,23 +316,17 @@ const DailyReport = () => {
                     <Typography variant="h6" sx={{ mb: 2 }}>ตัวกรองข้อมูล</Typography>
                     <Grid container spacing={2}>
                         <Grid item xs={12} sm={6} md={2}>
-                            <TextField
+                            <DateInputBE
                                 label="วันที่เริ่มต้น"
-                                type="date"
                                 value={startDate}
                                 onChange={(e) => setStartDate(e.target.value)}
-                                fullWidth
-                                InputLabelProps={{ shrink: true }}
                             />
                         </Grid>
                         <Grid item xs={12} sm={6} md={2}>
-                            <TextField
+                            <DateInputBE
                                 label="วันที่สิ้นสุด"
-                                type="date"
                                 value={endDate}
                                 onChange={(e) => setEndDate(e.target.value)}
-                                fullWidth
-                                InputLabelProps={{ shrink: true }}
                             />
                         </Grid>
                         <Grid item xs={12} sm={6} md={3}>
@@ -494,7 +557,7 @@ const DailyReport = () => {
                                 <TableBody>
                                     {reportData.map((row, index) => (
                                         <TableRow key={row.VNO || index} hover>
-                                            <TableCell>{formatThaiDate(row.PAYMENT_DATE || row.RDATE)}</TableCell>
+                                            <TableCell>{formatThaiDateShortDisplay(row.PAYMENT_DATE || row.RDATE)}</TableCell>
                                             <TableCell>
                                                 <Typography variant="body2" fontWeight="medium">
                                                     {row.VNO}
@@ -631,7 +694,7 @@ const DailyReport = () => {
                                         <Grid container spacing={2}>
                                             <Grid item xs={6}>
                                                 <Typography variant="body2" color="text.secondary">วันที่:</Typography>
-                                                <Typography variant="body1">{formatThaiDate(historyDialog.treatmentData.treatment.RDATE)}</Typography>
+                                                <Typography variant="body1">{formatThaiDateShortDisplay(historyDialog.treatmentData.treatment.RDATE)}</Typography>
                                             </Grid>
                                             <Grid item xs={6}>
                                                 <Typography variant="body2" color="text.secondary">อาการ:</Typography>

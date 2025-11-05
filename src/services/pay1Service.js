@@ -597,71 +597,187 @@ class Pay1Service {
         }));
     }
 
-    // พิมพ์ใบสำคัญจ่าย (สร้าง HTML สำหรับพิมพ์)
-    static generatePrintHTML(headerData, details) {
+    // พิมพ์รายงานรายจ่ายทั่วไป (สร้าง HTML สำหรับพิมพ์)
+    static generatePrintHTML(headerData, details, startDate = null, endDate = null) {
         const total = this.calculateTotal(details);
+        const cashAmount = headerData.TYPE_PAY === 'เงินสด' ? total : 0;
+        const transferAmount = headerData.TYPE_PAY === 'เงินโอน' ? total : 0;
+        const bankName = headerData.BANK_NO || '';
+
+        const dateFrom = startDate ? Pay1Service.formatDateForPrint(startDate) : Pay1Service.formatDate(headerData.RDATE);
+        const dateTo = endDate ? Pay1Service.formatDateForPrint(endDate) : Pay1Service.formatDate(headerData.RDATE);
 
         return `
             <!DOCTYPE html>
             <html>
             <head>
                 <meta charset="UTF-8">
-                <title>ใบสำคัญจ่าย ${headerData.REFNO}</title>
+                <title>รายงานรายจ่ายทั่วไป</title>
                 <style>
-                    body { font-family: 'Sarabun', sans-serif; padding: 20px; }
-                    h1 { text-align: center; }
-                    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-                    th, td { border: 1px solid #000; padding: 8px; text-align: left; }
-                    th { background-color: #f0f0f0; }
+                    @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap');
+                    * { margin: 0; padding: 0; box-sizing: border-box; }
+                    body { 
+                        font-family: 'Sarabun', sans-serif; 
+                        padding: 20px; 
+                        font-size: 14px;
+                        line-height: 1.5;
+                    }
+                    .header { 
+                        text-align: center; 
+                        margin-bottom: 20px; 
+                    }
+                    .clinic-name { 
+                        font-size: 24px; 
+                        font-weight: 700; 
+                        margin-bottom: 10px; 
+                    }
+                    .report-title { 
+                        font-size: 20px; 
+                        font-weight: 600; 
+                        margin-bottom: 20px; 
+                    }
+                    .date-range { 
+                        margin-bottom: 20px; 
+                        display: flex; 
+                        gap: 20px; 
+                        justify-content: center;
+                    }
+                    .date-field { 
+                        display: flex; 
+                        align-items: center; 
+                        gap: 10px; 
+                    }
+                    .date-label { 
+                        font-weight: 500; 
+                    }
+                    .date-value { 
+                        border-bottom: 1px solid #000; 
+                        min-width: 150px; 
+                        padding-bottom: 5px; 
+                        text-align: center;
+                    }
+                    table { 
+                        width: 100%; 
+                        min-width: 1400px;
+                        border-collapse: collapse; 
+                        margin-top: 20px; 
+                        font-size: 12px;
+                        table-layout: auto;
+                    }
+                    th, td { 
+                        border: 1px solid #000; 
+                        padding: 10px 8px; 
+                        text-align: left; 
+                        white-space: nowrap;
+                        word-wrap: break-word;
+                    }
+                    th { 
+                        background-color: #f0f0f0; 
+                        font-weight: 600; 
+                        text-align: center;
+                        padding: 12px 8px;
+                    }
+                    td.desc-col {
+                        white-space: normal;
+                        max-width: 250px;
+                        word-wrap: break-word;
+                        word-break: break-word;
+                    }
                     .text-right { text-align: right; }
                     .text-center { text-align: center; }
-                    .total-row { font-weight: bold; background-color: #f9f9f9; }
+                    .text-left { text-align: left; }
+                    .total-row { 
+                        font-weight: bold; 
+                        background-color: #f9f9f9; 
+                    }
+                    .no { width: 40px; min-width: 40px; }
+                    .date-col { width: 100px; min-width: 100px; }
+                    .refno-col { width: 120px; min-width: 120px; }
+                    .status-col { width: 80px; min-width: 80px; }
+                    .name-col { width: 150px; min-width: 150px; }
+                    .desc-col { width: 250px; min-width: 200px; }
+                    .amount-col { width: 110px; min-width: 110px; }
+                    .total-col { width: 110px; min-width: 110px; }
+                    .cash-col { width: 100px; min-width: 100px; }
+                    .transfer-col { width: 100px; min-width: 100px; }
+                    .bank-col { width: 120px; min-width: 120px; }
                 </style>
             </head>
             <body>
-                <h1>ใบสำคัญจ่าย</h1>
-                <p><strong>เลขที่:</strong> ${headerData.REFNO}</p>
-                <p><strong>วันที่:</strong> ${this.formatDate(headerData.RDATE)}</p>
-                <p><strong>จ่ายให้:</strong> ${headerData.NAME1}</p>
-                <p><strong>วิธีจ่ายเงิน:</strong> ${headerData.type_pay_name || headerData.TYPE_PAY}</p>
-                <p><strong>เลขที่บัญชี:</strong> ${headerData.BANK_NO || '-'}</p>
+                <div class="header">
+                    <div class="clinic-name">สัมพันธ์คลินิก</div>
+                    <div class="report-title">รายงานรายจ่ายทั่วไป</div>
+                </div>
+                
+                <div class="date-range">
+                    <div class="date-field">
+                        <span class="date-label">วันที่</span>
+                        <div class="date-value">${dateFrom}</div>
+                    </div>
+                    <div class="date-field">
+                        <span class="date-label">ถึงวันที่</span>
+                        <div class="date-value">${dateTo}</div>
+                    </div>
+                </div>
                 
                 <table>
                     <thead>
                         <tr>
-                            <th class="text-center" style="width: 60px;">ลำดับ</th>
-                            <th>รายการ</th>
-                            <th class="text-right" style="width: 150px;">จำนวนเงิน</th>
+                            <th class="no">ที่</th>
+                            <th class="date-col">วันที่</th>
+                            <th class="refno-col">ใบสำคัญจ่าย</th>
+                            <th class="status-col">สถานะ</th>
+                            <th class="name-col">จ่ายให้</th>
+                            <th class="desc-col">รายการ</th>
+                            <th class="amount-col text-right">จำนวนเงิน</th>
+                            <th class="total-col text-right">รวมเงิน</th>
+                            <th class="cash-col text-right">เงินสด</th>
+                            <th class="transfer-col text-right">เงินโอน</th>
+                            <th class="bank-col">ธนาคาร</th>
                         </tr>
                     </thead>
                     <tbody>
-                        ${details.map((item, index) => `
-                            <tr>
-                                <td class="text-center">${index + 1}</td>
-                                <td>${item.DESCM1}</td>
-                                <td class="text-right">${this.formatCurrency(item.AMT)}</td>
-                            </tr>
-                        `).join('')}
+                        <tr>
+                            <td class="text-center no">1</td>
+                            <td class="date-col">${Pay1Service.formatDate(headerData.RDATE)}</td>
+                            <td class="refno-col">${headerData.REFNO}</td>
+                            <td class="text-center status-col">${headerData.STATUS}</td>
+                            <td class="name-col">${headerData.NAME1}</td>
+                            <td class="desc-col">${details.map(d => d.DESCM1).join(', ')}</td>
+                            <td class="text-right amount-col">${Pay1Service.formatCurrency(total)}</td>
+                            <td class="text-right total-col">${Pay1Service.formatCurrency(total)}</td>
+                            <td class="text-right cash-col">${Pay1Service.formatCurrency(cashAmount)}</td>
+                            <td class="text-right transfer-col">${Pay1Service.formatCurrency(transferAmount)}</td>
+                            <td class="bank-col">${bankName}</td>
+                        </tr>
                         <tr class="total-row">
-                            <td colspan="2" class="text-right">รวมทั้งสิ้น</td>
-                            <td class="text-right">${this.formatCurrency(total)}</td>
+                            <td colspan="7" class="text-right">รวมเงิน</td>
+                            <td class="text-right">${Pay1Service.formatCurrency(total)}</td>
+                            <td class="text-right">${Pay1Service.formatCurrency(cashAmount)}</td>
+                            <td class="text-right">${Pay1Service.formatCurrency(transferAmount)}</td>
+                            <td></td>
                         </tr>
                     </tbody>
                 </table>
-                
-                <div style="margin-top: 40px;">
-                    <p>ผู้จัดทำ: _____________________</p>
-                    <p>ผู้อนุมัติ: _____________________</p>
-                </div>
             </body>
             </html>
         `;
     }
 
-    // พิมพ์ใบสำคัญจ่าย
-    static printPay1(headerData, details) {
+    // จัดรูปแบบวันที่สำหรับพิมพ์
+    static formatDateForPrint(dateString) {
+        if (!dateString) return '';
+        const date = new Date(dateString);
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const year = date.getFullYear();
+        return `${day}/${month}/${year}`;
+    }
+
+    // พิมพ์รายงานรายจ่ายทั่วไป
+    static printPay1(headerData, details, startDate = null, endDate = null) {
         const printWindow = window.open('', '_blank');
-        printWindow.document.write(this.generatePrintHTML(headerData, details));
+        printWindow.document.write(this.generatePrintHTML(headerData, details, startDate, endDate));
         printWindow.document.close();
         printWindow.focus();
         setTimeout(() => {

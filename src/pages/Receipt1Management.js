@@ -962,9 +962,7 @@ const Receipt1Management = () => {
                                     fullWidth
                                     options={drugList}
                                     getOptionLabel={(option) => {
-                                        const genericName = option.GENERIC_NAME || '';
-                                        const tradeName = option.TRADE_NAME ? ` (${option.TRADE_NAME})` : '';
-                                        return `${option.DRUG_CODE} - ${genericName}${tradeName}`;
+                                        return option.GENERIC_NAME || '';
                                     }}
                                     filterOptions={(options, { inputValue }) => {
                                         const searchTerm = inputValue.toLowerCase();

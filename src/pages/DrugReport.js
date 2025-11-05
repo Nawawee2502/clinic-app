@@ -46,7 +46,6 @@ function DrugReport() {
             >
                 <Tab label="สินค้าคงเหลือ" />
                 <Tab label="สต็อกการ์ด" />
-                <Tab label="รายงานการเคลื่อนไหวสินค้า" />
                 <Tab label="รายงานยาเวชภัณฑ์ใกล้หมดอายุ" />
             </Tabs>
 

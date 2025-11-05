@@ -802,9 +802,7 @@ const CheckStockManagement = () => {
                                     fullWidth
                                     options={drugList}
                                     getOptionLabel={(option) => {
-                                        const genericName = option.GENERIC_NAME || '';
-                                        const tradeName = option.TRADE_NAME ? ` (${option.TRADE_NAME})` : '';
-                                        return `${genericName}${tradeName} (${option.DRUG_CODE})`;
+                                        return option.GENERIC_NAME || '';
                                     }}
                                     filterOptions={(options, { inputValue }) => {
                                         const searchTerm = inputValue.toLowerCase();

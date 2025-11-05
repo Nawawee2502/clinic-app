@@ -570,71 +570,207 @@ class Income1Service {
         }));
     }
 
-    // พิมพ์ใบสำคัญรับ (สร้าง HTML สำหรับพิมพ์)
-    static generatePrintHTML(headerData, details) {
-        const total = this.calculateTotal(details);
+    // พิมพ์สรุปรายรับ รายจ่ายประจำวัน (สร้าง HTML สำหรับพิมพ์)
+    static generatePrintHTML(headerData, details, expenseData = null) {
+        const incomeTotal = this.calculateTotal(details);
+        const expenseTotal = expenseData ? expenseData.total : 0;
+        const balance = incomeTotal - expenseTotal;
+        
+        // จัดรูปแบบรายการรายรับ
+        const incomeItems = details.map(d => ({
+            description: `${d.DESCM1} ${headerData.TYPE_PAY === 'เงินสด' ? 'เงินสด' : `ธนาคาร(${headerData.BANK_NO || ''})`}`,
+            amount: parseFloat(d.AMT) || 0
+        }));
+
+        // จัดรูปแบบรายการรายจ่าย
+        const expenseItems = expenseData && expenseData.items ? expenseData.items : [];
+
+        const reportDate = Income1Service.formatDateForPrint(headerData.RDATE);
 
         return `
             <!DOCTYPE html>
             <html>
             <head>
                 <meta charset="UTF-8">
-                <title>ใบสำคัญรับ ${headerData.REFNO}</title>
+                <title>สรุปรายรับ รายจ่ายประจำวัน</title>
                 <style>
-                    body { font-family: 'Sarabun', sans-serif; padding: 20px; }
-                    h1 { text-align: center; color: #2e7d32; }
-                    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-                    th, td { border: 1px solid #000; padding: 8px; text-align: left; }
-                    th { background-color: #e8f5e9; }
+                    @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap');
+                    * { margin: 0; padding: 0; box-sizing: border-box; }
+                    body { 
+                        font-family: 'Sarabun', sans-serif; 
+                        padding: 20px; 
+                        font-size: 14px;
+                        line-height: 1.5;
+                    }
+                    .header { 
+                        text-align: center; 
+                        margin-bottom: 20px; 
+                    }
+                    .clinic-name { 
+                        font-size: 24px; 
+                        font-weight: 700; 
+                        margin-bottom: 10px; 
+                    }
+                    .report-title { 
+                        font-size: 20px; 
+                        font-weight: 600; 
+                        margin-bottom: 20px; 
+                    }
+                    .date-field { 
+                        margin-bottom: 20px; 
+                        display: flex; 
+                        align-items: center; 
+                        gap: 10px; 
+                        justify-content: center;
+                    }
+                    .date-label { 
+                        font-weight: 500; 
+                    }
+                    .date-value { 
+                        border-bottom: 1px solid #000; 
+                        min-width: 150px; 
+                        padding-bottom: 5px; 
+                        text-align: center;
+                    }
+                    .note { 
+                        margin-bottom: 20px; 
+                        font-size: 13px; 
+                        text-align: center;
+                        font-style: italic;
+                    }
+                    .summary-table { 
+                        width: 100%; 
+                        min-width: 900px;
+                        border-collapse: collapse; 
+                        margin-top: 20px; 
+                        font-size: 13px;
+                        table-layout: auto;
+                    }
+                    .summary-table th, 
+                    .summary-table td { 
+                        border: 1px solid #000; 
+                        padding: 12px 10px; 
+                        text-align: left; 
+                        word-wrap: break-word;
+                        word-break: break-word;
+                    }
+                    .summary-table th { 
+                        background-color: #f0f0f0; 
+                        font-weight: 600; 
+                        text-align: center;
+                        padding: 14px 10px;
+                    }
+                    .income-header { 
+                        background-color: #e8f5e9 !important; 
+                    }
+                    .expense-header { 
+                        background-color: #ffebee !important; 
+                    }
                     .text-right { text-align: right; }
                     .text-center { text-align: center; }
-                    .total-row { font-weight: bold; background-color: #f1f8e9; }
+                    .text-left { text-align: left; }
+                    .total-row { 
+                        font-weight: bold; 
+                        background-color: #f9f9f9; 
+                    }
+                    .balance-row { 
+                        font-weight: bold; 
+                        background-color: #fff9c4; 
+                        font-size: 15px;
+                    }
+                    .item-col { 
+                        width: 50%; 
+                        min-width: 300px;
+                        max-width: 400px;
+                    }
+                    .amount-col { 
+                        width: 25%; 
+                        min-width: 150px;
+                    }
+                    .section-divider {
+                        height: 2px;
+                        background-color: #000;
+                        margin: 10px 0;
+                    }
                 </style>
             </head>
             <body>
-                <h1>ใบสำคัญรับ</h1>
-                <p><strong>เลขที่:</strong> ${headerData.REFNO}</p>
-                <p><strong>วันที่:</strong> ${this.formatDate(headerData.RDATE)}</p>
-                <p><strong>รับจาก:</strong> ${headerData.NAME1}</p>
-                <p><strong>ประเภทรายรับ:</strong> ${headerData.TYPE_INCOME_NAME || headerData.TYPE_PAY}</p>
-                <p><strong>เลขที่บัญชี:</strong> ${headerData.BANK_NO || '-'}</p>
+                <div class="header">
+                    <div class="clinic-name">สัมพันธ์คลินิก</div>
+                    <div class="report-title">สรุปรายรับ รายจ่ายประจำวัน</div>
+                </div>
                 
-                <table>
+                <div class="date-field">
+                    <span class="date-label">วันที่</span>
+                    <div class="date-value">${reportDate}</div>
+                </div>
+                
+                <div class="note">รายการ : เงินสด หรือ ธนาคาร(เลขบัญชี)</div>
+                
+                <table class="summary-table">
                     <thead>
                         <tr>
-                            <th class="text-center" style="width: 60px;">ลำดับ</th>
-                            <th>รายการ</th>
-                            <th class="text-right" style="width: 150px;">จำนวนเงิน</th>
+                            <th class="item-col">รายรับ</th>
+                            <th class="amount-col text-right">จำนวนเงิน</th>
+                            <th class="item-col">รายจ่าย</th>
+                            <th class="amount-col text-right">จำนวนเงิน</th>
                         </tr>
                     </thead>
                     <tbody>
-                        ${details.map((item, index) => `
-                            <tr>
-                                <td class="text-center">${index + 1}</td>
-                                <td>${item.DESCM1}</td>
-                                <td class="text-right">${this.formatCurrency(item.AMT)}</td>
-                            </tr>
-                        `).join('')}
+                        ${Income1Service.generateReportRows(incomeItems, expenseItems)}
                         <tr class="total-row">
-                            <td colspan="2" class="text-right">รวมทั้งสิ้น</td>
-                            <td class="text-right">${this.formatCurrency(total)}</td>
+                            <td class="text-right">รวมรายรับ</td>
+                            <td class="text-right">${Income1Service.formatCurrency(incomeTotal)}</td>
+                            <td class="text-right">รวมรายจ่าย</td>
+                            <td class="text-right">${Income1Service.formatCurrency(expenseTotal)}</td>
+                        </tr>
+                        <tr class="balance-row">
+                            <td colspan="2" class="text-right">คงเหลือ</td>
+                            <td colspan="2" class="text-right">${Income1Service.formatCurrency(balance)}</td>
                         </tr>
                     </tbody>
                 </table>
-                
-                <div style="margin-top: 40px;">
-                    <p>ผู้จัดทำ: _____________________</p>
-                    <p>ผู้อนุมัติ: _____________________</p>
-                </div>
             </body>
             </html>
         `;
     }
 
-    // พิมพ์ใบสำคัญรับ
-    static printIncome1(headerData, details) {
+    // สร้างแถวรายงาน (รายรับและรายจ่าย)
+    static generateReportRows(incomeItems, expenseItems) {
+        const maxRows = Math.max(incomeItems.length, expenseItems.length);
+        const rows = [];
+
+        for (let i = 0; i < maxRows; i++) {
+            const incomeItem = incomeItems[i] || { description: '', amount: 0 };
+            const expenseItem = expenseItems[i] || { description: '', amount: 0 };
+            
+            rows.push(`
+                <tr>
+                    <td>${incomeItem.description}</td>
+                    <td class="text-right">${incomeItem.amount > 0 ? Income1Service.formatCurrency(incomeItem.amount) : ''}</td>
+                    <td>${expenseItem.description}</td>
+                    <td class="text-right">${expenseItem.amount > 0 ? Income1Service.formatCurrency(expenseItem.amount) : ''}</td>
+                </tr>
+            `);
+        }
+
+        return rows.join('');
+    }
+
+    // จัดรูปแบบวันที่สำหรับพิมพ์
+    static formatDateForPrint(dateString) {
+        if (!dateString) return '';
+        const date = new Date(dateString);
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const year = date.getFullYear();
+        return `${day}/${month}/${year}`;
+    }
+
+    // พิมพ์สรุปรายรับ รายจ่ายประจำวัน
+    static printIncome1(headerData, details, expenseData = null) {
         const printWindow = window.open('', '_blank');
-        printWindow.document.write(this.generatePrintHTML(headerData, details));
+        printWindow.document.write(this.generatePrintHTML(headerData, details, expenseData));
         printWindow.document.close();
         printWindow.focus();
         setTimeout(() => {
