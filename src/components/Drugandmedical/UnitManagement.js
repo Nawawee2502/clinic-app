@@ -98,9 +98,16 @@ const UnitManagement = () => {
         setEditingUnit(null);
     };
 
+    // สร้าง UNIT_CODE อัตโนมัติจาก UNIT_NAME
+    const generateUnitCode = (unitName) => {
+        if (!unitName) return '';
+        // ใช้ชื่อหน่วยนับเป็น UNIT_CODE ตรงๆ (เพราะในฐานข้อมูลเป็นคำแปลภาษาไทยอยู่แล้ว)
+        return unitName.trim();
+    };
+
     const handleSave = async () => {
-        if (!formData.UNIT_CODE || !formData.UNIT_NAME) {
-            showAlert('กรุณากรอกรหัสและชื่อหน่วยนับ', 'error');
+        if (!formData.UNIT_NAME) {
+            showAlert('กรุณากรอกชื่อหน่วยนับ', 'error');
             return;
         }
 
@@ -108,11 +115,16 @@ const UnitManagement = () => {
         
         try {
             if (!editingUnit) {
-                // สร้างหน่วยนับใหม่
-                await UnitService.createUnit(formData);
+                // สร้างหน่วยนับใหม่ - gen UNIT_CODE อัตโนมัติ
+                const dataToSave = {
+                    UNIT_CODE: generateUnitCode(formData.UNIT_NAME),
+                    UNIT_NAME: formData.UNIT_NAME
+                };
+                
+                await UnitService.createUnit(dataToSave);
                 showAlert('เพิ่มข้อมูลหน่วยนับสำเร็จ', 'success');
             } else {
-                // อัปเดตหน่วยนับ
+                // อัปเดตหน่วยนับ - แก้ไขได้แค่ชื่อ
                 await UnitService.updateUnit(editingUnit.UNIT_CODE, { UNIT_NAME: formData.UNIT_NAME });
                 showAlert('แก้ไขข้อมูลหน่วยนับสำเร็จ', 'success');
             }
@@ -186,35 +198,36 @@ const UnitManagement = () => {
                 <Card>
                     <CardContent>
                         <Grid container spacing={2}>
-                            {/* รหัสหน่วยนับ */}
-                            <Grid item xs={12} sm={6}>
-                                <Typography sx={{ fontWeight: 400, fontSize: 16, mb: 1 }}>
-                                    รหัสหน่วยนับ {editingUnit ? "(ไม่สามารถแก้ไขได้)" : "*"}
-                                </Typography>
-                                <TextField
-                                    size="small"
-                                    placeholder="เช่น AMP, BOT, BOX"
-                                    value={formData.UNIT_CODE}
-                                    onChange={(e) => handleFormChange('UNIT_CODE', e.target.value.toUpperCase())}
-                                    disabled={!!editingUnit}
-                                    fullWidth
-                                    sx={{
-                                        "& .MuiOutlinedInput-root": {
-                                            borderRadius: "10px",
-                                            backgroundColor: editingUnit ? "#f5f5f5" : "white"
-                                        }
-                                    }}
-                                />
-                            </Grid>
+                            {/* รหัสหน่วยนับ - แสดงเฉพาะตอนแก้ไข */}
+                            {editingUnit && (
+                                <Grid item xs={12} sm={6}>
+                                    <Typography sx={{ fontWeight: 400, fontSize: 16, mb: 1 }}>
+                                        รหัสหน่วยนับ (ไม่สามารถแก้ไขได้)
+                                    </Typography>
+                                    <TextField
+                                        size="small"
+                                        value={formData.UNIT_CODE}
+                                        disabled={true}
+                                        fullWidth
+                                        sx={{
+                                            "& .MuiOutlinedInput-root": {
+                                                borderRadius: "10px",
+                                                backgroundColor: "#f5f5f5"
+                                            }
+                                        }}
+                                    />
+                                </Grid>
+                            )}
 
                             {/* ชื่อหน่วยนับ */}
-                            <Grid item xs={12} sm={6}>
+                            <Grid item xs={12} sm={editingUnit ? 6 : 12}>
                                 <Typography sx={{ fontWeight: 400, fontSize: 16, mb: 1 }}>
                                     ชื่อหน่วยนับ *
+                                    {!editingUnit && <span style={{ fontSize: '12px', color: '#666', marginLeft: '8px' }}>(รหัสจะสร้างอัตโนมัติจากชื่อ)</span>}
                                 </Typography>
                                 <TextField
                                     size="small"
-                                    placeholder="เช่น แอมปูล, ขวด, กล่อง"
+                                    placeholder="เช่น แอมปูล, ขวด, กล่อง, เม็ด"
                                     value={formData.UNIT_NAME}
                                     onChange={(e) => handleFormChange('UNIT_NAME', e.target.value)}
                                     fullWidth
