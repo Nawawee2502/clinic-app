@@ -305,8 +305,13 @@ const CheckStockManagement = () => {
             setSelectedLot(null);
         }
         
+        // หา GENERIC_NAME จาก drugList โดยใช้ DRUG_CODE
+        const drug = drugList.find(d => d.DRUG_CODE === detail.DRUG_CODE);
+        const genericName = drug ? drug.GENERIC_NAME : (detail.GENERIC_NAME || '');
+        
         setModalData({
             ...detail,
+            GENERIC_NAME: genericName, // ตั้งค่า GENERIC_NAME จาก drugList
             UNIT_NAME1: detail.UNIT_NAME1 || '',
             LOT_NO: detail.LOT_NO || '',
             EXPIRE_DATE: detail.EXPIRE_DATE || ''
@@ -728,10 +733,14 @@ const CheckStockManagement = () => {
                                         </TableRow>
                                     ) : (
                                         details.map((detail, index) => {
+                                            // หา GENERIC_NAME จาก drugList โดยใช้ DRUG_CODE
+                                            const drug = drugList.find(d => d.DRUG_CODE === detail.DRUG_CODE);
+                                            const genericName = drug ? drug.GENERIC_NAME : (detail.GENERIC_NAME || '-');
                                             const qtyAdjust = CheckStockService.calculateAdjustment(detail.QTY_BAL, detail.QTY_PROGRAM);
+                                            
                                             return (
                                                 <TableRow key={index}>
-                                                    <TableCell>{detail.GENERIC_NAME}</TableCell>
+                                                    <TableCell>{genericName}</TableCell>
                                                     <TableCell>{detail.LOT_NO || '-'}</TableCell>
                                                     <TableCell>{detail.EXPIRE_DATE ? formatDateBE(detail.EXPIRE_DATE) : '-'}</TableCell>
                                                     <TableCell align="right">{detail.QTY_PROGRAM || 0}</TableCell>

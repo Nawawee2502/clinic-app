@@ -12,6 +12,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import CloseIcon from '@mui/icons-material/Close';
 import PrintIcon from '@mui/icons-material/Print';
+import UnitService from '../../services/unitService';
 
 const EnhancedDrugInformation = () => {
     // States
@@ -26,6 +27,7 @@ const EnhancedDrugInformation = () => {
     const [editingDrug, setEditingDrug] = useState(null);
     const [deleteDialog, setDeleteDialog] = useState({ open: false, drugCode: null });
     const [alert, setAlert] = useState({ open: false, message: '', severity: 'info' });
+    const [unitOptions, setUnitOptions] = useState([]);
 
     // Form states - ครบทุก fields ตาม TABLE_DRUG
     const [formData, setFormData] = useState({
@@ -33,6 +35,7 @@ const EnhancedDrugInformation = () => {
         GENERIC_NAME: '',
         TRADE_NAME: '',
         UNIT_CODE: '',
+        UNIT_CODE1: '',
         UNIT_PRICE: '',
         Type1: '',
         Dose1: '',
@@ -42,13 +45,15 @@ const EnhancedDrugInformation = () => {
         Comment1: 'None',
         Drug_formulations: '',
         SOCIAL_CARD: 'N',
-        UCS_CARD: 'N'
+        UCS_CARD: 'N',
+        eat1: ''
     });
 
     const itemsPerPage = 10;
 
     useEffect(() => {
         loadDrugs();
+        loadUnits();
     }, []);
 
     useEffect(() => {
@@ -89,6 +94,23 @@ const EnhancedDrugInformation = () => {
         setLoading(false);
     };
 
+    const loadUnits = async () => {
+        try {
+            const result = await UnitService.getAllUnits();
+            
+            if (result.success && result.data) {
+                console.log(`✅ โหลดข้อมูลหน่วยนับ ${result.data.length} รายการ`);
+                setUnitOptions(result.data);
+            } else {
+                console.warn('ไม่สามารถดึงข้อมูลหน่วยนับได้ ใช้ข้อมูลเริ่มต้น');
+                setUnitOptions([]);
+            }
+        } catch (error) {
+            console.error('❌ Error loading units:', error);
+            setUnitOptions([]);
+        }
+    };
+
     const filterDrugs = () => {
         if (!searchTerm) {
             setFilteredDrugs(drugs);
@@ -119,6 +141,7 @@ const EnhancedDrugInformation = () => {
             GENERIC_NAME: '',
             TRADE_NAME: '',
             UNIT_CODE: '',
+            UNIT_CODE1: '',
             UNIT_PRICE: '',
             Type1: '',
             Dose1: '',
@@ -128,7 +151,8 @@ const EnhancedDrugInformation = () => {
             Comment1: 'None',
             Drug_formulations: '',
             SOCIAL_CARD: 'N',
-            UCS_CARD: 'N'
+            UCS_CARD: 'N',
+            eat1: ''
         });
         setEditingDrug(null);
     };
@@ -278,9 +302,26 @@ const EnhancedDrugInformation = () => {
         setAlert({ open: true, message, severity });
     };
 
-    const getUnitOptions = () => [
-        'เม็ด', 'แคปซูล', 'ขวด', 'หลอด', 'กล่อง', 'แผง', 'Amp', 'Vial'
-    ];
+    const getUnitOptions = () => {
+        // ถ้ามีข้อมูลจาก API ให้ใช้ข้อมูลจาก API
+        if (unitOptions.length > 0) {
+            return unitOptions.map(unit => ({
+                value: unit.UNIT_CODE,
+                label: unit.UNIT_NAME || unit.UNIT_CODE
+            }));
+        }
+        // ถ้ายังไม่มีข้อมูล ให้ใช้ข้อมูลเริ่มต้น
+        return [
+            { value: 'TAB', label: 'เม็ด' },
+            { value: 'CAP', label: 'แคปซูล' },
+            { value: 'BOT', label: 'ขวด' },
+            { value: 'TUB', label: 'หลอด' },
+            { value: 'BOX', label: 'กล่อง' },
+            { value: 'STRIP', label: 'แผง' },
+            { value: 'AMP', label: 'แอมปูล' },
+            { value: 'VIAL', label: 'Vial' }
+        ];
+    };
 
     const getTypeOptions = () => [
         'ยาอันตราย', 'ยาสามัญประจำบ้าน', 'ยาใช้ภายนอก', 'วัถุอออกฤทธิ์'
@@ -363,19 +404,49 @@ const EnhancedDrugInformation = () => {
                                 />
                             </Grid>
 
-                            {/* หน่วย */}
+                            {/* หน่วยนับ */}
                             <Grid item xs={12} sm={6}>
                                 <Typography sx={{ fontWeight: 400, fontSize: 16, mb: 1 }}>
-                                    หน่วย
+                                    หน่วยนับ
                                 </Typography>
                                 <FormControl fullWidth size="small">
                                     <Select
                                         value={formData.UNIT_CODE}
                                         onChange={(e) => handleFormChange('UNIT_CODE', e.target.value)}
                                         sx={{ borderRadius: "10px" }}
+                                        displayEmpty
                                     >
+                                        <MenuItem value="">
+                                            <em>เลือกหน่วยนับ</em>
+                                        </MenuItem>
                                         {getUnitOptions().map((option) => (
-                                            <MenuItem key={option} value={option}>{option}</MenuItem>
+                                            <MenuItem key={option.value} value={option.value}>
+                                                {option.label}
+                                            </MenuItem>
+                                        ))}
+                                    </Select>
+                                </FormControl>
+                            </Grid>
+
+                            {/* หน่วยนับกลาง */}
+                            <Grid item xs={12} sm={6}>
+                                <Typography sx={{ fontWeight: 400, fontSize: 16, mb: 1 }}>
+                                    หน่วยนับกลาง
+                                </Typography>
+                                <FormControl fullWidth size="small">
+                                    <Select
+                                        value={formData.UNIT_CODE1}
+                                        onChange={(e) => handleFormChange('UNIT_CODE1', e.target.value)}
+                                        sx={{ borderRadius: "10px" }}
+                                        displayEmpty
+                                    >
+                                        <MenuItem value="">
+                                            <em>เลือกหน่วยนับกลาง</em>
+                                        </MenuItem>
+                                        {getUnitOptions().map((option) => (
+                                            <MenuItem key={option.value} value={option.value}>
+                                                {option.label}
+                                            </MenuItem>
                                         ))}
                                     </Select>
                                 </FormControl>
@@ -544,6 +615,23 @@ const EnhancedDrugInformation = () => {
                                         <MenuItem value="N">ไม่ใช่</MenuItem>
                                     </Select>
                                 </FormControl>
+                            </Grid>
+
+                            {/* วิธีรับประทาน */}
+                            <Grid item xs={12}>
+                                <Typography sx={{ fontWeight: 400, fontSize: 16, mb: 1 }}>
+                                    วิธีรับประทาน
+                                </Typography>
+                                <TextField
+                                    size="small"
+                                    placeholder="เช่น รับประทานหลังอาหาร วันละ 3 ครั้ง"
+                                    value={formData.eat1}
+                                    onChange={(e) => handleFormChange('eat1', e.target.value)}
+                                    fullWidth
+                                    multiline
+                                    rows={2}
+                                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
+                                />
                             </Grid>
                         </Grid>
 

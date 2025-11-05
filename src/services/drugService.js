@@ -171,6 +171,7 @@ class DrugService {
             GENERIC_NAME: 100,
             TRADE_NAME: 255,
             UNIT_CODE: 10,
+            UNIT_CODE1: 10,
             Type1: 255,
             Dose1: 255,
             Indication1: 255,
@@ -179,7 +180,8 @@ class DrugService {
             Comment1: 255,
             Drug_formulations: 255,
             SOCIAL_CARD: 50,
-            UCS_CARD: 50
+            UCS_CARD: 50,
+            eat1: 255
         };
 
         Object.entries(maxLengths).forEach(([field, maxLength]) => {
@@ -197,7 +199,8 @@ class DrugService {
             DRUG_CODE: 'รหัสยา',
             GENERIC_NAME: 'ชื่อสามัญ',
             TRADE_NAME: 'ชื่อทางการค้า',
-            UNIT_CODE: 'หน่วย',
+            UNIT_CODE: 'หน่วยนับ',
+            UNIT_CODE1: 'หน่วยนับกลาง',
             UNIT_PRICE: 'ราคา',
             Type1: 'ประเภท',
             Dose1: 'ขนาดยา',
@@ -207,7 +210,8 @@ class DrugService {
             Comment1: 'หมายเหตุ',
             Drug_formulations: 'รูปแบบยา',
             SOCIAL_CARD: 'บัตรสวัสดิการ',
-            UCS_CARD: 'บัตรทอง'
+            UCS_CARD: 'บัตรทอง',
+            eat1: 'วิธีรับประทาน'
         };
         return fieldNames[fieldName] || fieldName;
     }
@@ -219,6 +223,7 @@ class DrugService {
             GENERIC_NAME: data.GENERIC_NAME?.trim(),
             TRADE_NAME: data.TRADE_NAME?.trim(),
             UNIT_CODE: data.UNIT_CODE?.trim(),
+            UNIT_CODE1: data.UNIT_CODE1?.trim(),
             UNIT_PRICE: data.UNIT_PRICE ? parseFloat(data.UNIT_PRICE) : null,
             Type1: data.Type1?.trim(),
             Dose1: data.Dose1?.trim(),
@@ -228,7 +233,8 @@ class DrugService {
             Comment1: data.Comment1?.trim() || 'None',
             Drug_formulations: data.Drug_formulations?.trim(),
             SOCIAL_CARD: data.SOCIAL_CARD || 'N',
-            UCS_CARD: data.UCS_CARD || 'N'
+            UCS_CARD: data.UCS_CARD || 'N',
+            eat1: data.eat1?.trim()
         };
     }
 
@@ -317,7 +323,7 @@ class DrugService {
         
         const fieldsToCompare = [
             'GENERIC_NAME', 'TRADE_NAME', 'UNIT_PRICE', 'Type1', 
-            'Dose1', 'Indication1', 'Drug_formulations'
+            'Dose1', 'Indication1', 'Drug_formulations', 'UNIT_CODE', 'UNIT_CODE1', 'eat1'
         ];
 
         fieldsToCompare.forEach(field => {

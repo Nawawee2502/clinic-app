@@ -3,6 +3,7 @@ import { Container, Tabs, Tab, Card, CardContent, Typography } from "@mui/materi
 import EnhancedDrugInformation from '../components/Drugandmedical/EnhancedDrugInformation';
 import EnhancedMedicalProcedures from '../components/Drugandmedical/EnhancedMedicalProcedures';
 import SupplierManagement from "../components/Drugandmedical/SupplierManagement";
+import UnitManagement from "../components/Drugandmedical/UnitManagement";
 
 const Medicalstock = () => {
   const [tabIndex, setTabIndex] = React.useState(0);
@@ -50,6 +51,7 @@ const Medicalstock = () => {
         <Tab label="ข้อมูลยา" />
         <Tab label="ข้อมูลหัตถการ" />
         <Tab label="ตัวแทนจำหน่าย" />
+        <Tab label="หน่วยนับ" />
         {/* <Tab label="ใบรับยา/เวชภัณฑ์"/>
         <Tab label="ใบคืนยา/เวชภัณฑ์"/>
         <Tab label="บันทึกจำนวนสินค้าประจำเดือน"/>
@@ -65,6 +67,7 @@ const Medicalstock = () => {
           {tabIndex === 0 && <EnhancedDrugInformation />}
           {tabIndex === 1 && <EnhancedMedicalProcedures />}
           {tabIndex === 2 && <SupplierManagement />}
+          {tabIndex === 3 && <UnitManagement />}
         </CardContent>
       </Card>
     </Container>

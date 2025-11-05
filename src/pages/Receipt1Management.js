@@ -506,8 +506,14 @@ const Receipt1Management = () => {
 
     const handleEditDetail = (index) => {
         const detail = details[index];
+        
+        // หา GENERIC_NAME จาก drugList โดยใช้ DRUG_CODE
+        const drug = drugList.find(d => d.DRUG_CODE === detail.DRUG_CODE);
+        const genericName = drug ? drug.GENERIC_NAME : (detail.GENERIC_NAME || '');
+        
         setModalData({
             ...detail,
+            GENERIC_NAME: genericName, // ตั้งค่า GENERIC_NAME จาก drugList
             EXPIRE_DATE: detail.EXPIRE_DATE || new Date().toISOString().slice(0, 10),
             UNIT_NAME1: detail.UNIT_NAME1 || ''
         });
@@ -873,25 +879,31 @@ const Receipt1Management = () => {
                                             </TableCell>
                                         </TableRow>
                                     ) : (
-                                        details.map((detail, index) => (
-                                            <TableRow key={index}>
-                                                <TableCell>{detail.GENERIC_NAME}</TableCell>
-                                                <TableCell>{detail.QTY}</TableCell>
-                                                <TableCell>{Receipt1Service.formatCurrency(detail.UNIT_COST)}</TableCell>
-                                                <TableCell>{detail.UNIT_NAME1 || detail.UNIT_CODE1 || '-'}</TableCell>
-                                                <TableCell>{Receipt1Service.formatCurrency(detail.AMT)}</TableCell>
-                                                <TableCell>{detail.LOT_NO}</TableCell>
-                                                <TableCell>{formatDateBE(detail.EXPIRE_DATE)} </TableCell>
-                                                <TableCell align="center">
-                                                    <IconButton size="small" onClick={() => handleEditDetail(index)} sx={{ color: '#5698E0' }}>
-                                                        <EditIcon fontSize="small" />
-                                                    </IconButton>
-                                                    <IconButton size="small" onClick={() => handleRemoveDetail(index)} sx={{ color: '#F62626' }}>
-                                                        <DeleteIcon fontSize="small" />
-                                                    </IconButton>
-                                                </TableCell>
-                                            </TableRow>
-                                        ))
+                                        details.map((detail, index) => {
+                                            // หา GENERIC_NAME จาก drugList โดยใช้ DRUG_CODE
+                                            const drug = drugList.find(d => d.DRUG_CODE === detail.DRUG_CODE);
+                                            const genericName = drug ? drug.GENERIC_NAME : (detail.GENERIC_NAME || '-');
+                                            
+                                            return (
+                                                <TableRow key={index}>
+                                                    <TableCell>{genericName}</TableCell>
+                                                    <TableCell>{detail.QTY}</TableCell>
+                                                    <TableCell>{Receipt1Service.formatCurrency(detail.UNIT_COST)}</TableCell>
+                                                    <TableCell>{detail.UNIT_NAME1 || detail.UNIT_CODE1 || '-'}</TableCell>
+                                                    <TableCell>{Receipt1Service.formatCurrency(detail.AMT)}</TableCell>
+                                                    <TableCell>{detail.LOT_NO}</TableCell>
+                                                    <TableCell>{formatDateBE(detail.EXPIRE_DATE)} </TableCell>
+                                                    <TableCell align="center">
+                                                        <IconButton size="small" onClick={() => handleEditDetail(index)} sx={{ color: '#5698E0' }}>
+                                                            <EditIcon fontSize="small" />
+                                                        </IconButton>
+                                                        <IconButton size="small" onClick={() => handleRemoveDetail(index)} sx={{ color: '#F62626' }}>
+                                                            <DeleteIcon fontSize="small" />
+                                                        </IconButton>
+                                                    </TableCell>
+                                                </TableRow>
+                                            );
+                                        })
                                     )}
                                 </TableBody>
                             </Table>
