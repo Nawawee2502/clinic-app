@@ -7,6 +7,7 @@ import {
     Alert, Snackbar, Dialog, DialogActions, DialogContent, DialogContentText,
     DialogTitle
 } from "@mui/material";
+import { createFilterOptions } from '@mui/material/Autocomplete';
 import SaveIcon from '@mui/icons-material/Save';
 import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
@@ -122,7 +123,8 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
             console.log('Loading drug options...');
             setApiStatus('checking');
 
-            const response = await DrugService.getAllDrugs({ limit: 100 });
+            // เพิ่ม limit เป็น 10000 เพื่อดึงยาทั้งหมด (เกือบ 200 ตัว)
+            const response = await DrugService.getAllDrugs({ limit: 10000 });
 
             if (response.success && response.data) {
                 console.log('Drug API available, loaded', response.data.length, 'drugs');
@@ -526,27 +528,79 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
                                             const tradeName = option.TRADE_NAME ? ` (${option.TRADE_NAME})` : '';
                                             return `${genericName}${tradeName}`;
                                         }}
+                                        isOptionEqualToValue={(option, value) => {
+                                            return option.DRUG_CODE === value.DRUG_CODE;
+                                        }}
                                         filterOptions={(options, { inputValue }) => {
-                                            if (!inputValue) return options;
-                                            
-                                            const searchTerm = inputValue.toLowerCase().trim();
-                                            
-                                            // ✅ กรองยาที่ไม่มีชื่อออกก่อน
+                                            // ✅ กรองยาที่ไม่มีชื่อออกก่อน (ทำครั้งเดียว)
                                             const drugsWithName = options.filter(option => 
                                                 (option.GENERIC_NAME && option.GENERIC_NAME.trim() !== '') || 
                                                 (option.TRADE_NAME && option.TRADE_NAME.trim() !== '')
                                             );
                                             
-                                            // ✅ ค้นหาใน GENERIC_NAME, TRADE_NAME, และ DRUG_CODE
-                                            return drugsWithName.filter(option => {
-                                                const genericName = (option.GENERIC_NAME || '').toLowerCase();
-                                                const tradeName = (option.TRADE_NAME || '').toLowerCase();
-                                                const drugCode = (option.DRUG_CODE || '').toLowerCase();
+                                            // ถ้าไม่มีการค้นหา ให้แสดงยาทั้งหมด
+                                            if (!inputValue || inputValue.trim() === '') {
+                                                return drugsWithName;
+                                            }
+                                            
+                                            const searchTerm = inputValue.toLowerCase().trim();
+                                            
+                                            // ✅ ค้นหาเป็น "คำ" (word) - ค้นหาเฉพาะคำที่ขึ้นต้นด้วย search term เท่านั้น
+                                            // ไม่แสดงคำที่มี search term อยู่ตรงกลาง
+                                            
+                                            // ฟังก์ชันแยกคำ - แยกด้วย space, slash, hyphen, parentheses, brackets, dots, commas, และตัวเลข
+                                            const splitIntoWords = (text) => {
+                                                if (!text) return [];
+                                                // แยกด้วย space, slash, hyphen, parentheses, brackets, dots, commas, และตัวเลข
+                                                // เช่น "Amiloride 5 mg/Hydrochlorothiazide 50 mg" → ["amiloride", "mg", "hydrochlorothiazide", "mg"]
+                                                return text.toLowerCase()
+                                                    .split(/[\s\/\-\(\)\[\]\.\,\d]+/)
+                                                    .filter(word => word.length > 0);
+                                            };
+                                            
+                                            // ฟังก์ชันเช็คว่ามีคำไหนขึ้นต้นด้วย searchTerm หรือไม่
+                                            const hasWordStartingWith = (text, term) => {
+                                                if (!text || !term) return false;
+                                                const words = splitIntoWords(text);
+                                                // เช็คว่ามีคำไหนขึ้นต้นด้วย searchTerm หรือไม่
+                                                // เช่น search "ayew" จะหา "ayew" แต่ไม่หา "brompheniramine"
+                                                return words.some(word => word.startsWith(term));
+                                            };
+                                            
+                                            // ✅ Filter ยาที่ตรงกับ searchTerm เท่านั้น - ต้องมีคำไหนสักคำขึ้นต้นด้วย searchTerm
+                                            const filtered = drugsWithName.filter(option => {
+                                                const genericName = (option.GENERIC_NAME || '').trim();
+                                                const tradeName = (option.TRADE_NAME || '').trim();
+                                                const drugCode = (option.DRUG_CODE || '').trim();
                                                 
-                                                return genericName.includes(searchTerm) ||
-                                                       tradeName.includes(searchTerm) ||
-                                                       drugCode.includes(searchTerm);
+                                                // ✅ ค้นหาเฉพาะคำที่ขึ้นต้นด้วย searchTerm ใน GENERIC_NAME, TRADE_NAME, และ DRUG_CODE
+                                                // จะหาเฉพาะคำที่ขึ้นต้นด้วย searchTerm เท่านั้น ไม่หาคำที่มี searchTerm อยู่ตรงกลาง
+                                                // เช่น search "ayew" จะหาเฉพาะ "Ayew" (TRADE_NAME) เท่านั้น
+                                                // ไม่หา "Brompheniramine" (ไม่มีคำไหนขึ้นต้นด้วย "ayew")
+                                                const matchesGeneric = hasWordStartingWith(genericName, searchTerm);
+                                                const matchesTrade = hasWordStartingWith(tradeName, searchTerm);
+                                                const matchesCode = hasWordStartingWith(drugCode, searchTerm);
+                                                
+                                                // ต้องมีอย่างน้อย 1 field ที่ตรงกับ searchTerm
+                                                const matches = matchesGeneric || matchesTrade || matchesCode;
+                                                
+                                                return matches;
                                             });
+                                            
+                                            // ✅ ลบ duplicate ออก (กรณีมี duplicate ในฐานข้อมูล)
+                                            const uniqueFiltered = filtered.filter((option, index, self) => 
+                                                index === self.findIndex(t => t.DRUG_CODE === option.DRUG_CODE)
+                                            );
+                                            
+                                            return uniqueFiltered;
+                                        }}
+                                        disableListWrap
+                                        openOnFocus={false}
+                                        ListboxProps={{
+                                            style: {
+                                                maxHeight: '400px', // จำกัดความสูงของ dropdown
+                                                overflow: 'auto'
+                                            }
                                         }}
                                         value={availableDrugs.find(opt => opt.DRUG_CODE === medicineData.drugCode) || null}
                                         onChange={(event, newValue) => {
@@ -575,18 +629,27 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
                                                 }}
                                             />
                                         )}
-                                        renderOption={(props, option) => (
-                                            <Box component="li" {...props} sx={{ flexDirection: 'column', alignItems: 'flex-start' }}>
-                                                <Box component="span" sx={{ fontWeight: 'bold', fontSize: '0.875rem' }}>
-                                                    {option.GENERIC_NAME}
-                                                </Box>
-                                                {option.TRADE_NAME && (
-                                                    <Box component="span" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
-                                                        {option.TRADE_NAME} | {option.DRUG_CODE} | หน่วย: {option.UNIT_CODE}
+                                        renderOption={(props, option) => {
+                                            const { key, ...otherProps } = props;
+                                            return (
+                                                <Box 
+                                                    component="li" 
+                                                    key={option.DRUG_CODE || key}
+                                                    {...otherProps} 
+                                                    sx={{ flexDirection: 'column', alignItems: 'flex-start' }}
+                                                >
+                                                    <Box component="span" sx={{ fontWeight: 'bold', fontSize: '0.875rem' }}>
+                                                        {option.GENERIC_NAME}
                                                     </Box>
-                                                )}
-                                            </Box>
-                                        )}
+                                                    {option.TRADE_NAME && (
+                                                        <Box component="span" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
+                                                            {option.TRADE_NAME} | {option.DRUG_CODE} | หน่วย: {option.UNIT_CODE}
+                                                        </Box>
+                                                    )}
+                                                </Box>
+                                            );
+                                        }}
+                                        getOptionKey={(option) => option.DRUG_CODE || option.GENERIC_NAME}
                                         noOptionsText={
                                             editingIndex >= 0 ? "ไม่พบยาที่ต้องการ" : "ยาทั้งหมดถูกเพิ่มแล้ว"
                                         }

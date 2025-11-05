@@ -283,7 +283,9 @@ class BalMonthDrugService {
             UNIT_CODE1: data.UNIT_CODE1?.trim() || null,
             QTY: parseFloat(data.QTY) || 0,
             UNIT_PRICE: parseFloat(data.UNIT_PRICE) || 0,
-            AMT: parseFloat(data.AMT) || 0
+            AMT: parseFloat(data.AMT) || 0,
+            LOT_NO: data.LOT_NO?.trim() || null,
+            EXPIRE_DATE: data.EXPIRE_DATE || null
         };
     }
 

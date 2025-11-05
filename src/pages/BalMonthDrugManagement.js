@@ -42,6 +42,60 @@ const BalMonthDrugManagement = () => {
         return `${buddhistYear}/${monthStr}`;
     };
 
+    const formatDateBE = (dateString) => {
+        if (!dateString) return '-';
+        const date = new Date(dateString);
+        const day = date.getDate().toString().padStart(2, '0');
+        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+        const year = date.getFullYear() + 543; // แปลงเป็น พ.ศ.
+        return `${day}/${month}/${year}`;
+    };
+
+    // แปลงวันที่จาก input (ค.ศ.) เป็น พ.ศ. สำหรับแสดงผล
+    const convertDateCEToBE = (ceDate) => {
+        if (!ceDate) return '';
+        const [year, month, day] = ceDate.split('-');
+        const beYear = parseInt(year) + 543;
+        return `${beYear}-${month}-${day}`;
+    };
+
+    // แปลงวันที่จาก พ.ศ. กลับเป็น ค.ศ. สำหรับเก็บใน state
+    const convertDateBEToCE = (beDate) => {
+        if (!beDate) return '';
+        const [year, month, day] = beDate.split('-');
+        const ceYear = parseInt(year) - 543;
+        return `${ceYear}-${month}-${day}`;
+    };
+
+    // Component สำหรับ Date Input ที่แสดงเป็น พ.ศ.
+    const DateInputBE = ({ label, value, onChange, disabled, ...props }) => {
+        const displayValue = value ? convertDateCEToBE(value) : '';
+
+        const handleChange = (e) => {
+            const beValue = e.target.value;
+            const ceValue = beValue ? convertDateBEToCE(beValue) : '';
+            onChange(ceValue);
+        };
+
+        return (
+            <TextField
+                {...props}
+                fullWidth
+                label={label}
+                type="date"
+                value={displayValue}
+                onChange={handleChange}
+                disabled={disabled}
+                size="small"
+                InputLabelProps={{ shrink: true }}
+                inputProps={{
+                    max: convertDateCEToBE('9999-12-31') // ปี พ.ศ. สูงสุด
+                }}
+                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
+            />
+        );
+    };
+
     const [currentView, setCurrentView] = useState("list");
     const [balanceList, setBalanceList] = useState([]);
     const [filteredList, setFilteredList] = useState([]);
@@ -67,7 +121,9 @@ const BalMonthDrugManagement = () => {
         UNIT_CODE1: '',
         QTY: 0,
         UNIT_PRICE: 0,
-        AMT: 0
+        AMT: 0,
+        LOT_NO: '',
+        EXPIRE_DATE: new Date().toISOString().slice(0, 10)
     });
 
     const itemsPerPage = 10;
@@ -191,7 +247,9 @@ const BalMonthDrugManagement = () => {
             UNIT_CODE1: '',
             QTY: 0,
             UNIT_PRICE: 0,
-            AMT: 0
+            AMT: 0,
+            LOT_NO: '',
+            EXPIRE_DATE: new Date().toISOString().slice(0, 10)
         });
         setSelectedDrug(null);
         setEditingItem(null);
@@ -255,7 +313,9 @@ const BalMonthDrugManagement = () => {
             UNIT_CODE1: item.UNIT_CODE1 || '',
             QTY: item.QTY || 0,
             UNIT_PRICE: item.UNIT_PRICE || 0,
-            AMT: item.AMT || 0
+            AMT: item.AMT || 0,
+            LOT_NO: item.LOT_NO || '',
+            EXPIRE_DATE: item.EXPIRE_DATE ? new Date(item.EXPIRE_DATE).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10)
         });
 
         const drug = drugList.find(d => d.DRUG_CODE === item.DRUG_CODE);
@@ -302,7 +362,9 @@ const BalMonthDrugManagement = () => {
             UNIT_CODE1: '',
             QTY: 0,
             UNIT_PRICE: 0,
-            AMT: 0
+            AMT: 0,
+            LOT_NO: '',
+            EXPIRE_DATE: new Date().toISOString().slice(0, 10)
         });
         setSelectedDrug(null);
         setEditingItem(null);
@@ -432,6 +494,26 @@ const BalMonthDrugManagement = () => {
                                     sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px", backgroundColor: "#f5f5f5" } }}
                                 />
                             </Grid>
+
+                            <Grid item xs={12} md={6}>
+                                <Typography sx={{ fontWeight: 400, fontSize: 16, mb: 1 }}>LOT NO</Typography>
+                                <TextField
+                                    size="small"
+                                    placeholder="LOT NO"
+                                    value={formData.LOT_NO}
+                                    onChange={(e) => handleFormChange('LOT_NO', e.target.value)}
+                                    fullWidth
+                                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
+                                />
+                            </Grid>
+
+                            <Grid item xs={12} md={6} sx={{ mt: '32px' }}>
+                                <DateInputBE
+                                    label="วันหมดอายุ"
+                                    value={formData.EXPIRE_DATE}
+                                    onChange={(value) => handleFormChange('EXPIRE_DATE', value)}
+                                />
+                            </Grid>
                         </Grid>
 
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 3 }}>
@@ -547,6 +629,8 @@ const BalMonthDrugManagement = () => {
                                         <th style={{ padding: '12px 8px', textAlign: 'right', color: '#696969' }}>จำนวน</th>
                                         <th style={{ padding: '12px 8px', textAlign: 'right', color: '#696969' }}>ราคา/หน่วย</th>
                                         <th style={{ padding: '12px 8px', textAlign: 'right', color: '#696969' }}>มูลค่า</th>
+                                        <th style={{ padding: '12px 8px', textAlign: 'left', color: '#696969' }}>LOT NO</th>
+                                        <th style={{ padding: '12px 8px', textAlign: 'left', color: '#696969' }}>วันหมดอายุ</th>
                                         <th style={{ padding: '12px 8px', textAlign: 'center', color: '#696969' }}>จัดการ</th>
                                     </tr>
                                 </thead>
@@ -584,6 +668,12 @@ const BalMonthDrugManagement = () => {
                                                 </td>
                                                 <td style={{ padding: '12px 8px', textAlign: 'right', fontWeight: 500 }}>
                                                     {BalMonthDrugService.formatCurrency(item.AMT)}
+                                                </td>
+                                                <td style={{ padding: '12px 8px' }}>
+                                                    {item.LOT_NO || '-'}
+                                                </td>
+                                                <td style={{ padding: '12px 8px' }}>
+                                                    {formatDateBE(item.EXPIRE_DATE)}
                                                 </td>
                                                 <td style={{ padding: '12px 8px', textAlign: 'center' }}>
                                                     <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
