@@ -98,11 +98,28 @@ const UnitManagement = () => {
         setEditingUnit(null);
     };
 
-    // สร้าง UNIT_CODE อัตโนมัติจาก UNIT_NAME
-    const generateUnitCode = (unitName) => {
-        if (!unitName) return '';
-        // ใช้ชื่อหน่วยนับเป็น UNIT_CODE ตรงๆ (เพราะในฐานข้อมูลเป็นคำแปลภาษาไทยอยู่แล้ว)
-        return unitName.trim();
+    // สร้าง UNIT_CODE อัตโนมัติเป็น UNIT001, UNIT002, ...
+    const generateUnitCode = () => {
+        if (units.length === 0) {
+            return 'UNIT001';
+        }
+
+        // หา UNIT_CODE ที่เป็นรูปแบบ UNITxxx
+        const unitCodes = units
+            .filter(unit => /^UNIT\d{3}$/.test(unit.UNIT_CODE))
+            .map(unit => {
+                const match = unit.UNIT_CODE.match(/^UNIT(\d{3})$/);
+                return match ? parseInt(match[1]) : 0;
+            });
+
+        if (unitCodes.length === 0) {
+            return 'UNIT001';
+        }
+
+        // หาเลขสูงสุดและเพิ่ม 1
+        const maxNumber = Math.max(...unitCodes);
+        const nextNumber = maxNumber + 1;
+        return `UNIT${String(nextNumber).padStart(3, '0')}`;
     };
 
     const handleSave = async () => {
@@ -115,9 +132,9 @@ const UnitManagement = () => {
         
         try {
             if (!editingUnit) {
-                // สร้างหน่วยนับใหม่ - gen UNIT_CODE อัตโนมัติ
+                // สร้างหน่วยนับใหม่ - gen UNIT_CODE อัตโนมัติเป็น UNIT001, UNIT002, ...
                 const dataToSave = {
-                    UNIT_CODE: generateUnitCode(formData.UNIT_NAME),
+                    UNIT_CODE: generateUnitCode(),
                     UNIT_NAME: formData.UNIT_NAME
                 };
                 
@@ -317,21 +334,19 @@ const UnitManagement = () => {
                                 <thead style={{ backgroundColor: "#F0F5FF" }}>
                                     <tr>
                                         <th style={{ padding: '12px 8px', textAlign: 'left', color: '#696969' }}>ลำดับ</th>
-                                        <th style={{ padding: '12px 8px', textAlign: 'left', color: '#696969' }}>รหัสหน่วยนับ</th>
                                         <th style={{ padding: '12px 8px', textAlign: 'left', color: '#696969' }}>ชื่อหน่วยนับ</th>
-                                        <th style={{ padding: '12px 8px', textAlign: 'center', color: '#696969' }}>จัดการ</th>
+                                        <th style={{ padding: '12px 24px', textAlign: 'right', color: '#696969' }}>จัดการ</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {getPaginatedUnits().map((unit, index) => (
-                                        <tr key={unit.UNIT_CODE} style={{ borderTop: '1px solid #e0e0e0' }}>
+                                        <tr key={unit.UNIT_CODE} style={{ borderTop: '1px solidrgb(14, 12, 12)' }}>
                                             <td style={{ padding: '12px 8px' }}>
                                                 {(page - 1) * itemsPerPage + index + 1}
                                             </td>
-                                            <td style={{ padding: '12px 8px', fontWeight: 500 }}>{unit.UNIT_CODE}</td>
                                             <td style={{ padding: '12px 8px' }}>{unit.UNIT_NAME}</td>
-                                            <td style={{ padding: '12px 8px', textAlign: 'center' }}>
-                                                <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
+                                            <td style={{ padding: '12px 8px', textAlign: 'right' }}>
+                                                <Box sx={{ display: 'flex', gap: 1, justifyContent: 'right' }}>
                                                     <IconButton
                                                         size="small"
                                                         onClick={() => handleEdit(unit)}
