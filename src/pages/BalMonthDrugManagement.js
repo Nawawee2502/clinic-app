@@ -282,7 +282,11 @@ const BalMonthDrugManagement = () => {
             if (!editingItem) {
                 result = await BalMonthDrugService.createBalance(formattedData);
                 console.log('✅ CREATE response:', result);
-                showAlert('บันทึกยอดยกมาสำเร็จ', 'success');
+                // ✅ API จะทำ upsert แล้ว - ถ้ามีข้อมูลอยู่แล้วจะ update แทน
+                const message = result.data?.isUpdate 
+                    ? 'อัปเดตยอดยกมาสำเร็จ' 
+                    : 'บันทึกยอดยกมาสำเร็จ';
+                showAlert(message, 'success');
             } else {
                 result = await BalMonthDrugService.updateBalance(
                     toGregorianYear(editingItem.MYEAR),
@@ -425,8 +429,15 @@ const BalMonthDrugManagement = () => {
                                     onChange={handleDrugSelect}
                                     options={drugList}
                                     getOptionLabel={(option) => {
-                                        return option.GENERIC_NAME || '';
+                                        return option.GENERIC_NAME || option.DRUG_CODE || '';
                                     }}
+                                    // ✅ ใช้ DRUG_CODE เป็น key แทน GENERIC_NAME เพื่อหลีกเลี่ยง duplicate key
+                                    isOptionEqualToValue={(option, value) => option?.DRUG_CODE === value?.DRUG_CODE}
+                                    renderOption={(props, option) => (
+                                        <li {...props} key={option.DRUG_CODE}>
+                                            {option.GENERIC_NAME || option.DRUG_CODE || ''} ({option.DRUG_CODE || ''})
+                                        </li>
+                                    )}
                                     filterOptions={(options, { inputValue }) => {
                                         const searchTerm = inputValue.toLowerCase();
                                         return options.filter(option => 

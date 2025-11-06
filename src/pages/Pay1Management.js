@@ -19,6 +19,60 @@ import Pay1Service from "../services/pay1Service";
 import TypePayService from "../services/typePayService";
 
 const Pay1Management = () => {
+    // Helper functions สำหรับจัดการปี พ.ศ.
+    const toBuddhistYear = (gregorianYear) => {
+        return parseInt(gregorianYear) + 543;
+    };
+
+    const toGregorianYear = (buddhistYear) => {
+        return parseInt(buddhistYear) - 543;
+    };
+
+    // แปลงวันที่จาก input (ค.ศ.) เป็น พ.ศ. สำหรับแสดงผล
+    const convertDateCEToBE = (ceDate) => {
+        if (!ceDate) return '';
+        const [year, month, day] = ceDate.split('-');
+        const beYear = parseInt(year) + 543;
+        return `${beYear}-${month}-${day}`;
+    };
+
+    // แปลงวันที่จาก พ.ศ. กลับเป็น ค.ศ. สำหรับเก็บใน state
+    const convertDateBEToCE = (beDate) => {
+        if (!beDate) return '';
+        const [year, month, day] = beDate.split('-');
+        const ceYear = parseInt(year) - 543;
+        return `${ceYear}-${month}-${day}`;
+    };
+
+    // Component สำหรับ Date Input ที่แสดงเป็น พ.ศ.
+    const DateInputBE = ({ label, value, onChange, disabled, ...props }) => {
+        const displayValue = value ? convertDateCEToBE(value) : '';
+
+        const handleChange = (e) => {
+            const beValue = e.target.value;
+            const ceValue = beValue ? convertDateBEToCE(beValue) : '';
+            onChange(ceValue);
+        };
+
+        return (
+            <TextField
+                {...props}
+                fullWidth
+                label={label}
+                type="date"
+                value={displayValue}
+                onChange={handleChange}
+                disabled={disabled}
+                size="small"
+                InputLabelProps={{ shrink: true }}
+                inputProps={{
+                    max: convertDateCEToBE('9999-12-31') // ปี พ.ศ. สูงสุด
+                }}
+                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
+            />
+        );
+    };
+
     const [currentView, setCurrentView] = useState("list");
     const [pay1List, setPay1List] = useState([]);
     const [filteredList, setFilteredList] = useState([]);
@@ -36,12 +90,12 @@ const Pay1Management = () => {
         REFNO: '',
         RDATE: new Date().toISOString().slice(0, 10),
         TRDATE: new Date().toISOString().slice(0, 10),
-        MYEAR: new Date().getFullYear().toString(),
+        MYEAR: (new Date().getFullYear() + 543).toString(), // ✅ เปลี่ยนเป็น พ.ศ.
         MONTHH: new Date().getMonth() + 1,
         NAME1: '',
         STATUS: 'ทำงานอยู่',
         TYPE_PAY: 'เงินสด',
-        BANK_NO: ''
+        BANK_NO: '-'
     });
 
     // Form data for details (array)
@@ -119,12 +173,19 @@ const Pay1Management = () => {
         setHeaderData(prev => {
             const newData = { ...prev, [field]: value };
 
-            // ถ้าเปลี่ยนวันที่ ให้อัปเดตปีและเดือนอัตโนมัติ
+            // ถ้าเปลี่ยนวันที่ ให้อัปเดตปีและเดือนอัตโนมัติ (แปลงเป็น พ.ศ.)
             if (field === 'RDATE') {
                 const date = new Date(value);
-                newData.MYEAR = date.getFullYear().toString();
+                newData.MYEAR = toBuddhistYear(date.getFullYear()).toString(); // ✅ แปลงเป็น พ.ศ.
                 newData.MONTHH = date.getMonth() + 1;
                 newData.TRDATE = value; // อัปเดต TRDATE ด้วย
+            }
+
+            // ✅ ถ้าเปลี่ยนวิธีจ่ายเงินเป็น "เงินสด" ให้ตั้งค่า BANK_NO เป็น "-" และซ่อนช่อง
+            if (field === 'TYPE_PAY') {
+                if (value === 'เงินสด') {
+                    newData.BANK_NO = '-';
+                }
             }
 
             return newData;
@@ -153,12 +214,12 @@ const Pay1Management = () => {
             REFNO: '',
             RDATE: new Date().toISOString().slice(0, 10),
             TRDATE: new Date().toISOString().slice(0, 10),
-            MYEAR: new Date().getFullYear().toString(),
+            MYEAR: (new Date().getFullYear() + 543).toString(), // ✅ เปลี่ยนเป็น พ.ศ.
             MONTHH: new Date().getMonth() + 1,
             NAME1: '',
             STATUS: 'ทำงานอยู่',
             TYPE_PAY: 'เงินสด',
-            BANK_NO: ''
+            BANK_NO: '-' // ✅ ตั้งค่าเป็น "-" เมื่อเลือกเงินสด
         });
         setDetails([Pay1Service.createEmptyDetail()]);
         setEditingItem(null);
@@ -199,7 +260,13 @@ const Pay1Management = () => {
         console.log('⏳ Loading started...');
 
         try {
-            let dataToSave = headerData;
+            // ✅ ถ้าเลือกเงินสด ให้ตั้งค่า BANK_NO เป็น "-"
+            const finalHeaderData = {
+                ...headerData,
+                BANK_NO: headerData.TYPE_PAY === 'เงินสด' ? '-' : headerData.BANK_NO
+            };
+
+            let dataToSave = finalHeaderData;
 
             if (!editingItem) {
                 // สร้างใหม่ - Generate REFNO
@@ -207,12 +274,12 @@ const Pay1Management = () => {
                 if (!newRefno) {
                     throw new Error('ไม่สามารถสร้างเลขที่ได้');
                 }
-                dataToSave = { ...headerData, REFNO: newRefno };
+                dataToSave = { ...finalHeaderData, REFNO: newRefno };
 
                 console.log('➕ CREATE mode - Generated REFNO:', newRefno);
             } else {
                 console.log('✏️ UPDATE mode - REFNO:', editingItem.REFNO);
-                dataToSave = { ...headerData, REFNO: editingItem.REFNO };
+                dataToSave = { ...finalHeaderData, REFNO: editingItem.REFNO };
             }
 
             // Format data
@@ -260,12 +327,12 @@ const Pay1Management = () => {
                     REFNO: header.REFNO,
                     RDATE: Pay1Service.formatDateForInput(header.RDATE),
                     TRDATE: Pay1Service.formatDateForInput(header.TRDATE),
-                    MYEAR: header.MYEAR,
+                    MYEAR: header.MYEAR, // ✅ MYEAR เก็บเป็น พ.ศ. อยู่แล้ว
                     MONTHH: header.MONTHH,
                     NAME1: header.NAME1,
                     STATUS: header.STATUS,
                     TYPE_PAY: header.TYPE_PAY,
-                    BANK_NO: header.BANK_NO || ''
+                    BANK_NO: header.BANK_NO || (header.TYPE_PAY === 'เงินสด' ? '-' : '') // ✅ ถ้าเงินสดให้เป็น "-"
                 });
 
                 setDetails(detailsData.length > 0 ? detailsData : [Pay1Service.createEmptyDetail()]);
@@ -366,15 +433,11 @@ const Pay1Management = () => {
 
                             <Grid item xs={12} md={4}>
                                 <Typography sx={{ fontWeight: 400, fontSize: 14, mb: 1 }}>
-                                    วันที่ *
+                                    วันที่ * (พ.ศ.)
                                 </Typography>
-                                <TextField
-                                    type="date"
-                                    size="small"
+                                <DateInputBE
                                     value={headerData.RDATE}
-                                    onChange={(e) => handleHeaderChange('RDATE', e.target.value)}
-                                    fullWidth
-                                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
+                                    onChange={(value) => handleHeaderChange('RDATE', value)}
                                 />
                             </Grid>
 
@@ -424,19 +487,21 @@ const Pay1Management = () => {
                                 </FormControl>
                             </Grid>
 
-                            <Grid item xs={12} md={3}>
-                                <Typography sx={{ fontWeight: 400, fontSize: 14, mb: 1 }}>
-                                    เลขที่บัญชี
-                                </Typography>
-                                <TextField
-                                    size="small"
-                                    placeholder="เลขที่บัญชีธนาคาร"
-                                    value={headerData.BANK_NO}
-                                    onChange={(e) => handleHeaderChange('BANK_NO', e.target.value)}
-                                    fullWidth
-                                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
-                                />
-                            </Grid>
+                            {headerData.TYPE_PAY === 'เงินโอน' && (
+                                <Grid item xs={12} md={3}>
+                                    <Typography sx={{ fontWeight: 400, fontSize: 14, mb: 1 }}>
+                                        เลขที่บัญชี *
+                                    </Typography>
+                                    <TextField
+                                        size="small"
+                                        placeholder="เลขที่บัญชีธนาคาร"
+                                        value={headerData.BANK_NO}
+                                        onChange={(e) => handleHeaderChange('BANK_NO', e.target.value)}
+                                        fullWidth
+                                        sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
+                                    />
+                                </Grid>
+                            )}
                         </Grid>
                     </CardContent>
                 </Card>
