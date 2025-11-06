@@ -101,19 +101,21 @@ const Paymentanddispensingmedicine = () => {
         return;
       }
 
-      if (!paymentData.receivedAmount || parseFloat(paymentData.receivedAmount) < calculateTotal()) {
+      const currentPatient = patients[selectedPatientIndex];
+      const totalAmount = calculateTotalFromEditablePrices();
+      const discount = parseFloat(paymentData.discount || 0);
+      // ✅ คำนวณยอดชำระสุทธิโดยใช้ส่วนลดจาก paymentData โดยตรง (ไม่ใช่จาก treatmentData)
+      const netAmount = Math.max(0, totalAmount - discount);
+      
+      // ✅ Validation: ใช้ netAmount ที่คำนวณจาก paymentData.discount โดยตรง
+      if (!paymentData.receivedAmount || parseFloat(paymentData.receivedAmount) < netAmount) {
         setSnackbar({
           open: true,
-          message: 'จำนวนเงินที่รับไม่เพียงพอ',
+          message: `จำนวนเงินที่รับไม่เพียงพอ (ยอดชำระ: ${netAmount.toFixed(2)} บาท, รับมา: ${parseFloat(paymentData.receivedAmount || 0).toFixed(2)} บาท)`,
           severity: 'error'
         });
         return;
       }
-
-      const currentPatient = patients[selectedPatientIndex];
-      const totalAmount = calculateTotalFromEditablePrices();
-      const discount = parseFloat(paymentData.discount || 0);
-      const netAmount = calculateTotal();
       const receivedAmount = parseFloat(paymentData.receivedAmount);
       const changeAmount = receivedAmount - netAmount;
 
@@ -480,10 +482,20 @@ const Paymentanddispensingmedicine = () => {
           drugs: drugsArray
         });
 
+        // ✅ ดึงส่วนลดจาก treatmentData มาใส่ใน paymentData ถ้ามี
+        const discountFromTreatment = parseFloat(response.data.treatment?.DISCOUNT_AMOUNT || 0);
+        if (discountFromTreatment > 0) {
+          setPaymentData(prev => ({
+            ...prev,
+            discount: discountFromTreatment
+          }));
+        }
+
         console.log('💰 Payment - Final editable prices:', {
           labs: labsArray,
           procedures: proceduresArray,
-          drugs: drugsArray
+          drugs: drugsArray,
+          discount: discountFromTreatment
         });
 
       } else {
@@ -550,7 +562,13 @@ const Paymentanddispensingmedicine = () => {
 
   const calculateTotal = () => {
     const totalCost = calculateTotalFromEditablePrices();
-    const discount = parseFloat(paymentData.discount || 0);
+    // ✅ ดึงส่วนลดจาก treatmentData หรือ currentPatient หรือ paymentData
+    const discount = parseFloat(
+      treatmentData?.treatment?.DISCOUNT_AMOUNT || 
+      currentPatient?.paymentData?.discount || 
+      paymentData.discount || 
+      0
+    );
     return Math.max(0, totalCost - discount);
   };
 
@@ -1094,12 +1112,21 @@ const Paymentanddispensingmedicine = () => {
                               <Typography>รวมค่ารักษา:</Typography>
                               <Typography>{calculateTotalFromEditablePrices().toFixed(2)} บาท</Typography>
                             </Box>
-                            {paymentData.discount > 0 && (
-                              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                                <Typography>ส่วนลด:</Typography>
-                                <Typography>-{paymentData.discount.toFixed(2)} บาท</Typography>
-                              </Box>
-                            )}
+                            {(() => {
+                              // ✅ ดึงส่วนลดจาก treatmentData หรือ paymentData หรือ currentPatient
+                              const discount = parseFloat(
+                                treatmentData?.treatment?.DISCOUNT_AMOUNT || 
+                                currentPatient?.paymentData?.discount || 
+                                paymentData.discount || 
+                                0
+                              );
+                              return discount > 0 ? (
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                                  <Typography>ส่วนลด:</Typography>
+                                  <Typography color="error">-{discount.toFixed(2)} บาท</Typography>
+                                </Box>
+                              ) : null;
+                            })()}
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2, fontSize: '1.2rem', fontWeight: 'bold' }}>
                               <Typography variant="h6">ยอดชำระ:</Typography>
                               <Typography variant="h6" color="primary">{calculateTotal().toFixed(2)} บาท</Typography>
@@ -1118,7 +1145,16 @@ const Paymentanddispensingmedicine = () => {
                           <ReceiptPrint
                             patient={currentPatient}
                             items={getReceiptItems()}
-                            paymentData={paymentData}
+                            paymentData={{
+                              ...paymentData,
+                              // ✅ ส่งส่วนลดจาก treatmentData หรือ currentPatient ถ้ามี
+                              discount: parseFloat(
+                                treatmentData?.treatment?.DISCOUNT_AMOUNT || 
+                                currentPatient?.paymentData?.discount || 
+                                paymentData.discount || 
+                                0
+                              )
+                            }}
                           />
 
                           {/* ปุ่มปิดการรักษา */}

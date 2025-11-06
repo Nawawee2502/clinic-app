@@ -1,0 +1,681 @@
+import React, { useState, useEffect } from 'react';
+import {
+    Box, Grid, Card, CardContent, Typography, TextField, Button,
+    Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
+    CircularProgress, Alert, Autocomplete, FormControl, InputLabel, Select, MenuItem,
+    Snackbar
+} from '@mui/material';
+import {
+    Print as PrintIcon,
+    Refresh as RefreshIcon
+} from '@mui/icons-material';
+import StockCardService from '../../services/stockCardService';
+import DrugService from '../../services/drugService';
+
+const StockCardReport = () => {
+    const [stockCardData, setStockCardData] = useState([]);
+    const [drugList, setDrugList] = useState([]);
+    const [selectedDrug, setSelectedDrug] = useState(null);
+    const [selectedYear, setSelectedYear] = useState((new Date().getFullYear() + 543).toString());
+    const [selectedMonth, setSelectedMonth] = useState((new Date().getMonth() + 1).toString());
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
+    const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
+
+    // ชื่อเดือนภาษาไทย
+    const monthNames = [
+        'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+        'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
+    ];
+
+    useEffect(() => {
+        loadDrugs();
+    }, []);
+
+    const loadDrugs = async () => {
+        try {
+            const response = await DrugService.getAllDrugs();
+            if (response.success && response.data) {
+                setDrugList(response.data);
+            }
+        } catch (error) {
+            console.error('Error loading drugs:', error);
+            showSnackbar('ไม่สามารถโหลดรายชื่อยาได้', 'error');
+        }
+    };
+
+    const loadStockCardData = async () => {
+        try {
+            setLoading(true);
+            setError(null);
+
+            // ✅ ถ้าไม่ได้เลือกยา ให้ดึงข้อมูลทั้งหมดในเดือนนั้น
+            const filters = {
+                year: selectedYear,
+                month: selectedMonth
+            };
+
+            if (selectedDrug) {
+                filters.drugCode = selectedDrug.DRUG_CODE;
+            }
+
+            console.log('📊 Loading stock card data with filters:', filters);
+
+            // ใช้ API ดึงข้อมูลตาม period (และ drug code ถ้ามี)
+            const response = await StockCardService.getAllStockCards(filters);
+
+            console.log('📊 Stock card API response:', response);
+
+            if (response.success && response.data) {
+                console.log('📊 Raw stock card data:', response.data);
+                console.log('📊 Total records:', response.data.length);
+
+                // ✅ ถ้าไม่ได้เลือกยา เรียงตาม DRUG_CODE ก่อน แล้วค่อยเรียงตามวันที่
+                // ✅ ถ้าเลือกยาแล้ว เรียงตามวันที่และ REFNO
+                const sortedData = selectedDrug
+                    ? response.data.sort((a, b) => {
+                          const dateA = new Date(a.RDATE);
+                          const dateB = new Date(b.RDATE);
+                          if (dateA.getTime() !== dateB.getTime()) {
+                              return dateA.getTime() - dateB.getTime();
+                          }
+                          return a.REFNO.localeCompare(b.REFNO);
+                      })
+                    : response.data.sort((a, b) => {
+                          // เรียงตาม DRUG_CODE ก่อน
+                          if (a.DRUG_CODE !== b.DRUG_CODE) {
+                              return a.DRUG_CODE.localeCompare(b.DRUG_CODE);
+                          }
+                          // แล้วเรียงตามวันที่
+                          const dateA = new Date(a.RDATE);
+                          const dateB = new Date(b.RDATE);
+                          if (dateA.getTime() !== dateB.getTime()) {
+                              return dateA.getTime() - dateB.getTime();
+                          }
+                          return a.REFNO.localeCompare(b.REFNO);
+                      });
+
+                // ✅ จัดกลุ่มตาม DRUG_CODE ถ้าไม่ได้เลือกยา
+                if (!selectedDrug) {
+                    // จัดกลุ่มตาม DRUG_CODE
+                    const groupedByDrug = {};
+                    sortedData.forEach(item => {
+                        if (!groupedByDrug[item.DRUG_CODE]) {
+                            groupedByDrug[item.DRUG_CODE] = [];
+                        }
+                        groupedByDrug[item.DRUG_CODE].push(item);
+                    });
+
+                    // คำนวณยอดคงเหลือสำหรับแต่ละยา
+                    const processedData = [];
+                    Object.keys(groupedByDrug).forEach(drugCode => {
+                        const drugItems = groupedByDrug[drugCode];
+                        let runningBalance = 0;
+                        let runningBalanceAmt = 0;
+
+                        drugItems.forEach((item, index) => {
+                            const begQty = index === 0 ? (parseFloat(item.BEG1) || 0) : runningBalance;
+                            const begAmt = index === 0 ? (parseFloat(item.BEG1_AMT) || 0) : runningBalanceAmt;
+
+                            const inQty = parseFloat(item.IN1) || 0;
+                            const outQty = parseFloat(item.OUT1) || 0;
+                            const updQty = parseFloat(item.UPD1) || 0;
+                            const endingQty = begQty + inQty - outQty + updQty;
+
+                            const inAmt = parseFloat(item.IN1_AMT) || 0;
+                            const outAmt = parseFloat(item.OUT1_AMT) || 0;
+                            const updAmt = parseFloat(item.UPD1_AMT) || 0;
+                            const endingAmt = begAmt + inAmt - outAmt + updAmt;
+
+                            runningBalance = endingQty;
+                            runningBalanceAmt = endingAmt;
+
+                            processedData.push({
+                                ...item,
+                                BEG1: begQty,
+                                BEG1_AMT: begAmt,
+                                endingQty,
+                                endingAmt
+                            });
+                        });
+                    });
+
+                    console.log('📊 Processed stock card data (all drugs):', processedData);
+                    setStockCardData(processedData);
+                } else {
+                    // คำนวณยอดคงเหลือสำหรับยาเดียว
+                    let runningBalance = 0;
+                    let runningBalanceAmt = 0;
+
+                    const processedData = sortedData.map((item, index) => {
+                        const begQty = index === 0 ? (parseFloat(item.BEG1) || 0) : runningBalance;
+                        const begAmt = index === 0 ? (parseFloat(item.BEG1_AMT) || 0) : runningBalanceAmt;
+
+                        const inQty = parseFloat(item.IN1) || 0;
+                        const outQty = parseFloat(item.OUT1) || 0;
+                        const updQty = parseFloat(item.UPD1) || 0;
+                        const endingQty = begQty + inQty - outQty + updQty;
+
+                        const inAmt = parseFloat(item.IN1_AMT) || 0;
+                        const outAmt = parseFloat(item.OUT1_AMT) || 0;
+                        const updAmt = parseFloat(item.UPD1_AMT) || 0;
+                        const endingAmt = begAmt + inAmt - outAmt + updAmt;
+
+                        runningBalance = endingQty;
+                        runningBalanceAmt = endingAmt;
+
+                        return {
+                            ...item,
+                            BEG1: begQty,
+                            BEG1_AMT: begAmt,
+                            endingQty,
+                            endingAmt
+                        };
+                    });
+
+                    console.log('📊 Processed stock card data (single drug):', processedData);
+                    setStockCardData(processedData);
+                }
+            } else {
+                setStockCardData([]);
+                showSnackbar('ไม่พบข้อมูลสต็อกการ์ด', 'info');
+            }
+        } catch (error) {
+            console.error('❌ Error loading stock card data:', error);
+            setError('เกิดข้อผิดพลาดในการดึงข้อมูล: ' + error.message);
+            setStockCardData([]);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const formatDateBE = (dateString) => {
+        if (!dateString) return '-';
+        try {
+            const date = new Date(dateString);
+            const day = date.getDate().toString().padStart(2, '0');
+            const month = (date.getMonth() + 1).toString().padStart(2, '0');
+            const year = date.getFullYear() + 543;
+            return `${day}/${month}/${year}`;
+        } catch (error) {
+            return dateString;
+        }
+    };
+
+    const formatDateBEForExpire = (dateString) => {
+        if (!dateString || dateString === '-') return '-';
+        try {
+            const date = new Date(dateString);
+            const day = date.getDate().toString().padStart(2, '0');
+            const month = (date.getMonth() + 1).toString().padStart(2, '0');
+            const year = date.getFullYear() + 543;
+            return `${day}/${month}/${year}`;
+        } catch (error) {
+            return dateString;
+        }
+    };
+
+    const calculateTotals = () => {
+        if (stockCardData.length === 0) {
+            return {
+                totalBEG1: 0,
+                totalIN1: 0,
+                totalOUT1: 0,
+                totalUPD1: 0,
+                totalBEG1_AMT: 0,
+                totalIN1_AMT: 0,
+                totalOUT1_AMT: 0,
+                totalUPD1_AMT: 0
+            };
+        }
+
+        const totals = stockCardData.reduce((acc, item) => {
+            acc.totalBEG1 += parseFloat(item.BEG1) || 0;
+            acc.totalIN1 += parseFloat(item.IN1) || 0;
+            acc.totalOUT1 += parseFloat(item.OUT1) || 0;
+            acc.totalUPD1 += parseFloat(item.UPD1) || 0;
+            acc.totalBEG1_AMT += parseFloat(item.BEG1_AMT) || 0;
+            acc.totalIN1_AMT += parseFloat(item.IN1_AMT) || 0;
+            acc.totalOUT1_AMT += parseFloat(item.OUT1_AMT) || 0;
+            acc.totalUPD1_AMT += parseFloat(item.UPD1_AMT) || 0;
+            return acc;
+        }, {
+            totalBEG1: 0,
+            totalIN1: 0,
+            totalOUT1: 0,
+            totalUPD1: 0,
+            totalBEG1_AMT: 0,
+            totalIN1_AMT: 0,
+            totalOUT1_AMT: 0,
+            totalUPD1_AMT: 0
+        });
+
+        return totals;
+    };
+
+    const handlePrint = () => {
+        const printWindow = window.open('', '_blank');
+        const printContent = generatePrintHTML();
+        printWindow.document.write(printContent);
+        printWindow.document.close();
+        
+        // รอให้โหลดเสร็จก่อนพิมพ์
+        setTimeout(() => {
+            printWindow.print();
+        }, 250);
+    };
+
+    const generatePrintHTML = () => {
+        const totals = calculateTotals();
+        const monthName = monthNames[parseInt(selectedMonth) - 1];
+        const drugName = selectedDrug ? (selectedDrug.GENERIC_NAME || selectedDrug.DRUG_CODE) : '';
+
+        return `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>รายงานสต็อกการ์ดประจำเดือน - ${monthName} ${selectedYear}</title>
+    <style>
+        @page {
+            size: A4 landscape;
+            margin: 10mm;
+        }
+        body {
+            font-family: 'Sarabun', Arial, sans-serif;
+            font-size: 12px;
+            margin: 0;
+            padding: 20px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .clinic-name {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .report-title {
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .period {
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+        .drug-name {
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+        .drug-name label {
+            font-weight: bold;
+        }
+        .drug-name span {
+            border-bottom: 1px solid #000;
+            padding: 0 10px;
+            min-width: 300px;
+            display: inline-block;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+            font-size: 11px;
+        }
+        th, td {
+            border: 1px solid #000;
+            padding: 4px 6px;
+            text-align: center;
+        }
+        th {
+            background-color: #f0f0f0;
+            font-weight: bold;
+        }
+        .text-left {
+            text-align: left;
+        }
+        .text-right {
+            text-align: right;
+        }
+        .total-row {
+            font-weight: bold;
+            background-color: #f0f0f0;
+        }
+        .total-row td:last-child {
+            border: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="clinic-name">สัมพันธ์คลีนิค</div>
+        <div class="report-title">รายงานสต็อกการ์ดประจำเดือน</div>
+        <div class="period">เดือน${monthName} ${selectedYear}</div>
+    </div>
+    
+    <div class="drug-name">
+        <label>ยา:</label>
+        <span>${drugName}</span>
+    </div>
+    
+    <table>
+        <thead>
+            <tr>
+                <th rowspan="2">ที่</th>
+                <th rowspan="2">วันที่</th>
+                <th rowspan="2">เลขที่เอกสาร</th>
+                <th rowspan="2">LOT No</th>
+                <th rowspan="2">Expire Date</th>
+                <th colspan="5">จำนวน</th>
+                <th rowspan="2">ราคาต่อหน่วย</th>
+                <th colspan="5">จำนวนเงิน</th>
+            </tr>
+            <tr>
+                <th>ยกมา</th>
+                <th>รับ</th>
+                <th>จ่าย</th>
+                <th>ปรับปรุง</th>
+                <th>คงเหลือ</th>
+                <th>ยกมา</th>
+                <th>รับ</th>
+                <th>จ่าย</th>
+                <th>ปรับปรุง</th>
+                <th>คงเหลือ</th>
+            </tr>
+        </thead>
+        <tbody>
+            ${stockCardData.map((item, index) => `
+                <tr>
+                    <td>${index + 1}</td>
+                    <td>${formatDateBE(item.RDATE)}</td>
+                    <td class="text-left">${item.REFNO || '-'}</td>
+                    <td>${item.LOTNO || '-'}</td>
+                    <td>${formatDateBEForExpire(item.EXPIRE_DATE)}</td>
+                    <td class="text-right">${(parseFloat(item.BEG1) || 0).toFixed(2)}</td>
+                    <td class="text-right">${(parseFloat(item.IN1) || 0).toFixed(2)}</td>
+                    <td class="text-right">${(parseFloat(item.OUT1) || 0).toFixed(2)}</td>
+                    <td class="text-right">${(parseFloat(item.UPD1) || 0).toFixed(2)}</td>
+                    <td class="text-right">${(item.endingQty || 0).toFixed(2)}</td>
+                    <td class="text-right">${(parseFloat(item.UNIT_COST) || 0).toFixed(2)}</td>
+                    <td class="text-right">${(parseFloat(item.BEG1_AMT) || 0).toFixed(2)}</td>
+                    <td class="text-right">${(parseFloat(item.IN1_AMT) || 0).toFixed(2)}</td>
+                    <td class="text-right">${(parseFloat(item.OUT1_AMT) || 0).toFixed(2)}</td>
+                    <td class="text-right">${(parseFloat(item.UPD1_AMT) || 0).toFixed(2)}</td>
+                    <td class="text-right">${(item.endingAmt || 0).toFixed(2)}</td>
+                </tr>
+            `).join('')}
+            <tr class="total-row">
+                <td colspan="5" class="text-right">รวม</td>
+                <td class="text-right">${totals.totalBEG1.toFixed(2)}</td>
+                <td class="text-right">${totals.totalIN1.toFixed(2)}</td>
+                <td class="text-right">${totals.totalOUT1.toFixed(2)}</td>
+                <td class="text-right">${totals.totalUPD1.toFixed(2)}</td>
+                <td></td>
+                <td></td>
+                <td class="text-right">${totals.totalBEG1_AMT.toFixed(2)}</td>
+                <td class="text-right">${totals.totalIN1_AMT.toFixed(2)}</td>
+                <td class="text-right">${totals.totalOUT1_AMT.toFixed(2)}</td>
+                <td class="text-right">${totals.totalUPD1_AMT.toFixed(2)}</td>
+                <td></td>
+            </tr>
+        </tbody>
+    </table>
+</body>
+</html>
+        `;
+    };
+
+    const showSnackbar = (message, severity) => {
+        setSnackbar({ open: true, message, severity });
+    };
+
+    const handleCloseSnackbar = () => {
+        setSnackbar({ ...snackbar, open: false });
+    };
+
+    const getYearOptionsBE = () => {
+        const currentYear = new Date().getFullYear() + 543;
+        const options = [];
+        for (let i = 0; i <= 5; i++) {
+            const year = currentYear - i;
+            options.push({ value: year.toString(), label: year.toString() });
+        }
+        return options;
+    };
+
+    const totals = calculateTotals();
+
+    return (
+        <Box>
+            <Card sx={{ mb: 2 }}>
+                <CardContent>
+                    <Grid container spacing={2} alignItems="center">
+                        <Grid item xs={12} md={4}>
+                            <Autocomplete
+                                options={drugList}
+                                getOptionLabel={(option) => `${option.GENERIC_NAME || option.DRUG_CODE || ''} (${option.DRUG_CODE || ''})`}
+                                value={selectedDrug}
+                                onChange={(event, newValue) => setSelectedDrug(newValue)}
+                                // ✅ ใช้ DRUG_CODE เพื่อเปรียบเทียบเพื่อหลีกเลี่ยง duplicate key
+                                isOptionEqualToValue={(option, value) => option?.DRUG_CODE === value?.DRUG_CODE}
+                                renderOption={(props, option) => (
+                                    <li {...props} key={option.DRUG_CODE}>
+                                        {option.GENERIC_NAME || option.DRUG_CODE || ''} ({option.DRUG_CODE || ''})
+                                    </li>
+                                )}
+                                renderInput={(params) => (
+                                    <TextField
+                                        {...params}
+                                        label="ยา (ไม่เลือก = ดูทั้งหมด)"
+                                        placeholder="เลือกยา หรือเว้นว่างเพื่อดูทั้งหมด"
+                                        size="small"
+                                        sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
+                                    />
+                                )}
+                                filterOptions={(options, { inputValue }) => {
+                                    const searchTerm = inputValue.toLowerCase();
+                                    return options.filter(option =>
+                                        (option.GENERIC_NAME || '').toLowerCase().includes(searchTerm) ||
+                                        (option.TRADE_NAME || '').toLowerCase().includes(searchTerm) ||
+                                        (option.DRUG_CODE || '').toLowerCase().includes(searchTerm)
+                                    );
+                                }}
+                            />
+                        </Grid>
+                        <Grid item xs={12} md={2}>
+                            <FormControl fullWidth size="small">
+                                <InputLabel>ปี (พ.ศ.)</InputLabel>
+                                <Select
+                                    value={selectedYear}
+                                    onChange={(e) => setSelectedYear(e.target.value)}
+                                    label="ปี (พ.ศ.)"
+                                    sx={{ borderRadius: "10px" }}
+                                >
+                                    {getYearOptionsBE().map((year) => (
+                                        <MenuItem key={year.value} value={year.value}>
+                                            {year.label}
+                                        </MenuItem>
+                                    ))}
+                                </Select>
+                            </FormControl>
+                        </Grid>
+                        <Grid item xs={12} md={2}>
+                            <FormControl fullWidth size="small">
+                                <InputLabel>เดือน</InputLabel>
+                                <Select
+                                    value={selectedMonth}
+                                    onChange={(e) => setSelectedMonth(e.target.value)}
+                                    label="เดือน"
+                                    sx={{ borderRadius: "10px" }}
+                                >
+                                    {monthNames.map((month, index) => (
+                                        <MenuItem key={index + 1} value={(index + 1).toString()}>
+                                            {month}
+                                        </MenuItem>
+                                    ))}
+                                </Select>
+                            </FormControl>
+                        </Grid>
+                        <Grid item xs={12} md={4}>
+                            <Box sx={{ display: 'flex', gap: 1 }}>
+                                <Button
+                                    variant="contained"
+                                    startIcon={<RefreshIcon />}
+                                    onClick={loadStockCardData}
+                                    disabled={loading}
+                                    sx={{ borderRadius: "10px", backgroundColor: '#5698E0' }}
+                                >
+                                    ค้นหา
+                                </Button>
+                                <Button
+                                    variant="outlined"
+                                    startIcon={<PrintIcon />}
+                                    onClick={handlePrint}
+                                    disabled={loading || stockCardData.length === 0}
+                                    sx={{ borderRadius: "10px" }}
+                                >
+                                    พิมพ์
+                                </Button>
+                            </Box>
+                        </Grid>
+                    </Grid>
+                </CardContent>
+            </Card>
+
+            {loading && (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                    <CircularProgress />
+                </Box>
+            )}
+
+            {error && (
+                <Alert severity="error" sx={{ mb: 2 }}>
+                    {error}
+                </Alert>
+            )}
+
+            {!loading && !error && stockCardData.length > 0 && (
+                <Card>
+                    <CardContent>
+                        {/* Header สำหรับแสดงผล */}
+                        <Box sx={{ textAlign: 'center', mb: 3 }}>
+                            <Typography variant="h5" fontWeight="bold" sx={{ mb: 1 }}>
+                                สัมพันธ์คลีนิค
+                            </Typography>
+                            <Typography variant="h6" fontWeight="bold" sx={{ mb: 1 }}>
+                                รายงานสต็อกการ์ดประจำเดือน
+                            </Typography>
+                            <Typography variant="body1">
+                                เดือน{monthNames[parseInt(selectedMonth) - 1]} {selectedYear}
+                            </Typography>
+                            <Box sx={{ mt: 2, textAlign: 'left', display: 'inline-block' }}>
+                                <Typography variant="body1">
+                                    <strong>ยา:</strong> {selectedDrug 
+                                        ? (selectedDrug.GENERIC_NAME || selectedDrug.DRUG_CODE || '') 
+                                        : 'ทั้งหมด'}
+                                </Typography>
+                            </Box>
+                        </Box>
+
+                        <TableContainer component={Paper} sx={{ maxHeight: '70vh', overflow: 'auto' }}>
+                            <Table stickyHeader size="small">
+                                <TableHead>
+                                    <TableRow>
+                                        <TableCell rowSpan={2} align="center" sx={{ border: '1px solid #ddd', fontWeight: 'bold' }}>ที่</TableCell>
+                                        {!selectedDrug && (
+                                            <TableCell rowSpan={2} align="center" sx={{ border: '1px solid #ddd', fontWeight: 'bold' }}>ชื่อยา</TableCell>
+                                        )}
+                                        <TableCell rowSpan={2} align="center" sx={{ border: '1px solid #ddd', fontWeight: 'bold' }}>วันที่</TableCell>
+                                        <TableCell rowSpan={2} align="center" sx={{ border: '1px solid #ddd', fontWeight: 'bold' }}>เลขที่เอกสาร</TableCell>
+                                        <TableCell rowSpan={2} align="center" sx={{ border: '1px solid #ddd', fontWeight: 'bold' }}>LOT No</TableCell>
+                                        <TableCell rowSpan={2} align="center" sx={{ border: '1px solid #ddd', fontWeight: 'bold' }}>Expire Date</TableCell>
+                                        <TableCell colSpan={5} align="center" sx={{ border: '1px solid #ddd', fontWeight: 'bold' }}>จำนวน</TableCell>
+                                        <TableCell rowSpan={2} align="center" sx={{ border: '1px solid #ddd', fontWeight: 'bold' }}>ราคาต่อหน่วย</TableCell>
+                                        <TableCell colSpan={5} align="center" sx={{ border: '1px solid #ddd', fontWeight: 'bold' }}>จำนวนเงิน</TableCell>
+                                    </TableRow>
+                                    <TableRow>
+                                        <TableCell align="center" sx={{ border: '1px solid #ddd', fontWeight: 'bold' }}>ยกมา</TableCell>
+                                        <TableCell align="center" sx={{ border: '1px solid #ddd', fontWeight: 'bold' }}>รับ</TableCell>
+                                        <TableCell align="center" sx={{ border: '1px solid #ddd', fontWeight: 'bold' }}>จ่าย</TableCell>
+                                        <TableCell align="center" sx={{ border: '1px solid #ddd', fontWeight: 'bold' }}>ปรับปรุง</TableCell>
+                                        <TableCell align="center" sx={{ border: '1px solid #ddd', fontWeight: 'bold' }}>คงเหลือ</TableCell>
+                                        <TableCell align="center" sx={{ border: '1px solid #ddd', fontWeight: 'bold' }}>ยกมา</TableCell>
+                                        <TableCell align="center" sx={{ border: '1px solid #ddd', fontWeight: 'bold' }}>รับ</TableCell>
+                                        <TableCell align="center" sx={{ border: '1px solid #ddd', fontWeight: 'bold' }}>จ่าย</TableCell>
+                                        <TableCell align="center" sx={{ border: '1px solid #ddd', fontWeight: 'bold' }}>ปรับปรุง</TableCell>
+                                        <TableCell align="center" sx={{ border: '1px solid #ddd', fontWeight: 'bold' }}>คงเหลือ</TableCell>
+                                    </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                    {stockCardData.map((item, index) => (
+                                        <TableRow key={`${item.DRUG_CODE}-${item.REFNO}-${item.RDATE}-${index}`}>
+                                            <TableCell align="center" sx={{ border: '1px solid #ddd' }}>{index + 1}</TableCell>
+                                            {!selectedDrug && (
+                                                <TableCell align="left" sx={{ border: '1px solid #ddd' }}>
+                                                    {item.GENERIC_NAME || item.DRUG_CODE || '-'}
+                                                </TableCell>
+                                            )}
+                                            <TableCell align="center" sx={{ border: '1px solid #ddd' }}>{formatDateBE(item.RDATE)}</TableCell>
+                                            <TableCell align="left" sx={{ border: '1px solid #ddd' }}>{item.REFNO || '-'}</TableCell>
+                                            <TableCell align="center" sx={{ border: '1px solid #ddd' }}>{item.LOTNO || '-'}</TableCell>
+                                            <TableCell align="center" sx={{ border: '1px solid #ddd' }}>{formatDateBEForExpire(item.EXPIRE_DATE)}</TableCell>
+                                            <TableCell align="right" sx={{ border: '1px solid #ddd' }}>{(parseFloat(item.BEG1) || 0).toFixed(2)}</TableCell>
+                                            <TableCell align="right" sx={{ border: '1px solid #ddd' }}>{(parseFloat(item.IN1) || 0).toFixed(2)}</TableCell>
+                                            <TableCell align="right" sx={{ border: '1px solid #ddd' }}>{(parseFloat(item.OUT1) || 0).toFixed(2)}</TableCell>
+                                            <TableCell align="right" sx={{ border: '1px solid #ddd' }}>{(parseFloat(item.UPD1) || 0).toFixed(2)}</TableCell>
+                                            <TableCell align="right" sx={{ border: '1px solid #ddd', fontWeight: 'bold' }}>{(item.endingQty || 0).toFixed(2)}</TableCell>
+                                            <TableCell align="right" sx={{ border: '1px solid #ddd' }}>{(parseFloat(item.UNIT_COST) || 0).toFixed(2)}</TableCell>
+                                            <TableCell align="right" sx={{ border: '1px solid #ddd' }}>{(parseFloat(item.BEG1_AMT) || 0).toFixed(2)}</TableCell>
+                                            <TableCell align="right" sx={{ border: '1px solid #ddd' }}>{(parseFloat(item.IN1_AMT) || 0).toFixed(2)}</TableCell>
+                                            <TableCell align="right" sx={{ border: '1px solid #ddd' }}>{(parseFloat(item.OUT1_AMT) || 0).toFixed(2)}</TableCell>
+                                            <TableCell align="right" sx={{ border: '1px solid #ddd' }}>{(parseFloat(item.UPD1_AMT) || 0).toFixed(2)}</TableCell>
+                                            <TableCell align="right" sx={{ border: '1px solid #ddd', fontWeight: 'bold' }}>{(item.endingAmt || 0).toFixed(2)}</TableCell>
+                                        </TableRow>
+                                    ))}
+                                    <TableRow sx={{ backgroundColor: '#f5f5f5', fontWeight: 'bold' }}>
+                                        <TableCell colSpan={selectedDrug ? 5 : 6} align="right" sx={{ border: '1px solid #ddd' }}>รวม</TableCell>
+                                        <TableCell align="right" sx={{ border: '1px solid #ddd' }}>{totals.totalBEG1.toFixed(2)}</TableCell>
+                                        <TableCell align="right" sx={{ border: '1px solid #ddd' }}>{totals.totalIN1.toFixed(2)}</TableCell>
+                                        <TableCell align="right" sx={{ border: '1px solid #ddd' }}>{totals.totalOUT1.toFixed(2)}</TableCell>
+                                        <TableCell align="right" sx={{ border: '1px solid #ddd' }}>{totals.totalUPD1.toFixed(2)}</TableCell>
+                                        <TableCell sx={{ border: '1px solid #ddd' }}></TableCell>
+                                        <TableCell sx={{ border: '1px solid #ddd' }}></TableCell>
+                                        <TableCell align="right" sx={{ border: '1px solid #ddd' }}>{totals.totalBEG1_AMT.toFixed(2)}</TableCell>
+                                        <TableCell align="right" sx={{ border: '1px solid #ddd' }}>{totals.totalIN1_AMT.toFixed(2)}</TableCell>
+                                        <TableCell align="right" sx={{ border: '1px solid #ddd' }}>{totals.totalOUT1_AMT.toFixed(2)}</TableCell>
+                                        <TableCell align="right" sx={{ border: '1px solid #ddd' }}>{totals.totalUPD1_AMT.toFixed(2)}</TableCell>
+                                        <TableCell sx={{ border: '1px solid #ddd' }}></TableCell>
+                                    </TableRow>
+                                </TableBody>
+                            </Table>
+                        </TableContainer>
+                    </CardContent>
+                </Card>
+            )}
+
+            {!loading && !error && stockCardData.length === 0 && (
+                <Alert severity="info" sx={{ mt: 2 }}>
+                    {selectedDrug 
+                        ? 'ไม่พบข้อมูลสต็อกการ์ดสำหรับยาที่เลือกในช่วงเวลาที่ระบุ'
+                        : 'ไม่พบข้อมูลสต็อกการ์ดในช่วงเวลาที่ระบุ'}
+                </Alert>
+            )}
+
+            <Snackbar
+                open={snackbar.open}
+                autoHideDuration={4000}
+                onClose={handleCloseSnackbar}
+                anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+            >
+                <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: '100%' }}>
+                    {snackbar.message}
+                </Alert>
+            </Snackbar>
+        </Box>
+    );
+};
+
+export default StockCardReport;
+

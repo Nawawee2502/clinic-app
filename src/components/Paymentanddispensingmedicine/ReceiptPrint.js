@@ -5,7 +5,8 @@ const ReceiptPrint = ({ patient, items, paymentData }) => {
     if (!patient) return null;
 
     const totalAmount = items.reduce((sum, i) => sum + i.price, 0);
-    const finalAmount = totalAmount - (paymentData.discount || 0);
+    const discount = parseFloat(paymentData?.discount || 0);
+    const finalAmount = Math.max(0, totalAmount - discount);
 
     const handlePrint = () => {
         const receiptWindow = window.open('', '_blank', 'width=800,height=900');
@@ -391,10 +392,10 @@ const ReceiptPrint = ({ patient, items, paymentData }) => {
                                 <span class="summary-value">${totalAmount.toFixed(2)} บาท</span>
                             </div>
                             
-                            ${paymentData.discount > 0 ? `
+                            ${discount > 0 ? `
                             <div class="summary-row">
                                 <span class="summary-label">หักส่วนลด:</span>
-                                <span class="summary-value">-${paymentData.discount.toFixed(2)} บาท</span>
+                                <span class="summary-value">-${discount.toFixed(2)} บาท</span>
                             </div>
                             ` : ''}
                             

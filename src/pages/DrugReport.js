@@ -1,6 +1,8 @@
 import React from "react";
 import { Container, Tabs, Tab, Card, CardContent, Typography } from "@mui/material";
 import BalanceDrugReport from "../components/Report/BalanceDrugReport";
+import StockCardReport from "../components/Report/StockCardReport";
+import ExpiringDrugsReport from "../components/Report/ExpiringDrugsReport";
 
 function DrugReport() {
     const [tabIndex, setTabIndex] = React.useState(0);
@@ -52,9 +54,8 @@ function DrugReport() {
             <Card sx={{ mt: 2 }}>
                 <CardContent>
                     {tabIndex === 0 && <BalanceDrugReport />}
-                    {tabIndex === 1 && <Typography>สต็อกการ์ด - Coming Soon</Typography>}
-                    {tabIndex === 2 && <Typography>รายงานการเคลื่อนไหวสินค้า - Coming Soon</Typography>}
-                    {tabIndex === 3 && <Typography>รายงานยาเวชภัณฑ์ใกล้หมดอายุ - Coming Soon</Typography>}
+                    {tabIndex === 1 && <StockCardReport />}
+                    {tabIndex === 2 && <ExpiringDrugsReport />}
                 </CardContent>
             </Card>
         </Container>
