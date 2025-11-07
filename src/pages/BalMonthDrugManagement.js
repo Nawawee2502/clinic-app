@@ -12,6 +12,10 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import CloseIcon from '@mui/icons-material/Close';
 import FilterListIcon from '@mui/icons-material/FilterList';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import dayjs from 'dayjs';
 
 import BalMonthDrugService from "../services/balMonthDrugService";
 import DrugService from "../services/drugService";
@@ -377,358 +381,370 @@ const BalMonthDrugManagement = () => {
 
     if (currentView === "add" || currentView === "edit") {
         return (
-            <Container maxWidth="md" sx={{ mt: 2 }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                    <Typography variant="h5" fontWeight="bold">
-                        {currentView === "add" ? "เพิ่มยอดยกมา" : "แก้ไขยอดยกมา"}
-                    </Typography>
-                    <Button variant="outlined" startIcon={<CloseIcon />} onClick={() => { resetForm(); setCurrentView("list"); }}>
-                        ปิด
-                    </Button>
-                </Box>
+            <LocalizationProvider dateAdapter={AdapterDayjs}>
+                <Container maxWidth="md" sx={{ mt: 2 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                        <Typography variant="h5" fontWeight="bold">
+                            {currentView === "add" ? "เพิ่มยอดยกมา" : "แก้ไขยอดยกมา"}
+                        </Typography>
+                        <Button variant="outlined" startIcon={<CloseIcon />} onClick={() => { resetForm(); setCurrentView("list"); }}>
+                            ปิด
+                        </Button>
+                    </Box>
 
-                <Card>
-                    <CardContent>
-                        <Grid container spacing={3}>
-                            <Grid item xs={12} md={4}>
-                                <Typography sx={{ fontWeight: 400, fontSize: 16, mb: 1 }}>ปี *</Typography>
-                                <FormControl fullWidth size="small">
-                                    <Select
-                                        value={formData.MYEAR}
-                                        onChange={(e) => handleFormChange('MYEAR', e.target.value)}
+                    <Card>
+                        <CardContent>
+                            <Grid container spacing={3}>
+                                <Grid item xs={12} md={4}>
+                                    <Typography sx={{ fontWeight: 400, fontSize: 16, mb: 1 }}>ปี *</Typography>
+                                    <FormControl fullWidth size="small">
+                                        <Select
+                                            value={formData.MYEAR}
+                                            onChange={(e) => handleFormChange('MYEAR', e.target.value)}
+                                            disabled={!!editingItem}
+                                            sx={{ borderRadius: "10px", backgroundColor: editingItem ? "#f5f5f5" : "white" }}
+                                        >
+                                            {getYearOptionsBE(5).map(opt => (
+                                                <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
+                                            ))}
+                                        </Select>
+                                    </FormControl>
+                                </Grid>
+
+                                <Grid item xs={12} md={4}>
+                                    <Typography sx={{ fontWeight: 400, fontSize: 16, mb: 1 }}>เดือน *</Typography>
+                                    <FormControl fullWidth size="small">
+                                        <Select
+                                            value={formData.MONTHH}
+                                            onChange={(e) => handleFormChange('MONTHH', e.target.value)}
+                                            disabled={!!editingItem}
+                                            sx={{ borderRadius: "10px", backgroundColor: editingItem ? "#f5f5f5" : "white" }}
+                                        >
+                                            {BalMonthDrugService.getMonthOptions().map(opt => (
+                                                <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
+                                            ))}
+                                        </Select>
+                                    </FormControl>
+                                </Grid>
+
+                                <Grid item xs={12}>
+                                    <Typography sx={{ fontWeight: 400, fontSize: 16, mb: 1 }}>ยา *</Typography>
+                                    <Autocomplete
+                                        value={selectedDrug}
+                                        onChange={handleDrugSelect}
+                                        options={drugList}
+                                        getOptionLabel={(option) => {
+                                            return option.GENERIC_NAME || option.DRUG_CODE || '';
+                                        }}
+                                        // ✅ ใช้ DRUG_CODE เป็น key แทน GENERIC_NAME เพื่อหลีกเลี่ยง duplicate key
+                                        isOptionEqualToValue={(option, value) => option?.DRUG_CODE === value?.DRUG_CODE}
+                                        renderOption={(props, option) => (
+                                            <li {...props} key={option.DRUG_CODE}>
+                                                {option.GENERIC_NAME || option.DRUG_CODE || ''} ({option.DRUG_CODE || ''})
+                                            </li>
+                                        )}
+                                        filterOptions={(options, { inputValue }) => {
+                                            const searchTerm = inputValue.toLowerCase();
+                                            return options.filter(option => 
+                                                (option.GENERIC_NAME || '').toLowerCase().includes(searchTerm) ||
+                                                (option.TRADE_NAME || '').toLowerCase().includes(searchTerm) ||
+                                                (option.DRUG_CODE || '').toLowerCase().includes(searchTerm)
+                                            );
+                                        }}
+                                        renderInput={(params) => <TextField {...params} placeholder="เลือกยา" size="small" />}
                                         disabled={!!editingItem}
-                                        sx={{ borderRadius: "10px", backgroundColor: editingItem ? "#f5f5f5" : "white" }}
-                                    >
-                                        {getYearOptionsBE(5).map(opt => (
-                                            <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
-                                        ))}
-                                    </Select>
-                                </FormControl>
-                            </Grid>
+                                        sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px", backgroundColor: editingItem ? "#f5f5f5" : "white" } }}
+                                    />
+                                </Grid>
 
-                            <Grid item xs={12} md={4}>
-                                <Typography sx={{ fontWeight: 400, fontSize: 16, mb: 1 }}>เดือน *</Typography>
-                                <FormControl fullWidth size="small">
-                                    <Select
-                                        value={formData.MONTHH}
-                                        onChange={(e) => handleFormChange('MONTHH', e.target.value)}
-                                        disabled={!!editingItem}
-                                        sx={{ borderRadius: "10px", backgroundColor: editingItem ? "#f5f5f5" : "white" }}
-                                    >
-                                        {BalMonthDrugService.getMonthOptions().map(opt => (
-                                            <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
-                                        ))}
-                                    </Select>
-                                </FormControl>
-                            </Grid>
+                                <Grid item xs={12} md={6}>
+                                    <Typography sx={{ fontWeight: 400, fontSize: 16, mb: 1 }}>หน่วยนับ</Typography>
+                                    <TextField
+                                        size="small"
+                                        value={
+                                            selectedDrug
+                                                ? `${selectedDrug.UNIT_NAME1 || ''}` // แสดงทั้งชื่อและรหัส
+                                                : formData.UNIT_CODE1
+                                        }
+                                        disabled
+                                        fullWidth
+                                        sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px", backgroundColor: "#f5f5f5" } }}
+                                    />
+                                </Grid>
 
-                            <Grid item xs={12}>
-                                <Typography sx={{ fontWeight: 400, fontSize: 16, mb: 1 }}>ยา *</Typography>
-                                <Autocomplete
-                                    value={selectedDrug}
-                                    onChange={handleDrugSelect}
-                                    options={drugList}
-                                    getOptionLabel={(option) => {
-                                        return option.GENERIC_NAME || option.DRUG_CODE || '';
-                                    }}
-                                    // ✅ ใช้ DRUG_CODE เป็น key แทน GENERIC_NAME เพื่อหลีกเลี่ยง duplicate key
-                                    isOptionEqualToValue={(option, value) => option?.DRUG_CODE === value?.DRUG_CODE}
-                                    renderOption={(props, option) => (
-                                        <li {...props} key={option.DRUG_CODE}>
-                                            {option.GENERIC_NAME || option.DRUG_CODE || ''} ({option.DRUG_CODE || ''})
-                                        </li>
+                                <Grid item xs={12} md={6}>
+                                    <Typography sx={{ fontWeight: 400, fontSize: 16, mb: 1 }}>จำนวน *</Typography>
+                                    <TextField
+                                        size="small"
+                                        type="number"
+                                        placeholder="0"
+                                        value={formData.QTY}
+                                        onChange={(e) => handleFormChange('QTY', e.target.value)}
+                                        fullWidth
+                                        inputProps={{ step: "0.01", min: "0" }}
+                                        sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
+                                    />
+                                </Grid>
+
+                                <Grid item xs={12} md={6}>
+                                    <Typography sx={{ fontWeight: 400, fontSize: 16, mb: 1 }}>ราคาต่อหน่วย *</Typography>
+                                    <TextField
+                                        size="small"
+                                        type="number"
+                                        placeholder="0.00"
+                                        value={formData.UNIT_PRICE}
+                                        onChange={(e) => handleFormChange('UNIT_PRICE', e.target.value)}
+                                        fullWidth
+                                        inputProps={{ step: "0.01", min: "0" }}
+                                        sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
+                                    />
+                                </Grid>
+
+                                <Grid item xs={12} md={6}>
+                                    <Typography sx={{ fontWeight: 400, fontSize: 16, mb: 1 }}>จำนวนเงิน</Typography>
+                                    <TextField
+                                        size="small"
+                                        value={BalMonthDrugService.formatCurrency(formData.AMT)}
+                                        disabled
+                                        fullWidth
+                                        sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px", backgroundColor: "#f5f5f5" } }}
+                                    />
+                                </Grid>
+
+                                <Grid item xs={12} md={6}>
+                                    <Typography sx={{ fontWeight: 400, fontSize: 16, mb: 1 }}>LOT NO</Typography>
+                                    <TextField
+                                        size="small"
+                                        placeholder="LOT NO"
+                                        value={formData.LOT_NO}
+                                        onChange={(e) => handleFormChange('LOT_NO', e.target.value)}
+                                        fullWidth
+                                        sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
+                                    />
+                                </Grid>
+
+                                <Grid item xs={12} md={6} sx={{ mt: '32px' }}>
+                                    <DatePicker
+                                        label="วันหมดอายุ"
+                                        value={formData.EXPIRE_DATE ? dayjs(formData.EXPIRE_DATE) : null}
+                                        onChange={(newValue) => handleFormChange('EXPIRE_DATE', newValue ? newValue.format('YYYY-MM-DD') : '')}
+                                    renderInput={(params) => (
+                                        <TextField
+                                            {...params}
+                                            fullWidth
+                                            size="small"
+                                            sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
+                                        />
                                     )}
-                                    filterOptions={(options, { inputValue }) => {
-                                        const searchTerm = inputValue.toLowerCase();
-                                        return options.filter(option => 
-                                            (option.GENERIC_NAME || '').toLowerCase().includes(searchTerm) ||
-                                            (option.TRADE_NAME || '').toLowerCase().includes(searchTerm) ||
-                                            (option.DRUG_CODE || '').toLowerCase().includes(searchTerm)
-                                        );
-                                    }}
-                                    renderInput={(params) => <TextField {...params} placeholder="เลือกยา" size="small" />}
-                                    disabled={!!editingItem}
-                                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px", backgroundColor: editingItem ? "#f5f5f5" : "white" } }}
-                                />
+                                    />
+                                </Grid>
                             </Grid>
 
-                            <Grid item xs={12} md={6}>
-                                <Typography sx={{ fontWeight: 400, fontSize: 16, mb: 1 }}>หน่วยนับ</Typography>
-                                <TextField
-                                    size="small"
-                                    value={
-                                        selectedDrug
-                                            ? `${selectedDrug.UNIT_NAME1 || ''}` // แสดงทั้งชื่อและรหัส
-                                            : formData.UNIT_CODE1
-                                    }
-                                    disabled
-                                    fullWidth
-                                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px", backgroundColor: "#f5f5f5" } }}
-                                />
-                            </Grid>
-
-                            <Grid item xs={12} md={6}>
-                                <Typography sx={{ fontWeight: 400, fontSize: 16, mb: 1 }}>จำนวน *</Typography>
-                                <TextField
-                                    size="small"
-                                    type="number"
-                                    placeholder="0"
-                                    value={formData.QTY}
-                                    onChange={(e) => handleFormChange('QTY', e.target.value)}
-                                    fullWidth
-                                    inputProps={{ step: "0.01", min: "0" }}
-                                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
-                                />
-                            </Grid>
-
-                            <Grid item xs={12} md={6}>
-                                <Typography sx={{ fontWeight: 400, fontSize: 16, mb: 1 }}>ราคาต่อหน่วย *</Typography>
-                                <TextField
-                                    size="small"
-                                    type="number"
-                                    placeholder="0.00"
-                                    value={formData.UNIT_PRICE}
-                                    onChange={(e) => handleFormChange('UNIT_PRICE', e.target.value)}
-                                    fullWidth
-                                    inputProps={{ step: "0.01", min: "0" }}
-                                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
-                                />
-                            </Grid>
-
-                            <Grid item xs={12} md={6}>
-                                <Typography sx={{ fontWeight: 400, fontSize: 16, mb: 1 }}>จำนวนเงิน</Typography>
-                                <TextField
-                                    size="small"
-                                    value={BalMonthDrugService.formatCurrency(formData.AMT)}
-                                    disabled
-                                    fullWidth
-                                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px", backgroundColor: "#f5f5f5" } }}
-                                />
-                            </Grid>
-
-                            <Grid item xs={12} md={6}>
-                                <Typography sx={{ fontWeight: 400, fontSize: 16, mb: 1 }}>LOT NO</Typography>
-                                <TextField
-                                    size="small"
-                                    placeholder="LOT NO"
-                                    value={formData.LOT_NO}
-                                    onChange={(e) => handleFormChange('LOT_NO', e.target.value)}
-                                    fullWidth
-                                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
-                                />
-                            </Grid>
-
-                            <Grid item xs={12} md={6} sx={{ mt: '32px' }}>
-                                <DateInputBE
-                                    label="วันหมดอายุ"
-                                    value={formData.EXPIRE_DATE}
-                                    onChange={(value) => handleFormChange('EXPIRE_DATE', value)}
-                                />
-                            </Grid>
-                        </Grid>
-
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 3 }}>
-                            <Button variant="outlined" onClick={() => { resetForm(); setCurrentView("list"); }}>
-                                ยกเลิก
-                            </Button>
-                            <Button variant="contained" startIcon={<SaveIcon />} onClick={handleSave} disabled={loading}
-                                sx={{ backgroundColor: "#5698E0", minWidth: 150 }}>
-                                {loading ? 'กำลังบันทึก...' : 'บันทึก'}
-                            </Button>
-                        </Box>
-                    </CardContent>
-                </Card>
-            </Container>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 3 }}>
+                                <Button variant="outlined" onClick={() => { resetForm(); setCurrentView("list"); }}>
+                                    ยกเลิก
+                                </Button>
+                                <Button variant="contained" startIcon={<SaveIcon />} onClick={handleSave} disabled={loading}
+                                    sx={{ backgroundColor: "#5698E0", minWidth: 150 }}>
+                                    {loading ? 'กำลังบันทึก...' : 'บันทึก'}
+                                </Button>
+                            </Box>
+                        </CardContent>
+                    </Card>
+                </Container>
+            </LocalizationProvider>
         );
     }
 
     const summary = calculateSummary();
 
     return (
-        <Container maxWidth="lg" sx={{ mt: 2 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                <Typography variant="h6" fontWeight="bold">
-                    ยอดยกมา ({filteredList.length} รายการ)
-                </Typography>
-                {/* 🔥 แก้ไขตรงนี้ - เปลี่ยนจาก setCurrentView เป็น handleAddClick */}
-                <Button variant="contained" startIcon={<AddIcon />} onClick={handleAddClick} sx={{ backgroundColor: '#5698E0' }}>
-                    เพิ่มยอดยกมา
-                </Button>
-            </Box>
+        <LocalizationProvider dateAdapter={AdapterDayjs}>
+            <Container maxWidth="lg" sx={{ mt: 2 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                    <Typography variant="h6" fontWeight="bold">
+                        ยอดยกมา ({filteredList.length} รายการ)
+                    </Typography>
+                    {/* 🔥 แก้ไขตรงนี้ - เปลี่ยนจาก setCurrentView เป็น handleAddClick */}
+                    <Button variant="contained" startIcon={<AddIcon />} onClick={handleAddClick} sx={{ backgroundColor: '#5698E0' }}>
+                        เพิ่มยอดยกมา
+                    </Button>
+                </Box>
 
-            <Card sx={{ mb: 2 }}>
-                <CardContent>
-                    <Grid container spacing={2} alignItems="center">
-                        <Grid item xs={12} md={3}>
-                            <FormControl fullWidth size="small">
-                                <Select value={filterYear} onChange={(e) => setFilterYear(e.target.value)} sx={{ borderRadius: "10px" }}>
-                                    {getYearOptionsBE(5).map(opt => (
-                                        <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
-                                    ))}
-                                </Select>
-                            </FormControl>
-                        </Grid>
-                        <Grid item xs={12} md={3}>
-                            <FormControl fullWidth size="small">
-                                <Select value={filterMonth} onChange={(e) => setFilterMonth(e.target.value)} sx={{ borderRadius: "10px" }}>
-                                    {BalMonthDrugService.getMonthOptions().map(opt => (
-                                        <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
-                                    ))}
-                                </Select>
-                            </FormControl>
-                        </Grid>
-                        <Grid item xs={12} md={6}>
-                            <TextField
-                                size="small"
-                                placeholder="ค้นหา (รหัสยา, หน่วยนับ)"
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                fullWidth
-                                InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon color="action" /></InputAdornment> }}
-                                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
-                            />
-                        </Grid>
-                    </Grid>
-                </CardContent>
-            </Card>
-
-            <Card sx={{ mb: 2, backgroundColor: '#f0f7ff' }}>
-                <CardContent>
-                    <Grid container spacing={2}>
-                        <Grid item xs={12} md={4}>
-                            <Typography variant="body2" color="text.secondary">จำนวนรายการทั้งหมด</Typography>
-                            <Typography variant="h6" fontWeight="bold">{summary.totalItems} รายการ</Typography>
-                        </Grid>
-                        <Grid item xs={12} md={4}>
-                            <Typography variant="body2" color="text.secondary">จำนวนทั้งหมด</Typography>
-                            <Typography variant="h6" fontWeight="bold">{summary.totalQty.toFixed(2)}</Typography>
-                        </Grid>
-                        <Grid item xs={12} md={4}>
-                            <Typography variant="body2" color="text.secondary">มูลค่ารวม</Typography>
-                            <Typography variant="h6" fontWeight="bold" color="primary">
-                                {BalMonthDrugService.formatCurrency(summary.totalAmount)}
-                            </Typography>
-                        </Grid>
-                    </Grid>
-                </CardContent>
-            </Card>
-
-            {loading ? (
-                <Card><CardContent><Typography align="center">กำลังโหลด...</Typography></CardContent></Card>
-            ) : filteredList.length === 0 ? (
-                <Card>
+                <Card sx={{ mb: 2 }}>
                     <CardContent>
-                        <Box sx={{ textAlign: 'center', py: 4 }}>
-                            <Typography variant="h6" color="text.secondary">
-                                {searchTerm ? 'ไม่พบข้อมูลที่ค้นหา' : 'ยังไม่มีข้อมูล'}
-                            </Typography>
-                        </Box>
+                        <Grid container spacing={2} alignItems="center">
+                            <Grid item xs={12} md={3}>
+                                <FormControl fullWidth size="small">
+                                    <Select value={filterYear} onChange={(e) => setFilterYear(e.target.value)} sx={{ borderRadius: "10px" }}>
+                                        {getYearOptionsBE(5).map(opt => (
+                                            <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
+                                        ))}
+                                    </Select>
+                                </FormControl>
+                            </Grid>
+                            <Grid item xs={12} md={3}>
+                                <FormControl fullWidth size="small">
+                                    <Select value={filterMonth} onChange={(e) => setFilterMonth(e.target.value)} sx={{ borderRadius: "10px" }}>
+                                        {BalMonthDrugService.getMonthOptions().map(opt => (
+                                            <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
+                                        ))}
+                                    </Select>
+                                </FormControl>
+                            </Grid>
+                            <Grid item xs={12} md={6}>
+                                <TextField
+                                    size="small"
+                                    placeholder="ค้นหา (รหัสยา, หน่วยนับ)"
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    fullWidth
+                                    InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon color="action" /></InputAdornment> }}
+                                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
+                                />
+                            </Grid>
+                        </Grid>
                     </CardContent>
                 </Card>
-            ) : (
-                <Card>
+
+                <Card sx={{ mb: 2, backgroundColor: '#f0f7ff' }}>
                     <CardContent>
-                        <Box sx={{ overflowX: 'auto' }}>
-                            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '1000px' }}>
-                                <thead style={{ backgroundColor: "#F0F5FF" }}>
-                                    <tr>
-                                        <th style={{ padding: '12px 8px', textAlign: 'left', color: '#696969' }}>ลำดับ</th>
-                                        <th style={{ padding: '12px 8px', textAlign: 'left', color: '#696969' }}>ช่วงเวลา</th>
-                                        <th style={{ padding: '12px 8px', textAlign: 'left', color: '#696969' }}>รหัสยา</th>
-                                        <th style={{ padding: '12px 8px', textAlign: 'left', color: '#696969' }}>ชื่อยา</th>
-                                        <th style={{ padding: '12px 8px', textAlign: 'left', color: '#696969' }}>หน่วยนับ</th>
-                                        <th style={{ padding: '12px 8px', textAlign: 'right', color: '#696969' }}>จำนวน</th>
-                                        <th style={{ padding: '12px 8px', textAlign: 'right', color: '#696969' }}>ราคา/หน่วย</th>
-                                        <th style={{ padding: '12px 8px', textAlign: 'right', color: '#696969' }}>มูลค่า</th>
-                                        <th style={{ padding: '12px 8px', textAlign: 'left', color: '#696969' }}>LOT NO</th>
-                                        <th style={{ padding: '12px 8px', textAlign: 'left', color: '#696969' }}>วันหมดอายุ</th>
-                                        <th style={{ padding: '12px 8px', textAlign: 'center', color: '#696969' }}>จัดการ</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {filteredList.slice((page - 1) * itemsPerPage, page * itemsPerPage).map((item, index) => {
-                                        // หาชื่อยาจาก drugList
-                                        const drug = drugList.find(d => d.DRUG_CODE === item.DRUG_CODE);
-                                        const drugName = drug ? drug.GENERIC_NAME : '-';
-
-                                        // ⭐ เพิ่มส่วนนี้ - หาชื่อหน่วยจาก UNIT_CODE1
-                                        const unitName = drug && drug.UNIT_NAME1 ? drug.UNIT_NAME1 : (item.UNIT_CODE1 || '-');
-
-                                        return (
-                                            <tr key={index} style={{ borderTop: '1px solid #e0e0e0' }}>
-                                                <td style={{ padding: '12px 8px' }}>
-                                                    {(page - 1) * itemsPerPage + index + 1}
-                                                </td>
-                                                <td style={{ padding: '12px 8px', fontWeight: 500 }}>
-                                                    {formatPeriodBE(item.MYEAR, item.MONTHH)}
-                                                </td>
-                                                <td style={{ padding: '12px 8px' }}>
-                                                    {item.DRUG_CODE}
-                                                </td>
-                                                <td style={{ padding: '12px 8px' }}>
-                                                    {drugName}
-                                                </td>
-                                                <td style={{ padding: '12px 8px' }}>
-                                                    {unitName} {/* ⭐ เปลี่ยนตรงนี้ - จาก item.UNIT_CODE1 เป็น unitName */}
-                                                </td>
-                                                <td style={{ padding: '12px 8px', textAlign: 'right' }}>
-                                                    {item.QTY ? item.QTY.toFixed(2) : '0.00'}
-                                                </td>
-                                                <td style={{ padding: '12px 8px', textAlign: 'right' }}>
-                                                    {BalMonthDrugService.formatCurrency(item.UNIT_PRICE)}
-                                                </td>
-                                                <td style={{ padding: '12px 8px', textAlign: 'right', fontWeight: 500 }}>
-                                                    {BalMonthDrugService.formatCurrency(item.AMT)}
-                                                </td>
-                                                <td style={{ padding: '12px 8px' }}>
-                                                    {item.LOT_NO || '-'}
-                                                </td>
-                                                <td style={{ padding: '12px 8px' }}>
-                                                    {formatDateBE(item.EXPIRE_DATE)}
-                                                </td>
-                                                <td style={{ padding: '12px 8px', textAlign: 'center' }}>
-                                                    <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
-                                                        <IconButton size="small" onClick={() => handleEdit(item)}
-                                                            sx={{ border: '1px solid #5698E0', borderRadius: '7px' }}>
-                                                            <EditIcon sx={{ color: '#5698E0' }} />
-                                                        </IconButton>
-                                                        <IconButton size="small" onClick={() => handleDeleteClick(item)}
-                                                            sx={{ border: '1px solid #F62626', borderRadius: '7px' }}>
-                                                            <DeleteIcon sx={{ color: '#F62626' }} />
-                                                        </IconButton>
-                                                    </Box>
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
-                        </Box>
-
-                        <Stack spacing={2} direction="row" justifyContent="center" sx={{ mt: 3 }}>
-                            <Pagination count={totalPages} page={page} onChange={(event, value) => setPage(value)} shape="rounded" color="primary" />
-                        </Stack>
+                        <Grid container spacing={2}>
+                            <Grid item xs={12} md={4}>
+                                <Typography variant="body2" color="text.secondary">จำนวนรายการทั้งหมด</Typography>
+                                <Typography variant="h6" fontWeight="bold">{summary.totalItems} รายการ</Typography>
+                            </Grid>
+                            <Grid item xs={12} md={4}>
+                                <Typography variant="body2" color="text.secondary">จำนวนทั้งหมด</Typography>
+                                <Typography variant="h6" fontWeight="bold">{summary.totalQty.toFixed(2)}</Typography>
+                            </Grid>
+                            <Grid item xs={12} md={4}>
+                                <Typography variant="body2" color="text.secondary">มูลค่ารวม</Typography>
+                                <Typography variant="h6" fontWeight="bold" color="primary">
+                                    {BalMonthDrugService.formatCurrency(summary.totalAmount)}
+                                </Typography>
+                            </Grid>
+                        </Grid>
                     </CardContent>
                 </Card>
-            )}
 
-            <Dialog open={deleteDialog.open} onClose={() => setDeleteDialog({ open: false, item: null })}>
-                <DialogTitle>ยืนยันการลบ</DialogTitle>
-                <DialogContent>
-                    <Typography>คุณต้องการลบยอดยกมารายการนี้หรือไม่?</Typography>
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setDeleteDialog({ open: false, item: null })}>ยกเลิก</Button>
-                    <Button onClick={handleDeleteConfirm} variant="contained" color="error">ลบ</Button>
-                </DialogActions>
-            </Dialog>
+                {loading ? (
+                    <Card><CardContent><Typography align="center">กำลังโหลด...</Typography></CardContent></Card>
+                ) : filteredList.length === 0 ? (
+                    <Card>
+                        <CardContent>
+                            <Box sx={{ textAlign: 'center', py: 4 }}>
+                                <Typography variant="h6" color="text.secondary">
+                                    {searchTerm ? 'ไม่พบข้อมูลที่ค้นหา' : 'ยังไม่มีข้อมูล'}
+                                </Typography>
+                            </Box>
+                        </CardContent>
+                    </Card>
+                ) : (
+                    <Card>
+                        <CardContent>
+                            <Box sx={{ overflowX: 'auto' }}>
+                                <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '1000px' }}>
+                                    <thead style={{ backgroundColor: "#F0F5FF" }}>
+                                        <tr>
+                                            <th style={{ padding: '12px 8px', textAlign: 'left', color: '#696969' }}>ลำดับ</th>
+                                            <th style={{ padding: '12px 8px', textAlign: 'left', color: '#696969' }}>ช่วงเวลา</th>
+                                            <th style={{ padding: '12px 8px', textAlign: 'left', color: '#696969' }}>รหัสยา</th>
+                                            <th style={{ padding: '12px 8px', textAlign: 'left', color: '#696969' }}>ชื่อยา</th>
+                                            <th style={{ padding: '12px 8px', textAlign: 'left', color: '#696969' }}>หน่วยนับ</th>
+                                            <th style={{ padding: '12px 8px', textAlign: 'right', color: '#696969' }}>จำนวน</th>
+                                            <th style={{ padding: '12px 8px', textAlign: 'right', color: '#696969' }}>ราคา/หน่วย</th>
+                                            <th style={{ padding: '12px 8px', textAlign: 'right', color: '#696969' }}>มูลค่า</th>
+                                            <th style={{ padding: '12px 8px', textAlign: 'left', color: '#696969' }}>LOT NO</th>
+                                            <th style={{ padding: '12px 8px', textAlign: 'left', color: '#696969' }}>วันหมดอายุ</th>
+                                            <th style={{ padding: '12px 8px', textAlign: 'center', color: '#696969' }}>จัดการ</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {filteredList.slice((page - 1) * itemsPerPage, page * itemsPerPage).map((item, index) => {
+                                            // หาชื่อยาจาก drugList
+                                            const drug = drugList.find(d => d.DRUG_CODE === item.DRUG_CODE);
+                                            const drugName = drug ? drug.GENERIC_NAME : '-';
 
-            <Snackbar open={alert.open} autoHideDuration={3000} onClose={() => setAlert({ ...alert, open: false })}>
-                <Alert severity={alert.severity} onClose={() => setAlert({ ...alert, open: false })}>
-                    {alert.message}
-                </Alert>
-            </Snackbar>
-        </Container>
+                                            // ⭐ เพิ่มส่วนนี้ - หาชื่อหน่วยจาก UNIT_CODE1
+                                            const unitName = drug && drug.UNIT_NAME1 ? drug.UNIT_NAME1 : (item.UNIT_CODE1 || '-');
+
+                                            return (
+                                                <tr key={index} style={{ borderTop: '1px solid #e0e0e0' }}>
+                                                    <td style={{ padding: '12px 8px' }}>
+                                                        {(page - 1) * itemsPerPage + index + 1}
+                                                    </td>
+                                                    <td style={{ padding: '12px 8px', fontWeight: 500 }}>
+                                                        {formatPeriodBE(item.MYEAR, item.MONTHH)}
+                                                    </td>
+                                                    <td style={{ padding: '12px 8px' }}>
+                                                        {item.DRUG_CODE}
+                                                    </td>
+                                                    <td style={{ padding: '12px 8px' }}>
+                                                        {drugName}
+                                                    </td>
+                                                    <td style={{ padding: '12px 8px' }}>
+                                                        {unitName} {/* ⭐ เปลี่ยนตรงนี้ - จาก item.UNIT_CODE1 เป็น unitName */}
+                                                    </td>
+                                                    <td style={{ padding: '12px 8px', textAlign: 'right' }}>
+                                                        {item.QTY ? item.QTY.toFixed(2) : '0.00'}
+                                                    </td>
+                                                    <td style={{ padding: '12px 8px', textAlign: 'right' }}>
+                                                        {BalMonthDrugService.formatCurrency(item.UNIT_PRICE)}
+                                                    </td>
+                                                    <td style={{ padding: '12px 8px', textAlign: 'right', fontWeight: 500 }}>
+                                                        {BalMonthDrugService.formatCurrency(item.AMT)}
+                                                    </td>
+                                                    <td style={{ padding: '12px 8px' }}>
+                                                        {item.LOT_NO || '-'}
+                                                    </td>
+                                                    <td style={{ padding: '12px 8px' }}>
+                                                        {formatDateBE(item.EXPIRE_DATE)}
+                                                    </td>
+                                                    <td style={{ padding: '12px 8px', textAlign: 'center' }}>
+                                                        <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
+                                                            <IconButton size="small" onClick={() => handleEdit(item)}
+                                                                sx={{ border: '1px solid #5698E0', borderRadius: '7px' }}>
+                                                                <EditIcon sx={{ color: '#5698E0' }} />
+                                                            </IconButton>
+                                                            <IconButton size="small" onClick={() => handleDeleteClick(item)}
+                                                                sx={{ border: '1px solid #F62626', borderRadius: '7px' }}>
+                                                                <DeleteIcon sx={{ color: '#F62626' }} />
+                                                            </IconButton>
+                                                        </Box>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </Box>
+
+                            <Stack spacing={2} direction="row" justifyContent="center" sx={{ mt: 3 }}>
+                                <Pagination count={totalPages} page={page} onChange={(event, value) => setPage(value)} shape="rounded" color="primary" />
+                            </Stack>
+                        </CardContent>
+                    </Card>
+                )}
+
+                <Dialog open={deleteDialog.open} onClose={() => setDeleteDialog({ open: false, item: null })}>
+                    <DialogTitle>ยืนยันการลบ</DialogTitle>
+                    <DialogContent>
+                        <Typography>คุณต้องการลบยอดยกมารายการนี้หรือไม่?</Typography>
+                    </DialogContent>
+                    <DialogActions>
+                        <Button onClick={() => setDeleteDialog({ open: false, item: null })}>ยกเลิก</Button>
+                        <Button onClick={handleDeleteConfirm} variant="contained" color="error">ลบ</Button>
+                    </DialogActions>
+                </Dialog>
+
+                <Snackbar open={alert.open} autoHideDuration={3000} onClose={() => setAlert({ ...alert, open: false })}>
+                    <Alert severity={alert.severity} onClose={() => setAlert({ ...alert, open: false })}>
+                        {alert.message}
+                    </Alert>
+                </Snackbar>
+            </Container>
+        </LocalizationProvider>
     );
 };
 

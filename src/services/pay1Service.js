@@ -654,289 +654,218 @@ class Pay1Service {
     static generatePrintHTML(headerData, details) {
         const total = this.calculateTotal(details);
         const totalText = this.numberToThaiText(total);
+        const payeeName = headerData.NAME1 || '';
         const paymentMethod = headerData.TYPE_PAY === 'เงินสด' ? 'ชำระโดยเงินสด' : 'ชำระโดยเงินโอน';
-        const bankNo = headerData.BANK_NO && headerData.BANK_NO !== '-' ? headerData.BANK_NO : '';
-        
-        // ✅ แปลงวันที่เป็น พ.ศ.
+        const bankInfo = headerData.TYPE_PAY === 'เงินโอน' && headerData.BANK_NO && headerData.BANK_NO !== '-'
+            ? ` (${headerData.BANK_NO})`
+            : '';
+
         const dateBE = this.formatDateBEForPrint(headerData.RDATE);
+        const detailRows = details.map((item, index) => `
+                            <tr>
+                                <td class="text-center">${index + 1}</td>
+                                <td>${item.DESCM1 || ''}</td>
+                                <td class="text-center">${item.QTY || ''}</td>
+                                <td class="text-right">${this.formatCurrency(item.AMT)}</td>
+                            </tr>`).join('\n');
+        const emptyRows = Array.from({ length: Math.max(0, 4 - details.length) }, () => `
+                            <tr>
+                                <td>&nbsp;</td>
+                                <td></td>
+                                <td></td>
+                                <td></td>
+                            </tr>`).join('');
 
         return `
             <!DOCTYPE html>
             <html>
             <head>
                 <meta charset="UTF-8">
-                <title>ใบสำคัญจ่ายเงิน - ${headerData.REFNO}</title>
+                <title>ใบสำคัญจ่ายเงิน - ${headerData.REFNO || ''}</title>
                 <style>
                     @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap');
-                    * { 
-                        margin: 0; 
-                        padding: 0; 
-                        box-sizing: border-box; 
+                    * {
+                        margin: 0;
+                        padding: 0;
+                        box-sizing: border-box;
                     }
                     @page {
                         size: A4;
-                        margin: 15mm;
+                        margin: 12mm;
                     }
-                    body { 
-                        font-family: 'Sarabun', 'TH Sarabun New', Arial, sans-serif; 
-                        padding: 0;
-                        font-size: 14px;
-                        line-height: 1.5;
+                    body {
+                        font-family: 'Sarabun', 'TH Sarabun New', Arial, sans-serif;
+                        font-size: 13.5px;
                         color: #000;
+                        line-height: 1.45;
                     }
                     .container {
                         width: 100%;
-                        max-width: 210mm;
+                        max-width: 188mm;
                         margin: 0 auto;
                     }
-                    .header-section {
-                        display: flex;
-                        justify-content: space-between;
-                        align-items: flex-start;
-                        margin-bottom: 20px;
-                        border-bottom: 2px solid #000;
-                        padding-bottom: 15px;
+                    .document-header {
+                        text-align: center;
+                        margin-bottom: 8px;
                     }
-                    .header-left {
-                        flex: 1;
-                    }
-                    .header-right {
-                        flex: 1;
-                        text-align: right;
-                    }
-                    .logo-placeholder {
-                        width: 60px;
-                        height: 60px;
-                        border: 2px solid #000;
-                        border-radius: 50%;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        font-size: 12px;
-                        margin-bottom: 10px;
-                        background: #f0f0f0;
-                    }
-                    .clinic-name {
+                    .org-name {
                         font-size: 18px;
                         font-weight: 700;
-                        margin-bottom: 5px;
                     }
-                    .clinic-address {
-                        font-size: 12px;
-                        margin-bottom: 3px;
-                    }
-                    .clinic-phone {
+                    .org-address,
+                    .org-phone {
                         font-size: 12px;
                     }
-                    .document-title {
+                    .title {
                         font-size: 20px;
                         font-weight: 700;
-                        margin-bottom: 15px;
+                        text-align: right;
+                        margin: 18px 0 10px;
                     }
-                    .document-info {
-                        font-size: 14px;
-                        margin-bottom: 5px;
-                    }
-                    .document-info-label {
-                        font-weight: 600;
-                        display: inline-block;
-                        min-width: 60px;
-                    }
-                    .recipient-section {
+                    .info-row {
                         display: flex;
                         justify-content: space-between;
-                        margin-bottom: 20px;
-                        margin-top: 20px;
+                        margin-bottom: 6px;
+                        font-size: 13px;
                     }
-                    .recipient-left {
+                    .info-left,
+                    .info-right {
+                        display: flex;
+                        align-items: center;
+                        gap: 8px;
                         flex: 1;
                     }
-                    .recipient-right {
-                        flex: 1;
+                    .info-right {
+                        justify-content: flex-end;
                     }
-                    .recipient-label {
+                    .info-label {
                         font-weight: 600;
-                        margin-bottom: 5px;
+                        min-width: 70px;
                     }
-                    .recipient-value {
+                    .info-value {
                         border-bottom: 1px solid #000;
-                        min-height: 20px;
-                        padding-bottom: 3px;
+                        min-width: 120px;
+                        padding: 0 6px 2px;
                     }
                     .items-table {
                         width: 100%;
                         border-collapse: collapse;
-                        margin-bottom: 20px;
                         font-size: 13px;
                     }
                     .items-table th,
                     .items-table td {
                         border: 1px solid #000;
-                        padding: 8px;
-                        text-align: left;
+                        padding: 6px 8px;
                     }
                     .items-table th {
-                        background-color: #f0f0f0;
+                        background: #f0f0f0;
                         font-weight: 600;
                         text-align: center;
                     }
-                    .items-table .col-no {
-                        width: 50px;
-                        text-align: center;
+                    .items-table .col-no { width: 45px; }
+                    .items-table .col-desc { width: 55%; }
+                    .items-table .col-qty { width: 120px; text-align: center; }
+                    .items-table .col-amount { width: 120px; text-align: right; }
+                    .amount-text {
+                        border: 1px solid #000;
+                        padding: 8px 10px;
+                        font-size: 13px;
+                        margin: 12px 0;
                     }
-                    .items-table .col-desc {
-                        width: auto;
-                    }
-                    .items-table .col-qty {
-                        width: 80px;
-                        text-align: center;
-                    }
-                    .items-table .col-per-person {
-                        width: 100px;
-                        text-align: center;
-                    }
-                    .items-table .col-amount {
-                        width: 120px;
-                        text-align: right;
-                    }
-                    .total-row {
-                        font-weight: 700;
-                        background-color: #f9f9f9;
-                    }
-                    .total-row td {
-                        text-align: right;
-                    }
-                    .total-text {
-                        margin-top: 10px;
-                        margin-bottom: 20px;
-                        font-size: 14px;
-                    }
-                    .remarks {
-                        margin-bottom: 20px;
+                    .amount-text span { font-weight: 600; }
+                    .remark-box {
+                        border: 1px solid #000;
+                        min-height: 60px;
+                        padding: 6px 10px;
                         font-size: 13px;
                     }
-                    .remarks-label {
-                        font-weight: 600;
-                        margin-bottom: 5px;
-                    }
+                    .remark-box span { font-weight: 600; }
                     .signature-section {
                         display: flex;
                         justify-content: space-between;
-                        margin-top: 40px;
+                        margin-top: 28px;
+                        font-size: 13px;
+                        text-align: center;
                     }
                     .signature-box {
                         flex: 1;
-                        text-align: center;
+                        padding: 0 12px;
+                    }
+                    .signature-line {
+                        height: 55px;
+                        border-bottom: 1px solid #000;
+                        margin-bottom: 6px;
                     }
                     .signature-label {
                         font-weight: 600;
-                        margin-bottom: 40px;
                     }
-                    .signature-name {
-                        border-top: 1px solid #000;
-                        padding-top: 5px;
-                        margin-top: 5px;
-                        font-size: 12px;
-                    }
-                    .text-right {
-                        text-align: right;
-                    }
-                    .text-center {
-                        text-align: center;
-                    }
-                    @media print {
-                        body {
-                            background: white;
-                        }
-                        .container {
-                            max-width: 100%;
-                        }
-                    }
+                    .small-text { font-size: 12px; }
                 </style>
             </head>
             <body>
                 <div class="container">
-                    <!-- Header Section -->
-                    <div class="header-section">
-                        <div class="header-left">
-                            <div class="logo-placeholder">LOGO</div>
-                            <div class="clinic-name">สัมพันธ์คลินิก</div>
-                            <div class="clinic-address">280 หมู่ 4 ถนน เชียงใหม่-ฮอด ต.บ้านหลวง อ.จอมทอง จ.เชียงใหม่ 50160</div>
-                            <div class="clinic-phone">โทร. 053-826-524</div>
+                    <div class="document-header">
+                        <div class="org-name">สัมพันธ์คลินิก</div>
+                        <div class="org-address">280 หมู่ 4 ถนน เชียงใหม่-ฮอด ต.บ้านหลวง อ.จอมทอง จ.เชียงใหม่ 50160</div>
+                        <div class="org-phone">โทร. 053-826-524</div>
+                    </div>
+                    <div class="title">ใบสำคัญจ่ายเงิน</div>
+
+                    <div class="info-row">
+                        <div class="info-left">
+                            <span class="info-label">จ่ายให้</span>
+                            <span class="info-value">${payeeName || '&nbsp;'}</span>
                         </div>
-                        <div class="header-right">
-                            <div class="document-title">ใบสำคัญจ่ายเงิน</div>
-                            <div class="document-info">
-                                <span class="document-info-label">เลขที่:</span>
-                                <span>${headerData.REFNO || ''}</span>
-                            </div>
-                            <div class="document-info">
-                                <span class="document-info-label">วันที่:</span>
-                                <span>${dateBE}</span>
-                            </div>
+                        <div class="info-right">
+                            <span class="info-label">เลขที่</span>
+                            <span class="info-value">${headerData.REFNO || ''}</span>
+                        </div>
+                    </div>
+                    <div class="info-row">
+                        <div class="info-left">
+                            <span class="info-label">ที่อยู่</span>
+                            <span class="info-value">-</span>
+                        </div>
+                        <div class="info-right">
+                            <span class="info-label">วันที่</span>
+                            <span class="info-value">${dateBE}</span>
                         </div>
                     </div>
 
-                    <!-- Recipient Section -->
-                    <div class="recipient-section">
-                        <div class="recipient-left">
-                            <div class="recipient-label">จ่ายให้</div>
-                            <div class="recipient-value">${headerData.NAME1 || ''}</div>
-                        </div>
-                        <div class="recipient-right">
-                            <div class="recipient-label">ที่อยู่</div>
-                            <div class="recipient-value">-</div>
-                        </div>
-                    </div>
-
-                    <!-- Items Table -->
                     <table class="items-table">
                         <thead>
                             <tr>
                                 <th class="col-no">ที่</th>
                                 <th class="col-desc">รายการ</th>
                                 <th class="col-qty">จำนวน</th>
-                                <th class="col-per-person">จ.นเงินต่อคน</th>
                                 <th class="col-amount">จำนวนเงิน</th>
                             </tr>
                         </thead>
                         <tbody>
-                            ${details.map((detail, index) => `
-                                <tr>
-                                    <td class="text-center col-no">${index + 1}</td>
-                                    <td class="col-desc">${detail.DESCM1 || ''}</td>
-                                    <td class="text-center col-qty"></td>
-                                    <td class="text-center col-per-person"></td>
-                                    <td class="text-right col-amount">${this.formatCurrency(parseFloat(detail.AMT) || 0)}</td>
-                                </tr>
-                            `).join('')}
-                            <tr class="total-row">
-                                <td colspan="4" class="text-right">รวมเงิน</td>
-                                <td class="text-right col-amount">${this.formatCurrency(total)}</td>
+${detailRows}
+${emptyRows}
+                            <tr>
+                                <td colspan="3" style="text-align:right; font-weight:700; background:#f9f9f9;">รวม</td>
+                                <td style="text-align:right; font-weight:700; background:#f9f9f9;">${this.formatCurrency(total)}</td>
                             </tr>
                         </tbody>
                     </table>
-
-                    <!-- Total Text -->
-                    <div class="total-text">
-                        (${totalText})
+                    <div class="amount-text">
+                        <span>(จำนวนเงินเป็นตัวอักษร)</span> ${totalText}
                     </div>
-
-                    <!-- Remarks -->
-                    <div class="remarks">
-                        <div class="remarks-label">หมายเหตุ:</div>
-                        <div>${paymentMethod}${bankNo ? ` เลขที่บัญชี: ${bankNo}` : ''}</div>
+                    <div class="remark-box">
+                        <span>หมายเหตุ</span> ${paymentMethod}${bankInfo}
                     </div>
-
-                    <!-- Signature Section -->
                     <div class="signature-section">
                         <div class="signature-box">
-                            <div class="signature-label">ผู้รับเงิน</div>
-                            <div class="signature-name">(${headerData.NAME1 || ''})</div>
+                            <div class="signature-line"></div>
+                            <div class="signature-label">ผู้จ่ายเงิน</div>
+                            <div class="small-text">( ร้านดูดีธรรม )</div>
                         </div>
                         <div class="signature-box">
-                            <div class="signature-label">ผู้จ่ายเงิน</div>
-                            <div class="signature-name">(___________________)</div>
+                            <div class="signature-line"></div>
+                            <div class="signature-label">ผู้รับเงิน</div>
+                            <div class="small-text">( ${payeeName || '................................'} )</div>
                         </div>
                     </div>
                 </div>

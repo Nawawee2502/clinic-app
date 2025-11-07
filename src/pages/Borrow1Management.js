@@ -18,6 +18,10 @@ import Borrow1Service from "../services/borrow1Service";
 import DrugService from "../services/drugService";
 import EmployeeService from "../services/employeeService";
 import BalDrugService from "../services/balDrugService";
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import dayjs from 'dayjs';
 
 const Borrow1Management = () => {
     // Helper functions สำหรับจัดการปี พ.ศ.
@@ -648,384 +652,397 @@ const Borrow1Management = () => {
     };
 
     if (currentView === "add" || currentView === "edit") {
+        const totals = calculateTotal();
+
         return (
-            <Container maxWidth="lg" sx={{ mt: 2 }}>
-                <Card>
-                    <CardContent>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                            <Typography variant="h6" fontWeight="bold">
-                                {editingItem ? 'แก้ไขใบเบิกสินค้า' : 'สร้างใบเบิกสินค้า'}
-                            </Typography>
-                            <IconButton onClick={() => { resetForm(); setCurrentView("list"); }}>
-                                <CloseIcon />
-                            </IconButton>
-                        </Box>
+            <LocalizationProvider dateAdapter={AdapterDayjs}>
+                <Container maxWidth="lg" sx={{ mt: 2 }}>
+                    <Card>
+                        <CardContent>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                                <Typography variant="h6" fontWeight="bold">
+                                    {editingItem ? 'แก้ไขใบเบิกสินค้า' : 'สร้างใบเบิกสินค้า'}
+                                </Typography>
+                                <IconButton onClick={() => { resetForm(); setCurrentView("list"); }}>
+                                    <CloseIcon />
+                                </IconButton>
+                            </Box>
 
-                        <Grid container spacing={2} sx={{ mb: 3 }}>
-                            <Grid item xs={12} md={6}>
-                                <TextField
-                                    fullWidth
-                                    label="เลขที่เอกสาร"
-                                    value={editingItem ? headerData.REFNO : generatedRefno}
-                                    disabled
-                                    size="small"
-                                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
-                                />
+                            <Grid container spacing={2} sx={{ mb: 3 }}>
+                                <Grid item xs={12} md={6}>
+                                    <TextField
+                                        fullWidth
+                                        label="เลขที่เอกสาร"
+                                        value={editingItem ? headerData.REFNO : generatedRefno}
+                                        disabled
+                                        size="small"
+                                        sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
+                                    />
+                                </Grid>
+                                <Grid item xs={12} md={6}>
+                                    <DateInputBE
+                                        label="วันที่"
+                                        value={headerData.RDATE}
+                                        onChange={(value) => handleHeaderChange('RDATE', value)}
+                                    />
+                                </Grid>
+                                <Grid item xs={12} md={6}>
+                                    <Autocomplete
+                                        fullWidth
+                                        options={employeeList}
+                                        getOptionLabel={(option) => option.EMP_NAME || `${option.EMP_CODE}`}
+                                        value={selectedEmployee}
+                                        onChange={handleEmployeeChange}
+                                        size="small"
+                                        renderInput={(params) => (
+                                            <TextField {...params} label="พนักงาน" sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }} />
+                                        )}
+                                    />
+                                </Grid>
+                                <Grid item xs={12} md={6}>
+                                    <FormControl fullWidth size="small">
+                                        <Select
+                                            value={headerData.STATUS}
+                                            onChange={(e) => handleHeaderChange('STATUS', e.target.value)}
+                                            sx={{ borderRadius: "10px" }}
+                                        >
+                                            <MenuItem value="ทำงานอยู่">ทำงานอยู่</MenuItem>
+                                            <MenuItem value="ยกเลิก">ยกเลิก</MenuItem>
+                                        </Select>
+                                    </FormControl>
+                                </Grid>
                             </Grid>
-                            <Grid item xs={12} md={6}>
-                                <DateInputBE
-                                    label="วันที่"
-                                    value={headerData.RDATE}
-                                    onChange={(value) => handleHeaderChange('RDATE', value)}
-                                />
-                            </Grid>
-                            <Grid item xs={12} md={6}>
-                                <Autocomplete
-                                    fullWidth
-                                    options={employeeList}
-                                    getOptionLabel={(option) => option.EMP_NAME || `${option.EMP_CODE}`}
-                                    value={selectedEmployee}
-                                    onChange={handleEmployeeChange}
-                                    size="small"
-                                    renderInput={(params) => (
-                                        <TextField {...params} label="พนักงาน" sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }} />
-                                    )}
-                                />
-                            </Grid>
-                            <Grid item xs={12} md={6}>
-                                <FormControl fullWidth size="small">
-                                    <Select
-                                        value={headerData.STATUS}
-                                        onChange={(e) => handleHeaderChange('STATUS', e.target.value)}
-                                        sx={{ borderRadius: "10px" }}
-                                    >
-                                        <MenuItem value="ทำงานอยู่">ทำงานอยู่</MenuItem>
-                                        <MenuItem value="ยกเลิก">ยกเลิก</MenuItem>
-                                    </Select>
-                                </FormControl>
-                            </Grid>
-                        </Grid>
 
-                        <Divider sx={{ my: 3 }} />
+                            <Divider sx={{ my: 3 }} />
 
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                            <Typography variant="h6" fontWeight="bold">รายการสินค้า</Typography>
-                            <Button
-                                variant="contained"
-                                startIcon={<AddIcon />}
-                                onClick={handleOpenModal}
-                                sx={{ backgroundColor: '#5698E0' }}
-                            >
-                                เพิ่มรายการ
-                            </Button>
-                        </Box>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                                <Typography variant="h6" fontWeight="bold">รายการสินค้า</Typography>
+                                <Button
+                                    variant="contained"
+                                    startIcon={<AddIcon />}
+                                    onClick={handleOpenModal}
+                                    sx={{ backgroundColor: '#5698E0' }}
+                                >
+                                    เพิ่มรายการ
+                                </Button>
+                            </Box>
 
-                        <TableContainer component={Paper} sx={{ mb: 3 }}>
-                            <Table size="small">
-                                <TableHead sx={{ backgroundColor: "#F0F5FF" }}>
-                                    <TableRow>
-                                        <TableCell>ชื่อยา</TableCell>
-                                        <TableCell align="right">จำนวน</TableCell>
-                                        <TableCell>หน่วย</TableCell>
-                                        <TableCell align="right">ราคา/หน่วย</TableCell>
-                                        <TableCell align="right">รวม</TableCell>
-                                        <TableCell>LOT NO</TableCell>
-                                        <TableCell>วันหมดอายุ</TableCell>
-                                        <TableCell align="center">จัดการ</TableCell>
-                                    </TableRow>
-                                </TableHead>
-                                <TableBody>
-                                    {details.length === 0 ? (
+                            <TableContainer component={Paper} sx={{ mb: 3 }}>
+                                <Table size="small">
+                                    <TableHead sx={{ backgroundColor: "#F0F5FF" }}>
                                         <TableRow>
-                                            <TableCell colSpan={8} align="center" sx={{ py: 3, color: 'text.secondary' }}>
-                                                ยังไม่มีรายการสินค้า กรุณาเพิ่มรายการ
-                                            </TableCell>
+                                            <TableCell>ชื่อยา</TableCell>
+                                            <TableCell align="right">จำนวน</TableCell>
+                                            <TableCell>หน่วย</TableCell>
+                                            <TableCell align="right">ราคา/หน่วย</TableCell>
+                                            <TableCell align="right">รวม</TableCell>
+                                            <TableCell>LOT NO</TableCell>
+                                            <TableCell>วันหมดอายุ</TableCell>
+                                            <TableCell align="center">จัดการ</TableCell>
                                         </TableRow>
-                                    ) : (
-                                        details.map((detail, index) => {
-                                            // หา GENERIC_NAME จาก drugList โดยใช้ DRUG_CODE
-                                            const drug = drugList.find(d => d.DRUG_CODE === detail.DRUG_CODE);
-                                            const genericName = drug ? drug.GENERIC_NAME : (detail.GENERIC_NAME || '-');
-                                            
-                                            return (
-                                                <TableRow key={index}>
-                                                    <TableCell>{genericName}</TableCell>
-                                                    <TableCell align="right">{detail.QTY}</TableCell>
-                                                    <TableCell>{detail.UNIT_NAME1 || '-'}</TableCell>
-                                                    <TableCell align="right">{Borrow1Service.formatCurrency(detail.UNIT_COST)}</TableCell>
-                                                    <TableCell align="right">{Borrow1Service.formatCurrency(detail.AMT)}</TableCell>
-                                                    <TableCell>{detail.LOT_NO || '-'}</TableCell>
-                                                    <TableCell>{formatDateBE(detail.EXPIRE_DATE)}</TableCell>
-                                                    <TableCell align="center">
-                                                        <IconButton size="small" onClick={() => handleEditDetail(index)} sx={{ color: '#5698E0' }}>
-                                                            <EditIcon fontSize="small" />
-                                                        </IconButton>
-                                                        <IconButton size="small" onClick={() => handleRemoveDetail(index)} sx={{ color: '#F62626' }}>
-                                                            <DeleteIcon fontSize="small" />
-                                                        </IconButton>
-                                                    </TableCell>
-                                                </TableRow>
+                                    </TableHead>
+                                    <TableBody>
+                                        {details.length === 0 ? (
+                                            <TableRow>
+                                                <TableCell colSpan={8} align="center" sx={{ py: 3, color: 'text.secondary' }}>
+                                                    ยังไม่มีรายการสินค้า กรุณาเพิ่มรายการ
+                                                </TableCell>
+                                            </TableRow>
+                                        ) : (
+                                            details.map((detail, index) => {
+                                                // หา GENERIC_NAME จาก drugList โดยใช้ DRUG_CODE
+                                                const drug = drugList.find(d => d.DRUG_CODE === detail.DRUG_CODE);
+                                                const genericName = drug ? drug.GENERIC_NAME : (detail.GENERIC_NAME || '-');
+                                                
+                                                return (
+                                                    <TableRow key={index}>
+                                                        <TableCell>{genericName}</TableCell>
+                                                        <TableCell align="right">{detail.QTY}</TableCell>
+                                                        <TableCell>{detail.UNIT_NAME1 || '-'}</TableCell>
+                                                        <TableCell align="right">{Borrow1Service.formatCurrency(detail.UNIT_COST)}</TableCell>
+                                                        <TableCell align="right">{Borrow1Service.formatCurrency(detail.AMT)}</TableCell>
+                                                        <TableCell>{detail.LOT_NO || '-'}</TableCell>
+                                                        <TableCell>{formatDateBE(detail.EXPIRE_DATE)}</TableCell>
+                                                        <TableCell align="center">
+                                                            <IconButton size="small" onClick={() => handleEditDetail(index)} sx={{ color: '#5698E0' }}>
+                                                                <EditIcon fontSize="small" />
+                                                            </IconButton>
+                                                            <IconButton size="small" onClick={() => handleRemoveDetail(index)} sx={{ color: '#F62626' }}>
+                                                                <DeleteIcon fontSize="small" />
+                                                            </IconButton>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                );
+                                            })
+                                        )}
+                                    </TableBody>
+                                </Table>
+                            </TableContainer>
+
+                            <Divider sx={{ my: 2 }} />
+
+                            <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+                                <Typography variant="h6" fontWeight="bold">
+                                    รวมทั้งสิ้น: {Borrow1Service.formatCurrency(calculateTotal())} บาท
+                                </Typography>
+                            </Box>
+
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 3 }}>
+                                <Button variant="outlined" onClick={() => { resetForm(); setCurrentView("list"); }}>ยกเลิก</Button>
+                                <Button variant="contained" startIcon={<SaveIcon />} onClick={handleSave} disabled={loading}
+                                    sx={{ backgroundColor: "#5698E0", minWidth: 150 }}>
+                                    {loading ? 'กำลังบันทึก...' : 'บันทึก'}
+                                </Button>
+                            </Box>
+                        </CardContent>
+                    </Card>
+
+                    {/* Modal สำหรับเพิ่ม/แก้ไขรายการ */}
+                    <Dialog open={openModal} onClose={handleCloseModal} maxWidth="md" fullWidth>
+                        <DialogTitle>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <Typography variant="h6">
+                                    {editingIndex !== null ? 'แก้ไขรายการสินค้า' : 'เพิ่มรายการสินค้า'}
+                                </Typography>
+                                <IconButton onClick={handleCloseModal} size="small">
+                                    <CloseIcon />
+                                </IconButton>
+                            </Box>
+                        </DialogTitle>
+                        <DialogContent>
+                            <Grid container spacing={2} sx={{ mt: 1 }}>
+                                <Grid item xs={12}>
+                                    <Autocomplete
+                                        fullWidth
+                                        options={drugList}
+                                        getOptionLabel={(option) => {
+                                            return option.GENERIC_NAME || '';
+                                        }}
+                                        filterOptions={(options, { inputValue }) => {
+                                            const searchTerm = inputValue.toLowerCase();
+                                            return options.filter(option => 
+                                                (option.GENERIC_NAME || '').toLowerCase().includes(searchTerm) ||
+                                                (option.TRADE_NAME || '').toLowerCase().includes(searchTerm) ||
+                                                (option.DRUG_CODE || '').toLowerCase().includes(searchTerm)
                                             );
-                                        })
-                                    )}
-                                </TableBody>
-                            </Table>
-                        </TableContainer>
-
-                        <Divider sx={{ my: 2 }} />
-
-                        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
-                            <Typography variant="h6" fontWeight="bold">
-                                รวมทั้งสิ้น: {Borrow1Service.formatCurrency(calculateTotal())} บาท
-                            </Typography>
-                        </Box>
-
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 3 }}>
-                            <Button variant="outlined" onClick={() => { resetForm(); setCurrentView("list"); }}>ยกเลิก</Button>
-                            <Button variant="contained" startIcon={<SaveIcon />} onClick={handleSave} disabled={loading}
-                                sx={{ backgroundColor: "#5698E0", minWidth: 150 }}>
-                                {loading ? 'กำลังบันทึก...' : 'บันทึก'}
-                            </Button>
-                        </Box>
-                    </CardContent>
-                </Card>
-
-                {/* Modal สำหรับเพิ่ม/แก้ไขรายการ */}
-                <Dialog open={openModal} onClose={handleCloseModal} maxWidth="md" fullWidth>
-                    <DialogTitle>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <Typography variant="h6">
-                                {editingIndex !== null ? 'แก้ไขรายการสินค้า' : 'เพิ่มรายการสินค้า'}
-                            </Typography>
-                            <IconButton onClick={handleCloseModal} size="small">
-                                <CloseIcon />
-                            </IconButton>
-                        </Box>
-                    </DialogTitle>
-                    <DialogContent>
-                        <Grid container spacing={2} sx={{ mt: 1 }}>
-                            <Grid item xs={12}>
-                                <Autocomplete
-                                    fullWidth
-                                    options={drugList}
-                                    getOptionLabel={(option) => {
-                                        return option.GENERIC_NAME || '';
-                                    }}
-                                    filterOptions={(options, { inputValue }) => {
-                                        const searchTerm = inputValue.toLowerCase();
-                                        return options.filter(option => 
-                                            (option.GENERIC_NAME || '').toLowerCase().includes(searchTerm) ||
-                                            (option.TRADE_NAME || '').toLowerCase().includes(searchTerm) ||
-                                            (option.DRUG_CODE || '').toLowerCase().includes(searchTerm)
-                                        );
-                                    }}
-                                    value={drugList.find(d => d.DRUG_CODE === modalData.DRUG_CODE) || null}
-                                    onChange={handleModalDrugChange}
-                                    size="small"
-                                    renderInput={(params) => (
-                                        <TextField {...params} label="รหัสยา *" sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }} />
-                                    )}
-                                />
-                            </Grid>
-                            <Grid item xs={12} md={6}>
-                                <Autocomplete
-                                    fullWidth
-                                    options={lotList}
-                                    getOptionLabel={(option) => option.LOT_NO || ''}
-                                    value={selectedLot}
-                                    onChange={handleLotChange}
-                                    disabled={!modalData.DRUG_CODE || lotList.length === 0}
-                                    size="small"
+                                        }}
+                                        value={drugList.find(d => d.DRUG_CODE === modalData.DRUG_CODE) || null}
+                                        onChange={handleModalDrugChange}
+                                        size="small"
+                                        renderInput={(params) => (
+                                            <TextField {...params} label="รหัสยา *" sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }} />
+                                        )}
+                                    />
+                                </Grid>
+                                <Grid item xs={12} md={6}>
+                                    <Autocomplete
+                                        fullWidth
+                                        options={lotList}
+                                        getOptionLabel={(option) => option.LOT_NO || ''}
+                                        value={selectedLot}
+                                        onChange={handleLotChange}
+                                        disabled={!modalData.DRUG_CODE || lotList.length === 0}
+                                        size="small"
+                                        renderInput={(params) => (
+                                            <TextField
+                                                {...params}
+                                                label="LOT NO *"
+                                                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
+                                                helperText={!modalData.DRUG_CODE ? "เลือกยาก่อน" : lotList.length === 0 ? "ไม่มี LOT" : ""}
+                                            />
+                                        )}
+                                    />
+                                </Grid>
+                                <Grid item xs={12} md={6}>
+                                    <DatePicker
+                                        label="วันหมดอายุ"
+                                        value={modalData.EXPIRE_DATE ? dayjs(modalData.EXPIRE_DATE) : null}
+                                        onChange={(newValue) => handleModalChange('EXPIRE_DATE', newValue ? newValue.format('YYYY-MM-DD') : '')}
                                     renderInput={(params) => (
                                         <TextField
                                             {...params}
-                                            label="LOT NO *"
+                                            fullWidth
+                                            size="small"
                                             sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
-                                            helperText={!modalData.DRUG_CODE ? "เลือกยาก่อน" : lotList.length === 0 ? "ไม่มี LOT" : ""}
                                         />
                                     )}
-                                />
+                                    />
+                                </Grid>
+                                <Grid item xs={12} md={6}>
+                                    <TextField
+                                        fullWidth
+                                        label="จำนวน *"
+                                        type="number"
+                                        value={modalData.QTY}
+                                        onChange={(e) => handleModalChange('QTY', e.target.value)}
+                                        inputProps={{ step: "1", min: "0" }}
+                                        size="small"
+                                        sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
+                                    />
+                                </Grid>
+                                <Grid item xs={12} md={6}>
+                                    <TextField
+                                        fullWidth
+                                        label="หน่วย"
+                                        value={modalData.UNIT_NAME1}
+                                        disabled
+                                        size="small"
+                                        sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
+                                    />
+                                </Grid>
+                                <Grid item xs={12} md={6}>
+                                    <TextField
+                                        fullWidth
+                                        label="ราคา/หน่วย *"
+                                        type="number"
+                                        value={modalData.UNIT_COST}
+                                        onChange={(e) => handleModalChange('UNIT_COST', e.target.value)}
+                                        inputProps={{ step: "0.01", min: "0" }}
+                                        size="small"
+                                        sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
+                                    />
+                                </Grid>
+                                <Grid item xs={12} md={6}>
+                                    <TextField
+                                        fullWidth
+                                        label="รวม"
+                                        value={modalData.AMT}
+                                        disabled
+                                        size="small"
+                                        sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
+                                    />
+                                </Grid>
                             </Grid>
-                            <Grid item xs={12} md={6}>
-                                <DateInputBE
-                                    label="วันหมดอายุ"
-                                    value={modalData.EXPIRE_DATE}
-                                    onChange={(value) => { }} // ไม่ให้แก้ไข
-                                    disabled={true}
-                                />
-                            </Grid>
-                            <Grid item xs={12} md={6}>
-                                <TextField
-                                    fullWidth
-                                    label="จำนวน *"
-                                    type="number"
-                                    value={modalData.QTY}
-                                    onChange={(e) => handleModalChange('QTY', e.target.value)}
-                                    inputProps={{ step: "1", min: "0" }}
-                                    size="small"
-                                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
-                                />
-                            </Grid>
-                            <Grid item xs={12} md={6}>
-                                <TextField
-                                    fullWidth
-                                    label="หน่วย"
-                                    value={modalData.UNIT_NAME1}
-                                    disabled
-                                    size="small"
-                                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
-                                />
-                            </Grid>
-                            <Grid item xs={12} md={6}>
-                                <TextField
-                                    fullWidth
-                                    label="ราคา/หน่วย *"
-                                    type="number"
-                                    value={modalData.UNIT_COST}
-                                    onChange={(e) => handleModalChange('UNIT_COST', e.target.value)}
-                                    inputProps={{ step: "0.01", min: "0" }}
-                                    size="small"
-                                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
-                                />
-                            </Grid>
-                            <Grid item xs={12} md={6}>
-                                <TextField
-                                    fullWidth
-                                    label="รวม"
-                                    value={modalData.AMT}
-                                    disabled
-                                    size="small"
-                                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
-                                />
-                            </Grid>
-                        </Grid>
-                    </DialogContent>
-                    <DialogActions>
-                        <Button onClick={handleCloseModal}>ยกเลิก</Button>
-                        <Button variant="contained" onClick={handleAddDetail} sx={{ backgroundColor: '#5698E0' }}>
-                            {editingIndex !== null ? 'บันทึก' : 'เพิ่ม'}
-                        </Button>
-                    </DialogActions>
-                </Dialog>
-            </Container>
+                        </DialogContent>
+                        <DialogActions>
+                            <Button onClick={handleCloseModal}>ยกเลิก</Button>
+                            <Button variant="contained" onClick={handleAddDetail} sx={{ backgroundColor: '#5698E0' }}>
+                                {editingIndex !== null ? 'บันทึก' : 'เพิ่ม'}
+                            </Button>
+                        </DialogActions>
+                    </Dialog>
+                </Container>
+            </LocalizationProvider>
         );
     }
 
     return (
-        <Container maxWidth="lg" sx={{ mt: 2 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                <Typography variant="h6" fontWeight="bold">ใบเบิกสินค้า ({filteredList.length} รายการ)</Typography>
-                <Button variant="contained" startIcon={<AddIcon />} onClick={() => setCurrentView("add")} sx={{ backgroundColor: '#5698E0' }}>
-                    สร้างใบเบิกสินค้า
-                </Button>
-            </Box>
+        <LocalizationProvider dateAdapter={AdapterDayjs}>
+            <Container maxWidth="lg" sx={{ mt: 2 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                    <Typography variant="h6" fontWeight="bold">ใบเบิกสินค้า ({filteredList.length} รายการ)</Typography>
+                    <Button variant="contained" startIcon={<AddIcon />} onClick={() => setCurrentView("add")} sx={{ backgroundColor: '#5698E0' }}>
+                        สร้างใบเบิกสินค้า
+                    </Button>
+                </Box>
 
-            <Card sx={{ mb: 2 }}>
-                <CardContent>
-                    <Grid container spacing={2}>
-                        <Grid item xs={12} md={8}>
-                            <TextField size="small" placeholder="ค้นหา (เลขที่, รหัสพนักงาน)" value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)} fullWidth
-                                InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon color="action" /></InputAdornment> }}
-                                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }} />
+                <Card sx={{ mb: 2 }}>
+                    <CardContent>
+                        <Grid container spacing={2}>
+                            <Grid item xs={12} md={8}>
+                                <TextField size="small" placeholder="ค้นหา (เลขที่, รหัสพนักงาน)" value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)} fullWidth
+                                    InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon color="action" /></InputAdornment> }}
+                                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }} />
+                            </Grid>
+                            <Grid item xs={12} md={4}>
+                                <DateInputBE
+                                    label="วันที่"
+                                    value={searchDate}
+                                    onChange={(value) => setSearchDate(value)}
+                                />
+                            </Grid>
                         </Grid>
-                        <Grid item xs={12} md={4}>
-                            <DateInputBE
-                                label="วันที่"
-                                value={searchDate}
-                                onChange={(value) => setSearchDate(value)}
-                            />
-                        </Grid>
-                    </Grid>
-                </CardContent>
-            </Card>
+                    </CardContent>
+                </Card>
 
-            <Card>
-                <CardContent>
-                    {filteredList.length === 0 ? (
-                        <Box sx={{ textAlign: 'center', py: 4 }}>
-                            <Typography variant="h6" color="text.secondary">
-                                {searchTerm || searchDate ? 'ไม่พบข้อมูลที่ค้นหา' : 'ยังไม่มีข้อมูล'}
-                            </Typography>
-                        </Box>
-                    ) : (
-                        <>
-                            <Box sx={{ overflowX: 'auto' }}>
-                                <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '1000px' }}>
-                                    <thead style={{ backgroundColor: "#F0F5FF" }}>
-                                        <tr>
-                                            <th style={{ padding: '12px 8px', textAlign: 'left', color: '#696969' }}>ลำดับ</th>
-                                            <th style={{ padding: '12px 8px', textAlign: 'left', color: '#696969' }}>เลขที่</th>
-                                            <th style={{ padding: '12px 8px', textAlign: 'left', color: '#696969' }}>วันที่</th>
-                                            <th style={{ padding: '12px 8px', textAlign: 'left', color: '#696969' }}>ชื่อพนักงาน</th>
-                                            <th style={{ padding: '12px 8px', textAlign: 'right', color: '#696969' }}>จำนวนเงินรวม</th>
-                                            <th style={{ padding: '12px 8px', textAlign: 'center', color: '#696969' }}>สถานะ</th>
-                                            <th style={{ padding: '12px 8px', textAlign: 'center', color: '#696969' }}>จัดการ</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {getPaginatedData().map((item, index) => (
-                                            <tr key={item.REFNO} style={{ borderTop: '1px solid #e0e0e0' }}>
-                                                <td style={{ padding: '12px 8px' }}>{(page - 1) * itemsPerPage + index + 1}</td>
-                                                <td style={{ padding: '12px 8px', fontWeight: 500 }}>{item.REFNO}</td>
-                                                <td style={{ padding: '12px 8px' }}>{formatDateBE(item.RDATE)}</td>
-                                                <td style={{ padding: '12px 8px' }}>{item.EMP_NAME}</td>
-                                                <td style={{ padding: '12px 8px', textAlign: 'right', fontWeight: 500 }}>
-                                                    {Borrow1Service.formatCurrency(item.TOTAL)}
-                                                </td>
-                                                <td style={{ padding: '12px 8px', textAlign: 'center' }}>
-                                                    <Chip label={item.STATUS} color={item.STATUS === 'ทำงานอยู่' ? 'success' : 'error'} size="small" />
-                                                </td>
-                                                <td style={{ padding: '12px 8px', textAlign: 'center' }}>
-                                                    <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
-                                                        <IconButton size="small" onClick={() => handlePrint(item)}
-                                                            sx={{ border: '1px solid #9C27B0', borderRadius: '7px' }}>
-                                                            <PrintIcon sx={{ color: '#9C27B0' }} />
-                                                        </IconButton>
-                                                        <IconButton size="small" onClick={() => handleEdit(item)}
-                                                            sx={{ border: '1px solid #5698E0', borderRadius: '7px' }}>
-                                                            <EditIcon sx={{ color: '#5698E0' }} />
-                                                        </IconButton>
-                                                        <IconButton size="small" onClick={() => handleDeleteClick(item.REFNO)}
-                                                            sx={{ border: '1px solid #F62626', borderRadius: '7px' }}>
-                                                            <DeleteIcon sx={{ color: '#F62626' }} />
-                                                        </IconButton>
-                                                    </Box>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                <Card>
+                    <CardContent>
+                        {filteredList.length === 0 ? (
+                            <Box sx={{ textAlign: 'center', py: 4 }}>
+                                <Typography variant="h6" color="text.secondary">
+                                    {searchTerm || searchDate ? 'ไม่พบข้อมูลที่ค้นหา' : 'ยังไม่มีข้อมูล'}
+                                </Typography>
                             </Box>
+                        ) : (
+                            <>
+                                <Box sx={{ overflowX: 'auto' }}>
+                                    <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '1000px' }}>
+                                        <thead style={{ backgroundColor: "#F0F5FF" }}>
+                                            <tr>
+                                                <th style={{ padding: '12px 8px', textAlign: 'left', color: '#696969' }}>ลำดับ</th>
+                                                <th style={{ padding: '12px 8px', textAlign: 'left', color: '#696969' }}>เลขที่</th>
+                                                <th style={{ padding: '12px 8px', textAlign: 'left', color: '#696969' }}>วันที่</th>
+                                                <th style={{ padding: '12px 8px', textAlign: 'left', color: '#696969' }}>ชื่อพนักงาน</th>
+                                                <th style={{ padding: '12px 8px', textAlign: 'right', color: '#696969' }}>จำนวนเงินรวม</th>
+                                                <th style={{ padding: '12px 8px', textAlign: 'center', color: '#696969' }}>สถานะ</th>
+                                                <th style={{ padding: '12px 8px', textAlign: 'center', color: '#696969' }}>จัดการ</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {getPaginatedData().map((item, index) => (
+                                                <tr key={item.REFNO} style={{ borderTop: '1px solid #e0e0e0' }}>
+                                                    <td style={{ padding: '12px 8px' }}>{(page - 1) * itemsPerPage + index + 1}</td>
+                                                    <td style={{ padding: '12px 8px', fontWeight: 500 }}>{item.REFNO}</td>
+                                                    <td style={{ padding: '12px 8px' }}>{formatDateBE(item.RDATE)}</td>
+                                                    <td style={{ padding: '12px 8px' }}>{item.EMP_NAME}</td>
+                                                    <td style={{ padding: '12px 8px', textAlign: 'right', fontWeight: 500 }}>
+                                                        {Borrow1Service.formatCurrency(item.TOTAL)}
+                                                    </td>
+                                                    <td style={{ padding: '12px 8px', textAlign: 'center' }}>
+                                                        <Chip label={item.STATUS} color={item.STATUS === 'ทำงานอยู่' ? 'success' : 'error'} size="small" />
+                                                    </td>
+                                                    <td style={{ padding: '12px 8px', textAlign: 'center' }}>
+                                                        <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
+                                                            <IconButton size="small" onClick={() => handlePrint(item)}
+                                                                sx={{ border: '1px solid #9C27B0', borderRadius: '7px' }}>
+                                                                <PrintIcon sx={{ color: '#9C27B0' }} />
+                                                            </IconButton>
+                                                            <IconButton size="small" onClick={() => handleEdit(item)}
+                                                                sx={{ border: '1px solid #5698E0', borderRadius: '7px' }}>
+                                                                <EditIcon sx={{ color: '#5698E0' }} />
+                                                            </IconButton>
+                                                            <IconButton size="small" onClick={() => handleDeleteClick(item.REFNO)}
+                                                                sx={{ border: '1px solid #F62626', borderRadius: '7px' }}>
+                                                                <DeleteIcon sx={{ color: '#F62626' }} />
+                                                            </IconButton>
+                                                        </Box>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </Box>
 
-                            <Stack spacing={2} direction="row" justifyContent="center" sx={{ mt: 3 }}>
-                                <Pagination count={totalPages} page={page} onChange={(event, value) => setPage(value)} shape="rounded" color="primary" />
-                            </Stack>
-                        </>
-                    )}
-                </CardContent>
-            </Card>
+                                <Stack spacing={2} direction="row" justifyContent="center" sx={{ mt: 3 }}>
+                                    <Pagination count={totalPages} page={page} onChange={(event, value) => setPage(value)} shape="rounded" color="primary" />
+                                </Stack>
+                            </>
+                        )}
+                    </CardContent>
+                </Card>
 
-            <Dialog open={deleteDialog.open} onClose={() => setDeleteDialog({ open: false, refno: null })}>
-                <DialogTitle>ยืนยันการลบข้อมูล</DialogTitle>
-                <DialogContent>
-                    <Typography>คุณแน่ใจหรือไม่ที่ต้องการลบใบเบิกสินค้า "{deleteDialog.refno}"?</Typography>
-                    <Typography color="error" sx={{ mt: 1, fontSize: 14 }}>
-                        การลบจะลบทั้งข้อมูลหัวและรายละเอียดทั้งหมด
-                    </Typography>
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setDeleteDialog({ open: false, refno: null })}>ยกเลิก</Button>
-                    <Button onClick={handleDeleteConfirm} variant="contained" color="error" startIcon={<DeleteIcon />}>ลบ</Button>
-                </DialogActions>
-            </Dialog>
+                <Dialog open={deleteDialog.open} onClose={() => setDeleteDialog({ open: false, refno: null })}>
+                    <DialogTitle>ยืนยันการลบข้อมูล</DialogTitle>
+                    <DialogContent>
+                        <Typography>คุณแน่ใจหรือไม่ที่ต้องการลบใบเบิกสินค้า "{deleteDialog.refno}"?</Typography>
+                        <Typography color="error" sx={{ mt: 1, fontSize: 14 }}>
+                            การลบจะลบทั้งข้อมูลหัวและรายละเอียดทั้งหมด
+                        </Typography>
+                    </DialogContent>
+                    <DialogActions>
+                        <Button onClick={() => setDeleteDialog({ open: false, refno: null })}>ยกเลิก</Button>
+                        <Button onClick={handleDeleteConfirm} variant="contained" color="error" startIcon={<DeleteIcon />}>ลบ</Button>
+                    </DialogActions>
+                </Dialog>
 
-            <Snackbar open={alert.open} autoHideDuration={4000} onClose={() => setAlert({ ...alert, open: false })}>
-                <Alert onClose={() => setAlert({ ...alert, open: false })} severity={alert.severity} sx={{ width: '100%' }}>
-                    {alert.message}
-                </Alert>
-            </Snackbar>
-        </Container>
+                <Snackbar open={alert.open} autoHideDuration={4000} onClose={() => setAlert({ ...alert, open: false })}>
+                    <Alert onClose={() => setAlert({ ...alert, open: false })} severity={alert.severity} sx={{ width: '100%' }}>
+                        {alert.message}
+                    </Alert>
+                </Snackbar>
+            </Container>
+        </LocalizationProvider>
     );
 };
 
