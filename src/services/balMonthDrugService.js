@@ -177,9 +177,19 @@ class BalMonthDrugService {
     }
 
     // ✅ ลบยอดยกมา
-    static async deleteBalance(year, month, drugCode) {
+    static async deleteBalance(year, month, drugCode, lotNo) {
         try {
-            const url = `${this.BASE_URL}/${year}/${month}/${drugCode}`;
+            const params = new URLSearchParams();
+            const isLotNoNull = lotNo === null || lotNo === undefined || lotNo === '';
+
+            params.append('isLotNoNull', isLotNoNull ? 'true' : 'false');
+
+            if (!isLotNoNull) {
+                params.append('lotNo', lotNo);
+            }
+
+            const queryString = params.toString();
+            const url = `${this.BASE_URL}/${year}/${month}/${drugCode}${queryString ? `?${queryString}` : ''}`;
             console.log('🔗 Calling API:', url);
 
             const response = await fetch(url, {

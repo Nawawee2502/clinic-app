@@ -3,7 +3,8 @@ import {
     Container, Grid, TextField, Button, Card, CardContent, Typography,
     InputAdornment, IconButton, Stack, Pagination, Dialog,
     DialogTitle, DialogContent, DialogActions, Alert, Snackbar, Box,
-    Select, MenuItem, FormControl, Autocomplete
+    Select, MenuItem, FormControl, Autocomplete,
+    Table, TableBody, TableCell, TableContainer, TableHead, TableRow
 } from "@mui/material";
 import SaveIcon from '@mui/icons-material/Save';
 import SearchIcon from '@mui/icons-material/Search';
@@ -38,12 +39,6 @@ const BalMonthDrugManagement = () => {
             options.push({ value: year.toString(), label: year.toString() });
         }
         return options;
-    };
-
-    const formatPeriodBE = (year, month) => {
-        const buddhistYear = toBuddhistYear(year);
-        const monthStr = month.toString().padStart(2, '0');
-        return `${buddhistYear}/${monthStr}`;
     };
 
     const formatDateBE = (dateString) => {
@@ -341,7 +336,12 @@ const BalMonthDrugManagement = () => {
         const { item } = deleteDialog;
 
         try {
-            await BalMonthDrugService.deleteBalance(item.MYEAR, item.MONTHH, item.DRUG_CODE);
+            await BalMonthDrugService.deleteBalance(
+                item.MYEAR,
+                item.MONTHH,
+                item.DRUG_CODE,
+                item.LOT_NO
+            );
             showAlert('ลบข้อมูลสำเร็จ', 'success');
             await loadData();
         } catch (error) {
@@ -643,82 +643,65 @@ const BalMonthDrugManagement = () => {
                 ) : (
                     <Card>
                         <CardContent>
-                            <Box sx={{ overflowX: 'auto' }}>
-                                <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '1000px' }}>
-                                    <thead style={{ backgroundColor: "#F0F5FF" }}>
-                                        <tr>
-                                            <th style={{ padding: '12px 8px', textAlign: 'left', color: '#696969' }}>ลำดับ</th>
-                                            <th style={{ padding: '12px 8px', textAlign: 'left', color: '#696969' }}>ช่วงเวลา</th>
-                                            <th style={{ padding: '12px 8px', textAlign: 'left', color: '#696969' }}>รหัสยา</th>
-                                            <th style={{ padding: '12px 8px', textAlign: 'left', color: '#696969' }}>ชื่อยา</th>
-                                            <th style={{ padding: '12px 8px', textAlign: 'left', color: '#696969' }}>หน่วยนับ</th>
-                                            <th style={{ padding: '12px 8px', textAlign: 'right', color: '#696969' }}>จำนวน</th>
-                                            <th style={{ padding: '12px 8px', textAlign: 'right', color: '#696969' }}>ราคา/หน่วย</th>
-                                            <th style={{ padding: '12px 8px', textAlign: 'right', color: '#696969' }}>มูลค่า</th>
-                                            <th style={{ padding: '12px 8px', textAlign: 'left', color: '#696969' }}>LOT NO</th>
-                                            <th style={{ padding: '12px 8px', textAlign: 'left', color: '#696969' }}>วันหมดอายุ</th>
-                                            <th style={{ padding: '12px 8px', textAlign: 'center', color: '#696969' }}>จัดการ</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
+                            <TableContainer sx={{ maxHeight: 520 }}>
+                                <Table stickyHeader size="small" sx={{ minWidth: 1000 }}>
+                                    <TableHead>
+                                        <TableRow sx={{ backgroundColor: '#F0F5FF' }}>
+                                            <TableCell sx={{ fontWeight: 600, color: '#696969' }}>ลำดับ</TableCell>
+                                            <TableCell sx={{ fontWeight: 600, color: '#696969' }}>รหัสยา</TableCell>
+                                            <TableCell sx={{ fontWeight: 600, color: '#696969' }}>ชื่อยา</TableCell>
+                                            <TableCell sx={{ fontWeight: 600, color: '#696969' }}>LOT NO</TableCell>
+                                            <TableCell sx={{ fontWeight: 600, color: '#696969' }}>วันหมดอายุ</TableCell>
+                                            <TableCell sx={{ fontWeight: 600, color: '#696969' }}>หน่วยนับ</TableCell>
+                                            <TableCell align="right" sx={{ fontWeight: 600, color: '#696969' }}>จำนวน</TableCell>
+                                            <TableCell align="right" sx={{ fontWeight: 600, color: '#696969' }}>ราคา/หน่วย</TableCell>
+                                            <TableCell align="right" sx={{ fontWeight: 600, color: '#696969' }}>มูลค่า</TableCell>
+                                            <TableCell align="center" sx={{ fontWeight: 600, color: '#696969' }}>จัดการ</TableCell>
+                                        </TableRow>
+                                    </TableHead>
+                                    <TableBody>
                                         {filteredList.slice((page - 1) * itemsPerPage, page * itemsPerPage).map((item, index) => {
-                                            // หาชื่อยาจาก drugList
                                             const drug = drugList.find(d => d.DRUG_CODE === item.DRUG_CODE);
                                             const drugName = drug ? drug.GENERIC_NAME : '-';
-
-                                            // ⭐ เพิ่มส่วนนี้ - หาชื่อหน่วยจาก UNIT_CODE1
                                             const unitName = drug && drug.UNIT_NAME1 ? drug.UNIT_NAME1 : (item.UNIT_CODE1 || '-');
 
                                             return (
-                                                <tr key={index} style={{ borderTop: '1px solid #e0e0e0' }}>
-                                                    <td style={{ padding: '12px 8px' }}>
-                                                        {(page - 1) * itemsPerPage + index + 1}
-                                                    </td>
-                                                    <td style={{ padding: '12px 8px', fontWeight: 500 }}>
-                                                        {formatPeriodBE(item.MYEAR, item.MONTHH)}
-                                                    </td>
-                                                    <td style={{ padding: '12px 8px' }}>
-                                                        {item.DRUG_CODE}
-                                                    </td>
-                                                    <td style={{ padding: '12px 8px' }}>
-                                                        {drugName}
-                                                    </td>
-                                                    <td style={{ padding: '12px 8px' }}>
-                                                        {unitName} {/* ⭐ เปลี่ยนตรงนี้ - จาก item.UNIT_CODE1 เป็น unitName */}
-                                                    </td>
-                                                    <td style={{ padding: '12px 8px', textAlign: 'right' }}>
-                                                        {item.QTY ? item.QTY.toFixed(2) : '0.00'}
-                                                    </td>
-                                                    <td style={{ padding: '12px 8px', textAlign: 'right' }}>
-                                                        {BalMonthDrugService.formatCurrency(item.UNIT_PRICE)}
-                                                    </td>
-                                                    <td style={{ padding: '12px 8px', textAlign: 'right', fontWeight: 500 }}>
+                                                <TableRow key={`${item.DRUG_CODE}-${item.LOT_NO || 'default'}-${index}`} hover>
+                                                    <TableCell>{(page - 1) * itemsPerPage + index + 1}</TableCell>
+                                                    <TableCell>{item.DRUG_CODE}</TableCell>
+                                                    <TableCell>{drugName}</TableCell>
+                                                    <TableCell>{item.LOT_NO || '-'}</TableCell>
+                                                    <TableCell>{formatDateBE(item.EXPIRE_DATE)}</TableCell>
+                                                    <TableCell>{unitName}</TableCell>
+                                                    <TableCell align="right">{item.QTY ? item.QTY.toFixed(2) : '0.00'}</TableCell>
+                                                    <TableCell align="right">{BalMonthDrugService.formatCurrency(item.UNIT_PRICE)}</TableCell>
+                                                    <TableCell align="right" sx={{ fontWeight: 600 }}>
                                                         {BalMonthDrugService.formatCurrency(item.AMT)}
-                                                    </td>
-                                                    <td style={{ padding: '12px 8px' }}>
-                                                        {item.LOT_NO || '-'}
-                                                    </td>
-                                                    <td style={{ padding: '12px 8px' }}>
-                                                        {formatDateBE(item.EXPIRE_DATE)}
-                                                    </td>
-                                                    <td style={{ padding: '12px 8px', textAlign: 'center' }}>
+                                                    </TableCell>
+                                                    <TableCell align="center">
                                                         <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
-                                                            <IconButton size="small" onClick={() => handleEdit(item)}
-                                                                sx={{ border: '1px solid #5698E0', borderRadius: '7px' }}>
+                                                            <IconButton
+                                                                size="small"
+                                                                onClick={() => handleEdit(item)}
+                                                                sx={{ border: '1px solid #5698E0', borderRadius: '7px' }}
+                                                            >
                                                                 <EditIcon sx={{ color: '#5698E0' }} />
                                                             </IconButton>
-                                                            <IconButton size="small" onClick={() => handleDeleteClick(item)}
-                                                                sx={{ border: '1px solid #F62626', borderRadius: '7px' }}>
+                                                            <IconButton
+                                                                size="small"
+                                                                onClick={() => handleDeleteClick(item)}
+                                                                sx={{ border: '1px solid #F62626', borderRadius: '7px' }}
+                                                            >
                                                                 <DeleteIcon sx={{ color: '#F62626' }} />
                                                             </IconButton>
                                                         </Box>
-                                                    </td>
-                                                </tr>
+                                                    </TableCell>
+                                                </TableRow>
                                             );
                                         })}
-                                    </tbody>
-                                </table>
-                            </Box>
+                                    </TableBody>
+                                </Table>
+                            </TableContainer>
 
                             <Stack spacing={2} direction="row" justifyContent="center" sx={{ mt: 3 }}>
                                 <Pagination count={totalPages} page={page} onChange={(event, value) => setPage(value)} shape="rounded" color="primary" />
