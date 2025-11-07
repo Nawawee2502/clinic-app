@@ -17,7 +17,20 @@ const StockCardReport = () => {
     const [drugList, setDrugList] = useState([]);
     const [selectedDrug, setSelectedDrug] = useState(null);
     const [selectedYear, setSelectedYear] = useState((new Date().getFullYear() + 543).toString());
-    const [selectedMonth, setSelectedMonth] = useState((new Date().getMonth() + 1).toString());
+    const getInitialMonth = () => {
+        const month = new Date().getMonth() + 1;
+        return month.toString().padStart(2, '0');
+    };
+
+    const convertYearToAD = (yearString) => {
+        if (!yearString) return '';
+        const yearNumber = parseInt(yearString, 10);
+        if (Number.isNaN(yearNumber)) return '';
+        // ถ้ามากกว่า 2400 ถือว่าเป็นปี พ.ศ. ให้แปลงเป็น ค.ศ.
+        return (yearNumber > 2400 ? yearNumber - 543 : yearNumber).toString();
+    };
+
+    const [selectedMonth, setSelectedMonth] = useState(getInitialMonth());
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
@@ -51,8 +64,8 @@ const StockCardReport = () => {
 
             // ✅ ถ้าไม่ได้เลือกยา ให้ดึงข้อมูลทั้งหมดในเดือนนั้น
             const filters = {
-                year: selectedYear,
-                month: selectedMonth
+                year: convertYearToAD(selectedYear),
+                month: selectedMonth.padStart(2, '0')
             };
 
             if (selectedDrug) {
@@ -506,12 +519,12 @@ const StockCardReport = () => {
                                 <InputLabel>เดือน</InputLabel>
                                 <Select
                                     value={selectedMonth}
-                                    onChange={(e) => setSelectedMonth(e.target.value)}
+                                    onChange={(e) => setSelectedMonth(e.target.value.padStart(2, '0'))}
                                     label="เดือน"
                                     sx={{ borderRadius: "10px" }}
                                 >
                                     {monthNames.map((month, index) => (
-                                        <MenuItem key={index + 1} value={(index + 1).toString()}>
+                                        <MenuItem key={index + 1} value={(index + 1).toString().padStart(2, '0')}>
                                             {month}
                                         </MenuItem>
                                     ))}

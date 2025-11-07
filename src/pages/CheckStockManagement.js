@@ -19,15 +19,6 @@ import DrugService from "../services/drugService";
 import BalDrugService from "../services/balDrugService";
 
 const CheckStockManagement = () => {
-    // Helper functions สำหรับจัดการปี พ.ศ.
-    const toBuddhistYear = (gregorianYear) => {
-        return parseInt(gregorianYear) + 543;
-    };
-
-    const toGregorianYear = (buddhistYear) => {
-        return parseInt(buddhistYear) - 543;
-    };
-
     const formatDateBE = (dateString) => {
         if (!dateString) return '-';
         const date = new Date(dateString);
@@ -102,7 +93,7 @@ const CheckStockManagement = () => {
         REFNO: '',
         RDATE: new Date().toISOString().slice(0, 10),
         TRDATE: new Date().toISOString().slice(0, 10),
-        MYEAR: (new Date().getFullYear() + 543).toString(), // เปลี่ยนเป็น พ.ศ.
+        MYEAR: new Date().getFullYear().toString(),
         MONTHH: new Date().getMonth() + 1,
         STATUS: 'ทำงานอยู่'
     });
@@ -250,7 +241,7 @@ const CheckStockManagement = () => {
             const newData = { ...prev, [field]: value };
             if (field === 'RDATE') {
                 const date = new Date(value);
-                newData.MYEAR = toBuddhistYear(date.getFullYear()).toString(); // แปลงเป็น พ.ศ.
+                newData.MYEAR = date.getFullYear().toString();
                 newData.MONTHH = date.getMonth() + 1;
                 newData.TRDATE = value;
 
@@ -505,7 +496,7 @@ const CheckStockManagement = () => {
             REFNO: '',
             RDATE: new Date().toISOString().slice(0, 10),
             TRDATE: new Date().toISOString().slice(0, 10),
-            MYEAR: (new Date().getFullYear() + 543).toString(), // เปลี่ยนเป็น พ.ศ.
+            MYEAR: new Date().getFullYear().toString(),
             MONTHH: new Date().getMonth() + 1,
             STATUS: 'ทำงานอยู่'
         });

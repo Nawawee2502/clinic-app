@@ -3,7 +3,7 @@ import {
     Container, Grid, TextField, Button, Card, CardContent, Typography,
     InputAdornment, IconButton, Stack, Pagination, Dialog,
     DialogTitle, DialogContent, DialogActions, Alert, Snackbar, Box,
-    Select, MenuItem, FormControl, Divider, Chip
+    Select, MenuItem, FormControl, Divider, Chip, Autocomplete
 } from "@mui/material";
 import SaveIcon from '@mui/icons-material/Save';
 import SearchIcon from '@mui/icons-material/Search';
@@ -15,6 +15,7 @@ import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutline';
 import PrintIcon from '@mui/icons-material/Print';
 import Income1Service from "../services/income1Service";
 import TypeIncomeService from "../services/typeIncomeService";
+import BookBankService from "../services/bookBankService";
 
 const Income1Management = () => {
     // Helper functions สำหรับจัดการปี พ.ศ.
@@ -75,7 +76,11 @@ const Income1Management = () => {
     const [income1List, setIncome1List] = useState([]);
     const [filteredList, setFilteredList] = useState([]);
     const [typeIncomeList, setTypeIncomeList] = useState([]);
+    const [bookBankList, setBookBankList] = useState([]);
     const [searchTerm, setSearchTerm] = useState("");
+    // ✅ Filters - ใช้ชื่อเหมือน BalMonthDrugManagement.js
+    const [filterYear, setFilterYear] = useState((new Date().getFullYear() + 543).toString()); // ✅ ตั้งค่า default เป็นปีปัจจุบัน (พ.ศ.)
+    const [filterMonth, setFilterMonth] = useState(new Date().getMonth() + 1); // ✅ ตั้งค่า default เป็นเดือนปัจจุบัน
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [loading, setLoading] = useState(false);
@@ -106,11 +111,12 @@ const Income1Management = () => {
     useEffect(() => {
         loadData();
         loadTypeIncome();
-    }, []);
+        loadBookBanks();
+    }, [filterYear, filterMonth]); // ✅ เมื่อ filterYear หรือ filterMonth เปลี่ยน ให้ loadData ใหม่
 
     useEffect(() => {
         filterData();
-    }, [income1List, searchTerm]);
+    }, [income1List, searchTerm]); // ✅ filterData จะกรองตาม searchTerm เท่านั้น
 
     useEffect(() => {
         setTotalPages(Math.ceil(filteredList.length / itemsPerPage));
@@ -123,9 +129,26 @@ const Income1Management = () => {
 
             if (response.success && response.data) {
                 console.log(`✅ โหลดข้อมูลใบสำคัญรับ ${response.data.length} รายการ`);
-                setIncome1List(response.data);
-                setFilteredList(response.data);
-                showAlert(`โหลดข้อมูลสำเร็จ ${response.data.length} รายการ`, 'success');
+                
+                // ✅ กรองข้อมูลตาม filterYear และ filterMonth (client-side filtering)
+                // ✅ filterYear เป็น พ.ศ. แต่ MYEAR ใน DB เก็บเป็น ค.ศ. ต้องแปลงก่อนกรอง
+                let filtered = response.data;
+                
+                // กรองตามปี - แปลง filterYear (พ.ศ.) เป็น ค.ศ. ก่อนกรอง
+                if (filterYear) {
+                    const filterYearCE = toGregorianYear(filterYear); // แปลง พ.ศ. เป็น ค.ศ.
+                    filtered = filtered.filter(item => item.MYEAR === filterYearCE.toString());
+                }
+                
+                // กรองตามเดือน
+                if (filterMonth) {
+                    filtered = filtered.filter(item => item.MONTHH === parseInt(filterMonth));
+                }
+                
+                console.log(`✅ กรองข้อมูลแล้ว ${filtered.length} รายการ (ปี: ${filterYear} พ.ศ. / ${toGregorianYear(filterYear)} ค.ศ., เดือน: ${filterMonth})`);
+                setIncome1List(filtered);
+                setFilteredList(filtered);
+                showAlert(`โหลดข้อมูลสำเร็จ ${filtered.length} รายการ`, 'success');
             }
         } catch (error) {
             console.error('❌ Error loading data:', error);
@@ -147,17 +170,40 @@ const Income1Management = () => {
         }
     };
 
+    const loadBookBanks = async () => {
+        try {
+            console.log('🔄 Loading book banks...');
+            const response = await BookBankService.getAllBookBanks();
+            console.log('📦 BookBank response:', response);
+
+            let bookBanks = [];
+            if (response.success && response.data) {
+                bookBanks = Array.isArray(response.data) ? response.data : [];
+            } else if (Array.isArray(response)) {
+                bookBanks = response;
+            }
+
+            console.log('✅ Loaded book banks:', bookBanks.length, 'items');
+            setBookBankList(bookBanks);
+        } catch (error) {
+            console.error('❌ Error loading book banks:', error);
+            setBookBankList([]);
+        }
+    };
+
     const filterData = () => {
-        if (!searchTerm) {
-            setFilteredList(income1List);
-        } else {
-            const filtered = income1List.filter(item =>
+        let filtered = income1List;
+
+        // ✅ กรองตาม searchTerm
+        if (searchTerm) {
+            filtered = filtered.filter(item =>
                 item.REFNO?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 item.NAME1?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 item.BANK_NO?.toLowerCase().includes(searchTerm.toLowerCase())
             );
-            setFilteredList(filtered);
         }
+
+        setFilteredList(filtered);
         setPage(1);
     };
 
@@ -193,6 +239,23 @@ const Income1Management = () => {
     const handleDetailChange = (index, field, value) => {
         const newDetails = [...details];
         newDetails[index][field] = value;
+        
+        // ✅ ถ้าเลือกประเภท ให้เอาชื่อประเภทไปใส่ในรายการอัตโนมัติ
+        if (field === 'TYPE_INCOME_CODE' && value) {
+            const selectedType = typeIncomeList.find(type => type.TYPE_INCOME_CODE === value);
+            if (selectedType && selectedType.TYPE_INCOME_NAME) {
+                // ถ้ารายการว่างเปล่า ให้ใส่ชื่อประเภท
+                // ถ้ามีข้อมูลอยู่แล้ว ให้ append ชื่อประเภทไว้ข้างหน้า
+                const currentDesc = newDetails[index].DESCM1 || '';
+                if (!currentDesc.trim()) {
+                    newDetails[index].DESCM1 = selectedType.TYPE_INCOME_NAME;
+                } else if (!currentDesc.includes(selectedType.TYPE_INCOME_NAME)) {
+                    // ถ้ายังไม่มีชื่อประเภทในรายการ ให้ใส่ไว้ข้างหน้า
+                    newDetails[index].DESCM1 = `${selectedType.TYPE_INCOME_NAME} ${currentDesc}`;
+                }
+            }
+        }
+        
         setDetails(newDetails);
     };
 
@@ -228,8 +291,10 @@ const Income1Management = () => {
 
     const generateRefno = async () => {
         try {
+            // ✅ แปลง MYEAR จาก พ.ศ. เป็น ค.ศ. ก่อนส่ง API (DB เก็บเป็น ค.ศ.)
+            const yearCE = toGregorianYear(headerData.MYEAR);
             const response = await Income1Service.generateRefno(
-                headerData.MYEAR,
+                yearCE.toString(),
                 headerData.MONTHH.toString().padStart(2, '0')
             );
             if (response.success) {
@@ -264,7 +329,9 @@ const Income1Management = () => {
             // ✅ ถ้าเลือกเงินสด ให้ตั้งค่า BANK_NO เป็น "-"
             const finalHeaderData = {
                 ...headerData,
-                BANK_NO: headerData.TYPE_PAY === 'เงินสด' ? '-' : headerData.BANK_NO
+                BANK_NO: headerData.TYPE_PAY === 'เงินสด' ? '-' : headerData.BANK_NO,
+                // ✅ แปลง MYEAR จาก พ.ศ. เป็น ค.ศ. ก่อนบันทึก (DB เก็บเป็น ค.ศ.)
+                MYEAR: toGregorianYear(headerData.MYEAR).toString()
             };
 
             let dataToSave = finalHeaderData;
@@ -328,7 +395,8 @@ const Income1Management = () => {
                     REFNO: header.REFNO,
                     RDATE: Income1Service.formatDateForInput(header.RDATE),
                     TRDATE: Income1Service.formatDateForInput(header.TRDATE),
-                    MYEAR: header.MYEAR, // ✅ MYEAR เก็บเป็น พ.ศ. อยู่แล้ว
+                    // ✅ MYEAR ใน DB เก็บเป็น ค.ศ. ต้องแปลงเป็น พ.ศ. สำหรับแสดงผล
+                    MYEAR: toBuddhistYear(header.MYEAR).toString(),
                     MONTHH: header.MONTHH,
                     NAME1: header.NAME1,
                     STATUS: header.STATUS,
@@ -493,13 +561,21 @@ const Income1Management = () => {
                                     <Typography sx={{ fontWeight: 400, fontSize: 14, mb: 1 }}>
                                         เลขที่บัญชี *
                                     </Typography>
-                                    <TextField
-                                        size="small"
-                                        placeholder="เลขที่บัญชีธนาคาร"
-                                        value={headerData.BANK_NO}
-                                        onChange={(e) => handleHeaderChange('BANK_NO', e.target.value)}
+                                    <Autocomplete
                                         fullWidth
-                                        sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
+                                        options={bookBankList}
+                                        getOptionLabel={(option) => {
+                                            const bankName = option.bank_name || 'ธนาคาร';
+                                            return `${bankName} - ${option.bank_no}`;
+                                        }}
+                                        value={bookBankList.find(b => b.bank_no === headerData.BANK_NO) || null}
+                                        onChange={(event, value) => {
+                                            handleHeaderChange('BANK_NO', value ? value.bank_no : '-');
+                                        }}
+                                        size="small"
+                                        renderInput={(params) => (
+                                            <TextField {...params} placeholder="เลือกเลขที่บัญชี" sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }} />
+                                        )}
                                     />
                                 </Grid>
                             )}
@@ -652,21 +728,71 @@ const Income1Management = () => {
 
             <Card sx={{ mb: 2 }}>
                 <CardContent>
-                    <TextField
-                        size="small"
-                        placeholder="ค้นหา (เลขที่, รับจาก, เลขบัญชี)"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        fullWidth
-                        InputProps={{
-                            startAdornment: (
-                                <InputAdornment position="start">
-                                    <SearchIcon color="action" />
-                                </InputAdornment>
-                            ),
-                        }}
-                        sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
-                    />
+                    <Grid container spacing={2} alignItems="center">
+                        <Grid item xs={12} md={4}>
+                            <TextField
+                                size="small"
+                                placeholder="ค้นหา (เลขที่, รับจาก, เลขบัญชี)"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                fullWidth
+                                InputProps={{
+                                    startAdornment: (
+                                        <InputAdornment position="start">
+                                            <SearchIcon color="action" />
+                                        </InputAdornment>
+                                    ),
+                                }}
+                                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
+                            />
+                        </Grid>
+                        <Grid item xs={12} md={3}>
+                            <FormControl fullWidth size="small">
+                                <Select
+                                    value={filterYear}
+                                    onChange={(e) => setFilterYear(e.target.value)}
+                                    sx={{ borderRadius: "10px" }}
+                                >
+                                    {Array.from({ length: 10 }, (_, i) => {
+                                        const year = new Date().getFullYear() + 543 - i; // ✅ พ.ศ.
+                                        return (
+                                            <MenuItem key={year} value={year.toString()}>
+                                                {year}
+                                            </MenuItem>
+                                        );
+                                    })}
+                                </Select>
+                            </FormControl>
+                        </Grid>
+                        <Grid item xs={12} md={3}>
+                            <FormControl fullWidth size="small">
+                                <Select
+                                    value={filterMonth}
+                                    onChange={(e) => setFilterMonth(e.target.value)}
+                                    sx={{ borderRadius: "10px" }}
+                                >
+                                    {[
+                                        { value: 1, label: 'มกราคม' },
+                                        { value: 2, label: 'กุมภาพันธ์' },
+                                        { value: 3, label: 'มีนาคม' },
+                                        { value: 4, label: 'เมษายน' },
+                                        { value: 5, label: 'พฤษภาคม' },
+                                        { value: 6, label: 'มิถุนายน' },
+                                        { value: 7, label: 'กรกฎาคม' },
+                                        { value: 8, label: 'สิงหาคม' },
+                                        { value: 9, label: 'กันยายน' },
+                                        { value: 10, label: 'ตุลาคม' },
+                                        { value: 11, label: 'พฤศจิกายน' },
+                                        { value: 12, label: 'ธันวาคม' }
+                                    ].map((month) => (
+                                        <MenuItem key={month.value} value={month.value}>
+                                            {month.label}
+                                        </MenuItem>
+                                    ))}
+                                </Select>
+                            </FormControl>
+                        </Grid>
+                    </Grid>
                 </CardContent>
             </Card>
 
@@ -704,7 +830,14 @@ const Income1Management = () => {
                                                     {item.REFNO}
                                                 </td>
                                                 <td style={{ padding: '12px 8px' }}>
-                                                    {Income1Service.formatDate(item.RDATE)}
+                                                    {(() => {
+                                                        if (!item.RDATE) return '';
+                                                        const date = new Date(item.RDATE);
+                                                        const day = String(date.getDate()).padStart(2, '0');
+                                                        const month = String(date.getMonth() + 1).padStart(2, '0');
+                                                        const year = date.getFullYear() + 543; // แปลงเป็น พ.ศ.
+                                                        return `${day}/${month}/${year}`;
+                                                    })()}
                                                 </td>
                                                 <td style={{ padding: '12px 8px' }}>
                                                     {item.NAME1}

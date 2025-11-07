@@ -26,10 +26,9 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
     const [medicineData, setMedicineData] = useState({
         drugName: '',
         drugCode: '',
-        usage: '',
-        beforeAfter: '',
         quantity: '',
-        unit: '',
+        unit: '', // ✅ เก็บ UNIT_CODE สำหรับบันทึก
+        unitName: '', // ✅ เก็บ UNIT_NAME สำหรับแสดงผล
         time: '',
         unitPrice: 0
     });
@@ -60,20 +59,6 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
         { code: 'PACK', name: 'แพ็ค' }
     ]);
 
-    const [usageOptions] = useState([
-        'รับประทาน',
-        'ฉีด',
-        'ทา',
-        'หยอด',
-        'พ่น'
-    ]);
-
-    const [beforeAfterOptions] = useState([
-        'ก่อนอาหาร',
-        'หลังอาหาร',
-        'ระหว่างอาหาร',
-        'เมื่อมีอาการ'
-    ]);
 
     const [saving, setSaving] = useState(false);
     const [loading, setLoading] = useState(false);
@@ -102,9 +87,8 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
                     drugName: drug.GENERIC_NAME,
                     drugCode: drug.DRUG_CODE,
                     quantity: drug.QTY,
-                    unit: drug.UNIT_CODE || 'TAB',
-                    usage: drug.NOTE1 || '',
-                    beforeAfter: '',
+                    unit: drug.UNIT_CODE || 'TAB', // ✅ เก็บ UNIT_CODE สำหรับบันทึก
+                    unitName: drug.UNIT_NAME || getUnitName(drug.UNIT_CODE || 'TAB'), // ✅ เก็บ UNIT_NAME สำหรับแสดงผล
                     time: drug.TIME1 || '',
                     unitPrice: drug.UNIT_PRICE || 0
                 }));
@@ -133,11 +117,13 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
                     GENERIC_NAME: drug.GENERIC_NAME,
                     TRADE_NAME: drug.TRADE_NAME || '',
                     UNIT_CODE: drug.UNIT_CODE || 'TAB',
+                    UNIT_NAME: drug.UNIT_NAME || drug.UNIT_NAME1 || '', // ✅ เพิ่ม UNIT_NAME สำหรับแสดงผล
                     UNIT_PRICE: drug.UNIT_PRICE || 0,
                     // ✅ เพิ่ม default regimen จาก drug data
                     Dose1: drug.Dose1 || '',
                     Indication1: drug.Indication1 || '',
-                    Comment1: drug.Comment1 || ''
+                    Comment1: drug.Comment1 || '',
+                    eat1: drug.eat1 || '' // ✅ เพิ่ม eat1 สำหรับวิธีรับประทาน
                 }));
                 setDrugOptions(formattedDrugs);
                 setApiStatus('connected');
@@ -198,22 +184,19 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
             }
 
             // ✅ สร้าง default regimen จาก drug data หรือ default values
-            const defaultUsage = newValue.Indication1 || 'รับประทาน';
             const defaultQuantity = newValue.Dose1 || '1';
-            const defaultBeforeAfter = 'หลังอาหาร';
-            const defaultTime = newValue.Comment1 || 'วันละ 3 ครั้งหลังอาหาร';
+            const defaultTime = newValue.eat1 || newValue.Comment1 || 'วันละ 3 ครั้งหลังอาหาร'; // ✅ ใช้ eat1 ก่อน ถ้าไม่มีใช้ Comment1
 
             setMedicineData(prev => ({
                 ...prev,
                 drugCode: newValue.DRUG_CODE,
                 drugName: newValue.GENERIC_NAME,
-                unit: newValue.UNIT_CODE || 'TAB',
+                unit: newValue.UNIT_CODE || 'TAB', // ✅ เก็บ UNIT_CODE สำหรับบันทึก
+                unitName: newValue.UNIT_NAME || getUnitName(newValue.UNIT_CODE || 'TAB'), // ✅ เก็บ UNIT_NAME สำหรับแสดงผล
                 unitPrice: newValue.UNIT_PRICE || 0,
-                // ✅ เซ็ต default regimen
-                usage: prev.usage || defaultUsage,
-                quantity: prev.quantity || defaultQuantity,
-                beforeAfter: prev.beforeAfter || defaultBeforeAfter,
-                time: prev.time || defaultTime
+                // ✅ เซ็ต default regimen - ถ้าเปลี่ยนยาใหม่ ให้อัพเดท quantity และ time เสมอ
+                quantity: defaultQuantity, // ✅ อัพเดทเป็นของยาตัวใหม่เสมอ
+                time: defaultTime // ✅ อัพเดทเป็น eat1 ของยาตัวใหม่เสมอ
             }));
         } else {
             setMedicineData(prev => ({
@@ -221,10 +204,9 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
                 drugCode: '',
                 drugName: '',
                 unit: '',
+                unitName: '',
                 unitPrice: 0,
-                usage: '',
                 quantity: '',
-                beforeAfter: '',
                 time: ''
             }));
         }
@@ -258,9 +240,8 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
             drugName: medicineData.drugName.trim(),
             drugCode: medicineData.drugCode,
             quantity: parseFloat(medicineData.quantity),
-            unit: medicineData.unit,
-            usage: medicineData.usage || 'รับประทาน',
-            beforeAfter: medicineData.beforeAfter || 'หลังอาหาร',
+            unit: medicineData.unit, // ✅ บันทึก UNIT_CODE
+            unitName: medicineData.unitName || getUnitName(medicineData.unit), // ✅ เก็บ UNIT_NAME สำหรับแสดงผล
             time: medicineData.time.trim() || 'วันละ 1 ครั้ง',
             unitPrice: parseFloat(medicineData.unitPrice) || 0
         };
@@ -283,10 +264,9 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
         setMedicineData({
             drugName: '',
             drugCode: '',
-            usage: '',
-            beforeAfter: '',
             quantity: '',
             unit: '',
+            unitName: '',
             time: '',
             unitPrice: 0
         });
@@ -297,10 +277,9 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
         setMedicineData({
             drugName: medicine.drugName,
             drugCode: medicine.drugCode,
-            usage: medicine.usage,
-            beforeAfter: medicine.beforeAfter,
             quantity: medicine.quantity.toString(),
-            unit: medicine.unit,
+            unit: medicine.unit, // ✅ เก็บ UNIT_CODE สำหรับบันทึก
+            unitName: medicine.unitName || getUnitName(medicine.unit), // ✅ เก็บ UNIT_NAME สำหรับแสดงผล
             time: medicine.time,
             unitPrice: medicine.unitPrice || 0
         });
@@ -344,7 +323,7 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
                 UNIT_CODE: medicine.unit || 'TAB',
                 UNIT_PRICE: parseFloat(medicine.unitPrice) || 0,
                 AMT: (parseFloat(medicine.quantity) || 1) * (parseFloat(medicine.unitPrice) || 0),
-                NOTE1: `${medicine.usage || 'รับประทาน'} ${medicine.beforeAfter || 'หลังอาหาร'}`.trim(),
+                NOTE1: '',
                 TIME1: medicine.time || 'วันละ 1 ครั้ง'
             }));
 
@@ -656,26 +635,6 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
                                     />
                                 </Grid>
 
-                                {/* Usage */}
-                                <Grid item xs={6}>
-                                    <Typography sx={{ fontWeight: '400', fontSize: '16px', mb: 1 }}>
-                                        วิธีใช้ *
-                                    </Typography>
-                                    <FormControl fullWidth size="small">
-                                        <Select
-                                            value={medicineData.usage}
-                                            onChange={(e) => handleMedicineChange('usage', e.target.value)}
-                                            displayEmpty
-                                            sx={{ borderRadius: '10px' }}
-                                        >
-                                            <MenuItem value="">เลือกวิธีใช้</MenuItem>
-                                            {usageOptions.map((option) => (
-                                                <MenuItem key={option} value={option}>{option}</MenuItem>
-                                            ))}
-                                        </Select>
-                                    </FormControl>
-                                </Grid>
-
                                 {/* Quantity */}
                                 <Grid item xs={4}>
                                     <Typography sx={{ fontWeight: '400', fontSize: '16px', mb: 1 }}>
@@ -704,7 +663,7 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
                                     </Typography>
                                     <TextField
                                         size="small"
-                                        value={medicineData.unit ? getUnitName(medicineData.unit) : ''}
+                                        value={medicineData.unitName || (medicineData.unit ? getUnitName(medicineData.unit) : '')}
                                         placeholder="หน่วยนับ"
                                         disabled
                                         sx={{
@@ -717,41 +676,25 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
                                     />
                                 </Grid>
 
-                                {/* Before/After */}
-                                <Grid item xs={4}>
-                                    <Typography sx={{ fontWeight: '400', fontSize: '16px', mb: 1 }}>
-                                        ก่อน/หลังอาหาร
-                                    </Typography>
-                                    <FormControl fullWidth size="small">
-                                        <Select
-                                            value={medicineData.beforeAfter}
-                                            onChange={(e) => handleMedicineChange('beforeAfter', e.target.value)}
-                                            displayEmpty
-                                            sx={{ borderRadius: '10px' }}
-                                        >
-                                            <MenuItem value="">เลือก</MenuItem>
-                                            {beforeAfterOptions.map((option) => (
-                                                <MenuItem key={option} value={option}>{option}</MenuItem>
-                                            ))}
-                                        </Select>
-                                    </FormControl>
-                                </Grid>
-
                                 {/* Time */}
                                 <Grid item xs={12}>
                                     <Typography sx={{ fontWeight: '400', fontSize: '16px', mb: 1 }}>
-                                        เวลา/คำแนะนำ
+                                        วิธีรับประทาน
                                     </Typography>
                                     <TextField
                                         size="small"
-                                        placeholder="เช่น วันละ 3 ครั้งหลังอาหาร"
+                                        placeholder="ดึงมาจาก eat1 ของ TABLE_DRUG"
                                         value={medicineData.time}
                                         onChange={(e) => handleMedicineChange('time', e.target.value)}
                                         sx={{
                                             width: '100%',
                                             '& .MuiOutlinedInput-root': {
                                                 borderRadius: '10px',
+                                                backgroundColor: medicineData.drugCode ? '#f5f5f5' : 'inherit'
                                             },
+                                        }}
+                                        InputProps={{
+                                            readOnly: !!medicineData.drugCode, // ✅ ถ้าเลือกยาแล้ว ให้เป็น readonly
                                         }}
                                     />
                                 </Grid>
@@ -821,15 +764,14 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
                                     <TableCell sx={{ fontWeight: 'bold' }}>รหัสยา</TableCell>
                                     <TableCell sx={{ fontWeight: 'bold' }}>จำนวน</TableCell>
                                     <TableCell sx={{ fontWeight: 'bold' }}>หน่วย</TableCell>
-                                    <TableCell sx={{ fontWeight: 'bold' }}>วิธีใช้</TableCell>
-                                    <TableCell sx={{ fontWeight: 'bold' }}>เวลา</TableCell>
+                                    <TableCell sx={{ fontWeight: 'bold' }}>วิธีรับประทาน</TableCell>
                                     <TableCell sx={{ fontWeight: 'bold', textAlign: 'center' }}>จัดการ</TableCell>
                                 </TableRow>
                             </TableHead>
                             <TableBody>
                                 {savedMedicines.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={8} sx={{ textAlign: 'center', py: 4 }}>
+                                        <TableCell colSpan={7} sx={{ textAlign: 'center', py: 4 }}>
                                             <Typography color="text.secondary">
                                                 ยังไม่มีรายการยา กรุณาเพิ่มรายการยาด้านบน
                                             </Typography>
@@ -868,10 +810,7 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
                                                 </Typography>
                                             </TableCell>
                                             <TableCell>{medicine.quantity}</TableCell>
-                                            <TableCell>{getUnitName(medicine.unit)}</TableCell>
-                                            <TableCell>
-                                                {medicine.usage} {medicine.beforeAfter}
-                                            </TableCell>
+                                            <TableCell>{medicine.unitName || getUnitName(medicine.unit)}</TableCell>
                                             <TableCell>{medicine.time}</TableCell>
                                             <TableCell sx={{ textAlign: 'center' }}>
                                                 <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
