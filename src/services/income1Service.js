@@ -309,6 +309,56 @@ class Income1Service {
         };
     }
 
+    // แปลงตัวเลขเป็นข้อความภาษาไทย
+    static numberToThaiText(number) {
+        const num = Math.floor(parseFloat(number) || 0);
+        if (num === 0) return 'ศูนย์บาทถ้วน';
+
+        const thaiNumbers = ['', 'หนึ่ง', 'สอง', 'สาม', 'สี่', 'ห้า', 'หก', 'เจ็ด', 'แปด', 'เก้า'];
+        const thaiUnits = ['', 'สิบ', 'ร้อย', 'พัน', 'หมื่น', 'แสน'];
+
+        let result = '';
+        const numStr = num.toString();
+        const len = numStr.length;
+
+        for (let i = 0; i < len; i++) {
+            const digit = parseInt(numStr[i]);
+            const position = len - i - 1;
+
+            if (digit !== 0) {
+                if (position === 1) {
+                    if (digit === 1) {
+                        result += 'สิบ';
+                    } else if (digit === 2) {
+                        result += 'ยี่สิบ';
+                    } else {
+                        result += thaiNumbers[digit] + 'สิบ';
+                    }
+                } else if (position === 0) {
+                    if (digit === 1 && len > 1) {
+                        result += 'เอ็ด';
+                    } else {
+                        result += thaiNumbers[digit];
+                    }
+                } else {
+                    result += thaiNumbers[digit] + thaiUnits[position];
+                }
+            }
+        }
+
+        return result + 'บาทถ้วน';
+    }
+
+    // จัดรูปแบบวันที่ (พ.ศ.) สำหรับพิมพ์เอกสาร
+    static formatDateBEForPrint(dateString) {
+        if (!dateString) return '';
+        const date = new Date(dateString);
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const year = date.getFullYear() + 543;
+        return `${day}/${month}/${year}`;
+    }
+
     // ส่งออกข้อมูลเป็น CSV
     static exportToCSV(income1List) {
         const headers = [
@@ -570,21 +620,257 @@ class Income1Service {
         }));
     }
 
-    // พิมพ์สรุปรายรับ รายจ่ายประจำวัน (สร้าง HTML สำหรับพิมพ์)
-    static generatePrintHTML(headerData, details, expenseData = null) {
+    // พิมพ์ใบสำคัญรับ (สร้าง HTML สำหรับพิมพ์)
+    static generatePrintHTML(headerData, details) {
+        const total = this.calculateTotal(details);
+        const totalText = this.numberToThaiText(total);
+        const payerName = headerData.NAME1 || '';
+        const paymentMethod = headerData.TYPE_PAY === 'เงินสด' ? 'รับโดยเงินสด' : 'รับโดยเงินโอน';
+        const bankInfo = headerData.TYPE_PAY === 'เงินโอน' && headerData.BANK_NO && headerData.BANK_NO !== '-'
+            ? ` (${headerData.BANK_NO})`
+            : '';
+        const dateBE = this.formatDateBEForPrint(headerData.RDATE);
+
+        const detailRows = details.map((item, index) => `
+                            <tr>
+                                <td class="text-center">${index + 1}</td>
+                                <td>${item.DESCM1 || ''}</td>
+                                <td class="text-center">${item.QTY || ''}</td>
+                                <td class="text-right">${this.formatCurrency(item.AMT)}</td>
+                            </tr>`).join('\n');
+
+        const emptyRows = Array.from({ length: Math.max(0, 4 - details.length) }, () => `
+                            <tr>
+                                <td>&nbsp;</td>
+                                <td></td>
+                                <td></td>
+                                <td></td>
+                            </tr>`).join('');
+
+        return `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <title>ใบสำคัญรับเงิน - ${headerData.REFNO || ''}</title>
+                <style>
+                    @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap');
+                    * {
+                        margin: 0;
+                        padding: 0;
+                        box-sizing: border-box;
+                    }
+                    @page {
+                        size: A4;
+                        margin: 12mm;
+                    }
+                    body {
+                        font-family: 'Sarabun', 'TH Sarabun New', Arial, sans-serif;
+                        font-size: 13.5px;
+                        color: #000;
+                        line-height: 1.45;
+                    }
+                    .container {
+                        width: 100%;
+                        max-width: 188mm;
+                        margin: 0 auto;
+                    }
+                    .document-header {
+                        text-align: center;
+                        margin-bottom: 8px;
+                    }
+                    .org-name {
+                        font-size: 18px;
+                        font-weight: 700;
+                    }
+                    .org-address,
+                    .org-phone {
+                        font-size: 12px;
+                    }
+                    .title {
+                        font-size: 20px;
+                        font-weight: 700;
+                        text-align: right;
+                        margin: 18px 0 10px;
+                    }
+                    .info-row {
+                        display: flex;
+                        justify-content: space-between;
+                        margin-bottom: 6px;
+                        font-size: 13px;
+                    }
+                    .info-left,
+                    .info-right {
+                        display: flex;
+                        align-items: center;
+                        gap: 8px;
+                        flex: 1;
+                    }
+                    .info-right {
+                        justify-content: flex-end;
+                    }
+                    .info-label {
+                        font-weight: 600;
+                        min-width: 70px;
+                    }
+                    .info-value {
+                        border-bottom: 1px solid #000;
+                        min-width: 120px;
+                        padding: 0 6px 2px;
+                    }
+                    .items-table {
+                        width: 100%;
+                        border-collapse: collapse;
+                        font-size: 13px;
+                    }
+                    .items-table th,
+                    .items-table td {
+                        border: 1px solid #000;
+                        padding: 6px 8px;
+                    }
+                    .items-table th {
+                        background: #f0f0f0;
+                        font-weight: 600;
+                        text-align: center;
+                    }
+                    .items-table .col-no { width: 45px; }
+                    .items-table .col-desc { width: 55%; }
+                    .items-table .col-qty { width: 120px; text-align: center; }
+                    .items-table .col-amount { width: 120px; text-align: right; }
+                    .amount-text {
+                        border: 1px solid #000;
+                        padding: 8px 10px;
+                        font-size: 13px;
+                        margin: 12px 0;
+                    }
+                    .amount-text span { font-weight: 600; }
+                    .remark-box {
+                        border: 1px solid #000;
+                        min-height: 60px;
+                        padding: 6px 10px;
+                        font-size: 13px;
+                    }
+                    .remark-box span { font-weight: 600; }
+                    .signature-section {
+                        display: flex;
+                        justify-content: space-between;
+                        margin-top: 28px;
+                        font-size: 13px;
+                        text-align: center;
+                    }
+                    .signature-box {
+                        flex: 1;
+                        padding: 0 12px;
+                    }
+                    .signature-line {
+                        height: 55px;
+                        border-bottom: 1px solid #000;
+                        margin-bottom: 6px;
+                    }
+                    .signature-label {
+                        font-weight: 600;
+                    }
+                    .small-text { font-size: 12px; }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="document-header">
+                        <div class="org-name">สัมพันธ์คลินิก</div>
+                        <div class="org-address">280 หมู่ 4 ถนน เชียงใหม่-ฮอด ต.บ้านหลวง อ.จอมทอง จ.เชียงใหม่ 50160</div>
+                        <div class="org-phone">โทร. 053-826-524</div>
+                    </div>
+                    <div class="title">ใบสำคัญรับเงิน</div>
+
+                    <div class="info-row">
+                        <div class="info-left">
+                            <span class="info-label">รับจาก</span>
+                            <span class="info-value">${payerName || '&nbsp;'}</span>
+                        </div>
+                        <div class="info-right">
+                            <span class="info-label">เลขที่</span>
+                            <span class="info-value">${headerData.REFNO || ''}</span>
+                        </div>
+                    </div>
+                    <div class="info-row">
+                        <div class="info-left">
+                            <span class="info-label">ที่อยู่</span>
+                            <span class="info-value">-</span>
+                        </div>
+                        <div class="info-right">
+                            <span class="info-label">วันที่</span>
+                            <span class="info-value">${dateBE}</span>
+                        </div>
+                    </div>
+
+                    <table class="items-table">
+                        <thead>
+                            <tr>
+                                <th class="col-no">ที่</th>
+                                <th class="col-desc">รายการ</th>
+                                <th class="col-qty">จำนวน</th>
+                                <th class="col-amount">จำนวนเงิน</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+${detailRows}
+${emptyRows}
+                            <tr>
+                                <td colspan="3" style="text-align:right; font-weight:700; background:#f9f9f9;">รวม</td>
+                                <td style="text-align:right; font-weight:700; background:#f9f9f9;">${this.formatCurrency(total)}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <div class="amount-text">
+                        <span>(จำนวนเงินเป็นตัวอักษร)</span> ${totalText}
+                    </div>
+                    <div class="remark-box">
+                        <span>หมายเหตุ</span> ${paymentMethod}${bankInfo}
+                    </div>
+                    <div class="signature-section">
+                        <div class="signature-box">
+                            <div class="signature-line"></div>
+                            <div class="signature-label">ผู้รับเงิน</div>
+                            <div class="small-text">( สัมพันธ์คลินิก )</div>
+                        </div>
+                        <div class="signature-box">
+                            <div class="signature-line"></div>
+                            <div class="signature-label">ผู้จ่ายเงิน</div>
+                            <div class="small-text">( ${payerName || '................................'} )</div>
+                        </div>
+                    </div>
+                </div>
+            </body>
+            </html>
+        `;
+    }
+
+    // พิมพ์ใบสำคัญรับ
+    static printIncome1(headerData, details) {
+        const printWindow = window.open('', '_blank');
+        printWindow.document.write(this.generatePrintHTML(headerData, details));
+        printWindow.document.close();
+        printWindow.focus();
+        setTimeout(() => {
+            printWindow.print();
+            printWindow.close();
+        }, 250);
+    }
+
+    // ---------------- รายงานสรุปรายรับ/รายจ่าย ----------------
+
+    // พิมพ์สรุปรายรับ รายจ่ายประจำวัน (สร้าง HTML)
+    static generateDailySummaryHTML(headerData, details, expenseData = null) {
         const incomeTotal = this.calculateTotal(details);
         const expenseTotal = expenseData ? expenseData.total : 0;
         const balance = incomeTotal - expenseTotal;
-        
-        // จัดรูปแบบรายการรายรับ
+
         const incomeItems = details.map(d => ({
             description: `${d.DESCM1} ${headerData.TYPE_PAY === 'เงินสด' ? 'เงินสด' : `ธนาคาร(${headerData.BANK_NO || ''})`}`,
             amount: parseFloat(d.AMT) || 0
         }));
 
-        // จัดรูปแบบรายการรายจ่าย
         const expenseItems = expenseData && expenseData.items ? expenseData.items : [];
-
         const reportDate = Income1Service.formatDateForPrint(headerData.RDATE);
 
         return `
@@ -687,11 +973,6 @@ class Income1Service {
                         width: 25%; 
                         min-width: 150px;
                     }
-                    .section-divider {
-                        height: 2px;
-                        background-color: #000;
-                        margin: 10px 0;
-                    }
                 </style>
             </head>
             <body>
@@ -735,7 +1016,7 @@ class Income1Service {
         `;
     }
 
-    // สร้างแถวรายงาน (รายรับและรายจ่าย)
+    // สร้างแถวรายงาน (รายรับและรายจ่าย) สำหรับสรุป
     static generateReportRows(incomeItems, expenseItems) {
         const maxRows = Math.max(incomeItems.length, expenseItems.length);
         const rows = [];
@@ -757,7 +1038,7 @@ class Income1Service {
         return rows.join('');
     }
 
-    // จัดรูปแบบวันที่สำหรับพิมพ์
+    // จัดรูปแบบวันที่ (ค.ศ.) สำหรับรายงานสรุป
     static formatDateForPrint(dateString) {
         if (!dateString) return '';
         const date = new Date(dateString);
@@ -768,9 +1049,9 @@ class Income1Service {
     }
 
     // พิมพ์สรุปรายรับ รายจ่ายประจำวัน
-    static printIncome1(headerData, details, expenseData = null) {
+    static printDailySummary(headerData, details, expenseData = null) {
         const printWindow = window.open('', '_blank');
-        printWindow.document.write(this.generatePrintHTML(headerData, details, expenseData));
+        printWindow.document.write(this.generateDailySummaryHTML(headerData, details, expenseData));
         printWindow.document.close();
         printWindow.focus();
         setTimeout(() => {

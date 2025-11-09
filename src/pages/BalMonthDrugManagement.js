@@ -195,6 +195,40 @@ const BalMonthDrugManagement = () => {
         setPage(1);
     };
 
+    const normalizeText = (value) => (value ?? '').toString().trim().toLowerCase();
+
+    const hasDuplicateDrugLot = (data, editingReference) => {
+        const targetYear = toGregorianYear(data.MYEAR).toString();
+        const targetMonth = Number(data.MONTHH);
+        const targetDrug = normalizeText(data.DRUG_CODE);
+        const targetLot = normalizeText(data.LOT_NO);
+
+        return balanceList.some(item => {
+            const itemYear = String(item.MYEAR);
+            const itemMonth = Number(item.MONTHH);
+            const itemDrug = normalizeText(item.DRUG_CODE);
+            const itemLot = normalizeText(item.LOT_NO);
+
+            const isEditingItem =
+                editingReference &&
+                itemYear === String(editingReference.MYEAR) &&
+                itemMonth === Number(editingReference.MONTHH) &&
+                itemDrug === normalizeText(editingReference.DRUG_CODE) &&
+                itemLot === normalizeText(editingReference.LOT_NO);
+
+            if (isEditingItem) {
+                return false;
+            }
+
+            return (
+                itemYear === targetYear &&
+                itemMonth === targetMonth &&
+                itemDrug === targetDrug &&
+                itemLot === targetLot
+            );
+        });
+    };
+
     const handleFormChange = (field, value) => {
         setFormData(prev => {
             const updated = { ...prev, [field]: value };
@@ -265,9 +299,15 @@ const BalMonthDrugManagement = () => {
             return;
         }
 
+        if (hasDuplicateDrugLot(formData, editingItem)) {
+            showAlert('พบข้อมูลซ้ำ: ยาและ LOT NO นี้มีอยู่แล้ว', 'warning');
+            return;
+        }
+
         setLoading(true);
 
         try {
+
             // แปลงปี พ.ศ. เป็น ค.ศ. ก่อนบันทึก
             const dataToSave = {
                 ...formData,
@@ -282,8 +322,8 @@ const BalMonthDrugManagement = () => {
                 result = await BalMonthDrugService.createBalance(formattedData);
                 console.log('✅ CREATE response:', result);
                 // ✅ API จะทำ upsert แล้ว - ถ้ามีข้อมูลอยู่แล้วจะ update แทน
-                const message = result.data?.isUpdate 
-                    ? 'อัปเดตยอดยกมาสำเร็จ' 
+                const message = result.data?.isUpdate
+                    ? 'อัปเดตยอดยกมาสำเร็จ'
                     : 'บันทึกยอดยกมาสำเร็จ';
                 showAlert(message, 'success');
             } else {
@@ -445,7 +485,7 @@ const BalMonthDrugManagement = () => {
                                         )}
                                         filterOptions={(options, { inputValue }) => {
                                             const searchTerm = inputValue.toLowerCase();
-                                            return options.filter(option => 
+                                            return options.filter(option =>
                                                 (option.GENERIC_NAME || '').toLowerCase().includes(searchTerm) ||
                                                 (option.TRADE_NAME || '').toLowerCase().includes(searchTerm) ||
                                                 (option.DRUG_CODE || '').toLowerCase().includes(searchTerm)
@@ -454,6 +494,34 @@ const BalMonthDrugManagement = () => {
                                         renderInput={(params) => <TextField {...params} placeholder="เลือกยา" size="small" />}
                                         disabled={!!editingItem}
                                         sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px", backgroundColor: editingItem ? "#f5f5f5" : "white" } }}
+                                    />
+                                </Grid>
+
+                                <Grid item xs={12} md={6}>
+                                    <Typography sx={{ fontWeight: 400, fontSize: 16, mb: 1 }}>LOT NO</Typography>
+                                    <TextField
+                                        size="small"
+                                        placeholder="LOT NO"
+                                        value={formData.LOT_NO}
+                                        onChange={(e) => handleFormChange('LOT_NO', e.target.value)}
+                                        fullWidth
+                                        sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
+                                    />
+                                </Grid>
+
+                                <Grid item xs={12} md={6}>
+                                    <Typography sx={{ fontWeight: 400, fontSize: 16, mb: 1 }}>วันหมดอายุ</Typography>
+                                    <DatePicker
+                                        value={formData.EXPIRE_DATE ? dayjs(formData.EXPIRE_DATE) : null}
+                                        onChange={(newValue) => handleFormChange('EXPIRE_DATE', newValue ? newValue.format('YYYY-MM-DD') : '')}
+                                        renderInput={(params) => (
+                                            <TextField
+                                                {...params}
+                                                fullWidth
+                                                size="small"
+                                                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
+                                            />
+                                        )}
                                     />
                                 </Grid>
 
@@ -508,34 +576,6 @@ const BalMonthDrugManagement = () => {
                                         disabled
                                         fullWidth
                                         sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px", backgroundColor: "#f5f5f5" } }}
-                                    />
-                                </Grid>
-
-                                <Grid item xs={12} md={6}>
-                                    <Typography sx={{ fontWeight: 400, fontSize: 16, mb: 1 }}>LOT NO</Typography>
-                                    <TextField
-                                        size="small"
-                                        placeholder="LOT NO"
-                                        value={formData.LOT_NO}
-                                        onChange={(e) => handleFormChange('LOT_NO', e.target.value)}
-                                        fullWidth
-                                        sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
-                                    />
-                                </Grid>
-
-                                <Grid item xs={12} md={6} sx={{ mt: '32px' }}>
-                                    <DatePicker
-                                        label="วันหมดอายุ"
-                                        value={formData.EXPIRE_DATE ? dayjs(formData.EXPIRE_DATE) : null}
-                                        onChange={(newValue) => handleFormChange('EXPIRE_DATE', newValue ? newValue.format('YYYY-MM-DD') : '')}
-                                    renderInput={(params) => (
-                                        <TextField
-                                            {...params}
-                                            fullWidth
-                                            size="small"
-                                            sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
-                                        />
-                                    )}
                                     />
                                 </Grid>
                             </Grid>

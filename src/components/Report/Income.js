@@ -1,191 +1,601 @@
-import React, { useState } from "react";
-import { Container, Grid, TextField, Button, Card, CardContent, Typography, Avatar,InputAdornment,MenuItem, Tabs, Tab, Divider,Box,Checkbox,IconButton,FormGroup,FormControlLabel,LinearProgress, Grid2 } from "@mui/material";
-// import { DatePicker } from "@mui/lab";
-import SaveIcon from '@mui/icons-material/Save';
-import SearchIcon from '@mui/icons-material/Search';
-import AddIcon from '@mui/icons-material/Add';
-import { CheckBox} from "@mui/icons-material";
-import DeleteIcon from '@mui/icons-material/Delete';
-import EditIcon from '@mui/icons-material/Edit';
-import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
-import { AccountBalanceWallet, MonetizationOn, Payment } from "@mui/icons-material";
+import React, { useEffect, useMemo, useState } from "react";
+import {
+  Alert,
+  Box,
+  Button,
+  Card,
+  CardContent,
+  Chip,
+  CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Divider,
+  FormControl,
+  Grid,
+  IconButton,
+  InputAdornment,
+  InputLabel,
+  MenuItem,
+  Paper,
+  Select,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TextField,
+  Typography,
+} from "@mui/material";
+import {
+  Download as DownloadIcon,
+  Refresh as RefreshIcon,
+  Visibility as VisibilityIcon,
+  ShoppingCart as ShoppingCartIcon,
+  Paid as PaidIcon,
+  Payments as PaymentsIcon,
+  Search as SearchIcon,
+} from "@mui/icons-material";
+import Pay1Service from "../../services/pay1Service";
+import {
+  formatThaiDateShort,
+  getCurrentDateForDB,
+} from "../../utils/dateTimeUtils";
+import ExpensePdfButton from "./ExpensePdfButton";
 
-const Income = () => {
-    const summaryData = [
-    { icon: <AccountBalanceWallet sx={{ fontSize: 40, color: "#5698E0" }} />, label: "ยอดเงิน", amount: "฿3,460", details: "25 รายการ" },
-    { icon: <MonetizationOn sx={{ fontSize: 40, color: "#5698E0" }} />, label: "ยอดจ่าย", amount: "฿12,750", details: "46 รายการ" },
-    { icon: <Payment sx={{ fontSize: 40, color: "#5698E0" }} />, label: "ประเภทการจ่าย", payments: [{ type: "โอนเงิน", count: 10, amount: "฿12,500" }, { type: "เงินสด", count: 20, amount: "฿5,400" }] },
-    ];
-
-  const [currentPage, setCurrentPage] = useState("list"); // state
-
-  const handleFabClick = () => {
-    setCurrentPage("add"); // เปลี่ยนหน้าเป็น 'add'
-  };
-
-  const handleBackClick = () => {
-    setCurrentPage("list"); // กลับไปยังหน้า 'list'
-  };
-      // ข้อมูลจำลอง (Array)
-  const patients = [
-    {
-      hn: "000001",
-      citizenId: "1909085467809",
-      firstName: "แอนดิสัน",
-      lastName: "ลูปิน",
-      age: "20 ปี 9 เดือน",
-    },
-    {
-      hn: "000002",
-      citizenId: "2909085467810",
-      firstName: "สมชาย",
-      lastName: "ใจดี",
-      age: "25 ปี 3 เดือน",
-    },
-  ];
-    // เก็บ index คนไข้ที่เลือก (ตัวอย่างเลือกคนแรก)
-    const [selectedIndex, setSelectedIndex] = useState(0);
-    const patient = patients[selectedIndex];
-
-  const [selectedTab, setSelectedTab] = useState(0);
-
-  const handleTabChange = (event, newValue) => {
-    setSelectedTab(newValue);
-  };
-
-
-
-  return (
-    <Container maxWidth="lg" sx={{ mt: 4 }}>
-
-      <Grid container spacing={2}>
-        {/* Patient Profile Section */}
-        <Grid item xs={12} sm={3.5} sx={{ml:15}}>
-          {/* <Divider sx={{pt:2}}/> */}
-          <Typography sx={{ fontWeight: "400", fontSize: "16px", textAlign: "left" }}>
-                   วันที่
-                </Typography>
-                <TextField
-                    size="lg"
-                    placeholder="เลือกวันที่"
-                    sx={{
-                    mt: "8px",
-                    width: "100%",
-                    "& .MuiOutlinedInput-root": {
-                        borderRadius: "10px",
-                    },
-                    }}
-                    InputProps={{
-                    endAdornment: (
-                        <InputAdornment position="end">
-                        <CalendarTodayIcon color="action" />
-                        </InputAdornment>
-                    ),
-                    }}
-                />
-          </Grid>
-
-        {/* Vitals Form Section */}
-        <Grid item xs={12} sm={6} sx={{pt:'2px'}}>
-              <Grid container spacing={2}>
-
-              <Grid item xs={12} sm={6}>
-              <Typography sx={{ fontWeight: "400", fontSize: "16px", textAlign: "left" }}>
-                   ถึงวันที่
-                </Typography>
-                <TextField
-                    size="lg"
-                    placeholder="เลือกวันที่"
-                    sx={{
-                    mt: "8px",
-                    width: "100%",
-                    "& .MuiOutlinedInput-root": {
-                        borderRadius: "10px",
-                    },
-                    }}
-                    InputProps={{
-                    endAdornment: (
-                        <InputAdornment position="end">
-                        <CalendarTodayIcon color="action" />
-                        </InputAdornment>
-                    ),
-                    }}
-                />
-               </Grid>
-               <Grid item xs={12} sm={6} sx={{mt:4,pr:20,textAlign: "right",width:90}}>
-                <Button sx={{textAlign: "right",bgcolor:'#5698E0',color:'#FFFFFF',width:'150px',height:'55px',borderRadius:3,fontWeight:800}} >ค้นหา</Button>
-              </Grid>
-              {/* <Select/>สัปดาห์นี้</elect> */}
-            <Grid item xs={4} sx={{ml:55}}>
-                    <Box component="select"
-                                    sx={{
-                                        mt: '8px',
-                                        textAlign:'left',
-                                        width: '100%',
-                                        height: '45px',
-                                        borderRadius: '10px',
-                                        padding: '0 14px',
-                                        border: '1px solid rgba(0, 0, 0, 0.23)',
-                                        fontSize: '16px',
-                                        '&:focus': {
-                                            outline: 'none',
-                                            borderColor: '#754C27',
-                                        },
-                                        '& option': {
-                                            fontSize: '16px',
-                                        },
-                                    }}
-                                >
-                                    <option value="">สัปดาห์นี้</option>
-                                   
-                    </Box>
-               </Grid>
-
-              </Grid>
-          
-        </Grid>
-        <Grid item xs={12} sm={3.5} sx={{mr:55}}>
-                  <Typography sx={{fontWeight:600,}}>สรุปรายได้</Typography>
-                  </Grid>
-        <Grid container spacing={2} sx={{ mt: 1 }}>
-      {summaryData.map((item, index) => (
-        <Grid item xs={12} sm={4} key={index}>
-          <Card sx={{ textAlign: "center", height: 200, bgcolor: "#FFFFFFF", p: 2, borderRadius: 3 }}>
-            <Box display="flex" alignItems="center">
-              {item.icon}
-              <Typography variant="body1" fontWeight="bold" sx={{ ml: 1 }}>
-                {item.label}
-              </Typography>
-            </Box>
-            {item.payments ? (
-              item.payments.map((pay, idx) => (
-                <Typography key={idx} variant="body2" sx={{ mt: idx === 0 ? 2 : 1 }}>
-                  {pay.type} {pay.count} รายการ <strong>{pay.amount}</strong>
-                </Typography>
-              ))
-            ) : (
-              <>
-                <Typography variant="h5" fontWeight="bold" sx={{ mt: 2 }}>
-                  {item.amount}
-                </Typography>
-                <Typography variant="body2" color="textSecondary">
-                  {item.details}
-                </Typography>
-              </>
-            )}
-          </Card>
-        </Grid>
-      ))}
-    </Grid>
-
-      </Grid>
-    </Container>
-    
-  );
-
-
+const convertDateCEToBE = (ceDate) => {
+  if (!ceDate) return "";
+  const [year, month, day] = ceDate.split("-");
+  return `${parseInt(year, 10) + 543}-${month}-${day}`;
 };
 
+const convertDateBEToCE = (beDate) => {
+  if (!beDate) return "";
+  const [year, month, day] = beDate.split("-");
+  return `${parseInt(year, 10) - 543}-${month}-${day}`;
+};
 
+const DateInputBE = ({ label, value, onChange, ...props }) => {
+  const displayValue = value ? convertDateCEToBE(value) : "";
 
-export default Income;
+  const handleChange = (event) => {
+    const beValue = event.target.value;
+    const ceValue = beValue ? convertDateBEToCE(beValue) : "";
+    onChange?.({ target: { value: ceValue } });
+  };
+
+  return (
+    <TextField
+      {...props}
+      fullWidth
+      label={label}
+      type="date"
+      value={displayValue}
+      onChange={handleChange}
+      InputLabelProps={{ shrink: true }}
+      inputProps={{ max: convertDateCEToBE("9999-12-31") }}
+    />
+  );
+};
+
+const formatCurrency = (amount) =>
+  new Intl.NumberFormat("th-TH", {
+    style: "currency",
+    currency: "THB",
+    minimumFractionDigits: 2,
+  }).format(amount || 0);
+
+const ExpenseReport = () => {
+  const [startDate, setStartDate] = useState(getCurrentDateForDB());
+  const [endDate, setEndDate] = useState(getCurrentDateForDB());
+  const [payRecords, setPayRecords] = useState([]);
+  const [filteredRecords, setFilteredRecords] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [statusFilter, setStatusFilter] = useState("");
+  const [typeFilter, setTypeFilter] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [detailDialog, setDetailDialog] = useState({
+    open: false,
+    refno: null,
+    data: null,
+  });
+
+  useEffect(() => {
+    loadPayRecords();
+  }, []);
+
+  useEffect(() => {
+    applyFilters();
+  }, [payRecords, startDate, endDate, statusFilter, typeFilter, searchTerm]);
+
+  const loadPayRecords = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await Pay1Service.getAllPay1(1, 500);
+      if (response.success) {
+        const records = Array.isArray(response.data) ? response.data : [];
+        setPayRecords(records);
+      } else {
+        setError(response.message || "ไม่สามารถโหลดข้อมูลรายจ่ายได้");
+      }
+    } catch (err) {
+      console.error("Error loading pay records", err);
+      setError(err.message || "เกิดข้อผิดพลาดในการโหลดข้อมูลรายจ่าย");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const applyFilters = () => {
+    const start = startDate ? new Date(startDate) : null;
+    const end = endDate ? new Date(endDate) : null;
+
+    const filtered = payRecords.filter((item) => {
+      if (!item.RDATE) return false;
+      const recordDate = new Date(item.RDATE);
+      if (start && recordDate < start) return false;
+      if (end) {
+        // include entire end day
+        const endDay = new Date(end);
+        endDay.setHours(23, 59, 59, 999);
+        if (recordDate > endDay) return false;
+      }
+      if (statusFilter && item.STATUS !== statusFilter) return false;
+      if (typeFilter && item.TYPE_PAY !== typeFilter) return false;
+      if (searchTerm) {
+        const search = searchTerm.toLowerCase();
+        const match =
+          item.REFNO?.toLowerCase().includes(search) ||
+          item.NAME1?.toLowerCase().includes(search) ||
+          item.BANK_NO?.toLowerCase().includes(search);
+        if (!match) return false;
+      }
+      return true;
+    });
+
+    setFilteredRecords(filtered);
+  };
+
+  const summary = useMemo(() => {
+    const totals = filteredRecords.reduce(
+      (acc, item) => {
+        const total = parseFloat(item.TOTAL) || 0;
+        acc.totalAmount += total;
+        if (item.TYPE_PAY === "เงินสด") {
+          acc.cash += total;
+        } else if (item.TYPE_PAY === "เงินโอน") {
+          acc.transfer += total;
+        } else {
+          acc.other += total;
+        }
+        acc.status[item.STATUS] = (acc.status[item.STATUS] || 0) + 1;
+        return acc;
+      },
+      { totalAmount: 0, cash: 0, transfer: 0, other: 0, status: {} }
+    );
+
+    return {
+      count: filteredRecords.length,
+      ...totals,
+    };
+  }, [filteredRecords]);
+
+  const uniqueStatuses = useMemo(() => {
+    const set = new Set(payRecords.map((item) => item.STATUS).filter(Boolean));
+    return Array.from(set);
+  }, [payRecords]);
+
+  const uniqueTypePays = useMemo(() => {
+    const set = new Set(payRecords.map((item) => item.TYPE_PAY).filter(Boolean));
+    return Array.from(set);
+  }, [payRecords]);
+
+  const handleExportCSV = () => {
+    if (filteredRecords.length === 0) {
+      alert("ไม่มีข้อมูลสำหรับการส่งออก");
+      return;
+    }
+    Pay1Service.downloadCSV(filteredRecords, "daily-expense-report");
+  };
+
+  const loadRecordDetail = async (refno) => {
+    try {
+      setDetailDialog({ open: true, refno, data: null });
+      const response = await Pay1Service.getPay1ByRefno(refno);
+      if (response.success) {
+        setDetailDialog({ open: true, refno, data: response.data });
+      } else {
+        setDetailDialog((prev) => ({ ...prev, data: { error: "ไม่พบข้อมูลรายละเอียด" } }));
+      }
+    } catch (err) {
+      console.error("Error fetching pay detail", err);
+      setDetailDialog((prev) => ({ ...prev, data: { error: err.message } }));
+    }
+  };
+
+  const detailTotal = useMemo(() => {
+    const details = detailDialog.data?.details || [];
+    if (details.length === 0) {
+      return parseFloat(detailDialog.data?.header?.TOTAL) || 0;
+    }
+    const total = details.reduce((sum, detail) => sum + (parseFloat(detail.AMT) || 0), 0);
+    return total || parseFloat(detailDialog.data?.header?.TOTAL) || 0;
+  }, [detailDialog.data]);
+
+  return (
+    <Box sx={{ mt: 2 }}>
+      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
+        <Typography variant="h5" fontWeight="bold">
+          รายจ่ายประจำวัน
+        </Typography>
+        <Box sx={{ display: "flex", gap: 2 }}>
+          <Button
+            variant="outlined"
+            startIcon={<RefreshIcon />}
+            onClick={loadPayRecords}
+            disabled={loading}
+          >
+            รีเฟรช
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<DownloadIcon />}
+            onClick={handleExportCSV}
+            disabled={loading || filteredRecords.length === 0}
+          >
+            ส่งออก CSV
+          </Button>
+          <ExpensePdfButton
+            startDate={startDate}
+            endDate={endDate}
+            records={filteredRecords}
+            summary={{
+              totalAmount: summary.totalAmount,
+              cash: summary.cash,
+              transfer: summary.transfer,
+            }}
+          />
+        </Box>
+      </Box>
+
+      <Card sx={{ mb: 3 }}>
+        <CardContent>
+          <Typography variant="h6" sx={{ mb: 2 }}>
+            ตัวกรองข้อมูล
+          </Typography>
+          <Grid container spacing={2}>
+            <Grid item xs={12} sm={6} md={2}>
+              <DateInputBE
+                label="วันที่เริ่มต้น"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6} md={2}>
+              <DateInputBE
+                label="วันที่สิ้นสุด"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6} md={2}>
+              <FormControl fullWidth>
+                <InputLabel>สถานะ</InputLabel>
+                <Select
+                  label="สถานะ"
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                >
+                  <MenuItem value="">ทั้งหมด</MenuItem>
+                  {uniqueStatuses.map((status) => (
+                    <MenuItem key={status} value={status}>
+                      {status}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={6} md={2}>
+              <FormControl fullWidth>
+                <InputLabel>วิธีจ่าย</InputLabel>
+                <Select
+                  label="วิธีจ่าย"
+                  value={typeFilter}
+                  onChange={(e) => setTypeFilter(e.target.value)}
+                >
+                  <MenuItem value="">ทั้งหมด</MenuItem>
+                  {uniqueTypePays.map((type) => (
+                    <MenuItem key={type} value={type}>
+                      {type}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <TextField
+                fullWidth
+                label="ค้นหา (เลขที่, จ่ายให้, เลขบัญชี)"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon color="action" />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+            </Grid>
+          </Grid>
+        </CardContent>
+      </Card>
+
+      {summary.count > 0 && (
+        <Grid container spacing={3} sx={{ mb: 4 }}>
+          <Grid item xs={12} sm={6} md={3}>
+            <Card sx={{ height: "100%", background: "linear-gradient(135deg, #4fb0ff 0%, #4478ff 100%)", color: "white" }}>
+              <CardContent>
+                <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
+                  <ShoppingCartIcon sx={{ fontSize: 36, mr: 1, opacity: 0.9 }} />
+                  <Typography variant="h6">รายการทั้งหมด</Typography>
+                </Box>
+                <Typography variant="h3" fontWeight="bold">
+                  {summary.count}
+                </Typography>
+                <Typography variant="body2">ใบสำคัญจ่าย</Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <Card sx={{ height: "100%", background: "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)", color: "white" }}>
+              <CardContent>
+                <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
+                  <PaidIcon sx={{ fontSize: 36, mr: 1, opacity: 0.9 }} />
+                  <Typography variant="h6">ยอดจ่ายรวม</Typography>
+                </Box>
+                <Typography variant="h4" fontWeight="bold">
+                  {formatCurrency(summary.totalAmount)}
+                </Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <Card sx={{ height: "100%", background: "linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)", color: "white" }}>
+              <CardContent>
+                <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
+                  <PaymentsIcon sx={{ fontSize: 36, mr: 1, opacity: 0.9 }} />
+                  <Typography variant="h6">เงินสด</Typography>
+                </Box>
+                <Typography variant="h4" fontWeight="bold">
+                  {formatCurrency(summary.cash)}
+                </Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <Card sx={{ height: "100%", background: "linear-gradient(135deg, #30cfd0 0%, #330867 100%)", color: "white" }}>
+              <CardContent>
+                <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
+                  <PaymentsIcon sx={{ fontSize: 36, mr: 1, opacity: 0.9 }} />
+                  <Typography variant="h6">เงินโอน</Typography>
+                </Box>
+                <Typography variant="h4" fontWeight="bold">
+                  {formatCurrency(summary.transfer)}
+                </Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
+      )}
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 3 }}>
+          {error}
+        </Alert>
+      )}
+
+      {loading && (
+        <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+          <CircularProgress />
+        </Box>
+      )}
+
+      {!loading && filteredRecords.length > 0 && (
+        <Card>
+          <CardContent>
+            <Typography variant="h6" sx={{ mb: 2 }}>
+              รายละเอียดใบสำคัญจ่าย ({filteredRecords.length} รายการ)
+            </Typography>
+            {Object.keys(summary.status).length > 0 && (
+              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mb: 2 }}>
+                {Object.entries(summary.status).map(([status, count]) => (
+                  <Chip key={status} label={`${status}: ${count} รายการ`} color="primary" variant="outlined" />
+                ))}
+              </Box>
+            )}
+            <TableContainer component={Paper} sx={{ maxHeight: 600 }}>
+              <Table stickyHeader size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell sx={{ width: 110, whiteSpace: "nowrap" }}>วันที่</TableCell>
+                    <TableCell sx={{ width: 120, whiteSpace: "nowrap" }}>เลขที่</TableCell>
+                    <TableCell sx={{ width: 240, whiteSpace: "nowrap" }}>จ่ายให้</TableCell>
+                    <TableCell sx={{ width: 130, whiteSpace: "nowrap" }}>วิธีจ่าย</TableCell>
+                    <TableCell align="right" sx={{ width: 150, whiteSpace: "nowrap" }}>จำนวนเงิน</TableCell>
+                    <TableCell sx={{ width: 150, whiteSpace: "nowrap" }}>สถานะ</TableCell>
+                    <TableCell align="center" sx={{ width: 120, whiteSpace: "nowrap" }}>จัดการ</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {filteredRecords.map((item) => (
+                    <TableRow key={item.REFNO} hover>
+                      <TableCell sx={{ width: 110, whiteSpace: "nowrap" }}>
+                        {formatThaiDateShort(item.RDATE)}
+                      </TableCell>
+                      <TableCell sx={{ width: 120, whiteSpace: "nowrap" }}>
+                        <Typography variant="body2" fontWeight="bold">
+                          {item.REFNO}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {item.BANK_NO || "-"}
+                        </Typography>
+                      </TableCell>
+                      <TableCell sx={{ width: 240 }}>
+                        <Typography
+                          variant="body2"
+                          fontWeight="medium"
+                          noWrap
+                          sx={{ maxWidth: 220 }}
+                        >
+                          {item.NAME1 || "-"}
+                        </Typography>
+                      </TableCell>
+                      <TableCell sx={{ width: 130, whiteSpace: "nowrap" }}>
+                        {item.TYPE_PAY || "-"}
+                      </TableCell>
+                      <TableCell align="right" sx={{ width: 150, whiteSpace: "nowrap" }}>
+                        <Typography variant="body2" fontWeight="bold" color="primary">
+                          {formatCurrency(item.TOTAL)}
+                        </Typography>
+                      </TableCell>
+                      <TableCell sx={{ width: 150, whiteSpace: "nowrap" }}>
+                        <Chip
+                          label={item.STATUS || "-"}
+                          color={item.STATUS === "ทำงานอยู่" ? "success" : "default"}
+                          size="small"
+                        />
+                      </TableCell>
+                      <TableCell align="center" sx={{ width: 120, whiteSpace: "nowrap" }}>
+                        <IconButton
+                          size="small"
+                          onClick={() => loadRecordDetail(item.REFNO)}
+                          sx={{ border: "1px solid #5698E0", borderRadius: "7px", color: "#5698E0" }}
+                        >
+                          <VisibilityIcon fontSize="small" />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </CardContent>
+        </Card>
+      )}
+
+      {!loading && filteredRecords.length === 0 && !error && (
+        <Card>
+          <CardContent sx={{ textAlign: "center", py: 8 }}>
+            <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
+              ไม่มีข้อมูลรายจ่ายในช่วงวันที่ที่เลือก
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              ลองปรับช่วงวันที่หรือเงื่อนไขการค้นหาอื่น ๆ
+            </Typography>
+          </CardContent>
+        </Card>
+      )}
+
+      <Dialog
+        open={detailDialog.open}
+        onClose={() => setDetailDialog({ open: false, refno: null, data: null })}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>
+          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <Typography variant="h6">รายละเอียดใบสำคัญจ่าย {detailDialog.refno}</Typography>
+            <Button onClick={() => setDetailDialog({ open: false, refno: null, data: null })}>
+              ปิด
+            </Button>
+          </Box>
+        </DialogTitle>
+        <DialogContent dividers>
+          {!detailDialog.data && (
+            <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+              <CircularProgress />
+            </Box>
+          )}
+          {detailDialog.data?.error && (
+            <Alert severity="error">{detailDialog.data.error}</Alert>
+          )}
+          {detailDialog.data?.header && (
+            <Box>
+              <Grid container spacing={2} sx={{ mb: 2 }}>
+                <Grid item xs={12} md={4}>
+                  <Typography variant="body2" color="text.secondary">
+                    วันที่
+                  </Typography>
+                  <Typography variant="body1">
+                    {formatThaiDateShort(detailDialog.data.header.RDATE)}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <Typography variant="body2" color="text.secondary">
+                    จ่ายให้
+                  </Typography>
+                  <Typography variant="body1">
+                    {detailDialog.data.header.NAME1 || "-"}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <Typography variant="body2" color="text.secondary">
+                    วิธีจ่าย
+                  </Typography>
+                  <Typography variant="body1">
+                    {detailDialog.data.header.TYPE_PAY || "-"}
+                  </Typography>
+                </Grid>
+              </Grid>
+
+              <Divider sx={{ mb: 2 }} />
+              <Typography variant="subtitle1" sx={{ mb: 1 }}>
+                รายการจ่าย
+              </Typography>
+              <TableContainer>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>ประเภท</TableCell>
+                      <TableCell>รายละเอียด</TableCell>
+                      <TableCell align="right">จำนวนเงิน</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {(detailDialog.data.details || []).map((detail, index) => (
+                      <TableRow key={index}>
+                        <TableCell>{detail.TYPE_PAY_NAME || detail.TYPE_PAY_CODE || "-"}</TableCell>
+                        <TableCell>{detail.DESCM1 || "-"}</TableCell>
+                        <TableCell align="right">{formatCurrency(parseFloat(detail.AMT) || 0)}</TableCell>
+                      </TableRow>
+                    ))}
+                    <TableRow>
+                      <TableCell colSpan={2} align="right" sx={{ fontWeight: 600 }}>
+                        รวม
+                      </TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 600 }}>
+                        {formatCurrency(detailTotal)}
+                      </TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDetailDialog({ open: false, refno: null, data: null })}>
+            ปิด
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
+  );
+};
+
+export default ExpenseReport;
