@@ -97,26 +97,26 @@ const StockCardReport = () => {
                 // ✅ ถ้าเลือกยาแล้ว เรียงตามวันที่และ REFNO
                 const sortedData = selectedDrug
                     ? response.data.sort((a, b) => {
-                          const dateA = new Date(a.RDATE);
-                          const dateB = new Date(b.RDATE);
-                          if (dateA.getTime() !== dateB.getTime()) {
-                              return dateA.getTime() - dateB.getTime();
-                          }
-                          return a.REFNO.localeCompare(b.REFNO);
-                      })
+                        const dateA = new Date(a.RDATE);
+                        const dateB = new Date(b.RDATE);
+                        if (dateA.getTime() !== dateB.getTime()) {
+                            return dateA.getTime() - dateB.getTime();
+                        }
+                        return a.REFNO.localeCompare(b.REFNO);
+                    })
                     : response.data.sort((a, b) => {
-                          // เรียงตาม DRUG_CODE ก่อน
-                          if (a.DRUG_CODE !== b.DRUG_CODE) {
-                              return a.DRUG_CODE.localeCompare(b.DRUG_CODE);
-                          }
-                          // แล้วเรียงตามวันที่
-                          const dateA = new Date(a.RDATE);
-                          const dateB = new Date(b.RDATE);
-                          if (dateA.getTime() !== dateB.getTime()) {
-                              return dateA.getTime() - dateB.getTime();
-                          }
-                          return a.REFNO.localeCompare(b.REFNO);
-                      });
+                        // เรียงตาม DRUG_CODE ก่อน
+                        if (a.DRUG_CODE !== b.DRUG_CODE) {
+                            return a.DRUG_CODE.localeCompare(b.DRUG_CODE);
+                        }
+                        // แล้วเรียงตามวันที่
+                        const dateA = new Date(a.RDATE);
+                        const dateB = new Date(b.RDATE);
+                        if (dateA.getTime() !== dateB.getTime()) {
+                            return dateA.getTime() - dateB.getTime();
+                        }
+                        return a.REFNO.localeCompare(b.REFNO);
+                    });
 
                 // ✅ จัดกลุ่มตาม DRUG_CODE ถ้าไม่ได้เลือกยา
                 if (!selectedDrug) {
@@ -317,7 +317,7 @@ const StockCardReport = () => {
         const printContent = generatePrintHTML();
         printWindow.document.write(printContent);
         printWindow.document.close();
-        
+
         // รอให้โหลดเสร็จก่อนพิมพ์
         setTimeout(() => {
             printWindow.print();
@@ -553,6 +553,24 @@ const StockCardReport = () => {
                             />
                         </Grid>
                         <Grid item xs={12} md={2}>
+                            <Autocomplete
+                                options={lotOptions}
+                                value={selectedLot}
+                                onChange={(event, newValue) => setSelectedLot(newValue)}
+                                loading={lotLoading}
+                                disabled={!selectedDrug}
+                                renderInput={(params) => (
+                                    <TextField
+                                        {...params}
+                                        label="LOT NO *"
+                                        placeholder={selectedDrug ? "ต้องเลือก LOT NO" : "เลือกยาก่อน"}
+                                        size="small"
+                                        sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
+                                    />
+                                )}
+                            />
+                        </Grid>
+                        <Grid item xs={12} md={2}>
                             <FormControl fullWidth size="small">
                                 <InputLabel>ปี (พ.ศ.)</InputLabel>
                                 <Select
@@ -586,24 +604,7 @@ const StockCardReport = () => {
                                 </Select>
                             </FormControl>
                         </Grid>
-                        <Grid item xs={12} md={2}>
-                            <Autocomplete
-                                options={lotOptions}
-                                value={selectedLot}
-                                onChange={(event, newValue) => setSelectedLot(newValue)}
-                                loading={lotLoading}
-                                disabled={!selectedDrug}
-                                renderInput={(params) => (
-                                    <TextField
-                                        {...params}
-                                        label="LOT NO *"
-                                        placeholder={selectedDrug ? "ต้องเลือก LOT NO" : "เลือกยาก่อน"}
-                                        size="small"
-                                        sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
-                                    />
-                                )}
-                            />
-                        </Grid>
+
                         <Grid item xs={12} md={2}>
                             <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                                 <Button
@@ -658,8 +659,8 @@ const StockCardReport = () => {
                             </Typography>
                             <Box sx={{ mt: 2, textAlign: 'left', display: 'inline-block' }}>
                                 <Typography variant="body1">
-                                    <strong>ยา:</strong> {selectedDrug 
-                                        ? (selectedDrug.GENERIC_NAME || selectedDrug.DRUG_CODE || '') 
+                                    <strong>ยา:</strong> {selectedDrug
+                                        ? (selectedDrug.GENERIC_NAME || selectedDrug.DRUG_CODE || '')
                                         : 'ทั้งหมด'}
                                 </Typography>
                                 {/* {selectedLot && (
@@ -748,7 +749,7 @@ const StockCardReport = () => {
 
             {!loading && !error && stockCardData.length === 0 && (
                 <Alert severity="info" sx={{ mt: 2 }}>
-                    {selectedDrug 
+                    {selectedDrug
                         ? 'ไม่พบข้อมูลสต็อกการ์ดสำหรับยาที่เลือกในช่วงเวลาที่ระบุ'
                         : 'ไม่พบข้อมูลสต็อกการ์ดในช่วงเวลาที่ระบุ'}
                 </Alert>
