@@ -514,6 +514,7 @@ const BalMonthDrugManagement = () => {
                                     <DatePicker
                                         value={formData.EXPIRE_DATE ? dayjs(formData.EXPIRE_DATE) : null}
                                         onChange={(newValue) => handleFormChange('EXPIRE_DATE', newValue ? newValue.format('YYYY-MM-DD') : '')}
+                                        inputFormat="DD/MM/YYYY"
                                         renderInput={(params) => (
                                             <TextField
                                                 {...params}
