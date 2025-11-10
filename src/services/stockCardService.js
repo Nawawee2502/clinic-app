@@ -15,6 +15,7 @@ class StockCardService {
             if (filters.month) params.append('month', filters.month);
             if (filters.drugCode) params.append('drugCode', filters.drugCode);
             if (filters.refno) params.append('refno', filters.refno);
+            if (filters.lotNo) params.append('lotNo', filters.lotNo);
 
             const url = `${this.BASE_URL}${params.toString() ? '?' + params.toString() : ''}`;
             console.log('🔗 Calling API:', url);

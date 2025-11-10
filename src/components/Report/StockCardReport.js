@@ -16,6 +16,9 @@ const StockCardReport = () => {
     const [stockCardData, setStockCardData] = useState([]);
     const [drugList, setDrugList] = useState([]);
     const [selectedDrug, setSelectedDrug] = useState(null);
+    const [lotOptions, setLotOptions] = useState([]);
+    const [selectedLot, setSelectedLot] = useState(null);
+    const [lotLoading, setLotLoading] = useState(false);
     const [selectedYear, setSelectedYear] = useState((new Date().getFullYear() + 543).toString());
     const getInitialMonth = () => {
         const month = new Date().getMonth() + 1;
@@ -58,6 +61,11 @@ const StockCardReport = () => {
     };
 
     const loadStockCardData = async () => {
+        if (!selectedDrug || !selectedLot) {
+            showSnackbar('กรุณาเลือกยาและ LOT NO ก่อนค้นหา', 'warning');
+            return;
+        }
+
         try {
             setLoading(true);
             setError(null);
@@ -71,6 +79,8 @@ const StockCardReport = () => {
             if (selectedDrug) {
                 filters.drugCode = selectedDrug.DRUG_CODE;
             }
+
+            filters.lotNo = selectedLot;
 
             console.log('📊 Loading stock card data with filters:', filters);
 
@@ -202,6 +212,42 @@ const StockCardReport = () => {
         }
     };
 
+    const loadLotsForDrug = async (drug) => {
+        if (!drug?.DRUG_CODE) {
+            setLotOptions([]);
+            setSelectedLot(null);
+            return;
+        }
+
+        try {
+            setLotLoading(true);
+            const response = await StockCardService.getStockCardsByDrug(drug.DRUG_CODE);
+            if (response.success && Array.isArray(response.data)) {
+                const uniqueLots = Array.from(
+                    new Set(
+                        response.data
+                            .map(item => (item.LOTNO && item.LOTNO.trim() !== '' ? item.LOTNO.trim() : '-'))
+                    )
+                ).sort((a, b) => {
+                    if (a === '-') return 1;
+                    if (b === '-') return -1;
+                    return a.localeCompare(b);
+                });
+                setLotOptions(uniqueLots);
+            } else {
+                setLotOptions([]);
+            }
+            setSelectedLot(null);
+        } catch (error) {
+            console.error('Error loading lot numbers:', error);
+            showSnackbar('ไม่สามารถโหลด LOT NO ได้', 'error');
+            setLotOptions([]);
+            setSelectedLot(null);
+        } finally {
+            setLotLoading(false);
+        }
+    };
+
     const formatDateBE = (dateString) => {
         if (!dateString) return '-';
         try {
@@ -282,6 +328,7 @@ const StockCardReport = () => {
         const totals = calculateTotals();
         const monthName = monthNames[parseInt(selectedMonth) - 1];
         const drugName = selectedDrug ? (selectedDrug.GENERIC_NAME || selectedDrug.DRUG_CODE) : '';
+        const lotDisplay = selectedLot ? selectedLot : '';
 
         return `
 <!DOCTYPE html>
@@ -372,6 +419,11 @@ const StockCardReport = () => {
         <label>ยา:</label>
         <span>${drugName}</span>
     </div>
+    ${lotDisplay ? `
+    <div class="drug-name">
+        <label>LOT:</label>
+        <span>${lotDisplay}</span>
+    </div>` : ''}
     
     <table>
         <thead>
@@ -470,7 +522,10 @@ const StockCardReport = () => {
                                 options={drugList}
                                 getOptionLabel={(option) => `${option.GENERIC_NAME || option.DRUG_CODE || ''} (${option.DRUG_CODE || ''})`}
                                 value={selectedDrug}
-                                onChange={(event, newValue) => setSelectedDrug(newValue)}
+                                onChange={(event, newValue) => {
+                                    setSelectedDrug(newValue);
+                                    loadLotsForDrug(newValue);
+                                }}
                                 // ✅ ใช้ DRUG_CODE เพื่อเปรียบเทียบเพื่อหลีกเลี่ยง duplicate key
                                 isOptionEqualToValue={(option, value) => option?.DRUG_CODE === value?.DRUG_CODE}
                                 renderOption={(props, option) => (
@@ -531,13 +586,31 @@ const StockCardReport = () => {
                                 </Select>
                             </FormControl>
                         </Grid>
-                        <Grid item xs={12} md={4}>
-                            <Box sx={{ display: 'flex', gap: 1 }}>
+                        <Grid item xs={12} md={2}>
+                            <Autocomplete
+                                options={lotOptions}
+                                value={selectedLot}
+                                onChange={(event, newValue) => setSelectedLot(newValue)}
+                                loading={lotLoading}
+                                disabled={!selectedDrug}
+                                renderInput={(params) => (
+                                    <TextField
+                                        {...params}
+                                        label="LOT NO *"
+                                        placeholder={selectedDrug ? "ต้องเลือก LOT NO" : "เลือกยาก่อน"}
+                                        size="small"
+                                        sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
+                                    />
+                                )}
+                            />
+                        </Grid>
+                        <Grid item xs={12} md={2}>
+                            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                                 <Button
                                     variant="contained"
                                     startIcon={<RefreshIcon />}
                                     onClick={loadStockCardData}
-                                    disabled={loading}
+                                    disabled={loading || !selectedDrug || !selectedLot}
                                     sx={{ borderRadius: "10px", backgroundColor: '#5698E0' }}
                                 >
                                     ค้นหา
@@ -589,6 +662,11 @@ const StockCardReport = () => {
                                         ? (selectedDrug.GENERIC_NAME || selectedDrug.DRUG_CODE || '') 
                                         : 'ทั้งหมด'}
                                 </Typography>
+                                {selectedLot && (
+                                    <Typography variant="body1">
+                                        <strong>LOT:</strong> {selectedLot}
+                                    </Typography>
+                                )}
                             </Box>
                         </Box>
 
