@@ -230,30 +230,36 @@ const BalMonthDrugManagement = () => {
     };
 
     const handleFormChange = (field, value) => {
+        if (field === 'DRUG_CODE') {
+            const drug = drugList.find(d => d.DRUG_CODE === value);
+            setSelectedDrug(drug || null);
+
+            setFormData(prev => {
+                const unitPrice = parseFloat(drug?.UNIT_PRICE ?? 0);
+                const qty = parseFloat(prev.QTY ?? 0);
+
+                return {
+                    ...prev,
+                    DRUG_CODE: value,
+                    UNIT_CODE1: drug?.UNIT_CODE1 || '',
+                    UNIT_PRICE: unitPrice,
+                    AMT: BalMonthDrugService.calculateAmount(qty, unitPrice)
+                };
+            });
+            return;
+        }
+
         setFormData(prev => {
             const updated = { ...prev, [field]: value };
-
-            if (field === 'DRUG_CODE') {
-                const drug = drugList.find(d => d.DRUG_CODE === value);
-                if (drug) {
-                    updated.UNIT_CODE1 = drug.UNIT_CODE1 || ''; // ✅ แก้เป็น UNIT_CODE1
-                    updated.UNIT_PRICE = parseFloat(drug.UNIT_PRICE || 0);
-                }
-            }
 
             if (field === 'QTY' || field === 'UNIT_PRICE') {
                 const qty = field === 'QTY' ? parseFloat(value || 0) : parseFloat(updated.QTY || 0);
                 const price = field === 'UNIT_PRICE' ? parseFloat(value || 0) : parseFloat(updated.UNIT_PRICE || 0);
-                updated.AMT = qty * price;
+                updated.AMT = BalMonthDrugService.calculateAmount(qty, price);
             }
 
             return updated;
         });
-
-        if (field === 'DRUG_CODE') {
-            const drug = drugList.find(d => d.DRUG_CODE === value);
-            setSelectedDrug(drug || null);
-        }
     };
 
     const handleDrugSelect = (event, value) => {
@@ -328,7 +334,7 @@ const BalMonthDrugManagement = () => {
                 showAlert(message, 'success');
             } else {
                 result = await BalMonthDrugService.updateBalance(
-                    toGregorianYear(editingItem.MYEAR),
+                    editingItem.MYEAR,
                     editingItem.MONTHH,
                     editingItem.DRUG_CODE,
                     formattedData

@@ -3,7 +3,7 @@ import {
     Container, Grid, TextField, Button, Card, CardContent, Typography,
     InputAdornment, IconButton, Stack, Pagination, Dialog,
     DialogTitle, DialogContent, DialogActions, Alert, Snackbar, Box,
-    Select, MenuItem, FormControl, Divider, Chip, Autocomplete,
+    Select, MenuItem, FormControl, InputLabel, Divider, Chip, Autocomplete,
     Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
     Paper, RadioGroup, FormControlLabel, Radio, FormLabel
 } from "@mui/material";
@@ -34,6 +34,31 @@ const Return1Management = () => {
     const toGregorianYear = (buddhistYear) => {
         return parseInt(buddhistYear) - 543;
     };
+
+    const getYearOptionsBE = (yearsBack = 5) => {
+        const currentYear = new Date().getFullYear() + 543;
+        const options = [];
+        for (let i = 0; i <= yearsBack; i++) {
+            const year = currentYear - i;
+            options.push({ value: year.toString(), label: year.toString() });
+        }
+        return options;
+    };
+
+    const monthOptions = [
+        { value: 1, label: 'มกราคม' },
+        { value: 2, label: 'กุมภาพันธ์' },
+        { value: 3, label: 'มีนาคม' },
+        { value: 4, label: 'เมษายน' },
+        { value: 5, label: 'พฤษภาคม' },
+        { value: 6, label: 'มิถุนายน' },
+        { value: 7, label: 'กรกฎาคม' },
+        { value: 8, label: 'สิงหาคม' },
+        { value: 9, label: 'กันยายน' },
+        { value: 10, label: 'ตุลาคม' },
+        { value: 11, label: 'พฤศจิกายน' },
+        { value: 12, label: 'ธันวาคม' }
+    ];
 
     const formatDateBE = (dateString) => {
         if (!dateString) return '-';
@@ -93,7 +118,8 @@ const Return1Management = () => {
     const [return1List, setReturn1List] = useState([]);
     const [filteredList, setFilteredList] = useState([]);
     const [searchTerm, setSearchTerm] = useState("");
-    const [searchDate, setSearchDate] = useState(new Date().toISOString().slice(0, 10));
+    const [filterYear, setFilterYear] = useState((new Date().getFullYear() + 543).toString());
+    const [filterMonth, setFilterMonth] = useState(new Date().getMonth() + 1);
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [loading, setLoading] = useState(false);
@@ -157,7 +183,7 @@ const Return1Management = () => {
 
     useEffect(() => {
         filterData();
-    }, [return1List, searchTerm, searchDate]);
+    }, [return1List, searchTerm, filterYear, filterMonth]);
 
     useEffect(() => {
         setTotalPages(Math.ceil(filteredList.length / itemsPerPage));
@@ -317,10 +343,17 @@ const Return1Management = () => {
             );
         }
 
-        if (searchDate) {
+        if (filterYear && filterMonth) {
+            const targetYear = toGregorianYear(filterYear);
+            const targetMonth = Number(filterMonth);
+
             filtered = filtered.filter(item => {
-                const itemDate = item.RDATE ? new Date(item.RDATE).toISOString().slice(0, 10) : '';
-                return itemDate === searchDate;
+                if (!item.RDATE) return false;
+                const date = new Date(item.RDATE);
+                return (
+                    date.getFullYear() === targetYear &&
+                    date.getMonth() + 1 === targetMonth
+                );
             });
         }
 
@@ -1247,18 +1280,47 @@ const Return1Management = () => {
                 <Card sx={{ mb: 2 }}>
                     <CardContent>
                         <Grid container spacing={2}>
-                            <Grid item xs={12} md={8}>
+                            <Grid item xs={12} md={6}>
                                 <TextField size="small" placeholder="ค้นหา (เลขที่, รหัสผู้จำหน่าย, ชื่อผู้จำหน่าย)" value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)} fullWidth
                                     InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon color="action" /></InputAdornment> }}
                                     sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }} />
                             </Grid>
-                            <Grid item xs={12} md={4}>
-                                <DateInputBE
-                                    label="วันที่"
-                                    value={searchDate}
-                                    onChange={(value) => setSearchDate(value)}
-                                />
+                            <Grid item xs={12} md={3}>
+                                <FormControl fullWidth size="small">
+                                    <InputLabel id="return-year-filter-label">ปี (พ.ศ.)</InputLabel>
+                                    <Select
+                                        labelId="return-year-filter-label"
+                                        value={filterYear}
+                                        onChange={(e) => setFilterYear(e.target.value)}
+                                        sx={{ borderRadius: "10px" }}
+                                        label="ปี (พ.ศ.)"
+                                    >
+                                        {getYearOptionsBE().map(option => (
+                                            <MenuItem key={option.value} value={option.value}>
+                                                {option.label}
+                                            </MenuItem>
+                                        ))}
+                                    </Select>
+                                </FormControl>
+                            </Grid>
+                            <Grid item xs={12} md={3}>
+                                <FormControl fullWidth size="small">
+                                    <InputLabel id="return-month-filter-label">เดือน</InputLabel>
+                                    <Select
+                                        labelId="return-month-filter-label"
+                                        value={filterMonth}
+                                        onChange={(e) => setFilterMonth(Number(e.target.value))}
+                                        sx={{ borderRadius: "10px" }}
+                                        label="เดือน"
+                                    >
+                                        {monthOptions.map(option => (
+                                            <MenuItem key={option.value} value={option.value}>
+                                                {option.label}
+                                            </MenuItem>
+                                        ))}
+                                    </Select>
+                                </FormControl>
                             </Grid>
                         </Grid>
                     </CardContent>
@@ -1269,7 +1331,7 @@ const Return1Management = () => {
                         {filteredList.length === 0 ? (
                             <Box sx={{ textAlign: 'center', py: 4 }}>
                                 <Typography variant="h6" color="text.secondary">
-                                    {searchTerm || searchDate ? 'ไม่พบข้อมูลที่ค้นหา' : 'ยังไม่มีข้อมูล'}
+                                    {searchTerm ? 'ไม่พบข้อมูลตามคำค้นหา' : 'ไม่พบข้อมูลสำหรับเดือนที่เลือก'}
                                 </Typography>
                             </Box>
                         ) : (

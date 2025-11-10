@@ -93,112 +93,42 @@ const StockCardReport = () => {
                 console.log('📊 Raw stock card data:', response.data);
                 console.log('📊 Total records:', response.data.length);
 
-                // ✅ ถ้าไม่ได้เลือกยา เรียงตาม DRUG_CODE ก่อน แล้วค่อยเรียงตามวันที่
-                // ✅ ถ้าเลือกยาแล้ว เรียงตามวันที่และ REFNO
-                const sortedData = selectedDrug
-                    ? response.data.sort((a, b) => {
-                        const dateA = new Date(a.RDATE);
-                        const dateB = new Date(b.RDATE);
-                        if (dateA.getTime() !== dateB.getTime()) {
-                            return dateA.getTime() - dateB.getTime();
-                        }
-                        return a.REFNO.localeCompare(b.REFNO);
-                    })
-                    : response.data.sort((a, b) => {
-                        // เรียงตาม DRUG_CODE ก่อน
-                        if (a.DRUG_CODE !== b.DRUG_CODE) {
-                            return a.DRUG_CODE.localeCompare(b.DRUG_CODE);
-                        }
-                        // แล้วเรียงตามวันที่
-                        const dateA = new Date(a.RDATE);
-                        const dateB = new Date(b.RDATE);
-                        if (dateA.getTime() !== dateB.getTime()) {
-                            return dateA.getTime() - dateB.getTime();
-                        }
-                        return a.REFNO.localeCompare(b.REFNO);
-                    });
+                // ✅ เรียงตามยา (ถ้าเลือกทั้งหมด) จากนั้นเรียงตามวันที่และเลขที่เอกสาร
+                const sortedData = [...response.data].sort((a, b) => {
+                    if (!selectedDrug && a.DRUG_CODE !== b.DRUG_CODE) {
+                        return a.DRUG_CODE.localeCompare(b.DRUG_CODE);
+                    }
+                    const dateA = new Date(a.RDATE);
+                    const dateB = new Date(b.RDATE);
+                    if (dateA.getTime() !== dateB.getTime()) {
+                        return dateA.getTime() - dateB.getTime();
+                    }
+                    return (a.REFNO || '').localeCompare(b.REFNO || '');
+                });
 
-                // ✅ จัดกลุ่มตาม DRUG_CODE ถ้าไม่ได้เลือกยา
-                if (!selectedDrug) {
-                    // จัดกลุ่มตาม DRUG_CODE
-                    const groupedByDrug = {};
-                    sortedData.forEach(item => {
-                        if (!groupedByDrug[item.DRUG_CODE]) {
-                            groupedByDrug[item.DRUG_CODE] = [];
-                        }
-                        groupedByDrug[item.DRUG_CODE].push(item);
-                    });
+                // ✅ คำนวณยอดคงเหลือเฉพาะแถว (ไม่สะสมจากแถวก่อนหน้า)
+                const processedData = sortedData.map(item => {
+                    const begQty = parseFloat(item.BEG1) || 0;
+                    const inQty = parseFloat(item.IN1) || 0;
+                    const outQty = parseFloat(item.OUT1) || 0;
+                    const updQty = parseFloat(item.UPD1) || 0;
+                    const endingQty = begQty + inQty - outQty + updQty;
 
-                    // คำนวณยอดคงเหลือสำหรับแต่ละยา
-                    const processedData = [];
-                    Object.keys(groupedByDrug).forEach(drugCode => {
-                        const drugItems = groupedByDrug[drugCode];
-                        let runningBalance = 0;
-                        let runningBalanceAmt = 0;
+                    const begAmt = parseFloat(item.BEG1_AMT) || 0;
+                    const inAmt = parseFloat(item.IN1_AMT) || 0;
+                    const outAmt = parseFloat(item.OUT1_AMT) || 0;
+                    const updAmt = parseFloat(item.UPD1_AMT) || 0;
+                    const endingAmt = begAmt + inAmt - outAmt + updAmt;
 
-                        drugItems.forEach((item, index) => {
-                            const begQty = index === 0 ? (parseFloat(item.BEG1) || 0) : runningBalance;
-                            const begAmt = index === 0 ? (parseFloat(item.BEG1_AMT) || 0) : runningBalanceAmt;
+                    return {
+                        ...item,
+                        endingQty,
+                        endingAmt
+                    };
+                });
 
-                            const inQty = parseFloat(item.IN1) || 0;
-                            const outQty = parseFloat(item.OUT1) || 0;
-                            const updQty = parseFloat(item.UPD1) || 0;
-                            const endingQty = begQty + inQty - outQty + updQty;
-
-                            const inAmt = parseFloat(item.IN1_AMT) || 0;
-                            const outAmt = parseFloat(item.OUT1_AMT) || 0;
-                            const updAmt = parseFloat(item.UPD1_AMT) || 0;
-                            const endingAmt = begAmt + inAmt - outAmt + updAmt;
-
-                            runningBalance = endingQty;
-                            runningBalanceAmt = endingAmt;
-
-                            processedData.push({
-                                ...item,
-                                BEG1: begQty,
-                                BEG1_AMT: begAmt,
-                                endingQty,
-                                endingAmt
-                            });
-                        });
-                    });
-
-                    console.log('📊 Processed stock card data (all drugs):', processedData);
-                    setStockCardData(processedData);
-                } else {
-                    // คำนวณยอดคงเหลือสำหรับยาเดียว
-                    let runningBalance = 0;
-                    let runningBalanceAmt = 0;
-
-                    const processedData = sortedData.map((item, index) => {
-                        const begQty = index === 0 ? (parseFloat(item.BEG1) || 0) : runningBalance;
-                        const begAmt = index === 0 ? (parseFloat(item.BEG1_AMT) || 0) : runningBalanceAmt;
-
-                        const inQty = parseFloat(item.IN1) || 0;
-                        const outQty = parseFloat(item.OUT1) || 0;
-                        const updQty = parseFloat(item.UPD1) || 0;
-                        const endingQty = begQty + inQty - outQty + updQty;
-
-                        const inAmt = parseFloat(item.IN1_AMT) || 0;
-                        const outAmt = parseFloat(item.OUT1_AMT) || 0;
-                        const updAmt = parseFloat(item.UPD1_AMT) || 0;
-                        const endingAmt = begAmt + inAmt - outAmt + updAmt;
-
-                        runningBalance = endingQty;
-                        runningBalanceAmt = endingAmt;
-
-                        return {
-                            ...item,
-                            BEG1: begQty,
-                            BEG1_AMT: begAmt,
-                            endingQty,
-                            endingAmt
-                        };
-                    });
-
-                    console.log('📊 Processed stock card data (single drug):', processedData);
-                    setStockCardData(processedData);
-                }
+                console.log('📊 Processed stock card data:', processedData);
+                setStockCardData(processedData);
             } else {
                 setStockCardData([]);
                 showSnackbar('ไม่พบข้อมูลสต็อกการ์ด', 'info');
