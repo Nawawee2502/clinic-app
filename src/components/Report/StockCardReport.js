@@ -662,11 +662,11 @@ const StockCardReport = () => {
                                         ? (selectedDrug.GENERIC_NAME || selectedDrug.DRUG_CODE || '') 
                                         : 'ทั้งหมด'}
                                 </Typography>
-                                {selectedLot && (
+                                {/* {selectedLot && (
                                     <Typography variant="body1">
                                         <strong>LOT:</strong> {selectedLot}
                                     </Typography>
-                                )}
+                                )} */}
                             </Box>
                         </Box>
 
