@@ -161,8 +161,50 @@ const Borrow1Management = () => {
         LOT_NO: '',
         EXPIRE_DATE: ''
     });
+    const [modalErrors, setModalErrors] = useState({});
 
     const itemsPerPage = 10;
+
+    const getCurrentLotInfo = () => {
+        if (selectedLot) return selectedLot;
+        if (modalData.LOT_NO) {
+            return lotList.find(lot => lot.LOT_NO === modalData.LOT_NO) || null;
+        }
+        return null;
+    };
+
+    const getRemainingQtyForLot = (lot, excludeIndex = null, drugCode = modalData.DRUG_CODE) => {
+        if (!lot || !drugCode) return null;
+        const lotQty = parseFloat(lot.QTY) || 0;
+        const usedQty = details.reduce((sum, detail, index) => {
+            if (excludeIndex !== null && index === excludeIndex) {
+                return sum;
+            }
+            if (detail.DRUG_CODE === drugCode && detail.LOT_NO === lot.LOT_NO) {
+                return sum + (parseFloat(detail.QTY) || 0);
+            }
+            return sum;
+        }, 0);
+        return Math.max(lotQty - usedQty, 0);
+    };
+
+    const formatQty = (qty) => {
+        const numeric = parseFloat(qty);
+        if (!Number.isFinite(numeric)) {
+            return '0.00';
+        }
+        return numeric.toLocaleString('th-TH', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+    };
+
+    const calculateAmount = (qty, unitCost) => {
+        const numericQty = parseFloat(qty) || 0;
+        const numericUnitCost = parseFloat(unitCost) || 0;
+        const amount = Borrow1Service.calculateLineAmount(numericQty, numericUnitCost);
+        return Number.isFinite(amount) ? amount.toFixed(2) : '0.00';
+    };
 
     useEffect(() => {
         loadData();
@@ -335,6 +377,43 @@ const Borrow1Management = () => {
         }
     };
 
+    const clearModalError = (field) => {
+        setModalErrors(prev => {
+            if (!prev[field]) return prev;
+            const updated = { ...prev };
+            delete updated[field];
+            return updated;
+        });
+    };
+
+    const validateModalData = (data) => {
+        const errors = {};
+
+        if (!data.DRUG_CODE?.trim()) {
+            errors.DRUG_CODE = 'กรุณาเลือกรายการยา';
+        }
+
+        if (!data.LOT_NO?.trim()) {
+            errors.LOT_NO = 'กรุณาเลือก LOT NO';
+        }
+
+        const qty = parseFloat(data.QTY);
+        if (data.QTY === '' || data.QTY === null) {
+            errors.QTY = 'กรุณาระบุจำนวน';
+        } else if (isNaN(qty) || qty <= 0) {
+            errors.QTY = 'จำนวนต้องมากกว่า 0';
+        }
+
+        const unitCost = parseFloat(data.UNIT_COST);
+        if (data.UNIT_COST === '' || data.UNIT_COST === null) {
+            errors.UNIT_COST = 'กรุณาระบุราคา/หน่วย';
+        } else if (isNaN(unitCost) || unitCost < 0) {
+            errors.UNIT_COST = 'ราคา/หน่วยต้องไม่ติดลบ';
+        }
+
+        return errors;
+    };
+
     const handleOpenModal = () => {
         setModalData({
             DRUG_CODE: '',
@@ -343,13 +422,14 @@ const Borrow1Management = () => {
             UNIT_CODE1: '',
             UNIT_NAME1: '',
             GENERIC_NAME: '',
-            AMT: '',
+            AMT: '0.00',
             LOT_NO: '',
             EXPIRE_DATE: ''
         });
         setEditingIndex(null);
         setLotList([]);
         setSelectedLot(null);
+        setModalErrors({});
         setOpenModal(true);
     };
 
@@ -385,6 +465,7 @@ const Borrow1Management = () => {
             UNIT_NAME1: detail.UNIT_NAME1 || ''
         });
         setEditingIndex(index);
+        setModalErrors({});
         setOpenModal(true);
     };
 
@@ -393,16 +474,36 @@ const Borrow1Management = () => {
         setEditingIndex(null);
         setLotList([]);
         setSelectedLot(null);
+        setModalErrors({});
     };
 
     const handleModalChange = (field, value) => {
-        setModalData(prev => {
-            const updated = { ...prev, [field]: value };
-            if (field === 'QTY' || field === 'UNIT_COST') {
-                const qty = parseFloat(field === 'QTY' ? value : updated.QTY) || 0;
-                const unitCost = parseFloat(field === 'UNIT_COST' ? value : updated.UNIT_COST) || 0;
-                updated.AMT = (qty * unitCost).toFixed(2);
+        let newValue = value;
+
+        if (field === 'QTY') {
+            const lotInfo = getCurrentLotInfo();
+            if (lotInfo) {
+                const remainingQty = getRemainingQtyForLot(lotInfo, editingIndex);
+                const requestedQty = parseFloat(value) || 0;
+
+                if (Number.isFinite(remainingQty) && requestedQty > remainingQty) {
+                    const unitLabel = modalData.UNIT_NAME1 || lotInfo.UNIT_CODE1 || '';
+                    showAlert(`จำนวนคงเหลือสำหรับ LOT นี้มีเพียง ${formatQty(remainingQty)} ${unitLabel}`, 'warning');
+                    newValue = remainingQty > 0 ? remainingQty.toString() : '';
+                }
             }
+        }
+
+        clearModalError(field);
+        setModalData(prev => {
+            const updated = { ...prev, [field]: newValue };
+
+            if (field === 'QTY' || field === 'UNIT_COST') {
+                const qty = parseFloat(field === 'QTY' ? newValue : updated.QTY) || 0;
+                const unitCost = parseFloat(field === 'UNIT_COST' ? newValue : updated.UNIT_COST) || 0;
+                updated.AMT = calculateAmount(qty, unitCost);
+            }
+
             return updated;
         });
     };
@@ -432,14 +533,17 @@ const Borrow1Management = () => {
                     setModalData(prev => ({
                         ...prev,
                         DRUG_CODE: drug.DRUG_CODE,
-                        UNIT_COST: '', // ไม่ดึงราคามา ให้กรอกเอง
+                        UNIT_COST: '',
                         GENERIC_NAME: drug.GENERIC_NAME || '',
                         UNIT_CODE1: drug.UNIT_CODE1 || '', // ⭐ บันทึก CODE
                         UNIT_NAME1: drug.UNIT_NAME1 || '',  // ⭐ เพิ่ม NAME สำหรับแสดงผล
                         LOT_NO: '',
-                        EXPIRE_DATE: ''
+                        EXPIRE_DATE: '',
+                        AMT: '0.00'
                     }));
                     setSelectedLot(null);
+                    clearModalError('DRUG_CODE');
+                    clearModalError('LOT_NO');
                 }
             } catch (error) {
                 console.error('❌ Error loading drug details:', error);
@@ -457,35 +561,64 @@ const Borrow1Management = () => {
             }));
             setLotList([]);
             setSelectedLot(null);
+            setModalErrors(prev => ({ ...prev, DRUG_CODE: 'กรุณาเลือกรายการยา' }));
         }
     };
 
     // จัดการเลือก LOT_NO
     const handleLotChange = (event, value) => {
+        if (value) {
+            clearModalError('LOT_NO');
+        }
         setSelectedLot(value);
         if (value) {
+            const unitPrice = parseFloat(value.UNIT_PRICE) || 0;
+            const currentQty = parseFloat(modalData.QTY) || 0;
+            const amount = calculateAmount(currentQty, unitPrice);
+
             setModalData(prev => ({
                 ...prev,
                 LOT_NO: value.LOT_NO,
-                EXPIRE_DATE: Borrow1Service.formatDateForInput(value.EXPIRE_DATE)
+                EXPIRE_DATE: Borrow1Service.formatDateForInput(value.EXPIRE_DATE),
+                UNIT_COST: unitPrice ? unitPrice.toFixed(2) : '',
+                AMT: amount
             }));
         } else {
             setModalData(prev => ({
                 ...prev,
                 LOT_NO: '',
-                EXPIRE_DATE: ''
+                EXPIRE_DATE: '',
+                UNIT_COST: '',
+                AMT: calculateAmount(prev.QTY, 0)
             }));
+            setModalErrors(prev => ({ ...prev, LOT_NO: 'กรุณาเลือก LOT NO' }));
         }
     };
 
     const handleAddDetail = () => {
-        if (!modalData.DRUG_CODE || !modalData.QTY || !modalData.UNIT_COST) {
-            showAlert('กรุณากรอกข้อมูลให้ครบถ้วน', 'warning');
+        const errors = validateModalData(modalData);
+
+        if (Object.keys(errors).length > 0) {
+            setModalErrors(errors);
+            const firstError = Object.values(errors)[0];
+            showAlert(firstError, 'warning');
             return;
         }
 
-        if (!modalData.LOT_NO) {
-            showAlert('กรุณาเลือก LOT NO', 'warning');
+        const lotInfo = getCurrentLotInfo();
+        if (!lotInfo) {
+            showAlert('ไม่พบข้อมูลสต็อคสำหรับ LOT นี้', 'error');
+            setModalErrors(prev => ({ ...prev, LOT_NO: 'ไม่พบข้อมูลสต็อคสำหรับ LOT นี้' }));
+            return;
+        }
+
+        const requestedQty = parseFloat(modalData.QTY) || 0;
+        const remainingQty = getRemainingQtyForLot(lotInfo, editingIndex);
+
+        if (Number.isFinite(remainingQty) && requestedQty > remainingQty) {
+            const unitLabel = modalData.UNIT_NAME1 || lotInfo.UNIT_CODE1 || '';
+            setModalErrors(prev => ({ ...prev, QTY: `จำนวนคงเหลือของ LOT ${lotInfo.LOT_NO} มีเพียง ${formatQty(remainingQty)} ${unitLabel}` }));
+            showAlert(`จำนวนคงเหลือของ LOT ${lotInfo.LOT_NO} มีเพียง ${formatQty(remainingQty)} ${unitLabel}`, 'error');
             return;
         }
 
@@ -511,6 +644,7 @@ const Borrow1Management = () => {
             showAlert('เพิ่มรายการสำเร็จ', 'success');
         }
 
+        setModalErrors({});
         handleCloseModal();
     };
 
@@ -685,6 +819,10 @@ const Borrow1Management = () => {
 
     if (currentView === "add" || currentView === "edit") {
         const totals = calculateTotal();
+        const currentLotInfo = getCurrentLotInfo();
+        const lotTotalQty = currentLotInfo ? parseFloat(currentLotInfo.QTY) || 0 : null;
+        const lotRemainingQty = currentLotInfo ? getRemainingQtyForLot(currentLotInfo, editingIndex) : null;
+        const unitLabel = modalData.UNIT_NAME1 || currentLotInfo?.UNIT_CODE1 || '';
 
         return (
             <LocalizationProvider dateAdapter={AdapterDayjs}>
@@ -862,7 +1000,13 @@ const Borrow1Management = () => {
                                         onChange={handleModalDrugChange}
                                         size="small"
                                         renderInput={(params) => (
-                                            <TextField {...params} label="รหัสยา *" sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }} />
+                                            <TextField
+                                                {...params}
+                                                label="รหัสยา *"
+                                                error={!!modalErrors.DRUG_CODE}
+                                                helperText={modalErrors.DRUG_CODE}
+                                                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
+                                            />
                                         )}
                                     />
                                 </Grid>
@@ -875,14 +1019,22 @@ const Borrow1Management = () => {
                                         onChange={handleLotChange}
                                         disabled={!modalData.DRUG_CODE || lotList.length === 0}
                                         size="small"
-                                        renderInput={(params) => (
-                                            <TextField
-                                                {...params}
-                                                label="LOT NO *"
-                                                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
-                                                helperText={!modalData.DRUG_CODE ? "เลือกยาก่อน" : lotList.length === 0 ? "ไม่มี LOT" : ""}
-                                            />
-                                        )}
+                                        renderInput={(params) => {
+                                            const helperMessage = !modalData.DRUG_CODE
+                                                ? "เลือกยาก่อน"
+                                                : lotList.length === 0
+                                                    ? "ไม่มี LOT"
+                                                    : '';
+                                            return (
+                                                <TextField
+                                                    {...params}
+                                                    label="LOT NO *"
+                                                    error={!!modalErrors.LOT_NO}
+                                                    helperText={modalErrors.LOT_NO || helperMessage}
+                                                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
+                                                />
+                                            );
+                                        }}
                                     />
                                 </Grid>
                                 <Grid item xs={12} md={6}>
@@ -907,7 +1059,18 @@ const Borrow1Management = () => {
                                         type="number"
                                         value={modalData.QTY}
                                         onChange={(e) => handleModalChange('QTY', e.target.value)}
-                                        inputProps={{ step: "1", min: "0" }}
+                                        inputProps={{
+                                            step: "0.01",
+                                            min: "0",
+                                            ...(Number.isFinite(lotRemainingQty) ? { max: lotRemainingQty } : {})
+                                        }}
+                                        error={!!modalErrors.QTY}
+                                        helperText={
+                                            modalErrors.QTY ||
+                                            (currentLotInfo
+                                                ? `สต็อคใน LOT ${currentLotInfo.LOT_NO}: ${formatQty(lotTotalQty)} ${unitLabel || ''}${Number.isFinite(lotRemainingQty) ? ` | เบิกได้สูงสุด: ${formatQty(lotRemainingQty)} ${unitLabel || ''}` : ''}`
+                                                : '')
+                                        }
                                         size="small"
                                         sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
                                     />
@@ -930,6 +1093,8 @@ const Borrow1Management = () => {
                                         value={modalData.UNIT_COST}
                                         onChange={(e) => handleModalChange('UNIT_COST', e.target.value)}
                                         inputProps={{ step: "0.01", min: "0" }}
+                                        error={!!modalErrors.UNIT_COST}
+                                        helperText={modalErrors.UNIT_COST || (currentLotInfo ? 'ราคาดึงจากคลัง (BAL_DRUG)' : '')}
                                         size="small"
                                         sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
                                     />

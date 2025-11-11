@@ -3,7 +3,7 @@ import {
     Container, Grid, TextField, Button, Card, CardContent, Typography,
     InputAdornment, IconButton, Stack, Pagination, Dialog,
     DialogTitle, DialogContent, DialogActions, Alert, Snackbar, Box,
-    Select, MenuItem, FormControl, Autocomplete,
+    Select, MenuItem, FormControl, FormHelperText, Autocomplete,
     Table, TableBody, TableCell, TableContainer, TableHead, TableRow
 } from "@mui/material";
 import SaveIcon from '@mui/icons-material/Save';
@@ -107,6 +107,15 @@ const BalMonthDrugManagement = () => {
     const [alert, setAlert] = useState({ open: false, message: '', severity: 'info' });
 
     const [drugList, setDrugList] = useState([]);
+    const drugMap = React.useMemo(() => {
+        const map = new Map();
+        drugList.forEach(drug => {
+            if (drug?.DRUG_CODE) {
+                map.set(drug.DRUG_CODE, drug);
+            }
+        });
+        return map;
+    }, [drugList]);
     const [selectedDrug, setSelectedDrug] = useState(null);
 
     // Filters
@@ -124,6 +133,7 @@ const BalMonthDrugManagement = () => {
         LOT_NO: '',
         EXPIRE_DATE: new Date().toISOString().slice(0, 10)
     });
+    const [formErrors, setFormErrors] = useState({});
 
     const itemsPerPage = 10;
 
@@ -134,7 +144,7 @@ const BalMonthDrugManagement = () => {
 
     useEffect(() => {
         filterData();
-    }, [balanceList, searchTerm]);
+    }, [balanceList, searchTerm, drugMap]);
 
     useEffect(() => {
         setTotalPages(Math.ceil(filteredList.length / itemsPerPage));
@@ -188,7 +198,9 @@ const BalMonthDrugManagement = () => {
         const term = searchTerm.toLowerCase();
         const filtered = balanceList.filter(item =>
             item.DRUG_CODE?.toLowerCase().includes(term) ||
-            item.UNIT_CODE1?.toLowerCase().includes(term)
+            item.UNIT_CODE1?.toLowerCase().includes(term) ||
+            ((drugMap.get(item.DRUG_CODE)?.GENERIC_NAME || '').toLowerCase().includes(term)) ||
+            ((drugMap.get(item.DRUG_CODE)?.TRADE_NAME || '').toLowerCase().includes(term))
         );
 
         setFilteredList(filtered);
@@ -229,7 +241,52 @@ const BalMonthDrugManagement = () => {
         });
     };
 
+    const clearFieldError = (field) => {
+        setFormErrors(prev => {
+            if (!prev[field]) return prev;
+            const updated = { ...prev };
+            delete updated[field];
+            return updated;
+        });
+    };
+
+    const validateFormData = (data = formData) => {
+        const errors = {};
+
+        if (!data.MYEAR) {
+            errors.MYEAR = 'กรุณาระบุปี';
+        } else if (data.MYEAR.toString().length !== 4 || isNaN(data.MYEAR)) {
+            errors.MYEAR = 'ปีต้องเป็นตัวเลข 4 หลัก';
+        }
+
+        if (!data.MONTHH) {
+            errors.MONTHH = 'กรุณาระบุเดือน';
+        } else if (data.MONTHH < 1 || data.MONTHH > 12) {
+            errors.MONTHH = 'เดือนต้องอยู่ระหว่าง 1-12';
+        }
+
+        if (!data.DRUG_CODE?.trim()) {
+            errors.DRUG_CODE = 'กรุณาเลือกรายการยา';
+        }
+
+        if (data.QTY === undefined || data.QTY === null || data.QTY === '') {
+            errors.QTY = 'กรุณาระบุจำนวน';
+        } else if (isNaN(data.QTY) || parseFloat(data.QTY) < 0) {
+            errors.QTY = 'จำนวนต้องเป็นตัวเลขที่ไม่ติดลบ';
+        }
+
+        if (data.UNIT_PRICE === undefined || data.UNIT_PRICE === null || data.UNIT_PRICE === '') {
+            errors.UNIT_PRICE = 'กรุณาระบุราคาต่อหน่วย';
+        } else if (isNaN(data.UNIT_PRICE) || parseFloat(data.UNIT_PRICE) < 0) {
+            errors.UNIT_PRICE = 'ราคาต่อหน่วยต้องเป็นตัวเลขที่ไม่ติดลบ';
+        }
+
+        return errors;
+    };
+
     const handleFormChange = (field, value) => {
+        clearFieldError(field);
+
         if (field === 'DRUG_CODE') {
             const drug = drugList.find(d => d.DRUG_CODE === value);
             setSelectedDrug(drug || null);
@@ -264,8 +321,10 @@ const BalMonthDrugManagement = () => {
 
     const handleDrugSelect = (event, value) => {
         if (value) {
+            clearFieldError('DRUG_CODE');
             handleFormChange('DRUG_CODE', value.DRUG_CODE);
         } else {
+            setFormErrors(prev => ({ ...prev, DRUG_CODE: 'กรุณาเลือกรายการยา' }));
             setFormData(prev => ({
                 ...prev,
                 DRUG_CODE: '',
@@ -292,10 +351,21 @@ const BalMonthDrugManagement = () => {
         });
         setSelectedDrug(null);
         setEditingItem(null);
+        setFormErrors({});
     };
 
     const handleSave = async () => {
         console.log('🔵 handleSave called');
+
+        const validationErrors = validateFormData(formData);
+
+        if (Object.keys(validationErrors).length > 0) {
+            setFormErrors(validationErrors);
+            const firstError = Object.values(validationErrors)[0];
+            console.log('❌ Validation failed:', firstError);
+            showAlert(firstError, 'error');
+            return;
+        }
 
         const errors = BalMonthDrugService.validateBalanceData(formData, !!editingItem);
 
@@ -371,6 +441,7 @@ const BalMonthDrugManagement = () => {
         setSelectedDrug(drug || null);
 
         setEditingItem(item);
+        setFormErrors({});
         setCurrentView("edit");
     };
 
@@ -422,6 +493,7 @@ const BalMonthDrugManagement = () => {
         });
         setSelectedDrug(null);
         setEditingItem(null);
+        setFormErrors({});
         setCurrentView("add");
     };
 
@@ -443,7 +515,7 @@ const BalMonthDrugManagement = () => {
                             <Grid container spacing={3}>
                                 <Grid item xs={12} md={4}>
                                     <Typography sx={{ fontWeight: 400, fontSize: 16, mb: 1 }}>ปี *</Typography>
-                                    <FormControl fullWidth size="small">
+                                    <FormControl fullWidth size="small" error={!!formErrors.MYEAR}>
                                         <Select
                                             value={formData.MYEAR}
                                             onChange={(e) => handleFormChange('MYEAR', e.target.value)}
@@ -454,12 +526,13 @@ const BalMonthDrugManagement = () => {
                                                 <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
                                             ))}
                                         </Select>
+                                        {formErrors.MYEAR && <FormHelperText>{formErrors.MYEAR}</FormHelperText>}
                                     </FormControl>
                                 </Grid>
 
                                 <Grid item xs={12} md={4}>
                                     <Typography sx={{ fontWeight: 400, fontSize: 16, mb: 1 }}>เดือน *</Typography>
-                                    <FormControl fullWidth size="small">
+                                    <FormControl fullWidth size="small" error={!!formErrors.MONTHH}>
                                         <Select
                                             value={formData.MONTHH}
                                             onChange={(e) => handleFormChange('MONTHH', e.target.value)}
@@ -470,6 +543,7 @@ const BalMonthDrugManagement = () => {
                                                 <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
                                             ))}
                                         </Select>
+                                        {formErrors.MONTHH && <FormHelperText>{formErrors.MONTHH}</FormHelperText>}
                                     </FormControl>
                                 </Grid>
 
@@ -497,9 +571,17 @@ const BalMonthDrugManagement = () => {
                                                 (option.DRUG_CODE || '').toLowerCase().includes(searchTerm)
                                             );
                                         }}
-                                        renderInput={(params) => <TextField {...params} placeholder="เลือกยา" size="small" />}
                                         disabled={!!editingItem}
                                         sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px", backgroundColor: editingItem ? "#f5f5f5" : "white" } }}
+                                        renderInput={(params) => (
+                                            <TextField
+                                                {...params}
+                                                placeholder="เลือกยา"
+                                                size="small"
+                                                error={!!formErrors.DRUG_CODE}
+                                                helperText={formErrors.DRUG_CODE}
+                                            />
+                                        )}
                                     />
                                 </Grid>
 
@@ -557,6 +639,8 @@ const BalMonthDrugManagement = () => {
                                         onChange={(e) => handleFormChange('QTY', e.target.value)}
                                         fullWidth
                                         inputProps={{ step: "0.01", min: "0" }}
+                                        error={!!formErrors.QTY}
+                                        helperText={formErrors.QTY}
                                         sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
                                     />
                                 </Grid>
@@ -571,6 +655,8 @@ const BalMonthDrugManagement = () => {
                                         onChange={(e) => handleFormChange('UNIT_PRICE', e.target.value)}
                                         fullWidth
                                         inputProps={{ step: "0.01", min: "0" }}
+                                        error={!!formErrors.UNIT_PRICE}
+                                        helperText={formErrors.UNIT_PRICE}
                                         sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
                                     />
                                 </Grid>
@@ -642,7 +728,7 @@ const BalMonthDrugManagement = () => {
                             <Grid item xs={12} md={6}>
                                 <TextField
                                     size="small"
-                                    placeholder="ค้นหา (รหัสยา, หน่วยนับ)"
+                                    placeholder="ค้นหา"
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
                                     fullWidth

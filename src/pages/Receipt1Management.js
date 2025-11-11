@@ -165,6 +165,7 @@ const Receipt1Management = () => {
         LOT_NO: '',
         EXPIRE_DATE: new Date().toISOString().slice(0, 10)
     });
+    const [modalErrors, setModalErrors] = useState({});
 
 
     const itemsPerPage = 10;
@@ -526,6 +527,43 @@ const Receipt1Management = () => {
         }
     };
 
+    const clearModalError = (field) => {
+        setModalErrors(prev => {
+            if (!prev[field]) return prev;
+            const updated = { ...prev };
+            delete updated[field];
+            return updated;
+        });
+    };
+
+    const validateModalData = (data) => {
+        const errors = {};
+
+        if (!data.DRUG_CODE?.trim()) {
+            errors.DRUG_CODE = 'กรุณาเลือกรายการยา';
+        }
+
+        const qty = parseFloat(data.QTY);
+        if (data.QTY === '' || data.QTY === null) {
+            errors.QTY = 'กรุณาระบุจำนวน';
+        } else if (isNaN(qty) || qty <= 0) {
+            errors.QTY = 'จำนวนต้องมากกว่า 0';
+        }
+
+        const unitCost = parseFloat(data.UNIT_COST);
+        if (data.UNIT_COST === '' || data.UNIT_COST === null) {
+            errors.UNIT_COST = 'กรุณาระบุราคาต่อหน่วย';
+        } else if (isNaN(unitCost) || unitCost <= 0) {
+            errors.UNIT_COST = 'ราคาต่อหน่วยต้องมากกว่า 0';
+        }
+
+        if (!data.LOT_NO?.trim()) {
+            errors.LOT_NO = 'กรุณาระบุ LOT NO';
+        }
+
+        return errors;
+    };
+
     const handleOpenModal = () => {
         setModalData({
             DRUG_CODE: '',
@@ -538,6 +576,7 @@ const Receipt1Management = () => {
             EXPIRE_DATE: new Date().toISOString().slice(0, 10)
         });
         setEditingIndex(null);
+        setModalErrors({});
         setOpenModal(true);
     };
 
@@ -555,15 +594,18 @@ const Receipt1Management = () => {
             UNIT_NAME1: detail.UNIT_NAME1 || ''
         });
         setEditingIndex(index);
+        setModalErrors({});
         setOpenModal(true);
     };
 
     const handleCloseModal = () => {
         setOpenModal(false);
         setEditingIndex(null);
+        setModalErrors({});
     };
 
     const handleModalChange = (field, value) => {
+        clearModalError(field);
         setModalData(prev => {
             const updated = { ...prev, [field]: value };
             if (field === 'QTY' || field === 'UNIT_COST') {
@@ -596,6 +638,7 @@ const Receipt1Management = () => {
                         UNIT_CODE1: drug.UNIT_CODE1 || '', // ⭐ บันทึก CODE
                         UNIT_NAME1: drug.UNIT_NAME1 || ''  // ⭐ เพิ่ม NAME สำหรับแสดงผล
                     }));
+                    clearModalError('DRUG_CODE');
                 }
             } catch (error) {
                 console.error('❌ Error loading drug details:', error);
@@ -609,12 +652,17 @@ const Receipt1Management = () => {
                 UNIT_CODE1: '',
                 UNIT_NAME1: ''
             }));
+            setModalErrors(prev => ({ ...prev, DRUG_CODE: 'กรุณาเลือกรายการยา' }));
         }
     };
 
     const handleAddDetail = () => {
-        if (!modalData.DRUG_CODE || !modalData.QTY || !modalData.UNIT_COST) {
-            showAlert('กรุณากรอกข้อมูลให้ครบถ้วน', 'warning');
+        const errors = validateModalData(modalData);
+
+        if (Object.keys(errors).length > 0) {
+            setModalErrors(errors);
+            const firstError = Object.values(errors)[0];
+            showAlert(firstError, 'warning');
             return;
         }
 
@@ -640,6 +688,7 @@ const Receipt1Management = () => {
             showAlert('เพิ่มรายการสำเร็จ', 'success');
         }
 
+        setModalErrors({});
         handleCloseModal();
     };
 
@@ -1026,7 +1075,13 @@ const Receipt1Management = () => {
                                         onChange={handleModalDrugChange}
                                         size="small"
                                         renderInput={(params) => (
-                                            <TextField {...params} label="รหัสยา" sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }} />
+                                            <TextField
+                                                {...params}
+                                                label="รหัสยา"
+                                                error={!!modalErrors.DRUG_CODE}
+                                                helperText={modalErrors.DRUG_CODE}
+                                                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
+                                            />
                                         )}
                                     />
                                 </Grid>
@@ -1038,6 +1093,8 @@ const Receipt1Management = () => {
                                         value={modalData.QTY}
                                         onChange={(e) => handleModalChange('QTY', e.target.value)}
                                         size="small"
+                                        error={!!modalErrors.QTY}
+                                        helperText={modalErrors.QTY}
                                         sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
                                     />
                                 </Grid>
@@ -1049,6 +1106,8 @@ const Receipt1Management = () => {
                                         value={modalData.UNIT_COST}
                                         onChange={(e) => handleModalChange('UNIT_COST', e.target.value)}
                                         size="small"
+                                        error={!!modalErrors.UNIT_COST}
+                                        helperText={modalErrors.UNIT_COST}
                                         sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
                                     />
                                 </Grid>
@@ -1079,6 +1138,8 @@ const Receipt1Management = () => {
                                         value={modalData.LOT_NO}
                                         onChange={(e) => handleModalChange('LOT_NO', e.target.value)}
                                         size="small"
+                                        error={!!modalErrors.LOT_NO}
+                                        helperText={modalErrors.LOT_NO}
                                         sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
                                     />
                                 </Grid>

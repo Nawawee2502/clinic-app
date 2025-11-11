@@ -226,6 +226,9 @@ class Return1Service {
 
     // จัดรูปแบบข้อมูลก่อนส่ง API
     static formatReturn1Data(headerData, details) {
+        const parsedVat = parseFloat(headerData.VAT1);
+        const vatValue = Number.isFinite(parsedVat) ? parsedVat : 7;
+
         return {
             REFNO: headerData.REFNO?.trim(),
             RDATE: headerData.RDATE,
@@ -235,7 +238,7 @@ class Return1Service {
             SUPPLIER_CODE: headerData.SUPPLIER_CODE?.trim(),
             DUEDATE: headerData.DUEDATE,
             STATUS: headerData.STATUS || 'ทำงานอยู่',
-            VAT1: headerData.VAT1 || 7,
+            VAT1: vatValue,
             TYPE_PAY: headerData.TYPE_PAY?.trim(),
             BANK_NO: headerData.BANK_NO?.trim() || null,
             details: details.map(d => ({

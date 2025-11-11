@@ -766,13 +766,6 @@ class Pay1Service {
                     .items-table .col-desc { width: 55%; }
                     .items-table .col-qty { width: 120px; text-align: center; }
                     .items-table .col-amount { width: 120px; text-align: right; }
-                    .amount-text {
-                        border: 1px solid #000;
-                        padding: 8px 10px;
-                        font-size: 13px;
-                        margin: 12px 0;
-                    }
-                    .amount-text span { font-weight: 600; }
                     .remark-box {
                         border: 1px solid #000;
                         min-height: 60px;
@@ -850,9 +843,6 @@ ${emptyRows}
                             </tr>
                         </tbody>
                     </table>
-                    <div class="amount-text">
-                        <span>(จำนวนเงินเป็นตัวอักษร)</span> ${totalText}
-                    </div>
                     <div class="remark-box">
                         <span>หมายเหตุ</span> ${paymentMethod}${bankInfo}
                     </div>

@@ -236,6 +236,9 @@ class Receipt1Service {
 
     // จัดรูปแบบข้อมูลก่อนส่ง API
     static formatReceipt1Data(headerData, details) {
+        const parsedVat = parseFloat(headerData.VAT1);
+        const vatValue = Number.isFinite(parsedVat) ? parsedVat : 7;
+
         return {
             REFNO: headerData.REFNO?.trim(),
             RDATE: headerData.RDATE,
@@ -245,7 +248,7 @@ class Receipt1Service {
             SUPPLIER_CODE: headerData.SUPPLIER_CODE?.trim(),
             DUEDATE: headerData.DUEDATE,
             STATUS: headerData.STATUS || 'ทำงานอยู่',
-            VAT1: parseFloat(headerData.VAT1) || 7,
+            VAT1: vatValue,
             TYPE_VAT: headerData.TYPE_VAT || 'include',
             TYPE_PAY: headerData.TYPE_PAY,
             BANK_NO: headerData.BANK_NO,

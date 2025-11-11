@@ -147,6 +147,7 @@ const CheckStockManagement = () => {
         LOT_NO: '',
         EXPIRE_DATE: ''
     });
+    const [modalErrors, setModalErrors] = useState({});
 
     const itemsPerPage = 10;
 
@@ -289,6 +290,41 @@ const CheckStockManagement = () => {
         });
     };
 
+    const clearModalError = (field) => {
+        setModalErrors(prev => {
+            if (!prev[field]) return prev;
+            const updated = { ...prev };
+            delete updated[field];
+            return updated;
+        });
+    };
+
+    const validateModalData = (data) => {
+        const errors = {};
+
+        if (!data.DRUG_CODE?.trim()) {
+            errors.DRUG_CODE = 'กรุณาเลือกรายการยา';
+        }
+
+        if (data.QTY_BAL === '' || data.QTY_BAL === null || data.QTY_BAL === undefined) {
+            errors.QTY_BAL = 'กรุณาระบุจำนวนคงเหลือ';
+        } else if (isNaN(data.QTY_BAL) || parseFloat(data.QTY_BAL) < 0) {
+            errors.QTY_BAL = 'จำนวนคงเหลือต้องเป็นตัวเลขที่ไม่ติดลบ';
+        }
+
+        if (!data.LOT_NO?.trim()) {
+            errors.LOT_NO = 'กรุณาเลือก LOT NO';
+        }
+
+        if (data.UNIT_COST !== '' && data.UNIT_COST !== null && data.UNIT_COST !== undefined) {
+            if (isNaN(data.UNIT_COST) || parseFloat(data.UNIT_COST) < 0) {
+                errors.UNIT_COST = 'ราคา/หน่วยต้องไม่ติดลบ';
+            }
+        }
+
+        return errors;
+    };
+
     const handleOpenModal = () => {
         setModalData({
             DRUG_CODE: '',
@@ -306,6 +342,7 @@ const CheckStockManagement = () => {
         setEditingIndex(null);
         setLotList([]);
         setSelectedLot(null);
+        setModalErrors({});
         setOpenModal(true);
     };
 
@@ -343,6 +380,7 @@ const CheckStockManagement = () => {
             EXPIRE_DATE: detail.EXPIRE_DATE || ''
         });
         setEditingIndex(index);
+        setModalErrors({});
         setOpenModal(true);
     };
 
@@ -351,9 +389,12 @@ const CheckStockManagement = () => {
         setEditingIndex(null);
         setLotList([]);
         setSelectedLot(null);
+        setModalErrors({});
     };
 
     const handleModalChange = (field, value) => {
+        clearModalError(field);
+
         setModalData(prev => {
             const updated = { ...prev, [field]: value };
 
@@ -374,6 +415,30 @@ const CheckStockManagement = () => {
                 const unitCost = parseFloat(value) || 0;
                 // ✅ เอา Math.abs() ออก
                 updated.AMT = (qtyAdjust * unitCost).toFixed(2);
+            }
+
+            if (field === 'QTY_BAL') {
+                if (value === '' || value === null || value === undefined) {
+                    setModalErrors(prevErrors => ({ ...prevErrors, QTY_BAL: 'กรุณาระบุจำนวนคงเหลือ' }));
+                } else {
+                    const parsed = parseFloat(value);
+                    if (isNaN(parsed) || parsed < 0) {
+                        setModalErrors(prevErrors => ({ ...prevErrors, QTY_BAL: 'จำนวนคงเหลือต้องเป็นตัวเลขที่ไม่ติดลบ' }));
+                    } else {
+                        clearModalError('QTY_BAL');
+                    }
+                }
+            }
+
+            if (field === 'UNIT_COST') {
+                if (value !== '' && value !== null && value !== undefined) {
+                    const parsed = parseFloat(value);
+                    if (isNaN(parsed) || parsed < 0) {
+                        setModalErrors(prevErrors => ({ ...prevErrors, UNIT_COST: 'ราคา/หน่วยต้องไม่ติดลบ' }));
+                    } else {
+                        clearModalError('UNIT_COST');
+                    }
+                }
             }
 
             return updated;
@@ -432,6 +497,9 @@ const CheckStockManagement = () => {
                         AMT: '' // รีเซ็ตเมื่อเปลี่ยนยา
                     }));
                     setSelectedLot(null);
+                    clearModalError('DRUG_CODE');
+                    clearModalError('LOT_NO');
+                    clearModalError('QTY_BAL');
                 }
             } catch (error) {
                 console.error('❌ Error loading drug details:', error);
@@ -452,12 +520,14 @@ const CheckStockManagement = () => {
             }));
             setLotList([]);
             setSelectedLot(null);
+            setModalErrors(prev => ({ ...prev, DRUG_CODE: 'กรุณาเลือกรายการยา' }));
         }
     };
 
     const handleLotChange = (event, value) => {
         setSelectedLot(value);
         if (value) {
+            clearModalError('LOT_NO');
             const lotQty = parseFloat(value.QTY) || 0;
             setModalData(prev => {
                 const updated = {
@@ -486,17 +556,17 @@ const CheckStockManagement = () => {
                 EXPIRE_DATE: '',
                 QTY_PROGRAM: 0
             }));
+            setModalErrors(prev => ({ ...prev, LOT_NO: 'กรุณาเลือก LOT NO' }));
         }
     };
 
     const handleAddDetail = () => {
-        if (!modalData.DRUG_CODE || modalData.QTY_BAL === '' || modalData.QTY_BAL === undefined) {
-            showAlert('กรุณากรอกรหัสยาและจำนวนคงเหลือ', 'warning');
-            return;
-        }
+        const errors = validateModalData(modalData);
 
-        if (!modalData.LOT_NO) {
-            showAlert('กรุณาเลือก LOT NO', 'warning');
+        if (Object.keys(errors).length > 0) {
+            setModalErrors(errors);
+            const firstError = Object.values(errors)[0];
+            showAlert(firstError, 'warning');
             return;
         }
 
@@ -517,6 +587,7 @@ const CheckStockManagement = () => {
             setDetails([...details, newDetail]);
             showAlert('เพิ่มรายการสำเร็จ', 'success');
         }
+        setModalErrors({});
         handleCloseModal();
     };
 
@@ -852,7 +923,13 @@ const CheckStockManagement = () => {
                                         onChange={handleModalDrugChange}
                                         size="small"
                                         renderInput={(params) => (
-                                            <TextField {...params} label="รหัสยา *" sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }} />
+                                            <TextField
+                                                {...params}
+                                                label="รหัสยา *"
+                                                error={!!modalErrors.DRUG_CODE}
+                                                helperText={modalErrors.DRUG_CODE}
+                                                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
+                                            />
                                         )}
                                     />
                                 </Grid>
@@ -866,14 +943,22 @@ const CheckStockManagement = () => {
                                         onChange={handleLotChange}
                                         disabled={!modalData.DRUG_CODE || lotList.length === 0}
                                         size="small"
-                                        renderInput={(params) => (
-                                            <TextField
-                                                {...params}
-                                                label="LOT NO *"
-                                                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
-                                                helperText={!modalData.DRUG_CODE ? "เลือกยาก่อน" : lotList.length === 0 ? "ไม่มี LOT" : ""}
-                                            />
-                                        )}
+                                        renderInput={(params) => {
+                                            const helperMessage = !modalData.DRUG_CODE
+                                                ? "เลือกยาก่อน"
+                                                : lotList.length === 0
+                                                    ? "ไม่มี LOT"
+                                                    : '';
+                                            return (
+                                                <TextField
+                                                    {...params}
+                                                    label="LOT NO *"
+                                                    error={!!modalErrors.LOT_NO}
+                                                    helperText={modalErrors.LOT_NO || helperMessage}
+                                                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
+                                                />
+                                            );
+                                        }}
                                     />
                                 </Grid>
 
@@ -921,8 +1006,9 @@ const CheckStockManagement = () => {
                                         onChange={(e) => handleModalChange('QTY_BAL', e.target.value)}
                                         inputProps={{ step: "1", min: "0" }}
                                         size="small"
+                                        error={!!modalErrors.QTY_BAL}
+                                        helperText={modalErrors.QTY_BAL || "ผู้ใช้กรอก"}
                                         sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
-                                        helperText="ผู้ใช้กรอก"
                                     />
                                 </Grid>
 
@@ -964,6 +1050,8 @@ const CheckStockManagement = () => {
                                         onChange={(e) => handleModalChange('UNIT_COST', e.target.value)}
                                         inputProps={{ step: "0.01", min: "0" }}
                                         size="small"
+                                        error={!!modalErrors.UNIT_COST}
+                                        helperText={modalErrors.UNIT_COST}
                                         sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
                                     />
                                 </Grid>

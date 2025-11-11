@@ -13,7 +13,17 @@ import {
     InputAdornment,
     CircularProgress,
     Tooltip,
-    Paper
+    Paper,
+    Tabs,
+    Tab,
+    Table,
+    TableBody,
+    TableCell,
+    TableContainer,
+    TableHead,
+    TableRow,
+    LinearProgress,
+    MenuItem
 } from '@mui/material';
 import {
     Search,
@@ -29,11 +39,27 @@ import {
     LocalHospital
 } from '@mui/icons-material';
 import PatientService from '../services/patientService';
+import TreatmentService from '../services/treatmentService';
 
 // Helper function outside component
 const getAvatarColor = (sex) => {
     return sex === 'หญิง' ? '#EC7B99' : '#4A9EFF';
 };
+
+const MONTH_OPTIONS = [
+    { value: '01', label: 'มกราคม' },
+    { value: '02', label: 'กุมภาพันธ์' },
+    { value: '03', label: 'มีนาคม' },
+    { value: '04', label: 'เมษายน' },
+    { value: '05', label: 'พฤษภาคม' },
+    { value: '06', label: 'มิถุนายน' },
+    { value: '07', label: 'กรกฎาคม' },
+    { value: '08', label: 'สิงหาคม' },
+    { value: '09', label: 'กันยายน' },
+    { value: '10', label: 'ตุลาคม' },
+    { value: '11', label: 'พฤศจิกายน' },
+    { value: '12', label: 'ธันวาคม' }
+];
 
 // PatientCard component OUTSIDE main component
 const PatientCard = React.memo(({ patient, isSelected, onSelect }) => (
@@ -449,6 +475,7 @@ const PatientDetailPanel = React.memo(({
 });
 
 const PatientManagement = () => {
+    const [activeTab, setActiveTab] = useState('manage');
     const [patients, setPatients] = useState([]);
     const [filteredPatients, setFilteredPatients] = useState([]);
     const [selectedPatient, setSelectedPatient] = useState(null);
@@ -457,6 +484,142 @@ const PatientManagement = () => {
     const [error, setError] = useState('');
     const [isEditing, setIsEditing] = useState(false);
     const [editFormData, setEditFormData] = useState({});
+    const currentDate = new Date();
+    const currentBuddhistYear = currentDate.getFullYear() + 543;
+    const currentMonth = String(currentDate.getMonth() + 1).padStart(2, '0');
+    const [historyFilters, setHistoryFilters] = useState({
+        year: currentBuddhistYear.toString(),
+        month: currentMonth,
+        search: ''
+    });
+    const [patientHistory, setPatientHistory] = useState([]);
+    const [historyLoading, setHistoryLoading] = useState(false);
+    const [historyError, setHistoryError] = useState('');
+
+    const historyYear = historyFilters.year;
+    const historyMonth = historyFilters.month;
+
+    const handleTabChange = useCallback((event, newValue) => {
+        setActiveTab(newValue);
+    }, []);
+
+    const handleHistoryFilterChange = useCallback((field, value) => {
+        setHistoryFilters((prev) => ({
+            ...prev,
+            [field]: value
+        }));
+        if (field !== 'search') {
+            setHistoryError('');
+        }
+    }, []);
+
+    const fetchPatientHistory = useCallback(async () => {
+        if (!historyYear || !historyMonth) {
+            return;
+        }
+
+        const parsedYear = parseInt(historyYear, 10);
+        const parsedMonth = parseInt(historyMonth, 10);
+
+        if (Number.isNaN(parsedYear) || Number.isNaN(parsedMonth)) {
+            setHistoryError('กรุณาระบุปีและเดือนให้ถูกต้อง');
+            setPatientHistory([]);
+            return;
+        }
+
+        const christianYear = parsedYear - 543;
+        const monthIndex = parsedMonth - 1;
+
+        if (Number.isNaN(christianYear) || Number.isNaN(monthIndex)) {
+            setHistoryError('กรุณาระบุปีและเดือนให้ถูกต้อง');
+            setPatientHistory([]);
+            return;
+        }
+
+        const startDate = new Date(christianYear, monthIndex, 1);
+        const endDate = new Date(christianYear, monthIndex + 1, 0);
+        const formatDate = (date) => date.toISOString().split('T')[0];
+
+        try {
+            setHistoryLoading(true);
+            setHistoryError('');
+
+            const response = await TreatmentService.getAllTreatments({
+                date_from: formatDate(startDate),
+                date_to: formatDate(endDate),
+                limit: 200
+            });
+
+            if (response.success) {
+                const historyData = Array.isArray(response.data) ? response.data : [];
+                const sortedHistory = [...historyData].sort((a, b) => {
+                    const dateA = new Date(a?.RDATE || a?.TRDATE || a?.created_at || 0);
+                    const dateB = new Date(b?.RDATE || b?.TRDATE || b?.created_at || 0);
+                    return dateB - dateA;
+                });
+                setPatientHistory(sortedHistory);
+            } else {
+                setPatientHistory([]);
+                setHistoryError(response.message || 'ไม่พบข้อมูลประวัติผู้ป่วย');
+            }
+        } catch (err) {
+            setPatientHistory([]);
+            setHistoryError('เกิดข้อผิดพลาดในการโหลดประวัติผู้ป่วย');
+        } finally {
+            setHistoryLoading(false);
+        }
+    }, [historyMonth, historyYear]);
+
+    const filteredHistoryRecords = React.useMemo(() => {
+        const term = historyFilters.search.trim().toLowerCase();
+        if (!term) {
+            return patientHistory;
+        }
+
+        return patientHistory.filter((record) => {
+            const valuesToCheck = [
+                record?.HNNO,
+                record?.HNCODE,
+                record?.HN,
+                record?.VNO,
+                record?.VN,
+                record?.PRENAME,
+                record?.NAME1,
+                record?.SURNAME
+            ].filter(Boolean);
+
+            return valuesToCheck.some((value) =>
+                value.toString().toLowerCase().includes(term)
+            );
+        });
+    }, [historyFilters.search, patientHistory]);
+
+    const formatHistoryDate = useCallback((record) => {
+        const dateString = record?.RDATE || record?.TRDATE || record?.created_at;
+        if (!dateString) {
+            return '-';
+        }
+
+        try {
+            return TreatmentService.formatThaiDate(dateString);
+        } catch (error) {
+            try {
+                return new Date(dateString).toLocaleDateString('th-TH');
+            } catch (err) {
+                return dateString;
+            }
+        }
+    }, []);
+
+    const getTreatmentSummary = useCallback((record) => {
+        return (
+            record?.TREATMENT1 ||
+            record?.treatment?.TREATMENT1 ||
+            record?.TREATMENT_SUMMARY ||
+            record?.summary ||
+            'ไม่มีข้อมูล'
+        );
+    }, []);
 
     useEffect(() => {
         loadPatients();
@@ -469,6 +632,12 @@ const PatientManagement = () => {
             setFilteredPatients(patients);
         }
     }, [searchTerm, patients]);
+
+    useEffect(() => {
+        if (activeTab === 'history') {
+            fetchPatientHistory();
+        }
+    }, [activeTab, fetchPatientHistory]);
 
     const loadPatients = async () => {
         try {
@@ -563,138 +732,332 @@ const PatientManagement = () => {
     };
 
     return (
-        <Box sx={{ display: 'flex', height: 'calc(100vh - 64px)', overflow: 'hidden' }}>
-            {/* Left Sidebar */}
+        <Box sx={{ height: 'calc(100vh - 64px)', display: 'flex', flexDirection: 'column' }}>
             <Box
                 sx={{
-                    width: '380px',
-                    backgroundColor: '#f8fafc',
-                    borderRight: '1px solid #e2e8f0',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    overflow: 'hidden'
+                    backgroundColor: '#ffffff',
+                    borderBottom: '1px solid #e2e8f0'
                 }}
             >
-                {/* Header */}
-                <Box
+                <Tabs
+                    value={activeTab}
+                    onChange={handleTabChange}
+                    indicatorColor="primary"
+                    textColor="primary"
                     sx={{
-                        p: 3,
-                        backgroundColor: '#ffffff',
-                        borderBottom: '1px solid #e2e8f0'
+                        px: 3,
+                        '& .MuiTab-root': {
+                            fontWeight: 600,
+                            minHeight: 0,
+                            py: 2
+                        }
                     }}
                 >
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-                        <Typography
-                            variant="h6"
-                            sx={{
-                                fontWeight: 700,
-                                color: '#1e293b',
-                                fontSize: '18px'
-                            }}
-                        >
-                            รายชื่อผู้ป่วย
-                        </Typography>
-
-                        <Tooltip title="รีเฟรช">
-                            <IconButton
-                                onClick={loadPatients}
-                                size="small"
-                                disabled={loading}
-                                sx={{
-                                    backgroundColor: '#f1f5f9',
-                                    color: '#4A9EFF',
-                                    '&:hover': { backgroundColor: '#e2e8f0' }
-                                }}
-                            >
-                                <Refresh fontSize="small" />
-                            </IconButton>
-                        </Tooltip>
-                    </Box>
-
-                    {/* Search */}
-                    <TextField
-                        placeholder="ค้นหาผู้ป่วย..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        fullWidth
-                        size="small"
-                        InputProps={{
-                            startAdornment: (
-                                <InputAdornment position="start">
-                                    <Search sx={{ color: '#64748b', fontSize: 20 }} />
-                                </InputAdornment>
-                            )
-                        }}
-                        sx={{
-                            '& .MuiOutlinedInput-root': {
-                                borderRadius: 3,
-                                backgroundColor: '#f8fafc',
-                                '&:hover': {
-                                    backgroundColor: '#f1f5f9'
-                                }
-                            }
-                        }}
-                    />
-                </Box>
-
-                {/* Error Alert */}
-                {error && (
-                    <Box sx={{ p: 2 }}>
-                        <Alert
-                            severity="error"
-                            onClose={() => setError('')}
-                            sx={{ borderRadius: 2 }}
-                        >
-                            {error}
-                        </Alert>
-                    </Box>
-                )}
-
-                {/* Patient List */}
-                <Box
-                    sx={{
-                        flex: 1,
-                        overflow: 'auto',
-                        p: 2
-                    }}
-                >
-                    {loading ? (
-                        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-                            <CircularProgress size={40} sx={{ color: '#4A9EFF' }} />
-                        </Box>
-                    ) : filteredPatients.length === 0 ? (
-                        <Box sx={{ textAlign: 'center', py: 4 }}>
-                            <Person sx={{ fontSize: 48, color: '#cbd5e1', mb: 2 }} />
-                            <Typography variant="body2" color="textSecondary">
-                                {searchTerm ? 'ไม่พบผู้ป่วยที่ค้นหา' : 'ยังไม่มีข้อมูลผู้ป่วย'}
-                            </Typography>
-                        </Box>
-                    ) : (
-                        filteredPatients.map((patient) => (
-                            <PatientCard 
-                                key={patient.HNCODE} 
-                                patient={patient} 
-                                isSelected={selectedPatient?.HNCODE === patient.HNCODE}
-                                onSelect={handlePatientSelect}
-                            />
-                        ))
-                    )}
-                </Box>
+                    <Tab label="จัดการผู้ป่วย" value="manage" />
+                    <Tab label="ประวัติผู้ป่วย" value="history" />
+                </Tabs>
             </Box>
 
-            {/* Right Panel - Patient Details */}
-            <Box sx={{ flex: 1, backgroundColor: '#ffffff' }}>
-                <PatientDetailPanel 
-                    selectedPatient={selectedPatient}
-                    isEditing={isEditing}
-                    editFormData={editFormData}
-                    loading={loading}
-                    onEdit={handleEdit}
-                    onCancelEdit={handleCancelEdit}
-                    onSave={handleSave}
-                    onDelete={handleDelete}
-                    onFormChange={handleFormChange}
-                />
+            <Box sx={{ flex: 1, overflow: 'hidden' }}>
+                {activeTab === 'manage' ? (
+                    <Box sx={{ display: 'flex', height: '100%', overflow: 'hidden' }}>
+                        {/* Left Sidebar */}
+                        <Box
+                            sx={{
+                                width: '380px',
+                                backgroundColor: '#f8fafc',
+                                borderRight: '1px solid #e2e8f0',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                overflow: 'hidden'
+                            }}
+                        >
+                            {/* Header */}
+                            <Box
+                                sx={{
+                                    p: 3,
+                                    backgroundColor: '#ffffff',
+                                    borderBottom: '1px solid #e2e8f0'
+                                }}
+                            >
+                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                                    <Typography
+                                        variant="h6"
+                                        sx={{
+                                            fontWeight: 700,
+                                            color: '#1e293b',
+                                            fontSize: '18px'
+                                        }}
+                                    >
+                                        รายชื่อผู้ป่วย
+                                    </Typography>
+
+                                    <Tooltip title="รีเฟรช">
+                                        <IconButton
+                                            onClick={loadPatients}
+                                            size="small"
+                                            disabled={loading}
+                                            sx={{
+                                                backgroundColor: '#f1f5f9',
+                                                color: '#4A9EFF',
+                                                '&:hover': { backgroundColor: '#e2e8f0' }
+                                            }}
+                                        >
+                                            <Refresh fontSize="small" />
+                                        </IconButton>
+                                    </Tooltip>
+                                </Box>
+
+                                {/* Search */}
+                                <TextField
+                                    placeholder="ค้นหาผู้ป่วย..."
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    fullWidth
+                                    size="small"
+                                    InputProps={{
+                                        startAdornment: (
+                                            <InputAdornment position="start">
+                                                <Search sx={{ color: '#64748b', fontSize: 20 }} />
+                                            </InputAdornment>
+                                        )
+                                    }}
+                                    sx={{
+                                        '& .MuiOutlinedInput-root': {
+                                            borderRadius: 3,
+                                            backgroundColor: '#f8fafc',
+                                            '&:hover': {
+                                                backgroundColor: '#f1f5f9'
+                                            }
+                                        }
+                                    }}
+                                />
+                            </Box>
+
+                            {/* Error Alert */}
+                            {error && (
+                                <Box sx={{ p: 2 }}>
+                                    <Alert
+                                        severity="error"
+                                        onClose={() => setError('')}
+                                        sx={{ borderRadius: 2 }}
+                                    >
+                                        {error}
+                                    </Alert>
+                                </Box>
+                            )}
+
+                            {/* Patient List */}
+                            <Box
+                                sx={{
+                                    flex: 1,
+                                    overflow: 'auto',
+                                    p: 2
+                                }}
+                            >
+                                {loading ? (
+                                    <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                                        <CircularProgress size={40} sx={{ color: '#4A9EFF' }} />
+                                    </Box>
+                                ) : filteredPatients.length === 0 ? (
+                                    <Box sx={{ textAlign: 'center', py: 4 }}>
+                                        <Person sx={{ fontSize: 48, color: '#cbd5e1', mb: 2 }} />
+                                        <Typography variant="body2" color="textSecondary">
+                                            {searchTerm ? 'ไม่พบผู้ป่วยที่ค้นหา' : 'ยังไม่มีข้อมูลผู้ป่วย'}
+                                        </Typography>
+                                    </Box>
+                                ) : (
+                                    filteredPatients.map((patient) => (
+                                        <PatientCard 
+                                            key={patient.HNCODE} 
+                                            patient={patient} 
+                                            isSelected={selectedPatient?.HNCODE === patient.HNCODE}
+                                            onSelect={handlePatientSelect}
+                                        />
+                                    ))
+                                )}
+                            </Box>
+                        </Box>
+
+                        {/* Right Panel - Patient Details */}
+                        <Box sx={{ flex: 1, backgroundColor: '#ffffff' }}>
+                            <PatientDetailPanel 
+                                selectedPatient={selectedPatient}
+                                isEditing={isEditing}
+                                editFormData={editFormData}
+                                loading={loading}
+                                onEdit={handleEdit}
+                                onCancelEdit={handleCancelEdit}
+                                onSave={handleSave}
+                                onDelete={handleDelete}
+                                onFormChange={handleFormChange}
+                            />
+                        </Box>
+                    </Box>
+                ) : (
+                    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: '#f8fafc' }}>
+                        <Box sx={{ p: 3, pb: 2 }}>
+                            <Grid container spacing={2}>
+                                <Grid item xs={12} sm={4} md={2}>
+                                    <TextField
+                                        label="ปี (พ.ศ.)"
+                                        type="number"
+                                        value={historyFilters.year}
+                                        onChange={(e) => handleHistoryFilterChange('year', e.target.value)}
+                                        fullWidth
+                                        size="small"
+                                        InputProps={{
+                                            inputProps: { min: 2500, max: 2700 }
+                                        }}
+                                    />
+                                </Grid>
+                                <Grid item xs={12} sm={4} md={2}>
+                                    <TextField
+                                        label="เดือน"
+                                        select
+                                        value={historyFilters.month}
+                                        onChange={(e) => handleHistoryFilterChange('month', e.target.value)}
+                                        fullWidth
+                                        size="small"
+                                    >
+                                        {MONTH_OPTIONS.map((option) => (
+                                            <MenuItem key={option.value} value={option.value}>
+                                                {option.label}
+                                            </MenuItem>
+                                        ))}
+                                    </TextField>
+                                </Grid>
+                                <Grid item xs={12} md={4}>
+                                    <TextField
+                                        label="ค้นหาผู้ป่วย / HN / VN"
+                                        value={historyFilters.search}
+                                        onChange={(e) => handleHistoryFilterChange('search', e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                                e.preventDefault();
+                                                fetchPatientHistory();
+                                            }
+                                        }}
+                                        fullWidth
+                                        size="small"
+                                    />
+                                </Grid>
+                                <Grid item xs={12} sm={4} md={2}>
+                                    <Button
+                                        variant="contained"
+                                        color="primary"
+                                        startIcon={<Search />}
+                                        onClick={fetchPatientHistory}
+                                        disabled={historyLoading}
+                                        fullWidth
+                                        sx={{ height: '100%', minHeight: 40, borderRadius: 2 }}
+                                    >
+                                        โหลดข้อมูล
+                                    </Button>
+                                </Grid>
+                            </Grid>
+                        </Box>
+
+                        <Box sx={{ flex: 1, px: 3, pb: 3, display: 'flex', flexDirection: 'column' }}>
+                            {historyError && (
+                                <Alert
+                                    severity="error"
+                                    onClose={() => setHistoryError('')}
+                                    sx={{ mb: 2, borderRadius: 2 }}
+                                >
+                                    {historyError}
+                                </Alert>
+                            )}
+
+                            <Paper sx={{ flex: 1, borderRadius: 3, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                                {historyLoading && <LinearProgress />}
+                                <Box
+                                    sx={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        px: 3,
+                                        py: 2,
+                                        borderBottom: '1px solid #e2e8f0',
+                                        backgroundColor: '#ffffff'
+                                    }}
+                                >
+                                    <Typography variant="h6" fontWeight={600}>
+                                        ประวัติผู้ป่วย
+                                    </Typography>
+                                    <Typography variant="body2" color="text.secondary">
+                                        ทั้งหมด {filteredHistoryRecords.length} รายการ
+                                    </Typography>
+                                </Box>
+
+                                <TableContainer sx={{ flex: 1 }}>
+                                    <Table stickyHeader size="small">
+                                        <TableHead>
+                                            <TableRow>
+                                                <TableCell sx={{ fontWeight: 600 }}>วันที่</TableCell>
+                                                <TableCell sx={{ fontWeight: 600 }}>HN</TableCell>
+                                                <TableCell sx={{ fontWeight: 600 }}>VN</TableCell>
+                                                <TableCell sx={{ fontWeight: 600 }}>สรุปการรักษา</TableCell>
+                                            </TableRow>
+                                        </TableHead>
+                                        <TableBody>
+                                            {filteredHistoryRecords.length === 0 && !historyLoading ? (
+                                                <TableRow>
+                                                    <TableCell colSpan={4}>
+                                                        <Box sx={{ textAlign: 'center', py: 6, color: '#64748b' }}>
+                                                            <Typography variant="body2">
+                                                                ไม่พบข้อมูลประวัติผู้ป่วยในช่วงที่เลือก
+                                                            </Typography>
+                                                        </Box>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ) : (
+                                                filteredHistoryRecords.map((record, index) => {
+                                                    const rowKey =
+                                                        record?.VNO ||
+                                                        record?.VN ||
+                                                        `${record?.HNNO || record?.HNCODE || 'record'}-${index}`;
+                                                    const patientName = [record?.PRENAME, record?.NAME1, record?.SURNAME]
+                                                        .filter(Boolean)
+                                                        .join(' ');
+                                                    return (
+                                                        <TableRow key={rowKey} hover>
+                                                            <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                                                                {formatHistoryDate(record)}
+                                                            </TableCell>
+                                                            <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                                                                {record?.HNNO || record?.HNCODE || '-'}
+                                                            </TableCell>
+                                                            <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                                                                {record?.VNO || record?.VN || '-'}
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                {patientName && (
+                                                                    <Typography
+                                                                        variant="subtitle2"
+                                                                        sx={{ fontWeight: 600, color: '#0f172a', mb: 0.5 }}
+                                                                    >
+                                                                        {patientName}
+                                                                    </Typography>
+                                                                )}
+                                                                <Typography
+                                                                    variant="body2"
+                                                                    sx={{ color: '#475569', whiteSpace: 'pre-wrap', lineHeight: 1.6 }}
+                                                                >
+                                                                    {getTreatmentSummary(record)}
+                                                                </Typography>
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    );
+                                                })
+                                            )}
+                                        </TableBody>
+                                    </Table>
+                                </TableContainer>
+                            </Paper>
+                        </Box>
+                    </Box>
+                )}
             </Box>
         </Box>
     );
