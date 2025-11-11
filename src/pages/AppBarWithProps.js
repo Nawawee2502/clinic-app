@@ -288,10 +288,13 @@ const CustomAppBar = ({ userName = "Abu Fahim", userEmail = "hello@fahim.com", i
     );
 };
 
-const CustomSidebar = ({ activeMenu, onMenuClick, isOpen }) => {
+const CustomSidebar = ({ activeMenu, onMenuClick, isOpen, role }) => {
     const [openReport, setOpenReport] = React.useState(false);
     const [openMedicalStock, setOpenMedicalStock] = React.useState(false);
     const [openFinance, setOpenFinance] = React.useState(false);
+
+    const normalizedRole = (role || '').toString().trim().toLowerCase();
+    const isStaffRole = role === 'เจ้าหน้าที่' || normalizedRole === 'staff' || normalizedRole === 'officer';
 
     const handleReportClick = () => {
         setOpenReport(!openReport);
@@ -333,6 +336,15 @@ const CustomSidebar = ({ activeMenu, onMenuClick, isOpen }) => {
             icon: <PersonOutlineIcon />
         },
     ];
+
+    const staffAllowedPaths = [
+        '/clinic/patientregistration',
+        '/clinic/patients'
+    ];
+
+    const visibleMenuItems = isStaffRole
+        ? menuItems.filter((item) => staffAllowedPaths.includes(item.path))
+        : menuItems;
 
     // เมนูย่อยสำหรับระบบคลังยา
     const medicalStockSubItems = [
@@ -431,7 +443,7 @@ const CustomSidebar = ({ activeMenu, onMenuClick, isOpen }) => {
 
             {/* Menu Items */}
             <Box sx={{ flexGrow: 1, px: 1, opacity: isOpen ? 1 : 0, transition: 'opacity 0.2s' }}>
-                {menuItems.map((item) => (
+                {visibleMenuItems.map((item) => (
                     <Button
                         key={item.title}
                         startIcon={item.icon}
@@ -460,6 +472,8 @@ const CustomSidebar = ({ activeMenu, onMenuClick, isOpen }) => {
                     </Button>
                 ))}
 
+                {!isStaffRole && (
+                    <>
                 {/* เมนูระบบคลังยา/เวชภัณฑ์ พร้อมเมนูย่อย */}
                 <Box>
                     <Button
@@ -690,6 +704,8 @@ const CustomSidebar = ({ activeMenu, onMenuClick, isOpen }) => {
                 >
                     การตั้งค่า
                 </Button>
+                    </>
+                )}
             </Box>
         </Box>
     );
@@ -700,6 +716,8 @@ const AppBarWithProps = ({ children }) => {
     const navigate = useNavigate();
     const location = useLocation();
     const [sidebarOpen, setSidebarOpen] = React.useState(true);
+    const user = useSelector((state) => state.auth?.user);
+    const userRole = user?.role || '';
 
     const pathname = location.pathname;
 
@@ -719,6 +737,7 @@ const AppBarWithProps = ({ children }) => {
                     activeMenu={pathname}
                     onMenuClick={handleMenuClick}
                     isOpen={sidebarOpen}
+                    role={userRole}
                 />
 
                 {/* Main Content */}

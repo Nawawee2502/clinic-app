@@ -126,13 +126,13 @@ const LoginPage = () => {
             </Typography>
           </Box>
 
-          <Box sx={{ mt: 3, textAlign: 'center' }}>
+          {/* <Box sx={{ mt: 3, textAlign: 'center' }}>
             <Typography variant="caption" color="text.secondary">
               Token จะหมดอายุใน 24 ชั่วโมง
             </Typography>
-          </Box>
+          </Box> */}
 
-          <Box sx={{ mt: 3, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
+          {/* <Box sx={{ mt: 3, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
             <Typography variant="caption" display="block" gutterBottom fontWeight="bold">
               บัญชีทดสอบ:
             </Typography>
@@ -142,7 +142,7 @@ const LoginPage = () => {
             <Typography variant="caption" display="block">
               Doctor: doctor1 / doctor123
             </Typography>
-          </Box>
+          </Box> */}
         </CardContent>
       </Card>
     </Box>
