@@ -1,5 +1,5 @@
 // src/components/Report/BalanceDrugReport.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
     Box, Grid, Card, CardContent, Typography, TextField, Button,
     Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
@@ -31,13 +31,6 @@ const BalanceDrugReport = () => {
         loadDrugs();
     }, []);
 
-    // Filter data when search or filter changes
-    useEffect(() => {
-        if (reportData.length > 0) {
-            filterData();
-        }
-    }, [searchTerm, filterType]);
-
     const loadDrugs = async () => {
         try {
             const response = await DrugService.getAllDrugs();
@@ -57,20 +50,7 @@ const BalanceDrugReport = () => {
             const response = await BalDrugService.getAllBalances({ limit: 1000 });
 
             if (response.success && response.data) {
-                // เพิ่มข้อมูลยาเข้าไปใน balance
-                const enrichedData = response.data.map(balance => {
-                    const drug = drugList.find(d => d.DRUG_CODE === balance.DRUG_CODE);
-                    return {
-                        ...balance,
-                        GENERIC_NAME: drug?.GENERIC_NAME || '',
-                        UNIT_NAME1: drug?.UNIT_NAME1 || balance.UNIT_CODE1 || '',
-                        UNIT_PRICE: parseFloat(balance.UNIT_PRICE) || 0,
-                        AMT: parseFloat(balance.AMT) || 0
-                    };
-                });
-
-                setReportData(enrichedData);
-                calculateSummaryStats(enrichedData);
+                setReportData(response.data);
             } else {
                 setError('ไม่สามารถดึงข้อมูลได้');
             }
@@ -81,6 +61,42 @@ const BalanceDrugReport = () => {
             setLoading(false);
         }
     };
+
+    const drugMap = useMemo(() => {
+        const map = new Map();
+        drugList.forEach(drug => {
+            if (drug?.DRUG_CODE) {
+                map.set(drug.DRUG_CODE, drug);
+            }
+        });
+        return map;
+    }, [drugList]);
+
+    const enrichedReportData = useMemo(() => {
+        if (!reportData || reportData.length === 0) return [];
+
+        return reportData.map(balance => {
+            const drug = drugMap.get(balance.DRUG_CODE);
+            const unitPriceFromRecord = balance.UNIT_PRICE ?? balance.unit_price;
+            const unitPrice =
+                parseFloat(unitPriceFromRecord) ||
+                parseFloat(drug?.UNIT_PRICE) ||
+                0;
+            const qty = parseFloat(balance.QTY) || 0;
+            const amt =
+                parseFloat(balance.AMT) ||
+                parseFloat(balance.amount) ||
+                qty * unitPrice;
+
+            return {
+                ...balance,
+                GENERIC_NAME: (balance.GENERIC_NAME ?? drug?.GENERIC_NAME ?? '').trim(),
+                UNIT_NAME1: balance.UNIT_NAME1 || drug?.UNIT_NAME1 || balance.UNIT_CODE1 || '',
+                UNIT_PRICE: unitPrice,
+                AMT: amt
+            };
+        });
+    }, [reportData, drugMap]);
 
     const calculateSummaryStats = (data) => {
         const totalItems = data.length;
@@ -101,8 +117,16 @@ const BalanceDrugReport = () => {
         });
     };
 
+    useEffect(() => {
+        if (enrichedReportData.length > 0) {
+            calculateSummaryStats(enrichedReportData);
+        } else {
+            setSummaryStats(null);
+        }
+    }, [enrichedReportData]);
+
     const filterData = () => {
-        let filtered = reportData;
+        let filtered = enrichedReportData;
 
         // Filter by search term
         if (searchTerm) {

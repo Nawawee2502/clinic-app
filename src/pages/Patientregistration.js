@@ -192,20 +192,6 @@ const PatientRegistration = () => {
     setLoading(true);
 
     try {
-      // เช็ค HN ซ้ำก่อน
-      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000/api';
-      const checkResponse = await fetch(`${API_BASE_URL}/patients/check-hn/${patientData.HNCODE}`);
-      const checkResult = await checkResponse.json();
-
-      if (checkResult.success && checkResult.exists) {
-        const existingPatient = checkResult.patient;
-        showSnackbar(`HN ${patientData.HNCODE} มีอยู่แล้วในระบบ! ผู้ป่วย: ${existingPatient.NAME1} ${existingPatient.SURNAME}`, 'error');
-        setNewPatientTabIndex(0); // กลับไปหน้าแรก
-        setLoading(false);
-        return;
-      }
-
-      // ถ้า HN ไม่ซ้ำ ให้บันทึกต่อ
       const validationErrors = PatientService.validatePatientData(patientData);
       if (validationErrors.length > 0) {
         showSnackbar(validationErrors.join(', '), 'error');
@@ -234,17 +220,18 @@ const PatientRegistration = () => {
 
         resetNewPatientForm();
 
-        setTimeout(() => {
-          setMainView('reception');
-          handleRefresh();
-        }, 1000);
+        // setTimeout(() => {
+        //   setMainView('reception');
+        //   handleRefresh();
+        // }, 1000);
 
       } else {
         showSnackbar(result.message || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล', 'error');
       }
     } catch (error) {
       console.error('Error saving patient data:', error);
-      showSnackbar('เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์', 'error');
+      const errorMessage = error?.message || 'เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์';
+      showSnackbar(errorMessage, 'error');
     } finally {
       setLoading(false);
     }
