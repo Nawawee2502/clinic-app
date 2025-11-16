@@ -385,46 +385,49 @@ class PatientService {
     // จัดรูปแบบข้อมูลก่อนส่ง API
     static formatPatientData(data) {
         return {
-            HNCODE: data.HNCODE?.trim(),
-            IDNO: data.IDNO?.replace(/-/g, ''), // เอาเครื่องหมาย - ออก
-            PRENAME: data.PRENAME?.trim(),
-            NAME1: data.NAME1?.trim(),
-            SURNAME: data.SURNAME?.trim(),
-            SEX: data.SEX,
-            BDATE: data.BDATE,
-            AGE: data.AGE ? parseInt(data.AGE) : null,
-            BLOOD_GROUP1: data.BLOOD_GROUP1,
-            OCCUPATION1: data.OCCUPATION1?.trim(),
-            ORIGIN1: data.ORIGIN1?.trim(),
-            NATIONAL1: data.NATIONAL1?.trim(),
-            RELIGION1: data.RELIGION1?.trim(),
-            STATUS1: data.STATUS1,
-            WEIGHT1: data.WEIGHT1 ? parseFloat(data.WEIGHT1) : null,
-            HIGH1: data.HIGH1 ? parseFloat(data.HIGH1) : null,
+            // ฟิลด์หลัก
+            HNCODE: (data.HNCODE || '').toString().trim(),
+            IDNO: (data.IDNO || '').toString().replace(/-/g, ''), // เอาเครื่องหมาย - ออก
+            PRENAME: (data.PRENAME || '').toString().trim(),
+            NAME1: (data.NAME1 || '').toString().trim(),
+            SURNAME: (data.SURNAME || '').toString().trim(),
+            SEX: (data.SEX || '').toString().trim(),
+            BDATE: (data.BDATE || '').toString().trim(),
+            AGE: data.AGE ? parseInt(data.AGE, 10) : 0,
+            BLOOD_GROUP1: (data.BLOOD_GROUP1 || '').toString().trim(),
+            OCCUPATION1: (data.OCCUPATION1 || '').toString().trim(),
+            ORIGIN1: (data.ORIGIN1 || '').toString().trim(),
+            NATIONAL1: (data.NATIONAL1 || '').toString().trim(),
+            RELIGION1: (data.RELIGION1 || '').toString().trim(),
+            STATUS1: (data.STATUS1 || '').toString().trim(),
+            WEIGHT1: data.WEIGHT1 ? parseFloat(data.WEIGHT1) : 0,
+            HIGH1: data.HIGH1 ? parseFloat(data.HIGH1) : 0,
 
             // ที่อยู่ตามบัตรประชาชน
-            CARD_ADDR1: data.CARD_ADDR1?.trim(),
-            CARD_TUMBOL_CODE: data.CARD_TUMBOL_CODE?.trim(),
-            CARD_AMPHER_CODE: data.CARD_AMPHER_CODE?.trim(),
-            CARD_PROVINCE_CODE: data.CARD_PROVINCE_CODE?.trim(),
+            CARD_ADDR1: (data.CARD_ADDR1 || '').toString().trim(),
+            CARD_TUMBOL_CODE: (data.CARD_TUMBOL_CODE || '').toString().trim(),
+            CARD_AMPHER_CODE: (data.CARD_AMPHER_CODE || '').toString().trim(),
+            CARD_PROVINCE_CODE: (data.CARD_PROVINCE_CODE || '').toString().trim(),
 
             // ที่อยู่ปัจจุบัน
-            ADDR1: data.useCardAddress ? data.CARD_ADDR1?.trim() : data.ADDR1?.trim(),
-            TUMBOL_CODE: data.useCardAddress ? data.CARD_TUMBOL_CODE?.trim() : data.TUMBOL_CODE?.trim(),
-            AMPHER_CODE: data.useCardAddress ? data.CARD_AMPHER_CODE?.trim() : data.AMPHER_CODE?.trim(),
-            PROVINCE_CODE: data.useCardAddress ? data.CARD_PROVINCE_CODE?.trim() : data.PROVINCE_CODE?.trim(),
-            ZIPCODE: data.useCardAddress ? data.CARD_ZIPCODE?.trim() : data.ZIPCODE?.trim(),
+            ADDR1: (data.useCardAddress ? data.CARD_ADDR1 : data.ADDR1 || '').toString().trim(),
+            TUMBOL_CODE: (data.useCardAddress ? data.CARD_TUMBOL_CODE : data.TUMBOL_CODE || '').toString().trim(),
+            AMPHER_CODE: (data.useCardAddress ? data.CARD_AMPHER_CODE : data.AMPHER_CODE || '').toString().trim(),
+            PROVINCE_CODE: (data.useCardAddress ? data.CARD_PROVINCE_CODE : data.PROVINCE_CODE || '').toString().trim(),
+            ZIPCODE: (data.useCardAddress ? data.CARD_ZIPCODE : data.ZIPCODE || '').toString().trim(),
 
-            TEL1: data.TEL1?.trim(),
-            EMAIL1: data.EMAIL1?.trim(),
+            TEL1: (data.TEL1 || '').toString().trim(),
+            EMAIL1: (data.EMAIL1 || '').toString().trim(),
 
             // ประวัติสุขภาพ
-            DISEASE1: data.DISEASE1?.trim(),
-            DRUG_ALLERGY: data.DRUG_ALLERGY?.trim(),
-            FOOD_ALLERGIES: data.FOOD_ALLERGIES?.trim(),
-            TREATMENT_CARD: data.TREATMENT_CARD,
-            SOCIAL_CARD: data.SOCIAL_CARD,
-            UCS_CARD: data.UCS_CARD
+            DISEASE1: (data.DISEASE1 || '').toString().trim(),
+            DRUG_ALLERGY: (data.DRUG_ALLERGY || '').toString().trim(),
+            FOOD_ALLERGIES: (data.FOOD_ALLERGIES || '').toString().trim(),
+
+            // ข้อมูลสิทธิ์การรักษา (คอลัมน์ใน DB เป็น NOT NULL และมีค่า default)
+            TREATMENT_CARD: (data.TREATMENT_CARD || 'จ่ายเอง').toString().trim(),
+            SOCIAL_CARD: (data.SOCIAL_CARD || 'N').toString().trim(),
+            UCS_CARD: (data.UCS_CARD || 'N').toString().trim()
         };
     }
 
