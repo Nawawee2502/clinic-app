@@ -98,26 +98,76 @@ const SummaryReport = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [incomeDialog, setIncomeDialog] = useState({ open: false, refno: null, data: null });
   const [expenseDialog, setExpenseDialog] = useState({ open: false, refno: null, data: null });
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
+  const [selectedMonth, setSelectedMonth] = useState((new Date().getMonth() + 1).toString());
+  const [useDateRange, setUseDateRange] = useState(false); // false = ใช้ปี/เดือน, true = ใช้ช่วงวันที่
 
+  // โหลดข้อมูลอัตโนมัติเมื่อ component mount ด้วยปี/เดือนปัจจุบัน
   useEffect(() => {
     loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Helper function to extract year and month from date
+  const getYearMonthFromDate = (dateString) => {
+    if (!dateString) return { year: null, month: null };
+    const date = new Date(dateString);
+    return {
+      year: date.getFullYear().toString(),
+      month: (date.getMonth() + 1).toString()
+    };
+  };
 
   const loadData = async () => {
     try {
       setLoading(true);
       setError(null);
+      
+      // ถ้าใช้ช่วงวันที่ ให้แปลงเป็นปี/เดือนจากวันที่เริ่มต้น
+      // ถ้าไม่ใช้ช่วงวันที่ ให้ใช้ปี/เดือนที่เลือก
+      let year = null;
+      let month = null;
+      
+      if (useDateRange) {
+        // ใช้ช่วงวันที่ - ดึงข้อมูลทั้งหมดแล้ว filter ฝั่ง client
+        year = null;
+        month = null;
+      } else {
+        // ใช้ปี/เดือนตามที่เลือก
+        year = selectedYear;
+        month = selectedMonth;
+      }
+
+      const status = statusFilter || 'ทำงานอยู่';
+      
+      // Use the new expenses report endpoint with JOIN query structure
+      // ตาม SQL query: SELECT PAY1.MYEAR,PAY1.MONTHH,PAY1_DT.TYPE_PAY_CODE,PAY1_DT.AMT 
+      // FROM PAY1 INNER JOIN PAY1_DT ON PAY1.REFNO=PAY1_DT.REFNO
+      // WHERE STATUS='ทำงานอยู่' AND MYEAR='2025' AND MONTHH=11 
+      // ORDER BY PAY1_DT.TYPE_PAY_CODE
       const [incomeResponse, expenseResponse] = await Promise.all([
         Income1Service.getAllIncome1(1, 500),
-        Pay1Service.getAllPay1(1, 500),
+        Pay1Service.getExpensesReport(year, month, status),
       ]);
+      
       if (incomeResponse.success) {
         setIncomeRecords(Array.isArray(incomeResponse.data) ? incomeResponse.data : []);
       } else {
         throw new Error(incomeResponse.message || "โหลดข้อมูลรายรับไม่สำเร็จ");
       }
+      
       if (expenseResponse.success) {
-        setExpenseRecords(Array.isArray(expenseResponse.data) ? expenseResponse.data : []);
+        // ข้อมูลที่ได้จาก API เป็น array ของ header ที่มี details ภายใน
+        // แต่ Expenses.js คาดหวัง array flat ที่มี TOTAL อยู่แล้ว
+        const expenseData = Array.isArray(expenseResponse.data) ? expenseResponse.data : [];
+        
+        // แปลงโครงสร้างให้เป็น flat array (ถ้ายังไม่ได้แปลง)
+        const flatExpenseData = expenseData.map(item => ({
+          ...item,
+          TOTAL: item.TOTAL || (item.details ? item.details.reduce((sum, d) => sum + (parseFloat(d.AMT) || 0), 0) : 0)
+        }));
+        
+        setExpenseRecords(flatExpenseData);
       } else {
         throw new Error(expenseResponse.message || "โหลดข้อมูลรายจ่ายไม่สำเร็จ");
       }
@@ -147,7 +197,14 @@ const SummaryReport = () => {
   };
 
   const filteredIncome = useMemo(() => {
-    let result = filterByDate(incomeRecords, startDate, endDate);
+    let result = [...incomeRecords];
+    
+    // ถ้าใช้ช่วงวันที่ ให้ filter ตามวันที่
+    if (useDateRange) {
+      result = filterByDate(result, startDate, endDate);
+    }
+    // ถ้าใช้ปี/เดือน ข้อมูลจะถูก filter ที่ backend แล้ว (MYEAR, MONTHH)
+    
     if (incomeTypeFilter) {
       result = result.filter((item) => item.TYPE_PAY === incomeTypeFilter);
     }
@@ -164,10 +221,18 @@ const SummaryReport = () => {
       );
     }
     return result;
-  }, [incomeRecords, startDate, endDate, incomeTypeFilter, statusFilter, searchTerm]);
+  }, [incomeRecords, startDate, endDate, incomeTypeFilter, statusFilter, searchTerm, useDateRange]);
 
   const filteredExpense = useMemo(() => {
-    let result = filterByDate(expenseRecords, startDate, endDate);
+    let result = [...expenseRecords];
+    
+    // ถ้าใช้ช่วงวันที่ ให้ filter ตามวันที่
+    if (useDateRange) {
+      result = filterByDate(result, startDate, endDate);
+    }
+    // ถ้าใช้ปี/เดือน ข้อมูลจะถูก filter ที่ backend แล้ว (MYEAR, MONTHH)
+    // ตาม SQL query: WHERE STATUS='ทำงานอยู่' AND MYEAR='2025' AND MONTHH=11
+    
     if (expenseTypeFilter) {
       result = result.filter((item) => item.TYPE_PAY === expenseTypeFilter);
     }
@@ -184,7 +249,7 @@ const SummaryReport = () => {
       );
     }
     return result;
-  }, [expenseRecords, startDate, endDate, expenseTypeFilter, statusFilter, searchTerm]);
+  }, [expenseRecords, startDate, endDate, expenseTypeFilter, statusFilter, searchTerm, useDateRange]);
 
   const summary = useMemo(() => {
     const incomeTotal = filteredIncome.reduce((sum, item) => sum + (parseFloat(item.TOTAL) || 0), 0);
@@ -425,18 +490,17 @@ const SummaryReport = () => {
   return (
     <Box sx={{ mt: 2 }}>
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
-        <Typography variant="h5" fontWeight="bold">
-          สรุปรายรับ รายจ่ายประจำวัน
-        </Typography>
+        <Box>
+          <Typography variant="h5" fontWeight="bold" component="span">
+            สรุปรายรับ รายจ่าย
+          </Typography>
+          {!useDateRange && selectedYear && selectedMonth && (
+            <Typography component="span" variant="body2" sx={{ ml: 1, color: 'text.secondary', fontWeight: 400 }}>
+              ({selectedYear} - เดือน {parseInt(selectedMonth)})
+            </Typography>
+          )}
+        </Box>
         <Box sx={{ display: "flex", gap: 2 }}>
-          <Button
-            variant="outlined"
-            startIcon={<RefreshIcon />}
-            onClick={loadData}
-            disabled={loading}
-          >
-            รีเฟรช
-          </Button>
           <Button
             variant="contained"
             startIcon={<DownloadIcon />}
@@ -469,21 +533,96 @@ const SummaryReport = () => {
           <Typography variant="h6" sx={{ mb: 2 }}>
             ตัวกรองข้อมูล
           </Typography>
-          <Grid container spacing={2}>
-            <Grid item xs={12} sm={6} md={2}>
-              <DateInputBE
-                label="วันที่เริ่มต้น"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-              />
+          <Grid container spacing={2} alignItems="center">
+            <Grid item xs={12}>
+              <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+                <InputLabel>โหมดการกรอง</InputLabel>
+                <Select
+                  label="โหมดการกรอง"
+                  value={useDateRange ? 'daterange' : 'yearmonth'}
+                  onChange={(e) => {
+                    const useRange = e.target.value === 'daterange';
+                    setUseDateRange(useRange);
+                  }}
+                >
+                  <MenuItem value="yearmonth">กรองตามปี/เดือน (MYEAR, MONTHH)</MenuItem>
+                  <MenuItem value="daterange">กรองตามช่วงวันที่ (RDATE)</MenuItem>
+                </Select>
+              </FormControl>
             </Grid>
-            <Grid item xs={12} sm={6} md={2}>
-              <DateInputBE
-                label="วันที่สิ้นสุด"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-              />
-            </Grid>
+
+            {!useDateRange ? (
+              // โหมดกรองตามปี/เดือน (ตาม SQL query)
+              <>
+                <Grid item xs={12} sm={6} md={3}>
+                  <FormControl fullWidth>
+                    <InputLabel>ปี (ค.ศ.)</InputLabel>
+                    <Select
+                      label="ปี (ค.ศ.)"
+                      value={selectedYear}
+                      onChange={(e) => setSelectedYear(e.target.value)}
+                    >
+                      {Array.from({ length: 5 }, (_, i) => {
+                        const year = new Date().getFullYear() - i;
+                        return (
+                          <MenuItem key={year} value={year.toString()}>
+                            {year}
+                          </MenuItem>
+                        );
+                      })}
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  <FormControl fullWidth>
+                    <InputLabel>เดือน</InputLabel>
+                    <Select
+                      label="เดือน"
+                      value={selectedMonth}
+                      onChange={(e) => setSelectedMonth(e.target.value)}
+                    >
+                      {[
+                        { value: '1', label: 'มกราคม' },
+                        { value: '2', label: 'กุมภาพันธ์' },
+                        { value: '3', label: 'มีนาคม' },
+                        { value: '4', label: 'เมษายน' },
+                        { value: '5', label: 'พฤษภาคม' },
+                        { value: '6', label: 'มิถุนายน' },
+                        { value: '7', label: 'กรกฎาคม' },
+                        { value: '8', label: 'สิงหาคม' },
+                        { value: '9', label: 'กันยายน' },
+                        { value: '10', label: 'ตุลาคม' },
+                        { value: '11', label: 'พฤศจิกายน' },
+                        { value: '12', label: 'ธันวาคม' },
+                      ].map((month) => (
+                        <MenuItem key={month.value} value={month.value}>
+                          {month.label}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+              </>
+            ) : (
+              // โหมดกรองตามช่วงวันที่
+              <>
+                <Grid item xs={12} sm={6} md={3}>
+                  <DateInputBE
+                    label="วันที่เริ่มต้น"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  <DateInputBE
+                    label="วันที่สิ้นสุด"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                  />
+                </Grid>
+              </>
+            )}
+
             <Grid item xs={12} sm={6} md={2}>
               <FormControl fullWidth>
                 <InputLabel>สถานะ</InputLabel>
@@ -535,7 +674,7 @@ const SummaryReport = () => {
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={12} md={4}>
+            <Grid item xs={12} md={useDateRange ? 4 : 2}>
               <TextField
                 fullWidth
                 label="ค้นหา (เลขที่, ชื่อ, เลขบัญชี)"
@@ -549,6 +688,17 @@ const SummaryReport = () => {
                   ),
                 }}
               />
+            </Grid>
+            <Grid item xs={12} md={useDateRange ? 12 : 2}>
+              <Button
+                variant="contained"
+                fullWidth
+                onClick={loadData}
+                disabled={loading}
+                startIcon={<RefreshIcon />}
+              >
+                โหลดข้อมูล
+              </Button>
             </Grid>
           </Grid>
         </CardContent>

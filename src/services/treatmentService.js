@@ -1344,6 +1344,52 @@ class TreatmentService {
             };
         }
     }
+
+    // ลบข้อมูลการรักษา
+    static async deleteTreatment(vno) {
+        try {
+            console.log('🗑️ Deleting treatment:', vno);
+            const response = await fetch(`${API_BASE_URL}/treatments/${vno}`, {
+                method: 'DELETE'
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('Error deleting treatment:', error);
+            throw error;
+        }
+    }
+
+    // ยกเลิกการรักษา (เปลี่ยน STATUS1 เป็น "ยกเลิก")
+    static async cancelTreatment(vno) {
+        try {
+            console.log('❌ Canceling treatment:', vno);
+            const response = await fetch(`${API_BASE_URL}/treatments/${vno}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    STATUS1: 'ยกเลิก'
+                })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('Error canceling treatment:', error);
+            throw error;
+        }
+    }
 }
 
 export default TreatmentService;

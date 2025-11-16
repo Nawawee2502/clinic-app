@@ -48,6 +48,97 @@ const ContactInfoTab = ({ onNext, onPrev, patientData, updatePatientData }) => {
     loadClinicData();
   }, []);
 
+  // กำหนดค่าที่เลือกสำหรับที่อยู่ตามบัตรเมื่อมีข้อมูลใน patientData (และกลับมาที่แท็บ)
+  useEffect(() => {
+    const initializeCardAddress = async () => {
+      if (!provinces.length || !patientData.CARD_PROVINCE_CODE) {
+        setSelectedCardProvince(null);
+        setSelectedCardAmpher(null);
+        setSelectedCardTumbol(null);
+        return;
+      }
+
+      const province = provinces.find(
+        (item) => item.PROVINCE_CODE === patientData.CARD_PROVINCE_CODE
+      );
+      setSelectedCardProvince(province || null);
+
+      const amphersData = await fetchAmphersByProvince(patientData.CARD_PROVINCE_CODE, true);
+      const ampher = amphersData.find(
+        (item) => item.AMPHER_CODE === patientData.CARD_AMPHER_CODE
+      );
+      setSelectedCardAmpher(ampher || null);
+
+      if (patientData.CARD_AMPHER_CODE) {
+        const tumbolsData = await fetchTumbolsByAmpher(patientData.CARD_AMPHER_CODE, true);
+        const tumbol = tumbolsData.find(
+          (item) => item.TUMBOL_CODE === patientData.CARD_TUMBOL_CODE
+        );
+        setSelectedCardTumbol(tumbol || null);
+      } else {
+        setSelectedCardTumbol(null);
+      }
+    };
+
+    initializeCardAddress();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    provinces,
+    patientData.CARD_PROVINCE_CODE,
+    patientData.CARD_AMPHER_CODE,
+    patientData.CARD_TUMBOL_CODE,
+  ]);
+
+  // กำหนดค่าที่เลือกสำหรับที่อยู่ปัจจุบันเมื่อมีข้อมูลใน patientData
+  useEffect(() => {
+    const initializeCurrentAddress = async () => {
+      if (patientData.useCardAddress) {
+        // เมื่อใช้ที่อยู่ตามบัตร ให้อ้างอิง state ชุด card
+        setSelectedProvince(null);
+        setSelectedAmpher(null);
+        setSelectedTumbol(null);
+        return;
+      }
+
+      if (!provinces.length || !patientData.PROVINCE_CODE) {
+        setSelectedProvince(null);
+        setSelectedAmpher(null);
+        setSelectedTumbol(null);
+        return;
+      }
+
+      const province = provinces.find(
+        (item) => item.PROVINCE_CODE === patientData.PROVINCE_CODE
+      );
+      setSelectedProvince(province || null);
+
+      const amphersData = await fetchAmphersByProvince(patientData.PROVINCE_CODE, false);
+      const ampher = amphersData.find(
+        (item) => item.AMPHER_CODE === patientData.AMPHER_CODE
+      );
+      setSelectedAmpher(ampher || null);
+
+      if (patientData.AMPHER_CODE) {
+        const tumbolsData = await fetchTumbolsByAmpher(patientData.AMPHER_CODE, false);
+        const tumbol = tumbolsData.find(
+          (item) => item.TUMBOL_CODE === patientData.TUMBOL_CODE
+        );
+        setSelectedTumbol(tumbol || null);
+      } else {
+        setSelectedTumbol(null);
+      }
+    };
+
+    initializeCurrentAddress();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    provinces,
+    patientData.useCardAddress,
+    patientData.PROVINCE_CODE,
+    patientData.AMPHER_CODE,
+    patientData.TUMBOL_CODE,
+  ]);
+
   // โหลดข้อมูลคลินิก
   const loadClinicData = async () => {
     try {

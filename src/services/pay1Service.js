@@ -179,6 +179,29 @@ class Pay1Service {
         }
     }
 
+    // ดึงข้อมูลรายจ่ายสำหรับรายงาน (ใช้ JOIN กับ PAY1_DT)
+    static async getExpensesReport(year = null, month = null, status = 'ทำงานอยู่') {
+        try {
+            const params = new URLSearchParams();
+            if (year) params.append('year', year);
+            if (month) params.append('month', month);
+            if (status) params.append('status', status);
+
+            const url = `${API_BASE_URL}/pay1/expenses/report?${params.toString()}`;
+            console.log('🔗 Calling API:', url);
+            const response = await fetch(url);
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('Error fetching expenses report:', error);
+            throw error;
+        }
+    }
+
     // ตรวจสอบความถูกต้องของข้อมูลหัว
     static validateHeaderData(data, requireRefno = true) {
         const errors = [];

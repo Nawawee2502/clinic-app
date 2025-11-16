@@ -422,7 +422,7 @@ class PatientService {
             DISEASE1: data.DISEASE1?.trim(),
             DRUG_ALLERGY: data.DRUG_ALLERGY?.trim(),
             FOOD_ALLERGIES: data.FOOD_ALLERGIES?.trim(),
-
+            TREATMENT_CARD: data.TREATMENT_CARD,
             SOCIAL_CARD: data.SOCIAL_CARD,
             UCS_CARD: data.UCS_CARD
         };

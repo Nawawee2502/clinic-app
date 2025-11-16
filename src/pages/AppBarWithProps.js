@@ -403,6 +403,21 @@ const CustomSidebar = ({ activeMenu, onMenuClick, isOpen, role }) => {
         },
     ];
 
+    // เมนูย่อยสำหรับรายงาน
+    const reportSubItems2 = [
+        {
+            title: 'ปิดประจำเดือน',
+            path: '/clinic/report/daily',
+            icon: <TodayIcon />
+        },
+        {
+            title: 'Backup Data',
+            path: '/clinic/report/monthly',
+            icon: <DateRangeIcon />
+        },
+
+    ];
+
     return (
         <Box
             sx={{
@@ -474,236 +489,304 @@ const CustomSidebar = ({ activeMenu, onMenuClick, isOpen, role }) => {
 
                 {!isStaffRole && (
                     <>
-                {/* เมนูระบบคลังยา/เวชภัณฑ์ พร้อมเมนูย่อย */}
-                <Box>
-                    <Button
-                        startIcon={<InsertDriveFileIcon />}
-                        endIcon={openMedicalStock ? <ExpandLess /> : <ExpandMore />}
-                        onClick={handleMedicalStockClick}
-                        sx={{
-                            justifyContent: 'space-between',
-                            textAlign: 'left',
-                            py: 1.5,
-                            px: 2,
-                            mb: 0.5,
-                            borderRadius: 1,
-                            width: '100%',
-                            color: activeMenu.startsWith('/clinic/medicalstock') ? '#fff' : 'rgba(53, 70, 105, 0.9)',
-                            bgcolor: activeMenu.startsWith('/clinic/medicalstock') ? 'rgba(26, 93, 180, 0.8)' : 'transparent',
-                            '&:hover': {
-                                bgcolor: 'rgba(26, 93, 180, 0.5)',
-                            },
-                            '& .MuiButton-startIcon': {
-                                color: activeMenu.startsWith('/clinic/medicalstock') ? '#fff' : 'rgba(0, 48, 143, 0.9)',
-                                marginRight: '12px'
-                            },
-                            '& .MuiButton-endIcon': {
-                                color: activeMenu.startsWith('/clinic/medicalstock') ? '#fff' : 'rgba(0, 48, 143, 0.9)',
-                                marginLeft: 'auto'
-                            },
-                            fontWeight: activeMenu.startsWith('/clinic/medicalstock') ? 'bold' : 'normal',
-                        }}
-                    >
-                        <span>ระบบคลังยา/เวชภัณฑ์</span>
-                    </Button>
+                        {/* เมนูระบบคลังยา/เวชภัณฑ์ พร้อมเมนูย่อย */}
+                        <Box>
+                            <Button
+                                startIcon={<InsertDriveFileIcon />}
+                                endIcon={openMedicalStock ? <ExpandLess /> : <ExpandMore />}
+                                onClick={handleMedicalStockClick}
+                                sx={{
+                                    justifyContent: 'space-between',
+                                    textAlign: 'left',
+                                    py: 1.5,
+                                    px: 2,
+                                    mb: 0.5,
+                                    borderRadius: 1,
+                                    width: '100%',
+                                    color: activeMenu.startsWith('/clinic/medicalstock') ? '#fff' : 'rgba(53, 70, 105, 0.9)',
+                                    bgcolor: activeMenu.startsWith('/clinic/medicalstock') ? 'rgba(26, 93, 180, 0.8)' : 'transparent',
+                                    '&:hover': {
+                                        bgcolor: 'rgba(26, 93, 180, 0.5)',
+                                    },
+                                    '& .MuiButton-startIcon': {
+                                        color: activeMenu.startsWith('/clinic/medicalstock') ? '#fff' : 'rgba(0, 48, 143, 0.9)',
+                                        marginRight: '12px'
+                                    },
+                                    '& .MuiButton-endIcon': {
+                                        color: activeMenu.startsWith('/clinic/medicalstock') ? '#fff' : 'rgba(0, 48, 143, 0.9)',
+                                        marginLeft: 'auto'
+                                    },
+                                    fontWeight: activeMenu.startsWith('/clinic/medicalstock') ? 'bold' : 'normal',
+                                }}
+                            >
+                                <span>ระบบคลังยา/เวชภัณฑ์</span>
+                            </Button>
 
-                    <Collapse in={openMedicalStock} timeout="auto" unmountOnExit>
-                        <List component="div" disablePadding>
-                            {medicalStockSubItems.map((subItem) => (
-                                <Button
-                                    key={subItem.title}
-                                    startIcon={subItem.icon}
-                                    onClick={() => onMenuClick(subItem.path)}
-                                    sx={{
-                                        justifyContent: 'flex-start',
-                                        textAlign: 'left',
-                                        py: 1,
-                                        px: 2,
-                                        pl: 4,
-                                        mb: 0.5,
-                                        borderRadius: 1,
-                                        width: '100%',
-                                        fontSize: '0.875rem',
-                                        color: activeMenu === subItem.path ? '#fff' : 'rgba(53, 70, 105, 0.8)',
-                                        bgcolor: activeMenu === subItem.path ? 'rgba(26, 93, 180, 0.7)' : 'transparent',
-                                        '&:hover': {
-                                            bgcolor: 'rgba(26, 93, 180, 0.4)',
-                                        },
-                                        '& .MuiButton-startIcon': {
-                                            color: activeMenu === subItem.path ? '#fff' : 'rgba(0, 48, 143, 0.7)',
-                                            marginRight: '8px'
-                                        },
-                                    }}
-                                >
-                                    {subItem.title}
-                                </Button>
-                            ))}
-                        </List>
-                    </Collapse>
-                </Box>
+                            <Collapse in={openMedicalStock} timeout="auto" unmountOnExit>
+                                <List component="div" disablePadding>
+                                    {medicalStockSubItems.map((subItem) => (
+                                        <Button
+                                            key={subItem.title}
+                                            startIcon={subItem.icon}
+                                            onClick={() => onMenuClick(subItem.path)}
+                                            sx={{
+                                                justifyContent: 'flex-start',
+                                                textAlign: 'left',
+                                                py: 1,
+                                                px: 2,
+                                                pl: 4,
+                                                mb: 0.5,
+                                                borderRadius: 1,
+                                                width: '100%',
+                                                fontSize: '0.875rem',
+                                                color: activeMenu === subItem.path ? '#fff' : 'rgba(53, 70, 105, 0.8)',
+                                                bgcolor: activeMenu === subItem.path ? 'rgba(26, 93, 180, 0.7)' : 'transparent',
+                                                '&:hover': {
+                                                    bgcolor: 'rgba(26, 93, 180, 0.4)',
+                                                },
+                                                '& .MuiButton-startIcon': {
+                                                    color: activeMenu === subItem.path ? '#fff' : 'rgba(0, 48, 143, 0.7)',
+                                                    marginRight: '8px'
+                                                },
+                                            }}
+                                        >
+                                            {subItem.title}
+                                        </Button>
+                                    ))}
+                                </List>
+                            </Collapse>
+                        </Box>
 
-                {/* เมนูระบบการเงิน/บัญชี พร้อมเมนูย่อย */}
-                <Box>
-                    <Button
-                        startIcon={<PaymentIcon />}
-                        endIcon={openFinance ? <ExpandLess /> : <ExpandMore />}
-                        onClick={handleFinanceClick}
-                        sx={{
-                            justifyContent: 'space-between',
-                            textAlign: 'left',
-                            py: 1.5,
-                            px: 2,
-                            mb: 0.5,
-                            borderRadius: 1,
-                            width: '100%',
-                            color: activeMenu.startsWith('/clinic/finance') ? '#fff' : 'rgba(53, 70, 105, 0.9)',
-                            bgcolor: activeMenu.startsWith('/clinic/finance') ? 'rgba(26, 93, 180, 0.8)' : 'transparent',
-                            '&:hover': {
-                                bgcolor: 'rgba(26, 93, 180, 0.5)',
-                            },
-                            '& .MuiButton-startIcon': {
-                                color: activeMenu.startsWith('/clinic/finance') ? '#fff' : 'rgba(0, 48, 143, 0.9)',
-                                marginRight: '12px'
-                            },
-                            '& .MuiButton-endIcon': {
-                                color: activeMenu.startsWith('/clinic/finance') ? '#fff' : 'rgba(0, 48, 143, 0.9)',
-                                marginLeft: 'auto'
-                            },
-                            fontWeight: activeMenu.startsWith('/clinic/finance') ? 'bold' : 'normal',
-                        }}
-                    >
-                        <span>ระบบการเงิน/บัญชี</span>
-                    </Button>
+                        {/* เมนูระบบการเงิน/บัญชี พร้อมเมนูย่อย */}
+                        <Box>
+                            <Button
+                                startIcon={<PaymentIcon />}
+                                endIcon={openFinance ? <ExpandLess /> : <ExpandMore />}
+                                onClick={handleFinanceClick}
+                                sx={{
+                                    justifyContent: 'space-between',
+                                    textAlign: 'left',
+                                    py: 1.5,
+                                    px: 2,
+                                    mb: 0.5,
+                                    borderRadius: 1,
+                                    width: '100%',
+                                    color: activeMenu.startsWith('/clinic/finance') ? '#fff' : 'rgba(53, 70, 105, 0.9)',
+                                    bgcolor: activeMenu.startsWith('/clinic/finance') ? 'rgba(26, 93, 180, 0.8)' : 'transparent',
+                                    '&:hover': {
+                                        bgcolor: 'rgba(26, 93, 180, 0.5)',
+                                    },
+                                    '& .MuiButton-startIcon': {
+                                        color: activeMenu.startsWith('/clinic/finance') ? '#fff' : 'rgba(0, 48, 143, 0.9)',
+                                        marginRight: '12px'
+                                    },
+                                    '& .MuiButton-endIcon': {
+                                        color: activeMenu.startsWith('/clinic/finance') ? '#fff' : 'rgba(0, 48, 143, 0.9)',
+                                        marginLeft: 'auto'
+                                    },
+                                    fontWeight: activeMenu.startsWith('/clinic/finance') ? 'bold' : 'normal',
+                                }}
+                            >
+                                <span>ระบบการเงิน/บัญชี</span>
+                            </Button>
 
-                    <Collapse in={openFinance} timeout="auto" unmountOnExit>
-                        <List component="div" disablePadding>
-                            {financeSubItems.map((subItem) => (
-                                <Button
-                                    key={subItem.title}
-                                    startIcon={subItem.icon}
-                                    onClick={() => onMenuClick(subItem.path)}
-                                    sx={{
-                                        justifyContent: 'flex-start',
-                                        textAlign: 'left',
-                                        py: 1,
-                                        px: 2,
-                                        pl: 4,
-                                        mb: 0.5,
-                                        borderRadius: 1,
-                                        width: '100%',
-                                        fontSize: '0.875rem',
-                                        color: activeMenu === subItem.path ? '#fff' : 'rgba(53, 70, 105, 0.8)',
-                                        bgcolor: activeMenu === subItem.path ? 'rgba(26, 93, 180, 0.7)' : 'transparent',
-                                        '&:hover': {
-                                            bgcolor: 'rgba(26, 93, 180, 0.4)',
-                                        },
-                                        '& .MuiButton-startIcon': {
-                                            color: activeMenu === subItem.path ? '#fff' : 'rgba(0, 48, 143, 0.7)',
-                                            marginRight: '8px'
-                                        },
-                                    }}
-                                >
-                                    {subItem.title}
-                                </Button>
-                            ))}
-                        </List>
-                    </Collapse>
-                </Box>
+                            <Collapse in={openFinance} timeout="auto" unmountOnExit>
+                                <List component="div" disablePadding>
+                                    {financeSubItems.map((subItem) => (
+                                        <Button
+                                            key={subItem.title}
+                                            startIcon={subItem.icon}
+                                            onClick={() => onMenuClick(subItem.path)}
+                                            sx={{
+                                                justifyContent: 'flex-start',
+                                                textAlign: 'left',
+                                                py: 1,
+                                                px: 2,
+                                                pl: 4,
+                                                mb: 0.5,
+                                                borderRadius: 1,
+                                                width: '100%',
+                                                fontSize: '0.875rem',
+                                                color: activeMenu === subItem.path ? '#fff' : 'rgba(53, 70, 105, 0.8)',
+                                                bgcolor: activeMenu === subItem.path ? 'rgba(26, 93, 180, 0.7)' : 'transparent',
+                                                '&:hover': {
+                                                    bgcolor: 'rgba(26, 93, 180, 0.4)',
+                                                },
+                                                '& .MuiButton-startIcon': {
+                                                    color: activeMenu === subItem.path ? '#fff' : 'rgba(0, 48, 143, 0.7)',
+                                                    marginRight: '8px'
+                                                },
+                                            }}
+                                        >
+                                            {subItem.title}
+                                        </Button>
+                                    ))}
+                                </List>
+                            </Collapse>
+                        </Box>
 
-                {/* เมนูรายงาน พร้อมเมนูย่อย */}
-                <Box>
-                    <Button
-                        startIcon={<DescriptionIcon />}
-                        endIcon={openReport ? <ExpandLess /> : <ExpandMore />}
-                        onClick={handleReportClick}
-                        sx={{
-                            justifyContent: 'space-between',
-                            textAlign: 'left',
-                            py: 1.5,
-                            px: 2,
-                            mb: 0.5,
-                            borderRadius: 1,
-                            width: '100%',
-                            color: activeMenu.startsWith('/clinic/report') ? '#fff' : 'rgba(53, 70, 105, 0.9)',
-                            bgcolor: activeMenu.startsWith('/clinic/report') ? 'rgba(26, 93, 180, 0.8)' : 'transparent',
-                            '&:hover': {
-                                bgcolor: 'rgba(26, 93, 180, 0.5)',
-                            },
-                            '& .MuiButton-startIcon': {
-                                color: activeMenu.startsWith('/clinic/report') ? '#fff' : 'rgba(0, 48, 143, 0.9)',
-                                marginRight: '12px'
-                            },
-                            '& .MuiButton-endIcon': {
-                                color: activeMenu.startsWith('/clinic/report') ? '#fff' : 'rgba(0, 48, 143, 0.9)',
-                                marginLeft: 'auto'
-                            },
-                            fontWeight: activeMenu.startsWith('/clinic/report') ? 'bold' : 'normal',
-                        }}
-                    >
-                        <span>รายงาน</span>
-                    </Button>
+                        {/* เมนูรายงาน พร้อมเมนูย่อย */}
+                        <Box>
+                            <Button
+                                startIcon={<DescriptionIcon />}
+                                endIcon={openReport ? <ExpandLess /> : <ExpandMore />}
+                                onClick={handleReportClick}
+                                sx={{
+                                    justifyContent: 'space-between',
+                                    textAlign: 'left',
+                                    py: 1.5,
+                                    px: 2,
+                                    mb: 0.5,
+                                    borderRadius: 1,
+                                    width: '100%',
+                                    color: activeMenu.startsWith('/clinic/report') ? '#fff' : 'rgba(53, 70, 105, 0.9)',
+                                    bgcolor: activeMenu.startsWith('/clinic/report') ? 'rgba(26, 93, 180, 0.8)' : 'transparent',
+                                    '&:hover': {
+                                        bgcolor: 'rgba(26, 93, 180, 0.5)',
+                                    },
+                                    '& .MuiButton-startIcon': {
+                                        color: activeMenu.startsWith('/clinic/report') ? '#fff' : 'rgba(0, 48, 143, 0.9)',
+                                        marginRight: '12px'
+                                    },
+                                    '& .MuiButton-endIcon': {
+                                        color: activeMenu.startsWith('/clinic/report') ? '#fff' : 'rgba(0, 48, 143, 0.9)',
+                                        marginLeft: 'auto'
+                                    },
+                                    fontWeight: activeMenu.startsWith('/clinic/report') ? 'bold' : 'normal',
+                                }}
+                            >
+                                <span>รายงาน</span>
+                            </Button>
 
-                    <Collapse in={openReport} timeout="auto" unmountOnExit>
-                        <List component="div" disablePadding>
-                            {reportSubItems.map((subItem) => (
-                                <Button
-                                    key={subItem.title}
-                                    startIcon={subItem.icon}
-                                    onClick={() => onMenuClick(subItem.path)}
-                                    sx={{
-                                        justifyContent: 'flex-start',
-                                        textAlign: 'left',
-                                        py: 1,
-                                        px: 2,
-                                        pl: 4,
-                                        mb: 0.5,
-                                        borderRadius: 1,
-                                        width: '100%',
-                                        fontSize: '0.875rem',
-                                        color: activeMenu === subItem.path ? '#fff' : 'rgba(53, 70, 105, 0.8)',
-                                        bgcolor: activeMenu === subItem.path ? 'rgba(26, 93, 180, 0.7)' : 'transparent',
-                                        '&:hover': {
-                                            bgcolor: 'rgba(26, 93, 180, 0.4)',
-                                        },
-                                        '& .MuiButton-startIcon': {
-                                            color: activeMenu === subItem.path ? '#fff' : 'rgba(0, 48, 143, 0.7)',
-                                            marginRight: '8px'
-                                        },
-                                    }}
-                                >
-                                    {subItem.title}
-                                </Button>
-                            ))}
-                        </List>
-                    </Collapse>
-                </Box>
+                            <Collapse in={openReport} timeout="auto" unmountOnExit>
+                                <List component="div" disablePadding>
+                                    {reportSubItems.map((subItem) => (
+                                        <Button
+                                            key={subItem.title}
+                                            startIcon={subItem.icon}
+                                            onClick={() => onMenuClick(subItem.path)}
+                                            sx={{
+                                                justifyContent: 'flex-start',
+                                                textAlign: 'left',
+                                                py: 1,
+                                                px: 2,
+                                                pl: 4,
+                                                mb: 0.5,
+                                                borderRadius: 1,
+                                                width: '100%',
+                                                fontSize: '0.875rem',
+                                                color: activeMenu === subItem.path ? '#fff' : 'rgba(53, 70, 105, 0.8)',
+                                                bgcolor: activeMenu === subItem.path ? 'rgba(26, 93, 180, 0.7)' : 'transparent',
+                                                '&:hover': {
+                                                    bgcolor: 'rgba(26, 93, 180, 0.4)',
+                                                },
+                                                '& .MuiButton-startIcon': {
+                                                    color: activeMenu === subItem.path ? '#fff' : 'rgba(0, 48, 143, 0.7)',
+                                                    marginRight: '8px'
+                                                },
+                                            }}
+                                        >
+                                            {subItem.title}
+                                        </Button>
+                                    ))}
+                                </List>
+                            </Collapse>
+                        </Box>
 
-                {/* เมนูการตั้งค่า */}
-                <Button
-                    startIcon={<SettingsIcon />}
-                    onClick={() => onMenuClick('/clinic/settings')}
-                    sx={{
-                        justifyContent: 'flex-start',
-                        textAlign: 'left',
-                        py: 1.5,
-                        px: 2,
-                        mb: 0.5,
-                        borderRadius: 1,
-                        width: '100%',
-                        color: activeMenu === '/clinic/settings' ? '#fff' : 'rgba(53, 70, 105, 0.9)',
-                        bgcolor: activeMenu === '/clinic/settings' ? 'rgba(26, 93, 180, 0.8)' : 'transparent',
-                        '&:hover': {
-                            bgcolor: 'rgba(26, 93, 180, 0.5)',
-                        },
-                        '& .MuiButton-startIcon': {
-                            color: activeMenu === '/clinic/settings' ? '#fff' : 'rgba(0, 48, 143, 0.9)',
-                            marginRight: '12px'
-                        },
-                        fontWeight: activeMenu === '/clinic/settings' ? 'bold' : 'normal',
-                    }}
-                >
-                    การตั้งค่า
-                </Button>
+                        {/* เมนูอรรถประโยชน์ พร้อมเมนูย่อย */}
+                        <Box>
+                            <Button
+                                startIcon={<DescriptionIcon />}
+                                endIcon={openReport ? <ExpandLess /> : <ExpandMore />}
+                                onClick={handleReportClick}
+                                sx={{
+                                    justifyContent: 'space-between',
+                                    textAlign: 'left',
+                                    py: 1.5,
+                                    px: 2,
+                                    mb: 0.5,
+                                    borderRadius: 1,
+                                    width: '100%',
+                                    color: activeMenu.startsWith('/clinic/report') ? '#fff' : 'rgba(53, 70, 105, 0.9)',
+                                    bgcolor: activeMenu.startsWith('/clinic/report') ? 'rgba(26, 93, 180, 0.8)' : 'transparent',
+                                    '&:hover': {
+                                        bgcolor: 'rgba(26, 93, 180, 0.5)',
+                                    },
+                                    '& .MuiButton-startIcon': {
+                                        color: activeMenu.startsWith('/clinic/report') ? '#fff' : 'rgba(0, 48, 143, 0.9)',
+                                        marginRight: '12px'
+                                    },
+                                    '& .MuiButton-endIcon': {
+                                        color: activeMenu.startsWith('/clinic/report') ? '#fff' : 'rgba(0, 48, 143, 0.9)',
+                                        marginLeft: 'auto'
+                                    },
+                                    fontWeight: activeMenu.startsWith('/clinic/report') ? 'bold' : 'normal',
+                                }}
+                            >
+                                <span>อรรถประโยชน์</span>
+                            </Button>
+
+                            <Collapse in={openReport} timeout="auto" unmountOnExit>
+                                <List component="div" disablePadding>
+                                    {reportSubItems2.map((subItem) => (
+                                        <Button
+                                            key={subItem.title}
+                                            startIcon={subItem.icon}
+                                            onClick={() => onMenuClick(subItem.path)}
+                                            sx={{
+                                                justifyContent: 'flex-start',
+                                                textAlign: 'left',
+                                                py: 1,
+                                                px: 2,
+                                                pl: 4,
+                                                mb: 0.5,
+                                                borderRadius: 1,
+                                                width: '100%',
+                                                fontSize: '0.875rem',
+                                                color: activeMenu === subItem.path ? '#fff' : 'rgba(53, 70, 105, 0.8)',
+                                                bgcolor: activeMenu === subItem.path ? 'rgba(26, 93, 180, 0.7)' : 'transparent',
+                                                '&:hover': {
+                                                    bgcolor: 'rgba(26, 93, 180, 0.4)',
+                                                },
+                                                '& .MuiButton-startIcon': {
+                                                    color: activeMenu === subItem.path ? '#fff' : 'rgba(0, 48, 143, 0.7)',
+                                                    marginRight: '8px'
+                                                },
+                                            }}
+                                        >
+                                            {subItem.title}
+                                        </Button>
+                                    ))}
+                                </List>
+                            </Collapse>
+                        </Box>
+
+                        {/* เมนูการตั้งค่า */}
+                        <Button
+                            startIcon={<SettingsIcon />}
+                            onClick={() => onMenuClick('/clinic/settings')}
+                            sx={{
+                                justifyContent: 'flex-start',
+                                textAlign: 'left',
+                                py: 1.5,
+                                px: 2,
+                                mb: 0.5,
+                                borderRadius: 1,
+                                width: '100%',
+                                color: activeMenu === '/clinic/settings' ? '#fff' : 'rgba(53, 70, 105, 0.9)',
+                                bgcolor: activeMenu === '/clinic/settings' ? 'rgba(26, 93, 180, 0.8)' : 'transparent',
+                                '&:hover': {
+                                    bgcolor: 'rgba(26, 93, 180, 0.5)',
+                                },
+                                '& .MuiButton-startIcon': {
+                                    color: activeMenu === '/clinic/settings' ? '#fff' : 'rgba(0, 48, 143, 0.9)',
+                                    marginRight: '12px'
+                                },
+                                fontWeight: activeMenu === '/clinic/settings' ? 'bold' : 'normal',
+                            }}
+                        >
+                            การตั้งค่า
+                        </Button>
                     </>
                 )}
             </Box>

@@ -23,7 +23,12 @@ import {
     TableHead,
     TableRow,
     LinearProgress,
-    MenuItem
+    MenuItem,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogContentText,
+    DialogActions
 } from '@mui/material';
 import {
     Search,
@@ -36,7 +41,10 @@ import {
     Cancel,
     Email,
     Home,
-    LocalHospital
+    LocalHospital,
+    KeyboardArrowLeft,
+    KeyboardArrowRight,
+    CancelOutlined
 } from '@mui/icons-material';
 import PatientService from '../services/patientService';
 import TreatmentService from '../services/treatmentService';
@@ -46,20 +54,34 @@ const getAvatarColor = (sex) => {
     return sex === 'หญิง' ? '#EC7B99' : '#4A9EFF';
 };
 
-const MONTH_OPTIONS = [
-    { value: '01', label: 'มกราคม' },
-    { value: '02', label: 'กุมภาพันธ์' },
-    { value: '03', label: 'มีนาคม' },
-    { value: '04', label: 'เมษายน' },
-    { value: '05', label: 'พฤษภาคม' },
-    { value: '06', label: 'มิถุนายน' },
-    { value: '07', label: 'กรกฎาคม' },
-    { value: '08', label: 'สิงหาคม' },
-    { value: '09', label: 'กันยายน' },
-    { value: '10', label: 'ตุลาคม' },
-    { value: '11', label: 'พฤศจิกายน' },
-    { value: '12', label: 'ธันวาคม' }
+const PRENAME_OPTIONS = [
+    { value: 'นาย', label: 'นาย' },
+    { value: 'นาง', label: 'นาง' },
+    { value: 'นางสาว', label: 'นางสาว' },
+    { value: 'เด็กชาย', label: 'เด็กชาย' },
+    { value: 'เด็กหญิง', label: 'เด็กหญิง' }
 ];
+
+const SEX_OPTIONS = [
+    { value: 'ชาย', label: 'ชาย' },
+    { value: 'หญิง', label: 'หญิง' }
+];
+
+const STATUS_OPTIONS = [
+    { value: 'โสด', label: 'โสด' },
+    { value: 'สมรส', label: 'สมรส' },
+    { value: 'หย่า', label: 'หย่า' },
+    { value: 'หม้าย', label: 'หม้าย' },
+    { value: 'แยกกันอยู่', label: 'แยกกันอยู่' },
+    { value: 'ไม่ระบุ', label: 'ไม่ระบุ' }
+];
+
+const BOOLEAN_OPTIONS = [
+    { value: 'Y', label: 'ใช่' },
+    { value: 'N', label: 'ไม่ใช่' }
+];
+
+const formatBooleanFlag = (value) => (value === 'Y' ? 'ใช่' : 'ไม่ใช่');
 
 // PatientCard component OUTSIDE main component
 const PatientCard = React.memo(({ patient, isSelected, onSelect }) => (
@@ -181,6 +203,159 @@ const PatientDetailPanel = React.memo(({
         );
     }
 
+    const formatDateDisplay = (value) => {
+        if (!value) {
+            return '';
+        }
+
+        try {
+            const date = new Date(value);
+            if (!Number.isNaN(date.getTime())) {
+                return date.toLocaleDateString('th-TH', {
+                    day: 'numeric',
+                    month: 'short',
+                    year: 'numeric'
+                });
+            }
+        } catch (error) {
+            // ignore
+        }
+
+        return value;
+    };
+
+    const normalizeDateForInput = (value) => {
+        if (!value) {
+            return '';
+        }
+
+        if (typeof value === 'string') {
+            if (value.includes('T')) {
+                return value.split('T')[0];
+            }
+
+            if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+                return value;
+            }
+        }
+
+        try {
+            const date = new Date(value);
+            if (!Number.isNaN(date.getTime())) {
+                return date.toISOString().split('T')[0];
+            }
+        } catch (error) {
+            // ignore
+        }
+
+        return typeof value === 'string' ? value : '';
+    };
+
+    const renderField = (
+        label,
+        fieldName,
+        {
+            type = 'text',
+            selectOptions,
+            multiline = false,
+            rows = 1,
+            xs = 12,
+            sm = 6,
+            placeholder,
+            onChange,
+            readOnly = false,
+            inputProps,
+            helperText,
+            transformDisplay
+        } = {}
+    ) => {
+        const rawValue = editFormData[fieldName];
+        const inputValue = type === 'date' ? normalizeDateForInput(rawValue) : rawValue ?? '';
+        const handleChange = onChange
+            ? (event) => onChange(event, fieldName)
+            : (event) => onFormChange(fieldName, event.target.value);
+        const displayRaw = transformDisplay
+            ? transformDisplay(selectedPatient[fieldName], selectedPatient)
+            : selectedPatient[fieldName];
+        const displayValue = displayRaw || displayRaw === 0 ? displayRaw : 'ไม่มีข้อมูล';
+        const resolvedHelperText =
+            typeof helperText === 'function' ? helperText(selectedPatient, editFormData) : helperText;
+
+        return (
+            <Grid item xs={xs} sm={sm}>
+                <Typography
+                    variant="caption"
+                    sx={{
+                        color: '#64748b',
+                        textTransform: 'uppercase',
+                        fontWeight: 600,
+                        letterSpacing: 0.3
+                    }}
+                >
+                    {label}
+                </Typography>
+                {isEditing ? (
+                    selectOptions ? (
+                        <TextField
+                            select
+                            fullWidth
+                            size="small"
+                            value={inputValue}
+                            onChange={handleChange}
+                            sx={{
+                                mt: 1,
+                                '& .MuiOutlinedInput-root': {
+                                    borderRadius: 2
+                                }
+                            }}
+                            disabled={readOnly}
+                        >
+                            {selectOptions.map((option) => (
+                                <MenuItem key={option.value} value={option.value}>
+                                    {option.label}
+                                </MenuItem>
+                            ))}
+                        </TextField>
+                    ) : (
+                        <TextField
+                            fullWidth
+                            size="small"
+                            type={type}
+                            value={inputValue}
+                            onChange={handleChange}
+                            sx={{
+                                mt: 1,
+                                '& .MuiOutlinedInput-root': {
+                                    borderRadius: 2
+                                }
+                            }}
+                            multiline={multiline}
+                            rows={rows}
+                            placeholder={placeholder}
+                            inputProps={inputProps}
+                            helperText={resolvedHelperText}
+                            disabled={readOnly}
+                        />
+                    )
+                ) : (
+                    <Typography
+                        variant="body1"
+                        fontWeight={500}
+                        sx={{
+                            mt: 1,
+                            color: '#1f2937',
+                            lineHeight: 1.5
+                        }}
+                    >
+                        {type === 'date' && displayValue !== 'ไม่มีข้อมูล'
+                            ? formatDateDisplay(displayValue)
+                            : displayValue}
+                    </Typography>
+                )}
+            </Grid>
+        );
+    };
+
     return (
         <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
             {/* Header */}
@@ -260,211 +435,169 @@ const PatientDetailPanel = React.memo(({
             {/* Content */}
             <Box sx={{ flex: 1, p: 3, overflow: 'auto' }}>
                 <Grid container spacing={3}>
-                    {/* Basic Information */}
                     <Grid item xs={12}>
                         <Paper sx={{ p: 3, borderRadius: 3, border: '1px solid #e2e8f0' }}>
-                            <Typography variant="h6" fontWeight={600} sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Typography
+                                variant="h6"
+                                fontWeight={600}
+                                sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}
+                            >
                                 <Person sx={{ color: '#4A9EFF' }} />
-                                ข้อมูลพื้นฐาน
+                                ข้อมูลส่วนบุคคล
                             </Typography>
-                            
+
                             <Grid container spacing={3}>
-                                <Grid item xs={12} sm={6}>
-                                    <Typography variant="caption" color="textSecondary">เลขบัตรประชาชน</Typography>
-                                    {isEditing ? (
-                                        <TextField
-                                            fullWidth
-                                            size="small"
-                                            value={editFormData.IDNO || ''}
-                                            onChange={(e) => onFormChange('IDNO', e.target.value)}
-                                            sx={{ mt: 1 }}
-                                        />
-                                    ) : (
-                                        <Typography variant="body1" fontWeight={500}>{selectedPatient.IDNO}</Typography>
-                                    )}
-                                </Grid>
-                                
-                                <Grid item xs={12} sm={6}>
-                                    <Typography variant="caption" color="textSecondary">คำนำหน้า</Typography>
-                                    {isEditing ? (
-                                        <TextField
-                                            select
-                                            fullWidth
-                                            size="small"
-                                            value={editFormData.PRENAME || 'นาย'}
-                                            onChange={(e) => onFormChange('PRENAME', e.target.value)}
-                                            sx={{ mt: 1 }}
-                                            SelectProps={{ native: true }}
-                                        >
-                                            <option value="นาย">นาย</option>
-                                            <option value="นาง">นาง</option>
-                                            <option value="นางสาว">นางสาว</option>
-                                        </TextField>
-                                    ) : (
-                                        <Typography variant="body1" fontWeight={500}>{selectedPatient.PRENAME}</Typography>
-                                    )}
-                                </Grid>
-
-                                <Grid item xs={12} sm={6}>
-                                    <Typography variant="caption" color="textSecondary">ชื่อ</Typography>
-                                    {isEditing ? (
-                                        <TextField
-                                            fullWidth
-                                            size="small"
-                                            value={editFormData.NAME1 || ''}
-                                            onChange={(e) => onFormChange('NAME1', e.target.value)}
-                                            sx={{ mt: 1 }}
-                                        />
-                                    ) : (
-                                        <Typography variant="body1" fontWeight={500}>{selectedPatient.NAME1}</Typography>
-                                    )}
-                                </Grid>
-
-                                <Grid item xs={12} sm={6}>
-                                    <Typography variant="caption" color="textSecondary">นามสกุล</Typography>
-                                    {isEditing ? (
-                                        <TextField
-                                            fullWidth
-                                            size="small"
-                                            value={editFormData.SURNAME || ''}
-                                            onChange={(e) => onFormChange('SURNAME', e.target.value)}
-                                            sx={{ mt: 1 }}
-                                        />
-                                    ) : (
-                                        <Typography variant="body1" fontWeight={500}>{selectedPatient.SURNAME}</Typography>
-                                    )}
-                                </Grid>
-
-                                <Grid item xs={12} sm={6}>
-                                    <Typography variant="caption" color="textSecondary">เพศ</Typography>
-                                    {isEditing ? (
-                                        <TextField
-                                            select
-                                            fullWidth
-                                            size="small"
-                                            value={editFormData.SEX || 'ชาย'}
-                                            onChange={(e) => onFormChange('SEX', e.target.value)}
-                                            sx={{ mt: 1 }}
-                                            SelectProps={{ native: true }}
-                                        >
-                                            <option value="ชาย">ชาย</option>
-                                            <option value="หญิง">หญิง</option>
-                                        </TextField>
-                                    ) : (
-                                        <Typography variant="body1" fontWeight={500}>{selectedPatient.SEX}</Typography>
-                                    )}
-                                </Grid>
-
-                                <Grid item xs={12} sm={6}>
-                                    <Typography variant="caption" color="textSecondary">อายุ</Typography>
-                                    {isEditing ? (
-                                        <TextField
-                                            fullWidth
-                                            size="small"
-                                            type="number"
-                                            value={editFormData.AGE || ''}
-                                            onChange={(e) => onFormChange('AGE', e.target.value)}
-                                            sx={{ mt: 1 }}
-                                        />
-                                    ) : (
-                                        <Typography variant="body1" fontWeight={500}>{selectedPatient.AGE} ปี</Typography>
-                                    )}
-                                </Grid>
+                                {renderField('รหัส HN', 'HNCODE', { sm: 4, readOnly: true })}
+                                {renderField('เลขบัตรประชาชน', 'IDNO', { sm: 4 })}
+                                {renderField('วันเกิด', 'BDATE', { sm: 4, type: 'date' })}
+                                {renderField('คำนำหน้า', 'PRENAME', { sm: 4, selectOptions: PRENAME_OPTIONS })}
+                                {renderField('ชื่อ', 'NAME1', { sm: 4 })}
+                                {renderField('นามสกุล', 'SURNAME', { sm: 4 })}
+                                {renderField('เพศ', 'SEX', { sm: 4, selectOptions: SEX_OPTIONS })}
+                                {renderField('อายุ', 'AGE', {
+                                    sm: 4,
+                                    type: 'number',
+                                    transformDisplay: (value) => (value || value === 0 ? `${value} ปี` : '')
+                                })}
+                                {renderField('กรุ๊ปเลือด', 'BLOOD_GROUP1', { sm: 4 })}
+                                {renderField('สถานภาพ', 'STATUS1', { sm: 4, selectOptions: STATUS_OPTIONS })}
+                                {renderField('สัญชาติ', 'NATIONAL1', { sm: 4 })}
+                                {renderField('ศาสนา', 'RELIGION1', { sm: 4 })}
+                                {renderField('อาชีพ', 'OCCUPATION1', { sm: 6 })}
+                                {renderField('เชื้อชาติ', 'ORIGIN1', { sm: 6 })}
                             </Grid>
                         </Paper>
                     </Grid>
 
-                    {/* Contact Information */}
                     <Grid item xs={12}>
                         <Paper sx={{ p: 3, borderRadius: 3, border: '1px solid #e2e8f0' }}>
-                            <Typography variant="h6" fontWeight={600} sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Typography
+                                variant="h6"
+                                fontWeight={600}
+                                sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}
+                            >
+                                <LocalHospital sx={{ color: '#4A9EFF' }} />
+                                ข้อมูลสุขภาพ
+                            </Typography>
+
+                            <Grid container spacing={3}>
+                                {renderField('น้ำหนัก (กก.)', 'WEIGHT1', {
+                                    sm: 4,
+                                    type: 'number',
+                                    transformDisplay: (value) => (value || value === 0 ? `${value} กก.` : '')
+                                })}
+                                {renderField('ส่วนสูง (ซม.)', 'HIGH1', {
+                                    sm: 4,
+                                    type: 'number',
+                                    transformDisplay: (value) => (value || value === 0 ? `${value} ซม.` : '')
+                                })}
+                                {renderField('โรคประจำตัว', 'DISEASE1', { xs: 12, sm: 12, multiline: true, rows: 3 })}
+                                {renderField('แพ้ยา', 'DRUG_ALLERGY', { xs: 12, sm: 6, multiline: true, rows: 2 })}
+                                {renderField('แพ้อาหาร', 'FOOD_ALLERGIES', { xs: 12, sm: 6, multiline: true, rows: 2 })}
+                            </Grid>
+                        </Paper>
+                    </Grid>
+
+                    <Grid item xs={12}>
+                        <Paper sx={{ p: 3, borderRadius: 3, border: '1px solid #e2e8f0' }}>
+                            <Typography
+                                variant="h6"
+                                fontWeight={600}
+                                sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}
+                            >
                                 <Phone sx={{ color: '#4A9EFF' }} />
                                 ข้อมูลติดต่อ
                             </Typography>
-                            
+
                             <Grid container spacing={3}>
-                                <Grid item xs={12} sm={6}>
-                                    <Typography variant="caption" color="textSecondary">เบอร์โทรศัพท์</Typography>
-                                    {isEditing ? (
-                                        <TextField
-                                            fullWidth
-                                            size="small"
-                                            value={editFormData.TEL1 || ''}
-                                            onChange={(e) => {
-                                                const value = e.target.value.replace(/\D/g, '').slice(0, 10);
-                                                onFormChange('TEL1', value);
-                                            }}
-                                            inputProps={{ maxLength: 10 }}
-                                            placeholder="เฉพาะตัวเลข 10 หลัก"
-                                            sx={{ mt: 1 }}
-                                        />
-                                    ) : (
-                                        <Typography variant="body1" fontWeight={500}>{selectedPatient.TEL1}</Typography>
-                                    )}
-                                </Grid>
-
-                                <Grid item xs={12} sm={6}>
-                                    <Typography variant="caption" color="textSecondary">อีเมล</Typography>
-                                    {isEditing ? (
-                                        <TextField
-                                            fullWidth
-                                            size="small"
-                                            type="email"
-                                            value={editFormData.EMAIL1 || ''}
-                                            onChange={(e) => onFormChange('EMAIL1', e.target.value)}
-                                            sx={{ mt: 1 }}
-                                        />
-                                    ) : (
-                                        <Typography variant="body1" fontWeight={500}>{selectedPatient.EMAIL1}</Typography>
-                                    )}
-                                </Grid>
-
-                                <Grid item xs={12}>
-                                    <Typography variant="caption" color="textSecondary">ที่อยู่</Typography>
-                                    {isEditing ? (
-                                        <TextField
-                                            fullWidth
-                                            size="small"
-                                            multiline
-                                            rows={3}
-                                            value={editFormData.ADDR1 || ''}
-                                            onChange={(e) => onFormChange('ADDR1', e.target.value)}
-                                            sx={{ mt: 1 }}
-                                        />
-                                    ) : (
-                                        <Typography variant="body1" fontWeight={500}>{selectedPatient.ADDR1}</Typography>
-                                    )}
-                                </Grid>
+                                {renderField('เบอร์โทรศัพท์', 'TEL1', {
+                                    sm: 6,
+                                    onChange: (event) => {
+                                        const value = event.target.value.replace(/\D/g, '').slice(0, 10);
+                                        onFormChange('TEL1', value);
+                                    },
+                                    inputProps: { maxLength: 10 },
+                                    placeholder: 'เฉพาะตัวเลข 10 หลัก'
+                                })}
+                                {renderField('อีเมล', 'EMAIL1', { sm: 6, type: 'email' })}
                             </Grid>
                         </Paper>
                     </Grid>
 
-                    {/* Medical Information */}
                     <Grid item xs={12}>
                         <Paper sx={{ p: 3, borderRadius: 3, border: '1px solid #e2e8f0' }}>
-                            <Typography variant="h6" fontWeight={600} sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <LocalHospital sx={{ color: '#4A9EFF' }} />
-                                ข้อมูลทางการแพทย์
+                            <Typography variant="h6" fontWeight={600} sx={{ mb: 2 }}>
+                                ที่อยู่ตามบัตรประชาชน
                             </Typography>
-                            
                             <Grid container spacing={3}>
-                                <Grid item xs={12}>
-                                    <Typography variant="caption" color="textSecondary">โรคประจำตัว/อาการแพ้</Typography>
-                                    {isEditing ? (
-                                        <TextField
-                                            fullWidth
-                                            size="small"
-                                            multiline
-                                            rows={3}
-                                            value={editFormData.DISEASE1 || ''}
-                                            onChange={(e) => onFormChange('DISEASE1', e.target.value)}
-                                            sx={{ mt: 1 }}
-                                            autoComplete="off"
-                                        />
-                                    ) : (
-                                        <Typography variant="body1" fontWeight={500}>{selectedPatient.DISEASE1 || 'ไม่มีข้อมูล'}</Typography>
-                                    )}
-                                </Grid>
+                                {renderField('ที่อยู่ตามบัตร', 'CARD_ADDR1', { xs: 12, multiline: true, rows: 3 })}
+                                {renderField('ตำบล', 'CARD_TUMBOL_CODE', {
+                                    sm: 4,
+                                    transformDisplay: (_, patient) => patient.CARD_TUMBOL_NAME || 'ไม่มีข้อมูล'
+                                })}
+                                {renderField('อำเภอ', 'CARD_AMPHER_CODE', {
+                                    sm: 4,
+                                    transformDisplay: (_, patient) => patient.CARD_AMPHER_NAME || 'ไม่มีข้อมูล'
+                                })}
+                                {renderField('จังหวัด', 'CARD_PROVINCE_CODE', {
+                                    sm: 4,
+                                    transformDisplay: (_, patient) => patient.CARD_PROVINCE_NAME || 'ไม่มีข้อมูล'
+                                })}
+                            </Grid>
+                        </Paper>
+                    </Grid>
+
+                    <Grid item xs={12}>
+                        <Paper sx={{ p: 3, borderRadius: 3, border: '1px solid #e2e8f0' }}>
+                            <Typography variant="h6" fontWeight={600} sx={{ mb: 2 }}>
+                                ที่อยู่ปัจจุบัน
+                            </Typography>
+                            <Grid container spacing={3}>
+                                {renderField('ที่อยู่ปัจจุบัน', 'ADDR1', { xs: 12, multiline: true, rows: 3 })}
+                                {renderField('ตำบล', 'TUMBOL_CODE', {
+                                    sm: 4,
+                                    transformDisplay: (_, patient) => patient.TUMBOL_NAME || 'ไม่มีข้อมูล'
+                                })}
+                                {renderField('อำเภอ', 'AMPHER_CODE', {
+                                    sm: 4,
+                                    transformDisplay: (_, patient) => patient.AMPHER_NAME || 'ไม่มีข้อมูล'
+                                })}
+                                {renderField('จังหวัด', 'PROVINCE_CODE', {
+                                    sm: 4,
+                                    transformDisplay: (_, patient) => patient.PROVINCE_NAME || 'ไม่มีข้อมูล'
+                                })}
+                                {renderField('รหัสไปรษณีย์', 'ZIPCODE', { sm: 4 })}
+                            </Grid>
+                        </Paper>
+                    </Grid>
+
+                    <Grid item xs={12}>
+                        <Paper sx={{ p: 3, borderRadius: 3, border: '1px solid #e2e8f0' }}>
+                            <Typography
+                                variant="h6"
+                                fontWeight={600}
+                                sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}
+                            >
+                                <LocalHospital sx={{ color: '#4A9EFF' }} />
+                                สิทธิการรักษา
+                            </Typography>
+
+                            <Grid container spacing={3}>
+                                {renderField('บัตรการรักษา', 'TREATMENT_CARD', {
+                                    sm: 4,
+                                    selectOptions: BOOLEAN_OPTIONS,
+                                    transformDisplay: (value) => formatBooleanFlag(value)
+                                })}
+                                {renderField('บัตรประกันสังคม', 'SOCIAL_CARD', {
+                                    sm: 4,
+                                    selectOptions: BOOLEAN_OPTIONS,
+                                    transformDisplay: (value) => formatBooleanFlag(value)
+                                })}
+                                {renderField('บัตรทอง/บัตร UC', 'UCS_CARD', {
+                                    sm: 4,
+                                    selectOptions: BOOLEAN_OPTIONS,
+                                    transformDisplay: (value) => formatBooleanFlag(value)
+                                })}
                             </Grid>
                         </Paper>
                     </Grid>
@@ -484,115 +617,208 @@ const PatientManagement = () => {
     const [error, setError] = useState('');
     const [isEditing, setIsEditing] = useState(false);
     const [editFormData, setEditFormData] = useState({});
-    const currentDate = new Date();
-    const currentBuddhistYear = currentDate.getFullYear() + 543;
-    const currentMonth = String(currentDate.getMonth() + 1).padStart(2, '0');
-    const [historyFilters, setHistoryFilters] = useState({
-        year: currentBuddhistYear.toString(),
-        month: currentMonth,
-        search: ''
-    });
+    const [historySearch, setHistorySearch] = useState('');
     const [patientHistory, setPatientHistory] = useState([]);
     const [historyLoading, setHistoryLoading] = useState(false);
     const [historyError, setHistoryError] = useState('');
-
-    const historyYear = historyFilters.year;
-    const historyMonth = historyFilters.month;
+    const [historyPage, setHistoryPage] = useState(1);
+    const [historyLimit] = useState(20);
+    const [historyPagination, setHistoryPagination] = useState({
+        page: 1,
+        limit: 20,
+        total: 0,
+        totalPages: 0
+    });
+    const [isSearchingHistory, setIsSearchingHistory] = useState(false);
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+    const [selectedRecord, setSelectedRecord] = useState(null);
+    const [actionLoading, setActionLoading] = useState(false);
 
     const handleTabChange = useCallback((event, newValue) => {
         setActiveTab(newValue);
     }, []);
 
-    const handleHistoryFilterChange = useCallback((field, value) => {
-        setHistoryFilters((prev) => ({
-            ...prev,
-            [field]: value
-        }));
-        if (field !== 'search') {
-            setHistoryError('');
-        }
+    const handleHistorySearchChange = useCallback((value) => {
+        setHistorySearch(value);
+        setHistoryError('');
     }, []);
 
-    const fetchPatientHistory = useCallback(async () => {
-        if (!historyYear || !historyMonth) {
-            return;
-        }
+    // Helper function to get current month date range
+    const getCurrentMonthDateRange = useCallback(() => {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = now.getMonth();
+        
+        // First day of current month
+        const firstDay = new Date(year, month, 1);
+        const dateFrom = firstDay.toISOString().split('T')[0];
+        
+        // Last day of current month
+        const lastDay = new Date(year, month + 1, 0);
+        const dateTo = lastDay.toISOString().split('T')[0];
+        
+        return { dateFrom, dateTo };
+    }, []);
 
-        const parsedYear = parseInt(historyYear, 10);
-        const parsedMonth = parseInt(historyMonth, 10);
-
-        if (Number.isNaN(parsedYear) || Number.isNaN(parsedMonth)) {
-            setHistoryError('กรุณาระบุปีและเดือนให้ถูกต้อง');
-            setPatientHistory([]);
-            return;
-        }
-
-        const christianYear = parsedYear - 543;
-        const monthIndex = parsedMonth - 1;
-
-        if (Number.isNaN(christianYear) || Number.isNaN(monthIndex)) {
-            setHistoryError('กรุณาระบุปีและเดือนให้ถูกต้อง');
-            setPatientHistory([]);
-            return;
-        }
-
-        const startDate = new Date(christianYear, monthIndex, 1);
-        const endDate = new Date(christianYear, monthIndex + 1, 0);
-        const formatDate = (date) => date.toISOString().split('T')[0];
-
+    const fetchPatientHistory = useCallback(async (page = 1, searchTerm = '') => {
         try {
             setHistoryLoading(true);
             setHistoryError('');
 
-            const response = await TreatmentService.getAllTreatments({
-                date_from: formatDate(startDate),
-                date_to: formatDate(endDate),
-                limit: 200
-            });
+            const hasSearchTerm = searchTerm.trim().length > 0;
+            setIsSearchingHistory(hasSearchTerm);
 
-            if (response.success) {
-                const historyData = Array.isArray(response.data) ? response.data : [];
-                const sortedHistory = [...historyData].sort((a, b) => {
+            let historyData = [];
+
+            if (hasSearchTerm) {
+                // เมื่อมี search term: ดึงข้อมูลทั้งหมด (ไม่ filter ตามเดือน) แล้ว filter ฝั่ง client
+                // ดึงข้อมูลทั้งหมดโดยวนหลายหน้า (จำกัดจำนวนหน้าที่ดึงเพื่อป้องกันการโหลดช้า)
+                let allData = [];
+                let currentPage = 1;
+                let hasMore = true;
+                const fetchLimit = 100; // ดึงทีละ 100 รายการ
+                const maxPages = 50; // จำกัดสูงสุด 50 หน้า (5000 รายการ)
+
+                while (hasMore && currentPage <= maxPages) {
+                    const params = {
+                        page: currentPage,
+                        limit: fetchLimit
+                    };
+
+                    const response = await TreatmentService.getAllTreatments(params);
+
+                    if (response.success && Array.isArray(response.data)) {
+                        if (response.data.length > 0) {
+                            allData = [...allData, ...response.data];
+                            currentPage++;
+                            
+                            // ตรวจสอบว่ามีข้อมูลเพิ่มเติมหรือไม่
+                            if (response.pagination) {
+                                hasMore = currentPage <= response.pagination.totalPages;
+                            } else {
+                                // ถ้าไม่มี pagination info ให้ตรวจสอบว่าได้ข้อมูลครบหรือไม่
+                                hasMore = response.data.length === fetchLimit;
+                            }
+                        } else {
+                            hasMore = false;
+                        }
+                    } else {
+                        hasMore = false;
+                    }
+                }
+
+                // Filter ตาม search term
+                const term = searchTerm.trim().toLowerCase();
+                historyData = allData.filter((record) => {
+                    const valuesToCheck = [
+                        record?.HNNO,
+                        record?.HNCODE,
+                        record?.HN,
+                        record?.VNO,
+                        record?.VN,
+                        record?.PRENAME,
+                        record?.NAME1,
+                        record?.SURNAME
+                    ].filter(Boolean);
+
+                    return valuesToCheck.some((value) =>
+                        value.toString().toLowerCase().includes(term)
+                    );
+                });
+
+                // Sort by date (newest first)
+                historyData.sort((a, b) => {
                     const dateA = new Date(a?.RDATE || a?.TRDATE || a?.created_at || 0);
                     const dateB = new Date(b?.RDATE || b?.TRDATE || b?.created_at || 0);
                     return dateB - dateA;
                 });
-                setPatientHistory(sortedHistory);
+
+                // Paginate ฝั่ง client
+                const startIndex = (page - 1) * historyLimit;
+                const endIndex = startIndex + historyLimit;
+                const paginatedData = historyData.slice(startIndex, endIndex);
+
+                setPatientHistory(paginatedData);
+                setHistoryPagination({
+                    page: page,
+                    limit: historyLimit,
+                    total: historyData.length,
+                    totalPages: Math.ceil(historyData.length / historyLimit)
+                });
             } else {
-                setPatientHistory([]);
-                setHistoryError(response.message || 'ไม่พบข้อมูลประวัติผู้ป่วย');
+                // เมื่อไม่มี search term: ดึงแค่เดือนนี้ + ใช้ pagination ที่ server
+                const { dateFrom, dateTo } = getCurrentMonthDateRange();
+                const params = {
+                    page: page,
+                    limit: historyLimit,
+                    date_from: dateFrom,
+                    date_to: dateTo
+                };
+
+                const response = await TreatmentService.getAllTreatments(params);
+
+                if (response.success) {
+                    historyData = Array.isArray(response.data) ? response.data : [];
+                    
+                    // Sort by date (newest first)
+                    historyData.sort((a, b) => {
+                        const dateA = new Date(a?.RDATE || a?.TRDATE || a?.created_at || 0);
+                        const dateB = new Date(b?.RDATE || b?.TRDATE || b?.created_at || 0);
+                        return dateB - dateA;
+                    });
+
+                    setPatientHistory(historyData);
+                    
+                    // Update pagination จาก API
+                    if (response.pagination) {
+                        setHistoryPagination(response.pagination);
+                    } else {
+                        setHistoryPagination({
+                            page: page,
+                            limit: historyLimit,
+                            total: historyData.length,
+                            totalPages: Math.ceil(historyData.length / historyLimit)
+                        });
+                    }
+                } else {
+                    setPatientHistory([]);
+                    setHistoryError(response.message || 'ไม่พบข้อมูลประวัติผู้ป่วย');
+                }
             }
         } catch (err) {
             setPatientHistory([]);
             setHistoryError('เกิดข้อผิดพลาดในการโหลดประวัติผู้ป่วย');
+            console.error('Error fetching patient history:', err);
         } finally {
             setHistoryLoading(false);
         }
-    }, [historyMonth, historyYear]);
+    }, [historyLimit, getCurrentMonthDateRange]);
 
-    const filteredHistoryRecords = React.useMemo(() => {
-        const term = historyFilters.search.trim().toLowerCase();
-        if (!term) {
-            return patientHistory;
+    // เมื่อมีการค้นหา ให้ fetch ข้อมูลใหม่
+    const handleHistorySearch = useCallback(() => {
+        setHistoryPage(1);
+        fetchPatientHistory(1, historySearch);
+    }, [historySearch, fetchPatientHistory]);
+
+    // เมื่อกด Enter ใน search box
+    const handleHistorySearchKeyDown = useCallback((e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            handleHistorySearch();
         }
+    }, [handleHistorySearch]);
 
-        return patientHistory.filter((record) => {
-            const valuesToCheck = [
-                record?.HNNO,
-                record?.HNCODE,
-                record?.HN,
-                record?.VNO,
-                record?.VN,
-                record?.PRENAME,
-                record?.NAME1,
-                record?.SURNAME
-            ].filter(Boolean);
+    // เมื่อเปลี่ยนหน้า pagination
+    const handleHistoryPageChange = useCallback((newPage) => {
+        setHistoryPage(newPage);
+        fetchPatientHistory(newPage, historySearch);
+    }, [historySearch, fetchPatientHistory]);
 
-            return valuesToCheck.some((value) =>
-                value.toString().toLowerCase().includes(term)
-            );
-        });
-    }, [historyFilters.search, patientHistory]);
+    // ใช้ patientHistory โดยตรง (ไม่ต้อง filter อีกเพราะ filter ใน fetch แล้ว)
+    const filteredHistoryRecords = React.useMemo(() => {
+        return patientHistory;
+    }, [patientHistory]);
 
     const formatHistoryDate = useCallback((record) => {
         const dateString = record?.RDATE || record?.TRDATE || record?.created_at;
@@ -612,17 +838,22 @@ const PatientManagement = () => {
     }, []);
 
     const getTreatmentSummary = useCallback((record) => {
-        return (
-            record?.TREATMENT1 ||
-            record?.treatment?.TREATMENT1 ||
-            record?.TREATMENT_SUMMARY ||
-            record?.summary ||
-            'ไม่มีข้อมูล'
-        );
-    }, []);
-
-    useEffect(() => {
-        loadPatients();
+        // ดึง TREATMENT1 จาก table TREATMENT1 โดยตรง
+        if (record?.TREATMENT1) {
+            return record.TREATMENT1;
+        }
+        // Fallback ไปหาใน nested object
+        if (record?.treatment?.TREATMENT1) {
+            return record.treatment.TREATMENT1;
+        }
+        // Fallback อื่นๆ
+        if (record?.TREATMENT_SUMMARY) {
+            return record.TREATMENT_SUMMARY;
+        }
+        if (record?.summary) {
+            return record.summary;
+        }
+        return 'ไม่มีข้อมูล';
     }, []);
 
     useEffect(() => {
@@ -635,24 +866,102 @@ const PatientManagement = () => {
 
     useEffect(() => {
         if (activeTab === 'history') {
-            fetchPatientHistory();
+            // เมื่อเปิด tab history ให้ดึงข้อมูลเดือนนี้ (ไม่มี search term)
+            setHistoryPage(1);
+            setHistorySearch('');
+            fetchPatientHistory(1, '');
         }
     }, [activeTab, fetchPatientHistory]);
 
-    const loadPatients = async () => {
+    // ฟังก์ชันลบประวัติผู้ป่วย
+    const handleDeleteTreatment = async () => {
+        if (!selectedRecord) return;
+
+        try {
+            setActionLoading(true);
+            const vno = selectedRecord?.VNO || selectedRecord?.VN;
+            
+            if (!vno) {
+                setHistoryError('ไม่พบ VN สำหรับลบข้อมูล');
+                setDeleteDialogOpen(false);
+                return;
+            }
+
+            const response = await TreatmentService.deleteTreatment(vno);
+
+            if (response.success) {
+                setDeleteDialogOpen(false);
+                setSelectedRecord(null);
+                
+                // Refresh ข้อมูล
+                await fetchPatientHistory(historyPage, historySearch);
+                setHistoryError('');
+            } else {
+                setHistoryError(response.message || 'เกิดข้อผิดพลาดในการลบข้อมูล');
+            }
+        } catch (err) {
+            setHistoryError('เกิดข้อผิดพลาดในการลบข้อมูล: ' + (err.message || 'ไม่ทราบสาเหตุ'));
+            console.error('Error deleting treatment:', err);
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
+    // ฟังก์ชันยกเลิกประวัติผู้ป่วย
+    const handleCancelTreatment = async () => {
+        if (!selectedRecord) return;
+
+        try {
+            setActionLoading(true);
+            const vno = selectedRecord?.VNO || selectedRecord?.VN;
+            
+            if (!vno) {
+                setHistoryError('ไม่พบ VN สำหรับยกเลิก');
+                setCancelDialogOpen(false);
+                return;
+            }
+
+            const response = await TreatmentService.cancelTreatment(vno);
+
+            if (response.success) {
+                setCancelDialogOpen(false);
+                setSelectedRecord(null);
+                
+                // Refresh ข้อมูล
+                await fetchPatientHistory(historyPage, historySearch);
+                setHistoryError('');
+            } else {
+                setHistoryError(response.message || 'เกิดข้อผิดพลาดในการยกเลิก');
+            }
+        } catch (err) {
+            setHistoryError('เกิดข้อผิดพลาดในการยกเลิก: ' + (err.message || 'ไม่ทราบสาเหตุ'));
+            console.error('Error canceling treatment:', err);
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
+    const loadPatients = useCallback(async () => {
         try {
             setLoading(true);
             const response = await PatientService.getAllPatients();
             if (response.success) {
                 setPatients(response.data);
                 setFilteredPatients(response.data);
+                return response.data;
             }
+            return [];
         } catch (err) {
             setError('ไม่สามารถโหลดข้อมูลผู้ป่วยได้');
+            return [];
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
+
+    useEffect(() => {
+        loadPatients();
+    }, [loadPatients]);
 
     const handleSearch = async () => {
         if (!searchTerm.trim()) {
@@ -693,13 +1002,27 @@ const PatientManagement = () => {
     }, []);
 
     const handleSave = async () => {
+        if (!selectedPatient) {
+            return;
+        }
+
         try {
             setLoading(true);
             const response = await PatientService.updatePatient(selectedPatient.HNCODE, editFormData);
-            
+
             if (response.success) {
-                await loadPatients();
-                setSelectedPatient(editFormData);
+                const updatedList = await loadPatients();
+                const updatedPatient = Array.isArray(updatedList)
+                    ? updatedList.find((patient) => patient.HNCODE === selectedPatient.HNCODE)
+                    : null;
+
+                if (updatedPatient) {
+                    setSelectedPatient(updatedPatient);
+                    setEditFormData(updatedPatient);
+                } else {
+                    setSelectedPatient(null);
+                }
+
                 setIsEditing(false);
                 setError('');
             }
@@ -711,6 +1034,10 @@ const PatientManagement = () => {
     };
 
     const handleDelete = async () => {
+        if (!selectedPatient) {
+            return;
+        }
+
         if (!window.confirm(`คุณต้องการลบข้อมูลผู้ป่วย ${selectedPatient.PRENAME} ${selectedPatient.NAME1} ${selectedPatient.SURNAME} หรือไม่?`)) {
             return;
         }
@@ -722,6 +1049,8 @@ const PatientManagement = () => {
             if (response.success) {
                 await loadPatients();
                 setSelectedPatient(null);
+                setEditFormData({});
+                setIsEditing(false);
                 setError('');
             }
         } catch (err) {
@@ -758,9 +1087,9 @@ const PatientManagement = () => {
                 </Tabs>
             </Box>
 
-            <Box sx={{ flex: 1, overflow: 'hidden' }}>
+            <Box sx={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
                 {activeTab === 'manage' ? (
-                    <Box sx={{ display: 'flex', height: '100%', overflow: 'hidden' }}>
+                    <Box sx={{ display: 'flex', height: '100%', overflow: 'hidden', minHeight: 0 }}>
                         {/* Left Sidebar */}
                         <Box
                             sx={{
@@ -769,7 +1098,8 @@ const PatientManagement = () => {
                                 borderRight: '1px solid #e2e8f0',
                                 display: 'flex',
                                 flexDirection: 'column',
-                                overflow: 'hidden'
+                                overflow: 'hidden',
+                                minHeight: 0
                             }}
                         >
                             {/* Header */}
@@ -895,82 +1225,66 @@ const PatientManagement = () => {
                         </Box>
                     </Box>
                 ) : (
-                    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: '#f8fafc' }}>
-                        <Box sx={{ p: 3, pb: 2 }}>
-                            <Grid container spacing={2}>
-                                <Grid item xs={12} sm={4} md={2}>
-                                    <TextField
-                                        label="ปี (พ.ศ.)"
-                                        type="number"
-                                        value={historyFilters.year}
-                                        onChange={(e) => handleHistoryFilterChange('year', e.target.value)}
-                                        fullWidth
-                                        size="small"
-                                        InputProps={{
-                                            inputProps: { min: 2500, max: 2700 }
-                                        }}
-                                    />
-                                </Grid>
-                                <Grid item xs={12} sm={4} md={2}>
-                                    <TextField
-                                        label="เดือน"
-                                        select
-                                        value={historyFilters.month}
-                                        onChange={(e) => handleHistoryFilterChange('month', e.target.value)}
-                                        fullWidth
-                                        size="small"
-                                    >
-                                        {MONTH_OPTIONS.map((option) => (
-                                            <MenuItem key={option.value} value={option.value}>
-                                                {option.label}
-                                            </MenuItem>
-                                        ))}
-                                    </TextField>
-                                </Grid>
-                                <Grid item xs={12} md={4}>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: '#f8fafc', overflow: 'hidden', minHeight: 0 }}>
+                        <Box sx={{ p: 3, pb: 2, flexShrink: 0 }}>
+                            <Grid container spacing={2} alignItems="center">
+                                <Grid item xs={12} md={6}>
                                     <TextField
                                         label="ค้นหาผู้ป่วย / HN / VN"
-                                        value={historyFilters.search}
-                                        onChange={(e) => handleHistoryFilterChange('search', e.target.value)}
-                                        onKeyDown={(e) => {
-                                            if (e.key === 'Enter') {
-                                                e.preventDefault();
-                                                fetchPatientHistory();
-                                            }
-                                        }}
+                                        value={historySearch}
+                                        onChange={(e) => handleHistorySearchChange(e.target.value)}
+                                        onKeyDown={handleHistorySearchKeyDown}
                                         fullWidth
                                         size="small"
+                                        placeholder={isSearchingHistory ? "ค้นหาทั้งหมด" : "ค้นหาเพื่อดึงข้อมูลทั้งหมด"}
                                     />
                                 </Grid>
-                                <Grid item xs={12} sm={4} md={2}>
+                                <Grid item xs={12} sm={6} md={3}>
                                     <Button
                                         variant="contained"
                                         color="primary"
                                         startIcon={<Search />}
-                                        onClick={fetchPatientHistory}
+                                        onClick={handleHistorySearch}
                                         disabled={historyLoading}
                                         fullWidth
                                         sx={{ height: '100%', minHeight: 40, borderRadius: 2 }}
                                     >
-                                        โหลดข้อมูล
+                                        {isSearchingHistory ? "ค้นหา" : "ค้นหา"}
+                                    </Button>
+                                </Grid>
+                                <Grid item xs={12} sm={6} md={3}>
+                                    <Button
+                                        variant="outlined"
+                                        color="primary"
+                                        startIcon={<Refresh />}
+                                        onClick={() => {
+                                            setHistorySearch('');
+                                            setHistoryPage(1);
+                                            fetchPatientHistory(1, '');
+                                        }}
+                                        disabled={historyLoading}
+                                        fullWidth
+                                        sx={{ height: '100%', minHeight: 40, borderRadius: 2 }}
+                                    >
+                                        รีเซ็ต 
                                     </Button>
                                 </Grid>
                             </Grid>
                         </Box>
 
-                        <Box sx={{ flex: 1, px: 3, pb: 3, display: 'flex', flexDirection: 'column' }}>
+                        <Box sx={{ flex: 1, px: 3, pb: 3, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
                             {historyError && (
                                 <Alert
                                     severity="error"
                                     onClose={() => setHistoryError('')}
-                                    sx={{ mb: 2, borderRadius: 2 }}
+                                    sx={{ mb: 2, borderRadius: 2, flexShrink: 0 }}
                                 >
                                     {historyError}
                                 </Alert>
                             )}
 
-                            <Paper sx={{ flex: 1, borderRadius: 3, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                                {historyLoading && <LinearProgress />}
+                            <Paper sx={{ flex: 1, borderRadius: 3, display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
+                                {historyLoading && <LinearProgress sx={{ flexShrink: 0 }} />}
                                 <Box
                                     sx={{
                                         display: 'flex',
@@ -979,31 +1293,45 @@ const PatientManagement = () => {
                                         px: 3,
                                         py: 2,
                                         borderBottom: '1px solid #e2e8f0',
-                                        backgroundColor: '#ffffff'
+                                        backgroundColor: '#ffffff',
+                                        flexShrink: 0
                                     }}
                                 >
                                     <Typography variant="h6" fontWeight={600}>
                                         ประวัติผู้ป่วย
+                                        {!isSearchingHistory && (
+                                            <Typography component="span" variant="body2" sx={{ ml: 1, color: 'text.secondary', fontWeight: 400 }}>
+                                                (เดือนนี้)
+                                            </Typography>
+                                        )}
                                     </Typography>
                                     <Typography variant="body2" color="text.secondary">
-                                        ทั้งหมด {filteredHistoryRecords.length} รายการ
+                                        {isSearchingHistory 
+                                            ? `ทั้งหมด ${historyPagination.total || filteredHistoryRecords.length} รายการ`
+                                            : `เดือนนี้ ${historyPagination.total || filteredHistoryRecords.length} รายการ`
+                                        }
                                     </Typography>
                                 </Box>
 
-                                <TableContainer sx={{ flex: 1 }}>
+                                <TableContainer sx={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
                                     <Table stickyHeader size="small">
                                         <TableHead>
                                             <TableRow>
-                                                <TableCell sx={{ fontWeight: 600 }}>วันที่</TableCell>
-                                                <TableCell sx={{ fontWeight: 600 }}>HN</TableCell>
-                                                <TableCell sx={{ fontWeight: 600 }}>VN</TableCell>
-                                                <TableCell sx={{ fontWeight: 600 }}>สรุปการรักษา</TableCell>
+                                                <TableCell sx={{ fontWeight: 600, minWidth: 120 }}>วันที่</TableCell>
+                                                <TableCell sx={{ fontWeight: 600, minWidth: 100 }}>HN</TableCell>
+                                                <TableCell sx={{ fontWeight: 600, minWidth: 120 }}>VN</TableCell>
+                                                <TableCell sx={{ fontWeight: 600, minWidth: 150 }}>
+                                                    ชื่อ-นามสกุล
+                                                </TableCell>
+                                                <TableCell sx={{ fontWeight: 600 }}>สถานะ</TableCell>
+                                                <TableCell sx={{ fontWeight: 600 }}>สรุปการรักษา (TREATMENT1)</TableCell>
+                                                <TableCell sx={{ fontWeight: 600, minWidth: 150 }} align="center">จัดการ</TableCell>
                                             </TableRow>
                                         </TableHead>
                                         <TableBody>
                                             {filteredHistoryRecords.length === 0 && !historyLoading ? (
                                                 <TableRow>
-                                                    <TableCell colSpan={4}>
+                                                    <TableCell colSpan={7}>
                                                         <Box sx={{ textAlign: 'center', py: 6, color: '#64748b' }}>
                                                             <Typography variant="body2">
                                                                 ไม่พบข้อมูลประวัติผู้ป่วยในช่วงที่เลือก
@@ -1020,32 +1348,99 @@ const PatientManagement = () => {
                                                     const patientName = [record?.PRENAME, record?.NAME1, record?.SURNAME]
                                                         .filter(Boolean)
                                                         .join(' ');
+                                                    const treatment1 = getTreatmentSummary(record);
+                                                    const status = record?.STATUS1 || 'ทำงานอยู่';
+                                                    const isCanceled = status === 'ยกเลิก';
+                                                    
                                                     return (
                                                         <TableRow key={rowKey} hover>
                                                             <TableCell sx={{ whiteSpace: 'nowrap' }}>
                                                                 {formatHistoryDate(record)}
                                                             </TableCell>
-                                                            <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                                                            <TableCell sx={{ whiteSpace: 'nowrap', fontWeight: 500 }}>
                                                                 {record?.HNNO || record?.HNCODE || '-'}
                                                             </TableCell>
-                                                            <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                                                            <TableCell sx={{ whiteSpace: 'nowrap', fontWeight: 500 }}>
                                                                 {record?.VNO || record?.VN || '-'}
                                                             </TableCell>
-                                                            <TableCell>
-                                                                {patientName && (
-                                                                    <Typography
-                                                                        variant="subtitle2"
-                                                                        sx={{ fontWeight: 600, color: '#0f172a', mb: 0.5 }}
-                                                                    >
-                                                                        {patientName}
-                                                                    </Typography>
-                                                                )}
+                                                            <TableCell sx={{ minWidth: 150 }}>
                                                                 <Typography
                                                                     variant="body2"
-                                                                    sx={{ color: '#475569', whiteSpace: 'pre-wrap', lineHeight: 1.6 }}
+                                                                    sx={{
+                                                                        fontWeight: 500,
+                                                                        color: '#1f2937',
+                                                                        lineHeight: 1.5
+                                                                    }}
                                                                 >
-                                                                    {getTreatmentSummary(record)}
+                                                                    {patientName || '-'}
                                                                 </Typography>
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <Chip
+                                                                    label={status}
+                                                                    size="small"
+                                                                    sx={{
+                                                                        backgroundColor: isCanceled ? '#fee2e2' : status === 'ปิดแล้ว' ? '#dcfce7' : '#dbeafe',
+                                                                        color: isCanceled ? '#991b1b' : status === 'ปิดแล้ว' ? '#166534' : '#1e40af',
+                                                                        fontWeight: 500,
+                                                                        fontSize: '11px'
+                                                                    }}
+                                                                />
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <Typography
+                                                                    variant="body2"
+                                                                    sx={{
+                                                                        color: '#475569',
+                                                                        whiteSpace: 'pre-wrap',
+                                                                        lineHeight: 1.7,
+                                                                        wordBreak: 'break-word'
+                                                                    }}
+                                                                >
+                                                                    {treatment1}
+                                                                </Typography>
+                                                            </TableCell>
+                                                            <TableCell align="center">
+                                                                <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
+                                                                    {!isCanceled && (
+                                                                        <Tooltip title="ยกเลิก">
+                                                                            <IconButton
+                                                                                size="small"
+                                                                                color="warning"
+                                                                                onClick={() => {
+                                                                                    setSelectedRecord(record);
+                                                                                    setCancelDialogOpen(true);
+                                                                                }}
+                                                                                disabled={actionLoading}
+                                                                                sx={{
+                                                                                    '&:hover': {
+                                                                                        backgroundColor: '#fef3c7'
+                                                                                    }
+                                                                                }}
+                                                                            >
+                                                                                <CancelOutlined fontSize="small" />
+                                                                            </IconButton>
+                                                                        </Tooltip>
+                                                                    )}
+                                                                    <Tooltip title="ลบ">
+                                                                        <IconButton
+                                                                            size="small"
+                                                                            color="error"
+                                                                            onClick={() => {
+                                                                                setSelectedRecord(record);
+                                                                                setDeleteDialogOpen(true);
+                                                                            }}
+                                                                            disabled={actionLoading}
+                                                                            sx={{
+                                                                                '&:hover': {
+                                                                                    backgroundColor: '#fee2e2'
+                                                                                }
+                                                                            }}
+                                                                        >
+                                                                            <Delete fontSize="small" />
+                                                                        </IconButton>
+                                                                    </Tooltip>
+                                                                </Box>
                                                             </TableCell>
                                                         </TableRow>
                                                     );
@@ -1054,11 +1449,142 @@ const PatientManagement = () => {
                                         </TableBody>
                                     </Table>
                                 </TableContainer>
+
+                                {/* Pagination Controls */}
+                                {historyPagination.totalPages > 1 && (
+                                    <Box
+                                        sx={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'space-between',
+                                            px: 3,
+                                            py: 2,
+                                            borderTop: '1px solid #e2e8f0',
+                                            backgroundColor: '#ffffff',
+                                            flexShrink: 0
+                                        }}
+                                    >
+                                        <Typography variant="body2" color="text.secondary">
+                                            หน้า {historyPagination.page} จาก {historyPagination.totalPages} 
+                                            {' '}(ทั้งหมด {historyPagination.total} รายการ)
+                                        </Typography>
+                                        <Box sx={{ display: 'flex', gap: 1 }}>
+                                            <Button
+                                                variant="outlined"
+                                                size="small"
+                                                startIcon={<KeyboardArrowLeft />}
+                                                onClick={() => handleHistoryPageChange(historyPagination.page - 1)}
+                                                disabled={historyPagination.page <= 1 || historyLoading}
+                                                sx={{ borderRadius: 2 }}
+                                            >
+                                                ก่อนหน้า
+                                            </Button>
+                                            <Button
+                                                variant="outlined"
+                                                size="small"
+                                                endIcon={<KeyboardArrowRight />}
+                                                onClick={() => handleHistoryPageChange(historyPagination.page + 1)}
+                                                disabled={historyPagination.page >= historyPagination.totalPages || historyLoading}
+                                                sx={{ borderRadius: 2 }}
+                                            >
+                                                ถัดไป
+                                            </Button>
+                                        </Box>
+                                    </Box>
+                                )}
                             </Paper>
                         </Box>
                     </Box>
                 )}
             </Box>
+
+            {/* Delete Confirmation Dialog */}
+            <Dialog
+                open={deleteDialogOpen}
+                onClose={() => !actionLoading && setDeleteDialogOpen(false)}
+                maxWidth="sm"
+                fullWidth
+            >
+                <DialogTitle>ยืนยันการลบข้อมูล</DialogTitle>
+                <DialogContent>
+                    <DialogContentText>
+                        คุณแน่ใจหรือไม่ว่าต้องการลบข้อมูลประวัติผู้ป่วยนี้?
+                        <br />
+                        <strong>VN: {selectedRecord?.VNO || selectedRecord?.VN || '-'}</strong>
+                        <br />
+                        <strong>HN: {selectedRecord?.HNNO || selectedRecord?.HNCODE || '-'}</strong>
+                        <br />
+                        <strong>ชื่อ: {[selectedRecord?.PRENAME, selectedRecord?.NAME1, selectedRecord?.SURNAME].filter(Boolean).join(' ')}</strong>
+                        <br />
+                        <br />
+                        <Typography variant="body2" color="error" sx={{ mt: 1 }}>
+                            ⚠️ การลบข้อมูลนี้ไม่สามารถกู้คืนได้
+                        </Typography>
+                    </DialogContentText>
+                </DialogContent>
+                <DialogActions>
+                    <Button
+                        onClick={() => setDeleteDialogOpen(false)}
+                        disabled={actionLoading}
+                        color="inherit"
+                    >
+                        ยกเลิก
+                    </Button>
+                    <Button
+                        onClick={handleDeleteTreatment}
+                        disabled={actionLoading}
+                        color="error"
+                        variant="contained"
+                        startIcon={actionLoading ? <CircularProgress size={16} /> : <Delete />}
+                    >
+                        {actionLoading ? 'กำลังลบ...' : 'ลบ'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Cancel Confirmation Dialog */}
+            <Dialog
+                open={cancelDialogOpen}
+                onClose={() => !actionLoading && setCancelDialogOpen(false)}
+                maxWidth="sm"
+                fullWidth
+            >
+                <DialogTitle>ยืนยันการยกเลิกประวัติผู้ป่วย</DialogTitle>
+                <DialogContent>
+                    <DialogContentText>
+                        คุณแน่ใจหรือไม่ว่าต้องการยกเลิกประวัติผู้ป่วยนี้?
+                        <br />
+                        <strong>VN: {selectedRecord?.VNO || selectedRecord?.VN || '-'}</strong>
+                        <br />
+                        <strong>HN: {selectedRecord?.HNNO || selectedRecord?.HNCODE || '-'}</strong>
+                        <br />
+                        <strong>ชื่อ: {[selectedRecord?.PRENAME, selectedRecord?.NAME1, selectedRecord?.SURNAME].filter(Boolean).join(' ')}</strong>
+                        <br />
+                        <br />
+                        <Typography variant="body2" color="warning.main" sx={{ mt: 1 }}>
+                            ⚠️ สถานะจะถูกเปลี่ยนเป็น "ยกเลิก"
+                        </Typography>
+                    </DialogContentText>
+                </DialogContent>
+                <DialogActions>
+                    <Button
+                        onClick={() => setCancelDialogOpen(false)}
+                        disabled={actionLoading}
+                        color="inherit"
+                    >
+                        ยกเลิก
+                    </Button>
+                    <Button
+                        onClick={handleCancelTreatment}
+                        disabled={actionLoading}
+                        color="warning"
+                        variant="contained"
+                        startIcon={actionLoading ? <CircularProgress size={16} /> : <CancelOutlined />}
+                    >
+                        {actionLoading ? 'กำลังยกเลิก...' : 'ยกเลิก'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </Box>
     );
 };

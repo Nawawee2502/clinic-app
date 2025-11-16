@@ -33,13 +33,13 @@ import {
     TableCell,
     TableContainer,
     TableHead,
-    TableRow,
-    Autocomplete
+    TableRow
 } from '@mui/material';
 import ClinicOrgService from '../services/clinicOrgService';
 import AuthService from '../services/authService';
 import BankService from '../services/bankService';
 import BookBankService from '../services/bookBankService';
+import RoleService from '../services/roleService';
 import BusinessIcon from '@mui/icons-material/Business';
 import PeopleIcon from '@mui/icons-material/People';
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
@@ -48,6 +48,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
+import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 
 function TabPanel({ children, value, index }) {
     return (
@@ -112,15 +113,51 @@ const SettingsPage = () => {
         bankType: 'ออมทรัพย์'
     });
 
+    // Role Data
+    const [roles, setRoles] = useState([]);
+    const [rolesLoading, setRolesLoading] = useState(false);
+    const [openRoleDialog, setOpenRoleDialog] = useState(false);
+    const [editingRole, setEditingRole] = useState(null);
+    const [roleForm, setRoleForm] = useState({ roleName: '' });
+    const [roleActionLoading, setRoleActionLoading] = useState(false);
+
+    // โหลด provinces และ orgData เมื่อ component mount (ครั้งเดียว)
     useEffect(() => {
-        loadOrganizationData();
-        loadProvinces();
+        const initializeData = async () => {
+            try {
+                // โหลดจังหวัดก่อน
+                const provincesData = await loadProvinces();
+
+                // เมื่อโหลดจังหวัดเสร็จแล้ว ค่อยโหลดข้อมูลองค์กร
+                // รอสักครู่เพื่อให้ provinces state อัปเดต
+                if (provincesData && provincesData.length > 0) {
+                    // รอให้ state อัปเดตก่อน
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    await loadOrganizationData(provincesData);
+                } else {
+                    // ถ้าโหลดจังหวัดไม่สำเร็จ ก็ลองโหลดข้อมูลองค์กรดู
+                    await loadOrganizationData();
+                }
+            } catch (error) {
+                console.error('Error initializing data:', error);
+                setError('ไม่สามารถโหลดข้อมูลเริ่มต้นได้');
+            }
+        };
+
+        initializeData();
+    }, []); // เรียกครั้งเดียวเมื่อ component mount
+
+    // โหลดข้อมูลตาม tab ที่เลือก
+    useEffect(() => {
         if (tabValue === 1) {
             loadUsers();
         }
         if (tabValue === 2) {
             loadBanks();
             loadBookBanks();
+        }
+        if (tabValue === 3) {
+            loadRoles();
         }
     }, [tabValue]);
 
@@ -131,9 +168,12 @@ const SettingsPage = () => {
             const result = await response.json();
             if (result.success) {
                 setProvinces(result.data);
+                return result.data; // return data ที่โหลดมา
             }
+            return null;
         } catch (error) {
             console.error('Error loading provinces:', error);
+            return null;
         }
     };
 
@@ -163,12 +203,16 @@ const SettingsPage = () => {
         }
     };
 
-    const loadOrganizationData = async () => {
+    const loadOrganizationData = async (provincesData = null) => {
         try {
             setLoading(true);
+            setError('');
+
             const response = await ClinicOrgService.getClinicOrg();
             if (response.success) {
                 const data = response.data;
+
+                // ตั้งค่า orgData
                 setOrgData({
                     clinicCode: data.CLINIC_CODE || '',
                     clinicName: data.CLINIC_NAME || '',
@@ -185,40 +229,77 @@ const SettingsPage = () => {
                     bankType: data.bank_type || ''
                 });
 
-                // ✅ โหลดข้อมูลที่อยู่และตั้งค่า Autocomplete
+                // ✅ โหลดข้อมูลที่อยู่และตั้งค่า dropdown ตามลำดับ
                 if (data.PROVINCE_CODE) {
-                    // หาจังหวัดที่ตรงกับ code
-                    const province = provinces.find(p => p.PROVINCE_CODE === data.PROVINCE_CODE);
-                    if (province) {
-                        setSelectedProvince(province);
+                    // ใช้ provincesData ที่ส่งมา หรือใช้ state (ต้องรอให้ state อัปเดต)
+                    let provincesList = provincesData;
+                    if (!provincesList || provincesList.length === 0) {
+                        // ถ้าไม่มี provincesData ลองใช้ state
+                        provincesList = provinces;
                     }
-                    await loadAmphersByProvince(data.PROVINCE_CODE);
-                }
 
-                if (data.AMPHER_CODE) {
-                    // รอให้โหลดอำเภอเสร็จก่อน
-                    setTimeout(() => {
-                        const ampher = amphers.find(a => a.AMPHER_CODE === data.AMPHER_CODE);
-                        if (ampher) {
-                            setSelectedAmpher(ampher);
-                        }
-                    }, 500);
-                    await loadTumbolsByAmpher(data.AMPHER_CODE);
-                }
+                    // ถ้ายังไม่มี ให้โหลดใหม่
+                    if (!provincesList || provincesList.length === 0) {
+                        const provincesResult = await loadProvinces();
+                        provincesList = provincesResult || [];
+                    }
 
-                if (data.TUMBOL_CODE) {
-                    // รอให้โหลดตำบลเสร็จก่อน
-                    setTimeout(() => {
-                        const tumbol = tumbols.find(t => t.TUMBOL_CODE === data.TUMBOL_CODE);
-                        if (tumbol) {
-                            setSelectedTumbol(tumbol);
+                    // หาจังหวัดที่ตรงกับ code (เพื่อตั้งค่า selectedProvince สำหรับ state)
+                    if (provincesList && provincesList.length > 0) {
+                        const province = provincesList.find(p => p.PROVINCE_CODE === data.PROVINCE_CODE);
+                        if (province) {
+                            setSelectedProvince(province);
+
+                            // โหลดอำเภอตามจังหวัด (โหลดเสมอถ้ามีจังหวัด)
+                            try {
+                                const amphersResponse = await fetch(`${API_BASE_URL}/amphers/province/${data.PROVINCE_CODE}`);
+                                const amphersResult = await amphersResponse.json();
+
+                                if (amphersResult.success && amphersResult.data) {
+                                    setAmphers(amphersResult.data);
+
+                                    // ถ้ามีอำเภอในข้อมูล ให้หาอำเภอที่ตรงกับ code
+                                    if (data.AMPHER_CODE) {
+                                        const ampher = amphersResult.data.find(a => a.AMPHER_CODE === data.AMPHER_CODE);
+                                        if (ampher) {
+                                            setSelectedAmpher(ampher);
+
+                                            // โหลดตำบลตามอำเภอ (โหลดเสมอถ้ามีอำเภอ)
+                                            try {
+                                                const tumbolsResponse = await fetch(`${API_BASE_URL}/tumbols/ampher/${data.AMPHER_CODE}`);
+                                                const tumbolsResult = await tumbolsResponse.json();
+
+                                                if (tumbolsResult.success && tumbolsResult.data) {
+                                                    setTumbols(tumbolsResult.data);
+
+                                                    // ถ้ามีตำบลในข้อมูล ให้หาตำบลที่ตรงกับ code
+                                                    if (data.TUMBOL_CODE) {
+                                                        const tumbol = tumbolsResult.data.find(t => t.TUMBOL_CODE === data.TUMBOL_CODE);
+                                                        if (tumbol) {
+                                                            setSelectedTumbol(tumbol);
+                                                        }
+                                                    }
+                                                }
+                                            } catch (tumbolsError) {
+                                                console.error('Error loading tumbols:', tumbolsError);
+                                            }
+                                        }
+                                    }
+                                }
+                            } catch (amphersError) {
+                                console.error('Error loading amphers:', amphersError);
+                            }
+                        } else {
+                            console.warn('Province not found:', data.PROVINCE_CODE);
                         }
-                    }, 1000);
+                    }
                 }
+            } else {
+                setError('ไม่สามารถโหลดข้อมูลองค์กรได้');
             }
         } catch (error) {
             console.error('Error loading org data:', error);
-            setError('ไม่สามารถโหลดข้อมูลองค์กรได้');
+            setError('ไม่สามารถโหลดข้อมูลองค์กรได้: ' + (error.message || 'เกิดข้อผิดพลาด'));
         } finally {
             setLoading(false);
         }
@@ -268,6 +349,23 @@ const SettingsPage = () => {
         }
     };
 
+    const loadRoles = async () => {
+        try {
+            setRolesLoading(true);
+            const response = await RoleService.getAllRoles();
+            if (response.success) {
+                setRoles(Array.isArray(response.data) ? response.data : []);
+            } else {
+                setError(response.message || 'ไม่สามารถโหลดข้อมูลสิทธิ์ได้');
+            }
+        } catch (error) {
+            console.error('Error loading roles:', error);
+            setError(error.message || 'ไม่สามารถโหลดข้อมูลสิทธิ์ได้');
+        } finally {
+            setRolesLoading(false);
+        }
+    };
+
     const handleOrgChange = (e) => {
         setOrgData({
             ...orgData,
@@ -275,9 +373,12 @@ const SettingsPage = () => {
         });
     };
 
-    // ✅ Handle การเปลี่ยนจังหวัด
-    const handleProvinceChange = (event, newValue) => {
-        setSelectedProvince(newValue);
+    // ✅ Handle การเปลี่ยนจังหวัด (เปลี่ยนเป็น dropdown)
+    const handleProvinceChange = (event) => {
+        const provinceCode = event.target.value;
+        const province = provinces.find(p => p.PROVINCE_CODE === provinceCode);
+
+        setSelectedProvince(province || null);
         setSelectedAmpher(null);
         setSelectedTumbol(null);
         setAmphers([]);
@@ -285,43 +386,54 @@ const SettingsPage = () => {
 
         setOrgData({
             ...orgData,
-            provinceCode: newValue ? newValue.PROVINCE_CODE : '',
+            provinceCode: provinceCode || '',
             ampherCode: '',
             tumbolCode: '',
             zipcode: ''
         });
 
-        if (newValue) {
-            loadAmphersByProvince(newValue.PROVINCE_CODE);
+        if (provinceCode) {
+            loadAmphersByProvince(provinceCode);
         }
     };
 
-    // ✅ Handle การเปลี่ยนอำเภอ
-    const handleAmpherChange = (event, newValue) => {
-        setSelectedAmpher(newValue);
+    // ✅ Handle การเปลี่ยนอำเภอ (เปลี่ยนเป็น dropdown)
+    const handleAmpherChange = (event) => {
+        const ampherCode = event.target.value;
+        const ampher = amphers.find(a => a.AMPHER_CODE === ampherCode);
+
+        setSelectedAmpher(ampher || null);
         setSelectedTumbol(null);
         setTumbols([]);
 
         setOrgData({
             ...orgData,
-            ampherCode: newValue ? newValue.AMPHER_CODE : '',
+            ampherCode: ampherCode || '',
             tumbolCode: '',
             zipcode: ''
         });
 
-        if (newValue) {
-            loadTumbolsByAmpher(newValue.AMPHER_CODE);
+        if (ampherCode) {
+            loadTumbolsByAmpher(ampherCode);
         }
     };
 
-    // ✅ Handle การเปลี่ยนตำบล
-    const handleTumbolChange = (event, newValue) => {
-        setSelectedTumbol(newValue);
+    // ✅ Handle การเปลี่ยนตำบล (เปลี่ยนเป็น dropdown)
+    const handleTumbolChange = (event) => {
+        const tumbolCode = event.target.value;
+        const tumbol = tumbols.find(t => t.TUMBOL_CODE === tumbolCode);
+
+        setSelectedTumbol(tumbol || null);
+
+        // ดึง zipcode จาก tumbol (รองรับทั้ง lowercase และ uppercase)
+        const zipcodeValue = tumbol
+            ? (tumbol.zipcode || tumbol.ZIPCODE || '')
+            : '';
 
         setOrgData({
             ...orgData,
-            tumbolCode: newValue ? newValue.TUMBOL_CODE : '',
-            zipcode: newValue && newValue.zipcode ? newValue.zipcode : orgData.zipcode
+            tumbolCode: tumbolCode || '',
+            zipcode: zipcodeValue || orgData.zipcode
         });
     };
 
@@ -460,6 +572,82 @@ const SettingsPage = () => {
         }
     };
 
+    // Role dialog functions
+    const handleOpenRoleDialog = (role = null) => {
+        if (role) {
+            setEditingRole(role);
+            setRoleForm({ roleName: role.roleName || '' });
+        } else {
+            setEditingRole(null);
+            setRoleForm({ roleName: '' });
+        }
+        setOpenRoleDialog(true);
+    };
+
+    const handleCloseRoleDialog = () => {
+        setOpenRoleDialog(false);
+        setEditingRole(null);
+        setRoleForm({ roleName: '' });
+        setRoleActionLoading(false);
+    };
+
+    const handleRoleFormChange = (event) => {
+        setRoleForm({
+            ...roleForm,
+            [event.target.name]: event.target.value
+        });
+    };
+
+    const handleSaveRole = async () => {
+        const name = roleForm.roleName?.trim();
+
+        if (!name) {
+            setError('กรุณาระบุชื่อสิทธิ์');
+            return;
+        }
+
+        try {
+            setRoleActionLoading(true);
+            setError('');
+            setSuccess('');
+
+            if (editingRole) {
+                await RoleService.updateRole(editingRole.roleCode, { roleName: name });
+                setSuccess('แก้ไขสิทธิ์สำเร็จ');
+            } else {
+                await RoleService.createRole({ roleName: name });
+                setSuccess('สร้างสิทธิ์สำเร็จ');
+            }
+
+            await loadRoles();
+            handleCloseRoleDialog();
+        } catch (error) {
+            setError(error.message || 'เกิดข้อผิดพลาดในการบันทึกสิทธิ์');
+        } finally {
+            setRoleActionLoading(false);
+        }
+    };
+
+    const handleDeleteRole = async (roleCode) => {
+        if (!window.confirm('คุณแน่ใจหรือไม่ที่จะลบสิทธิ์นี้?')) {
+            return;
+        }
+
+        try {
+            setRoleActionLoading(true);
+            setError('');
+            setSuccess('');
+
+            await RoleService.deleteRole(roleCode);
+            setSuccess('ลบสิทธิ์สำเร็จ');
+            await loadRoles();
+        } catch (error) {
+            setError(error.message || 'เกิดข้อผิดพลาดในการลบสิทธิ์');
+        } finally {
+            setRoleActionLoading(false);
+        }
+    };
+
     const getRoleColor = (role) => {
         switch (role) {
             case 'admin': return 'error';
@@ -471,6 +659,10 @@ const SettingsPage = () => {
     };
 
     const getRoleLabel = (role) => {
+        const matchedRole = roles.find((item) => item.roleCode === role);
+        if (matchedRole) {
+            return matchedRole.roleName;
+        }
         switch (role) {
             case 'admin': return 'ผู้ดูแลระบบ';
             case 'doctor': return 'แพทย์';
@@ -513,6 +705,12 @@ const SettingsPage = () => {
                             iconPosition="start"
                         />
                         <Tab
+                            icon={<AdminPanelSettingsIcon />}
+                            label="การจัดการสิทธิ์"
+                            iconPosition="start"
+                            disabled={!isAdmin}
+                        />
+                        <Tab
                             icon={<PeopleIcon />}
                             label="กำหนดผู้ใช้งาน"
                             iconPosition="start"
@@ -520,7 +718,19 @@ const SettingsPage = () => {
                         />
                         <Tab
                             icon={<AccountBalanceIcon />}
+                            label="กำหนดเงินสดประจำวัน"
+                            iconPosition="start"
+                            disabled={!isAdmin}
+                        />
+                        <Tab
+                            icon={<AccountBalanceIcon />}
                             label="บัญชีธนาคาร"
+                            iconPosition="start"
+                            disabled={!isAdmin}
+                        />
+                        <Tab
+                            icon={<AccountBalanceIcon />}
+                            label="กำหนดเงินฝากธนาคารประจำวัน"
                             iconPosition="start"
                             disabled={!isAdmin}
                         />
@@ -579,65 +789,71 @@ const SettingsPage = () => {
                                         />
                                     </Grid>
 
-                                    {/* ✅ เปลี่ยนจาก TextField เป็น Autocomplete */}
+                                    {/* ✅ Dropdown สำหรับเลือกจังหวัด อำเภอ ตำบล */}
                                     <Grid item xs={12} md={4}>
-                                        <Autocomplete
-                                            options={provinces}
-                                            getOptionLabel={(option) => option.PROVINCE_NAME || ''}
-                                            value={selectedProvince}
+                                        <TextField
+                                            select
+                                            fullWidth
+                                            label="จังหวัด *"
+                                            name="provinceCode"
+                                            value={orgData.provinceCode || ''}
                                             onChange={handleProvinceChange}
-                                            disabled={!isAdmin}
-                                            renderInput={(params) => (
-                                                <TextField
-                                                    {...params}
-                                                    label="จังหวัด *"
-                                                    required
-                                                />
-                                            )}
-                                            isOptionEqualToValue={(option, value) =>
-                                                option.PROVINCE_CODE === value?.PROVINCE_CODE
-                                            }
-                                        />
+                                            disabled={!isAdmin || loading || provinces.length === 0}
+                                            required
+                                        >
+                                            <MenuItem value="">
+                                                <em>-- เลือกจังหวัด --</em>
+                                            </MenuItem>
+                                            {provinces.map((province) => (
+                                                <MenuItem key={province.PROVINCE_CODE} value={province.PROVINCE_CODE}>
+                                                    {province.PROVINCE_NAME}
+                                                </MenuItem>
+                                            ))}
+                                        </TextField>
                                     </Grid>
 
                                     <Grid item xs={12} md={4}>
-                                        <Autocomplete
-                                            options={amphers}
-                                            getOptionLabel={(option) => option.AMPHER_NAME || ''}
-                                            value={selectedAmpher}
+                                        <TextField
+                                            select
+                                            fullWidth
+                                            label="อำเภอ/เขต *"
+                                            name="ampherCode"
+                                            value={orgData.ampherCode || ''}
                                             onChange={handleAmpherChange}
-                                            disabled={!isAdmin || !selectedProvince}
-                                            renderInput={(params) => (
-                                                <TextField
-                                                    {...params}
-                                                    label="อำเภอ/เขต *"
-                                                    required
-                                                />
-                                            )}
-                                            isOptionEqualToValue={(option, value) =>
-                                                option.AMPHER_CODE === value?.AMPHER_CODE
-                                            }
-                                        />
+                                            disabled={!isAdmin || !selectedProvince || loading || amphers.length === 0}
+                                            required
+                                        >
+                                            <MenuItem value="">
+                                                <em>-- เลือกอำเภอ/เขต --</em>
+                                            </MenuItem>
+                                            {amphers.map((ampher) => (
+                                                <MenuItem key={ampher.AMPHER_CODE} value={ampher.AMPHER_CODE}>
+                                                    {ampher.AMPHER_NAME}
+                                                </MenuItem>
+                                            ))}
+                                        </TextField>
                                     </Grid>
 
                                     <Grid item xs={12} md={4}>
-                                        <Autocomplete
-                                            options={tumbols}
-                                            getOptionLabel={(option) => option.TUMBOL_NAME || ''}
-                                            value={selectedTumbol}
+                                        <TextField
+                                            select
+                                            fullWidth
+                                            label="ตำบล/แขวง *"
+                                            name="tumbolCode"
+                                            value={orgData.tumbolCode || ''}
                                             onChange={handleTumbolChange}
-                                            disabled={!isAdmin || !selectedAmpher}
-                                            renderInput={(params) => (
-                                                <TextField
-                                                    {...params}
-                                                    label="ตำบล/แขวง *"
-                                                    required
-                                                />
-                                            )}
-                                            isOptionEqualToValue={(option, value) =>
-                                                option.TUMBOL_CODE === value?.TUMBOL_CODE
-                                            }
-                                        />
+                                            disabled={!isAdmin || !selectedAmpher || loading || tumbols.length === 0}
+                                            required
+                                        >
+                                            <MenuItem value="">
+                                                <em>-- เลือกตำบล/แขวง --</em>
+                                            </MenuItem>
+                                            {tumbols.map((tumbol) => (
+                                                <MenuItem key={tumbol.TUMBOL_CODE} value={tumbol.TUMBOL_CODE}>
+                                                    {tumbol.TUMBOL_NAME}
+                                                </MenuItem>
+                                            ))}
+                                        </TextField>
                                     </Grid>
 
                                     <Grid item xs={12} md={6}>
@@ -680,7 +896,7 @@ const SettingsPage = () => {
                     </TabPanel>
 
                     {/* Tab 2: กำหนดผู้ใช้งาน */}
-                    <TabPanel value={tabValue} index={1}>
+                    <TabPanel value={tabValue} index={2}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
                             <Typography variant="h6">
                                 จัดการผู้ใช้งาน
@@ -776,7 +992,7 @@ const SettingsPage = () => {
                     </TabPanel>
 
                     {/* Tab 3: บัญชีธนาคาร */}
-                    <TabPanel value={tabValue} index={2}>
+                    <TabPanel value={tabValue} index={4}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
                             <Typography variant="h6">
                                 จัดการบัญชีธนาคาร
@@ -850,6 +1066,87 @@ const SettingsPage = () => {
                                                             size="small"
                                                             color="error"
                                                             onClick={() => handleDeleteBank(bank.bank_code, bank.bank_no)}
+                                                        >
+                                                            <DeleteIcon fontSize="small" />
+                                                        </IconButton>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))
+                                        )}
+                                    </TableBody>
+                                </Table>
+                            </TableContainer>
+                        )}
+                    </TabPanel>
+
+                    {/* Tab 4: การจัดการสิทธิ์ */}
+                    <TabPanel value={tabValue} index={1}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                            <Typography variant="h6">
+                                จัดการสิทธิ์การใช้งาน
+                            </Typography>
+                            <Button
+                                variant="contained"
+                                startIcon={<AddIcon />}
+                                onClick={() => handleOpenRoleDialog()}
+                                disabled={roleActionLoading}
+                            >
+                                เพิ่มสิทธิ์ใหม่
+                            </Button>
+                        </Box>
+
+                        <Divider sx={{ mb: 2 }} />
+
+                        {rolesLoading ? (
+                            <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+                                <CircularProgress />
+                            </Box>
+                        ) : (
+                            <TableContainer component={Paper} variant="outlined">
+                                <Table>
+                                    <TableHead>
+                                        <TableRow>
+                                            <TableCell>รหัสสิทธิ์</TableCell>
+                                            <TableCell>ชื่อสิทธิ์</TableCell>
+                                            <TableCell>ปรับปรุงล่าสุด</TableCell>
+                                            <TableCell align="right">จัดการ</TableCell>
+                                        </TableRow>
+                                    </TableHead>
+                                    <TableBody>
+                                        {roles.length === 0 ? (
+                                            <TableRow>
+                                                <TableCell colSpan={4} align="center">
+                                                    <Typography color="text.secondary">
+                                                        ยังไม่มีการกำหนดสิทธิ์ในระบบ
+                                                    </Typography>
+                                                </TableCell>
+                                            </TableRow>
+                                        ) : (
+                                            roles.map((role) => (
+                                                <TableRow key={role.roleCode}>
+                                                    <TableCell>
+                                                        <Typography fontWeight="600">{role.roleCode}</Typography>
+                                                    </TableCell>
+                                                    <TableCell>{role.roleName}</TableCell>
+                                                    <TableCell>
+                                                        {role.updatedAt
+                                                            ? new Date(role.updatedAt).toLocaleString('th-TH')
+                                                            : '-'}
+                                                    </TableCell>
+                                                    <TableCell align="right">
+                                                        <IconButton
+                                                            size="small"
+                                                            onClick={() => handleOpenRoleDialog(role)}
+                                                            sx={{ mr: 1 }}
+                                                            disabled={roleActionLoading}
+                                                        >
+                                                            <EditIcon fontSize="small" />
+                                                        </IconButton>
+                                                        <IconButton
+                                                            size="small"
+                                                            color="error"
+                                                            onClick={() => handleDeleteRole(role.roleCode)}
+                                                            disabled={roleActionLoading}
                                                         >
                                                             <DeleteIcon fontSize="small" />
                                                         </IconButton>
@@ -938,6 +1235,49 @@ const SettingsPage = () => {
                         disabled={loading || !bankForm.bankCode || !bankForm.bankNo}
                     >
                         {loading ? 'กำลังบันทึก...' : 'บันทึก'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Dialog สำหรับเพิ่ม/แก้ไขสิทธิ์ */}
+            <Dialog open={openRoleDialog} onClose={handleCloseRoleDialog} maxWidth="xs" fullWidth>
+                <DialogTitle>
+                    {editingRole ? 'แก้ไขสิทธิ์' : 'เพิ่มสิทธิ์ใหม่'}
+                </DialogTitle>
+                <DialogContent>
+                    <Grid container spacing={2} sx={{ mt: 1 }}>
+                        {editingRole && (
+                            <Grid item xs={12}>
+                                <TextField
+                                    fullWidth
+                                    label="รหัสสิทธิ์"
+                                    value={editingRole.roleCode}
+                                    disabled
+                                />
+                            </Grid>
+                        )}
+                        <Grid item xs={12}>
+                            <TextField
+                                fullWidth
+                                label="ชื่อสิทธิ์ *"
+                                name="roleName"
+                                value={roleForm.roleName}
+                                onChange={handleRoleFormChange}
+                                autoFocus={!editingRole}
+                            />
+                        </Grid>
+                    </Grid>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleCloseRoleDialog} disabled={roleActionLoading}>
+                        ยกเลิก
+                    </Button>
+                    <Button
+                        variant="contained"
+                        onClick={handleSaveRole}
+                        disabled={roleActionLoading || !roleForm.roleName?.trim()}
+                    >
+                        {roleActionLoading ? 'กำลังบันทึก...' : 'บันทึก'}
                     </Button>
                 </DialogActions>
             </Dialog>

@@ -106,25 +106,56 @@ const StockCardReport = () => {
                     return (a.REFNO || '').localeCompare(b.REFNO || '');
                 });
 
-                // ✅ คำนวณยอดคงเหลือเฉพาะแถว (ไม่สะสมจากแถวก่อนหน้า)
-                const processedData = sortedData.map(item => {
-                    const begQty = parseFloat(item.BEG1) || 0;
+                // ✅ คำนวณยอดคงเหลือแบบสะสม (cumulative)
+                // แยกตามยาและ LOT NO เพื่อคำนวณยอดคงเหลือแยกกัน
+                const processedData = [];
+                const balanceMap = {}; // เก็บยอดคงเหลือล่าสุดของแต่ละยาและ LOT
+
+                sortedData.forEach((item, index) => {
+                    const drugKey = `${item.DRUG_CODE || ''}_${item.LOTNO || '-'}`;
+                    
+                    // ดึงยอดยกมาจากแถวก่อนหน้า (หรือใช้ BEG1 ถ้าเป็นแถวแรกของยาและ LOT นี้)
+                    let begQty = 0;
+                    let begAmt = 0;
+                    
+                    if (balanceMap[drugKey] !== undefined) {
+                        // ใช้ยอดคงเหลือจากแถวก่อนหน้าเป็นยอดยกมา
+                        begQty = balanceMap[drugKey].endingQty;
+                        begAmt = balanceMap[drugKey].endingAmt;
+                    } else {
+                        // แถวแรกของยาและ LOT นี้ ใช้ BEG1 จากฐานข้อมูล
+                        begQty = parseFloat(item.BEG1) || 0;
+                        begAmt = parseFloat(item.BEG1_AMT) || 0;
+                    }
+
                     const inQty = parseFloat(item.IN1) || 0;
                     const outQty = parseFloat(item.OUT1) || 0;
                     const updQty = parseFloat(item.UPD1) || 0;
+                    
+                    // คำนวณยอดคงเหลือ: ยอดยกมา + รับ - จ่าย + ปรับปรุง
                     const endingQty = begQty + inQty - outQty + updQty;
 
-                    const begAmt = parseFloat(item.BEG1_AMT) || 0;
                     const inAmt = parseFloat(item.IN1_AMT) || 0;
                     const outAmt = parseFloat(item.OUT1_AMT) || 0;
                     const updAmt = parseFloat(item.UPD1_AMT) || 0;
+                    
+                    // คำนวณยอดคงเหลือเงิน: ยอดยกมา + รับ - จ่าย + ปรับปรุง
                     const endingAmt = begAmt + inAmt - outAmt + updAmt;
 
-                    return {
-                        ...item,
+                    // บันทึกยอดคงเหลือล่าสุดสำหรับยาและ LOT นี้
+                    balanceMap[drugKey] = {
                         endingQty,
                         endingAmt
                     };
+
+                    processedData.push({
+                        ...item,
+                        // ใช้ยอดยกมาที่คำนวณได้ (ไม่ใช่ BEG1 จากฐานข้อมูล)
+                        calculatedBEG1: begQty,
+                        calculatedBEG1_AMT: begAmt,
+                        endingQty,
+                        endingAmt
+                    });
                 });
 
                 console.log('📊 Processed stock card data:', processedData);
@@ -214,32 +245,52 @@ const StockCardReport = () => {
                 totalBEG1_AMT: 0,
                 totalIN1_AMT: 0,
                 totalOUT1_AMT: 0,
-                totalUPD1_AMT: 0
+                totalUPD1_AMT: 0,
+                totalEndingQty: 0,
+                totalEndingAmt: 0
             };
         }
 
+        // ✅ ยอดยกมา: ใช้ยอดยกมาของแถวแรก (calculatedBEG1)
+        const firstItem = stockCardData[0];
+        const totalBEG1 = firstItem.calculatedBEG1 || 0;
+        const totalBEG1_AMT = firstItem.calculatedBEG1_AMT || 0;
+
+        // ✅ รวม รับ, จ่าย, ปรับปรุง จากทุกแถว
         const totals = stockCardData.reduce((acc, item) => {
-            acc.totalBEG1 += parseFloat(item.BEG1) || 0;
             acc.totalIN1 += parseFloat(item.IN1) || 0;
             acc.totalOUT1 += parseFloat(item.OUT1) || 0;
             acc.totalUPD1 += parseFloat(item.UPD1) || 0;
-            acc.totalBEG1_AMT += parseFloat(item.BEG1_AMT) || 0;
             acc.totalIN1_AMT += parseFloat(item.IN1_AMT) || 0;
             acc.totalOUT1_AMT += parseFloat(item.OUT1_AMT) || 0;
             acc.totalUPD1_AMT += parseFloat(item.UPD1_AMT) || 0;
             return acc;
         }, {
-            totalBEG1: 0,
             totalIN1: 0,
             totalOUT1: 0,
             totalUPD1: 0,
-            totalBEG1_AMT: 0,
             totalIN1_AMT: 0,
             totalOUT1_AMT: 0,
             totalUPD1_AMT: 0
         });
 
-        return totals;
+        // ✅ ยอดคงเหลือ: ใช้ยอดคงเหลือของแถวสุดท้าย
+        const lastItem = stockCardData[stockCardData.length - 1];
+        const totalEndingQty = lastItem.endingQty || 0;
+        const totalEndingAmt = lastItem.endingAmt || 0;
+
+        return {
+            totalBEG1,
+            totalIN1: totals.totalIN1,
+            totalOUT1: totals.totalOUT1,
+            totalUPD1: totals.totalUPD1,
+            totalBEG1_AMT,
+            totalIN1_AMT: totals.totalIN1_AMT,
+            totalOUT1_AMT: totals.totalOUT1_AMT,
+            totalUPD1_AMT: totals.totalUPD1_AMT,
+            totalEndingQty,
+            totalEndingAmt
+        };
     };
 
     const handlePrint = () => {
@@ -388,13 +439,13 @@ const StockCardReport = () => {
                     <td class="text-left">${item.REFNO || '-'}</td>
                     <td>${item.LOTNO || '-'}</td>
                     <td>${formatDateBEForExpire(item.EXPIRE_DATE)}</td>
-                    <td class="text-right">${(parseFloat(item.BEG1) || 0).toFixed(2)}</td>
+                    <td class="text-right">${(item.calculatedBEG1 || 0).toFixed(2)}</td>
                     <td class="text-right">${(parseFloat(item.IN1) || 0).toFixed(2)}</td>
                     <td class="text-right">${(parseFloat(item.OUT1) || 0).toFixed(2)}</td>
                     <td class="text-right">${(parseFloat(item.UPD1) || 0).toFixed(2)}</td>
                     <td class="text-right">${(item.endingQty || 0).toFixed(2)}</td>
                     <td class="text-right">${(parseFloat(item.UNIT_COST) || 0).toFixed(2)}</td>
-                    <td class="text-right">${(parseFloat(item.BEG1_AMT) || 0).toFixed(2)}</td>
+                    <td class="text-right">${(item.calculatedBEG1_AMT || 0).toFixed(2)}</td>
                     <td class="text-right">${(parseFloat(item.IN1_AMT) || 0).toFixed(2)}</td>
                     <td class="text-right">${(parseFloat(item.OUT1_AMT) || 0).toFixed(2)}</td>
                     <td class="text-right">${(parseFloat(item.UPD1_AMT) || 0).toFixed(2)}</td>
@@ -407,13 +458,13 @@ const StockCardReport = () => {
                 <td class="text-right">${totals.totalIN1.toFixed(2)}</td>
                 <td class="text-right">${totals.totalOUT1.toFixed(2)}</td>
                 <td class="text-right">${totals.totalUPD1.toFixed(2)}</td>
-                <td></td>
+                <td class="text-right">${totals.totalEndingQty.toFixed(2)}</td>
                 <td></td>
                 <td class="text-right">${totals.totalBEG1_AMT.toFixed(2)}</td>
                 <td class="text-right">${totals.totalIN1_AMT.toFixed(2)}</td>
                 <td class="text-right">${totals.totalOUT1_AMT.toFixed(2)}</td>
                 <td class="text-right">${totals.totalUPD1_AMT.toFixed(2)}</td>
-                <td></td>
+                <td class="text-right">${totals.totalEndingAmt.toFixed(2)}</td>
             </tr>
         </tbody>
     </table>
@@ -643,13 +694,13 @@ const StockCardReport = () => {
                                             <TableCell align="left" sx={{ border: '1px solid #ddd' }}>{item.REFNO || '-'}</TableCell>
                                             <TableCell align="center" sx={{ border: '1px solid #ddd' }}>{item.LOTNO || '-'}</TableCell>
                                             <TableCell align="center" sx={{ border: '1px solid #ddd' }}>{formatDateBEForExpire(item.EXPIRE_DATE)}</TableCell>
-                                            <TableCell align="right" sx={{ border: '1px solid #ddd' }}>{(parseFloat(item.BEG1) || 0).toFixed(2)}</TableCell>
+                                            <TableCell align="right" sx={{ border: '1px solid #ddd' }}>{(item.calculatedBEG1 || 0).toFixed(2)}</TableCell>
                                             <TableCell align="right" sx={{ border: '1px solid #ddd' }}>{(parseFloat(item.IN1) || 0).toFixed(2)}</TableCell>
                                             <TableCell align="right" sx={{ border: '1px solid #ddd' }}>{(parseFloat(item.OUT1) || 0).toFixed(2)}</TableCell>
                                             <TableCell align="right" sx={{ border: '1px solid #ddd' }}>{(parseFloat(item.UPD1) || 0).toFixed(2)}</TableCell>
                                             <TableCell align="right" sx={{ border: '1px solid #ddd', fontWeight: 'bold' }}>{(item.endingQty || 0).toFixed(2)}</TableCell>
                                             <TableCell align="right" sx={{ border: '1px solid #ddd' }}>{(parseFloat(item.UNIT_COST) || 0).toFixed(2)}</TableCell>
-                                            <TableCell align="right" sx={{ border: '1px solid #ddd' }}>{(parseFloat(item.BEG1_AMT) || 0).toFixed(2)}</TableCell>
+                                            <TableCell align="right" sx={{ border: '1px solid #ddd' }}>{(item.calculatedBEG1_AMT || 0).toFixed(2)}</TableCell>
                                             <TableCell align="right" sx={{ border: '1px solid #ddd' }}>{(parseFloat(item.IN1_AMT) || 0).toFixed(2)}</TableCell>
                                             <TableCell align="right" sx={{ border: '1px solid #ddd' }}>{(parseFloat(item.OUT1_AMT) || 0).toFixed(2)}</TableCell>
                                             <TableCell align="right" sx={{ border: '1px solid #ddd' }}>{(parseFloat(item.UPD1_AMT) || 0).toFixed(2)}</TableCell>
@@ -662,13 +713,13 @@ const StockCardReport = () => {
                                         <TableCell align="right" sx={{ border: '1px solid #ddd' }}>{totals.totalIN1.toFixed(2)}</TableCell>
                                         <TableCell align="right" sx={{ border: '1px solid #ddd' }}>{totals.totalOUT1.toFixed(2)}</TableCell>
                                         <TableCell align="right" sx={{ border: '1px solid #ddd' }}>{totals.totalUPD1.toFixed(2)}</TableCell>
-                                        <TableCell sx={{ border: '1px solid #ddd' }}></TableCell>
+                                        <TableCell align="right" sx={{ border: '1px solid #ddd' }}>{totals.totalEndingQty.toFixed(2)}</TableCell>
                                         <TableCell sx={{ border: '1px solid #ddd' }}></TableCell>
                                         <TableCell align="right" sx={{ border: '1px solid #ddd' }}>{totals.totalBEG1_AMT.toFixed(2)}</TableCell>
                                         <TableCell align="right" sx={{ border: '1px solid #ddd' }}>{totals.totalIN1_AMT.toFixed(2)}</TableCell>
                                         <TableCell align="right" sx={{ border: '1px solid #ddd' }}>{totals.totalOUT1_AMT.toFixed(2)}</TableCell>
                                         <TableCell align="right" sx={{ border: '1px solid #ddd' }}>{totals.totalUPD1_AMT.toFixed(2)}</TableCell>
-                                        <TableCell sx={{ border: '1px solid #ddd' }}></TableCell>
+                                        <TableCell align="right" sx={{ border: '1px solid #ddd' }}>{totals.totalEndingAmt.toFixed(2)}</TableCell>
                                     </TableRow>
                                 </TableBody>
                             </Table>
