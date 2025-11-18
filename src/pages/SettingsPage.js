@@ -40,6 +40,8 @@ import AuthService from '../services/authService';
 import BankService from '../services/bankService';
 import BookBankService from '../services/bookBankService';
 import RoleService from '../services/roleService';
+import BalCashService from '../services/balCashService';
+import BalBankService from '../services/balBankService';
 import BusinessIcon from '@mui/icons-material/Business';
 import PeopleIcon from '@mui/icons-material/People';
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
@@ -121,6 +123,23 @@ const SettingsPage = () => {
     const [roleForm, setRoleForm] = useState({ roleName: '' });
     const [roleActionLoading, setRoleActionLoading] = useState(false);
 
+    // BAL_CASH Data
+    const [balCashRecords, setBalCashRecords] = useState([]);
+    const [balCashLoading, setBalCashLoading] = useState(false);
+    const [balCashForm, setBalCashForm] = useState({
+        RDATE: new Date().toISOString().split('T')[0],
+        AMT: ''
+    });
+
+    // BAL_BANK Data
+    const [balBankRecords, setBalBankRecords] = useState([]);
+    const [balBankLoading, setBalBankLoading] = useState(false);
+    const [balBankForm, setBalBankForm] = useState({
+        RDATE: new Date().toISOString().split('T')[0],
+        AMT: '',
+        BANK_NO: ''
+    });
+
     // โหลด provinces และ orgData เมื่อ component mount (ครั้งเดียว)
     useEffect(() => {
         const initializeData = async () => {
@@ -150,14 +169,21 @@ const SettingsPage = () => {
     // โหลดข้อมูลตาม tab ที่เลือก
     useEffect(() => {
         if (tabValue === 1) {
-            loadUsers();
+            loadRoles();
         }
         if (tabValue === 2) {
+            loadUsers();
+        }
+        if (tabValue === 3) {
+            loadBalCash();
+        }
+        if (tabValue === 4) {
             loadBanks();
             loadBookBanks();
         }
-        if (tabValue === 3) {
-            loadRoles();
+        if (tabValue === 5) {
+            loadBalBank();
+            loadBookBanks();
         }
     }, [tabValue]);
 
@@ -678,6 +704,100 @@ const SettingsPage = () => {
         return bank ? bank.bank_name : bankCode;
     };
 
+    // BAL_CASH Functions
+    const loadBalCash = async () => {
+        try {
+            setBalCashLoading(true);
+            const currentYear = new Date().getFullYear();
+            const response = await BalCashService.getAllBalCash({ year: currentYear });
+            if (response.success) {
+                setBalCashRecords(response.data);
+            }
+        } catch (error) {
+            console.error('Error loading BAL_CASH:', error);
+            setError('ไม่สามารถโหลดข้อมูลยอดยกมาเงินสดได้');
+        } finally {
+            setBalCashLoading(false);
+        }
+    };
+
+    const handleSaveBalCash = async () => {
+        if (!balCashForm.RDATE || !balCashForm.AMT) {
+            setError('กรุณากรอกวันที่และจำนวนเงิน');
+            return;
+        }
+
+        try {
+            setLoading(true);
+            setError('');
+            setSuccess('');
+
+            await BalCashService.createOrUpdateBalCash({
+                RDATE: balCashForm.RDATE,
+                AMT: parseFloat(balCashForm.AMT)
+            });
+
+            setSuccess('บันทึกยอดยกมาเงินสดและยอดยกไปสำเร็จ');
+            setBalCashForm({
+                RDATE: new Date().toISOString().split('T')[0],
+                AMT: ''
+            });
+            await loadBalCash();
+        } catch (error) {
+            setError(error.message || 'เกิดข้อผิดพลาดในการบันทึกยอดยกมาเงินสด');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // BAL_BANK Functions
+    const loadBalBank = async () => {
+        try {
+            setBalBankLoading(true);
+            const currentYear = new Date().getFullYear();
+            const response = await BalBankService.getAllBalBank({ year: currentYear });
+            if (response.success) {
+                setBalBankRecords(response.data);
+            }
+        } catch (error) {
+            console.error('Error loading BAL_BANK:', error);
+            setError('ไม่สามารถโหลดข้อมูลยอดยกมาเงินฝากธนาคารได้');
+        } finally {
+            setBalBankLoading(false);
+        }
+    };
+
+    const handleSaveBalBank = async () => {
+        if (!balBankForm.RDATE || !balBankForm.AMT || !balBankForm.BANK_NO) {
+            setError('กรุณากรอกวันที่ จำนวนเงิน และเลขบัญชี');
+            return;
+        }
+
+        try {
+            setLoading(true);
+            setError('');
+            setSuccess('');
+
+            await BalBankService.createOrUpdateBalBank({
+                RDATE: balBankForm.RDATE,
+                AMT: parseFloat(balBankForm.AMT),
+                BANK_NO: balBankForm.BANK_NO
+            });
+
+            setSuccess('บันทึกยอดยกมาเงินฝากธนาคารและยอดยกไปสำเร็จ');
+            setBalBankForm({
+                RDATE: new Date().toISOString().split('T')[0],
+                AMT: '',
+                BANK_NO: ''
+            });
+            await loadBalBank();
+        } catch (error) {
+            setError(error.message || 'เกิดข้อผิดพลาดในการบันทึกยอดยกมาเงินฝากธนาคาร');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     return (
         <Box>
             <Typography variant="h4" gutterBottom fontWeight="bold">
@@ -991,7 +1111,98 @@ const SettingsPage = () => {
                         )}
                     </TabPanel>
 
-                    {/* Tab 3: บัญชีธนาคาร */}
+                    {/* Tab 3: กำหนดเงินสดประจำวัน */}
+                    <TabPanel value={tabValue} index={3}>
+                        <Typography variant="h6" gutterBottom>
+                            กำหนดยอดยกมาเงินสดประจำวัน
+                        </Typography>
+                        <Divider sx={{ mb: 3 }} />
+
+                        <Grid container spacing={3} sx={{ mb: 3 }}>
+                            <Grid item xs={12} md={4}>
+                                <TextField
+                                    fullWidth
+                                    label="วันที่ *"
+                                    type="date"
+                                    value={balCashForm.RDATE}
+                                    onChange={(e) => setBalCashForm({ ...balCashForm, RDATE: e.target.value })}
+                                    InputLabelProps={{ shrink: true }}
+                                    disabled={loading}
+                                />
+                            </Grid>
+                            <Grid item xs={12} md={4}>
+                                <TextField
+                                    fullWidth
+                                    label="จำนวนเงิน (บาท) *"
+                                    type="number"
+                                    value={balCashForm.AMT}
+                                    onChange={(e) => setBalCashForm({ ...balCashForm, AMT: e.target.value })}
+                                    disabled={loading}
+                                    inputProps={{ step: '0.01', min: '0' }}
+                                />
+                            </Grid>
+                            <Grid item xs={12} md={4}>
+                                <Button
+                                    variant="contained"
+                                    fullWidth
+                                    startIcon={<SaveIcon />}
+                                    onClick={handleSaveBalCash}
+                                    disabled={loading || !balCashForm.RDATE || !balCashForm.AMT}
+                                    sx={{ height: '56px' }}
+                                >
+                                    {loading ? 'กำลังบันทึก...' : 'บันทึกยอดยกมา'}
+                                </Button>
+                            </Grid>
+                        </Grid>
+
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                            * เมื่อบันทึกยอดยกมา ระบบจะทำยอดยกไปให้อัตโนมัติจนถึงวันที่ 31 ธันวาคม
+                        </Typography>
+
+                        {balCashLoading ? (
+                            <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+                                <CircularProgress />
+                            </Box>
+                        ) : (
+                            <TableContainer component={Paper} variant="outlined">
+                                <Table size="small">
+                                    <TableHead>
+                                        <TableRow>
+                                            <TableCell>วันที่</TableCell>
+                                            <TableCell align="right">ยอดยกมา (บาท)</TableCell>
+                                        </TableRow>
+                                    </TableHead>
+                                    <TableBody>
+                                        {balCashRecords.length === 0 ? (
+                                            <TableRow>
+                                                <TableCell colSpan={2} align="center">
+                                                    <Typography color="text.secondary">
+                                                        ยังไม่มีข้อมูลยอดยกมาเงินสด
+                                                    </Typography>
+                                                </TableCell>
+                                            </TableRow>
+                                        ) : (
+                                            balCashRecords.slice(0, 30).map((record) => (
+                                                <TableRow key={record.RDATE}>
+                                                    <TableCell>
+                                                        {new Date(record.RDATE).toLocaleDateString('th-TH')}
+                                                    </TableCell>
+                                                    <TableCell align="right">
+                                                        {new Intl.NumberFormat('th-TH', {
+                                                            minimumFractionDigits: 2,
+                                                            maximumFractionDigits: 2
+                                                        }).format(record.AMT || 0)}
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))
+                                        )}
+                                    </TableBody>
+                                </Table>
+                            </TableContainer>
+                        )}
+                    </TabPanel>
+
+                    {/* Tab 4: บัญชีธนาคาร */}
                     <TabPanel value={tabValue} index={4}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
                             <Typography variant="h6">
@@ -1079,7 +1290,117 @@ const SettingsPage = () => {
                         )}
                     </TabPanel>
 
-                    {/* Tab 4: การจัดการสิทธิ์ */}
+                    {/* Tab 5: กำหนดเงินฝากธนาคารประจำวัน */}
+                    <TabPanel value={tabValue} index={5}>
+                        <Typography variant="h6" gutterBottom>
+                            กำหนดยอดยกมาเงินฝากธนาคารประจำวัน
+                        </Typography>
+                        <Divider sx={{ mb: 3 }} />
+
+                        <Grid container spacing={3} sx={{ mb: 3 }}>
+                            <Grid item xs={12} md={3}>
+                                <TextField
+                                    fullWidth
+                                    label="วันที่ *"
+                                    type="date"
+                                    value={balBankForm.RDATE}
+                                    onChange={(e) => setBalBankForm({ ...balBankForm, RDATE: e.target.value })}
+                                    InputLabelProps={{ shrink: true }}
+                                    disabled={loading}
+                                />
+                            </Grid>
+                            <Grid item xs={12} md={3}>
+                                <TextField
+                                    select
+                                    fullWidth
+                                    label="เลขบัญชี *"
+                                    value={balBankForm.BANK_NO}
+                                    onChange={(e) => setBalBankForm({ ...balBankForm, BANK_NO: e.target.value })}
+                                    disabled={loading}
+                                >
+                                    <MenuItem value="">-- เลือกบัญชี --</MenuItem>
+                                    {bookBanks.map((bank) => (
+                                        <MenuItem key={`${bank.bank_code}-${bank.bank_no}`} value={bank.bank_no}>
+                                            {bank.bank_no} - {bank.bank_name || getBankName(bank.bank_code)}
+                                        </MenuItem>
+                                    ))}
+                                </TextField>
+                            </Grid>
+                            <Grid item xs={12} md={3}>
+                                <TextField
+                                    fullWidth
+                                    label="จำนวนเงิน (บาท) *"
+                                    type="number"
+                                    value={balBankForm.AMT}
+                                    onChange={(e) => setBalBankForm({ ...balBankForm, AMT: e.target.value })}
+                                    disabled={loading}
+                                    inputProps={{ step: '0.01', min: '0' }}
+                                />
+                            </Grid>
+                            <Grid item xs={12} md={3}>
+                                <Button
+                                    variant="contained"
+                                    fullWidth
+                                    startIcon={<SaveIcon />}
+                                    onClick={handleSaveBalBank}
+                                    disabled={loading || !balBankForm.RDATE || !balBankForm.AMT || !balBankForm.BANK_NO}
+                                    sx={{ height: '56px' }}
+                                >
+                                    {loading ? 'กำลังบันทึก...' : 'บันทึกยอดยกมา'}
+                                </Button>
+                            </Grid>
+                        </Grid>
+
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                            * เมื่อบันทึกยอดยกมา ระบบจะทำยอดยกไปให้อัตโนมัติจนถึงวันที่ 31 ธันวาคม
+                        </Typography>
+
+                        {balBankLoading ? (
+                            <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+                                <CircularProgress />
+                            </Box>
+                        ) : (
+                            <TableContainer component={Paper} variant="outlined">
+                                <Table size="small">
+                                    <TableHead>
+                                        <TableRow>
+                                            <TableCell>วันที่</TableCell>
+                                            <TableCell>เลขบัญชี</TableCell>
+                                            <TableCell align="right">ยอดยกมา (บาท)</TableCell>
+                                        </TableRow>
+                                    </TableHead>
+                                    <TableBody>
+                                        {balBankRecords.length === 0 ? (
+                                            <TableRow>
+                                                <TableCell colSpan={3} align="center">
+                                                    <Typography color="text.secondary">
+                                                        ยังไม่มีข้อมูลยอดยกมาเงินฝากธนาคาร
+                                                    </Typography>
+                                                </TableCell>
+                                            </TableRow>
+                                        ) : (
+                                            balBankRecords.slice(0, 30).map((record) => (
+                                                <TableRow key={`${record.RDATE}-${record.BANK_NO}`}>
+                                                    <TableCell>
+                                                        {new Date(record.RDATE).toLocaleDateString('th-TH')}
+                                                    </TableCell>
+                                                    <TableCell>{record.BANK_NO}</TableCell>
+                                                    <TableCell align="right">
+                                                        {new Intl.NumberFormat('th-TH', {
+                                                            minimumFractionDigits: 2,
+                                                            maximumFractionDigits: 2
+                                                        }).format(record.AMT || 0)}
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))
+                                        )}
+                                    </TableBody>
+                                </Table>
+                            </TableContainer>
+                        )}
+                    </TabPanel>
+
+                    {/* Tab 1: การจัดการสิทธิ์ */}
                     <TabPanel value={tabValue} index={1}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
                             <Typography variant="h6">

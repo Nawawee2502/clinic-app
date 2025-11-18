@@ -634,6 +634,8 @@ const PatientManagement = () => {
     const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
     const [selectedRecord, setSelectedRecord] = useState(null);
     const [actionLoading, setActionLoading] = useState(false);
+    const [summaryDialogOpen, setSummaryDialogOpen] = useState(false);
+    const [summaryRecord, setSummaryRecord] = useState(null);
 
     const handleTabChange = useCallback((event, newValue) => {
         setActiveTab(newValue);
@@ -815,11 +817,6 @@ const PatientManagement = () => {
         fetchPatientHistory(newPage, historySearch);
     }, [historySearch, fetchPatientHistory]);
 
-    // ใช้ patientHistory โดยตรง (ไม่ต้อง filter อีกเพราะ filter ใน fetch แล้ว)
-    const filteredHistoryRecords = React.useMemo(() => {
-        return patientHistory;
-    }, [patientHistory]);
-
     const formatHistoryDate = useCallback((record) => {
         const dateString = record?.RDATE || record?.TRDATE || record?.created_at;
         if (!dateString) {
@@ -853,8 +850,17 @@ const PatientManagement = () => {
         if (record?.summary) {
             return record.summary;
         }
-        return 'ไม่มีข้อมูล';
+        // ถ้าไม่มีสรุปการรักษา ให้คืนค่าเป็นสตริงว่าง เพื่อไม่ให้แสดงข้อความ "ไม่มีข้อมูล"
+        return '';
     }, []);
+
+    // ใช้ patientHistory แต่กรองเฉพาะรายการที่มีสรุปการรักษาเท่านั้น
+    const filteredHistoryRecords = React.useMemo(() => {
+        return patientHistory.filter((record) => {
+            const summary = getTreatmentSummary(record);
+            return summary && summary.toString().trim() !== '';
+        });
+    }, [patientHistory, getTreatmentSummary]);
 
     useEffect(() => {
         if (searchTerm) {
@@ -1387,18 +1393,27 @@ const PatientManagement = () => {
                                                                     }}
                                                                 />
                                                             </TableCell>
-                                                            <TableCell>
-                                                                <Typography
-                                                                    variant="body2"
-                                                                    sx={{
-                                                                        color: '#475569',
-                                                                        whiteSpace: 'pre-wrap',
-                                                                        lineHeight: 1.7,
-                                                                        wordBreak: 'break-word'
-                                                                    }}
-                                                                >
-                                                                    {treatment1}
-                                                                </Typography>
+                                                            <TableCell sx={{ maxWidth: 220 }}>
+                                                                {treatment1 ? (
+                                                                    <Button
+                                                                        variant="outlined"
+                                                                        size="small"
+                                                                        onClick={() => {
+                                                                            setSummaryRecord({
+                                                                                ...record,
+                                                                                TREATMENT1_TEXT: treatment1
+                                                                            });
+                                                                            setSummaryDialogOpen(true);
+                                                                        }}
+                                                                        sx={{ borderRadius: 2, textTransform: 'none', fontSize: 12 }}
+                                                                    >
+                                                                        ดูสรุปการรักษา
+                                                                    </Button>
+                                                                ) : (
+                                                                    <Typography variant="body2" sx={{ color: '#94a3b8' }}>
+                                                                        -
+                                                                    </Typography>
+                                                                )}
                                                             </TableCell>
                                                             <TableCell align="center">
                                                                 <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
@@ -1582,6 +1597,55 @@ const PatientManagement = () => {
                         startIcon={actionLoading ? <CircularProgress size={16} /> : <CancelOutlined />}
                     >
                         {actionLoading ? 'กำลังยกเลิก...' : 'ยกเลิก'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Treatment Summary Dialog */}
+            <Dialog
+                open={summaryDialogOpen}
+                onClose={() => setSummaryDialogOpen(false)}
+                maxWidth="sm"
+                fullWidth
+            >
+                <DialogTitle>สรุปการรักษา</DialogTitle>
+                <DialogContent dividers>
+                    {summaryRecord && (
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                            <Typography variant="body2" color="text.secondary">
+                                วันที่: {formatHistoryDate(summaryRecord)}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                                HN: {summaryRecord?.HNNO || summaryRecord?.HNCODE || '-'}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                                VN: {summaryRecord?.VNO || summaryRecord?.VN || '-'}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                                ชื่อ:{' '}
+                                {[summaryRecord?.PRENAME, summaryRecord?.NAME1, summaryRecord?.SURNAME]
+                                    .filter(Boolean)
+                                    .join(' ')}
+                            </Typography>
+
+                            <Box sx={{ mt: 2 }}>
+                                <Typography
+                                    variant="body1"
+                                    sx={{
+                                        whiteSpace: 'pre-wrap',
+                                        lineHeight: 1.7,
+                                        color: '#0f172a'
+                                    }}
+                                >
+                                    {summaryRecord.TREATMENT1_TEXT}
+                                </Typography>
+                            </Box>
+                        </Box>
+                    )}
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setSummaryDialogOpen(false)} color="primary">
+                        ปิด
                     </Button>
                 </DialogActions>
             </Dialog>

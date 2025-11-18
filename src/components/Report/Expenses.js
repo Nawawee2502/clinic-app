@@ -85,6 +85,79 @@ const formatCurrency = (amount) =>
     minimumFractionDigits: 2,
   }).format(amount || 0);
 
+// รวมยอดรายจ่ายตาม TYPE_PAY_CODE และ BANK_NO (สำหรับ summary และ PDF)
+const groupExpensesByTypeAndBank = (records) => {
+  if (!Array.isArray(records) || records.length === 0) return [];
+
+  const groups = new Map();
+
+  records.forEach((item) => {
+    const typePayCode = item.TYPE_PAY_CODE || item.type_pay_code || "";
+    const bankNo = item.BANK_NO || item.bank_no || "";
+    const key = `${typePayCode}||${bankNo}`;
+
+    const amount =
+      parseFloat(item.AMT) ||
+      parseFloat(item.TOTAL) ||
+      0;
+
+    if (!groups.has(key)) {
+      groups.set(key, {
+        ...item,
+        TYPE_PAY_CODE: typePayCode,
+        BANK_NO: bankNo,
+        TOTAL: amount,
+      });
+    } else {
+      const existing = groups.get(key);
+      groups.set(key, {
+        ...existing,
+        TOTAL: (parseFloat(existing.TOTAL) || 0) + amount,
+      });
+    }
+  });
+
+  return Array.from(groups.values());
+};
+
+// รวมยอดรายจ่ายตาม TYPE_PAY_CODE (ประเภทรายจ่าย) เท่านั้น (สำหรับแสดงในตาราง)
+const groupExpensesByType = (records) => {
+  if (!Array.isArray(records) || records.length === 0) return [];
+
+  const groups = new Map();
+
+  records.forEach((item) => {
+    const typePayCode = item.TYPE_PAY_CODE || item.type_pay_code || "";
+    const typePayName = item.TYPE_PAY_NAME || item.type_pay_name || typePayCode || "ไม่ระบุ";
+    
+    const amount =
+      parseFloat(item.AMT) ||
+      parseFloat(item.TOTAL) ||
+      0;
+
+    if (!groups.has(typePayCode)) {
+      groups.set(typePayCode, {
+        TYPE_PAY_CODE: typePayCode,
+        TYPE_PAY_NAME: typePayName,
+        TOTAL: amount,
+        count: 1,
+      });
+    } else {
+      const existing = groups.get(typePayCode);
+      groups.set(typePayCode, {
+        ...existing,
+        TOTAL: (parseFloat(existing.TOTAL) || 0) + amount,
+        count: existing.count + 1,
+      });
+    }
+  });
+
+  return Array.from(groups.values()).sort((a, b) => {
+    // เรียงตาม TYPE_PAY_CODE
+    return (a.TYPE_PAY_CODE || "").localeCompare(b.TYPE_PAY_CODE || "");
+  });
+};
+
 const SummaryReport = () => {
   const [startDate, setStartDate] = useState(getCurrentDateForDB());
   const [endDate, setEndDate] = useState(getCurrentDateForDB());
@@ -158,14 +231,36 @@ const SummaryReport = () => {
       
       if (expenseResponse.success) {
         // ข้อมูลที่ได้จาก API เป็น array ของ header ที่มี details ภายใน
-        // แต่ Expenses.js คาดหวัง array flat ที่มี TOTAL อยู่แล้ว
+        // ต้อง flatten details ออกมาเป็น flat array เพื่อให้มี TYPE_PAY_CODE และ TYPE_PAY_NAME
         const expenseData = Array.isArray(expenseResponse.data) ? expenseResponse.data : [];
         
-        // แปลงโครงสร้างให้เป็น flat array (ถ้ายังไม่ได้แปลง)
-        const flatExpenseData = expenseData.map(item => ({
-          ...item,
-          TOTAL: item.TOTAL || (item.details ? item.details.reduce((sum, d) => sum + (parseFloat(d.AMT) || 0), 0) : 0)
-        }));
+        // Flatten details ออกมาเป็น flat array
+        const flatExpenseData = [];
+        expenseData.forEach(item => {
+          if (item.details && Array.isArray(item.details)) {
+            item.details.forEach(detail => {
+              flatExpenseData.push({
+                REFNO: item.REFNO,
+                RDATE: item.RDATE,
+                NAME1: item.NAME1,
+                STATUS: item.STATUS,
+                TYPE_PAY: item.TYPE_PAY,
+                BANK_NO: item.BANK_NO,
+                TYPE_PAY_CODE: detail.TYPE_PAY_CODE,
+                TYPE_PAY_NAME: detail.TYPE_PAY_NAME || detail.type_pay_name,
+                DESCM1: detail.DESCM1,
+                AMT: parseFloat(detail.AMT) || 0,
+                TOTAL: parseFloat(detail.AMT) || 0, // สำหรับแต่ละรายการ detail
+              });
+            });
+          } else {
+            // ถ้าไม่มี details ให้ใช้ข้อมูล header ตรงๆ
+            flatExpenseData.push({
+              ...item,
+              TOTAL: item.TOTAL || 0
+            });
+          }
+        });
         
         setExpenseRecords(flatExpenseData);
       } else {
@@ -260,11 +355,14 @@ const SummaryReport = () => {
       .filter((item) => item.TYPE_PAY === "เงินโอน")
       .reduce((sum, item) => sum + (parseFloat(item.TOTAL) || 0), 0);
 
-    const expenseTotal = filteredExpense.reduce((sum, item) => sum + (parseFloat(item.TOTAL) || 0), 0);
-    const expenseCash = filteredExpense
+    // สำหรับการสรุปรายจ่าย ให้รวมยอดตาม TYPE_PAY_CODE + BANK_NO
+    const groupedExpenseForSummary = groupExpensesByTypeAndBank(filteredExpense);
+
+    const expenseTotal = groupedExpenseForSummary.reduce((sum, item) => sum + (parseFloat(item.TOTAL) || 0), 0);
+    const expenseCash = groupedExpenseForSummary
       .filter((item) => item.TYPE_PAY === "เงินสด")
       .reduce((sum, item) => sum + (parseFloat(item.TOTAL) || 0), 0);
-    const expenseTransfer = filteredExpense
+    const expenseTransfer = groupedExpenseForSummary
       .filter((item) => item.TYPE_PAY === "เงินโอน")
       .reduce((sum, item) => sum + (parseFloat(item.TOTAL) || 0), 0);
 
@@ -282,7 +380,7 @@ const SummaryReport = () => {
   }, [filteredIncome, filteredExpense]);
 
   const combinedRows = useMemo(() => {
-    const maxLength = Math.max(filteredIncome.length, filteredExpense.length);
+    // รายรับ: แสดงรายละเอียดแต่ละรายการ
     const incomeEntries = filteredIncome.map((item) => ({
       refno: item.REFNO,
       date: item.RDATE,
@@ -291,15 +389,18 @@ const SummaryReport = () => {
       amount: parseFloat(item.TOTAL) || 0,
       status: item.STATUS,
     }));
-    const expenseEntries = filteredExpense.map((item) => ({
-      refno: item.REFNO,
-      date: item.RDATE,
-      name: item.NAME1,
-      type: item.TYPE_PAY,
+
+    // รายจ่าย: รวมยอดตาม TYPE_PAY_CODE (ประเภทรายจ่าย)
+    const groupedExpenses = groupExpensesByType(filteredExpense);
+    const expenseEntries = groupedExpenses.map((item) => ({
+      typeCode: item.TYPE_PAY_CODE || "",
+      typeName: item.TYPE_PAY_NAME || item.TYPE_PAY_CODE || "ไม่ระบุ",
       amount: parseFloat(item.TOTAL) || 0,
-      status: item.STATUS,
+      count: item.count || 0,
+      isGrouped: true, // ระบุว่าเป็นข้อมูลที่ group แล้ว
     }));
 
+    const maxLength = Math.max(incomeEntries.length, expenseEntries.length);
     const rows = [];
     for (let i = 0; i < maxLength; i += 1) {
       rows.push({
@@ -319,14 +420,18 @@ const SummaryReport = () => {
     [filteredIncome]
   );
 
-  const expensePdfRows = useMemo(
-    () =>
-      filteredExpense.map((item) => ({
-        name: item.NAME1 || item.DESCM1 || "-",
-        amount: parseFloat(item.TOTAL) || 0,
-      })),
-    [filteredExpense]
-  );
+  const expensePdfRows = useMemo(() => {
+    const grouped = groupExpensesByTypeAndBank(filteredExpense);
+    return grouped.map((item) => ({
+      // แสดงชื่อจากประเภทรายจ่าย + เลขบัญชี เพื่อให้ตรงกับการ group
+      name:
+        item.TYPE_PAY_NAME ||
+        item.TYPE_PAY_CODE ||
+        item.DESCM1 ||
+        `${item.TYPE_PAY || "-"}${item.BANK_NO ? ` (${item.BANK_NO})` : ""}`,
+      amount: parseFloat(item.TOTAL) || parseFloat(item.AMT) || 0,
+    }));
+  }, [filteredExpense]);
 
   const incomeTypeOptions = useMemo(() => {
     const set = new Set(incomeRecords.map((item) => item.TYPE_PAY).filter(Boolean));
@@ -359,7 +464,9 @@ const SummaryReport = () => {
       alert("ไม่มีข้อมูลรายจ่ายสำหรับการส่งออก");
       return;
     }
-    Pay1Service.downloadCSV(filteredExpense, "daily-expense-report");
+    // ส่งออกโดยใช้ข้อมูลที่รวมยอดแล้วตาม TYPE_PAY_CODE + BANK_NO
+    const grouped = groupExpensesByTypeAndBank(filteredExpense);
+    Pay1Service.downloadCSV(grouped, "daily-expense-report");
   };
 
   const loadIncomeDetail = async (refno) => {
@@ -722,7 +829,7 @@ const SummaryReport = () => {
         <Card>
           <CardContent>
             <Typography variant="h6" sx={{ mb: 2 }}>
-              ตารางสรุปรายรับ-รายจ่าย ({summary.incomeCount} รายรับ / {summary.expenseCount} รายจ่าย)
+              ตารางสรุปรายรับ-รายจ่าย ({summary.incomeCount} รายรับ / {groupExpensesByType(filteredExpense).length} ประเภทรายจ่าย)
             </Typography>
             <TableContainer component={Paper} sx={{ minWidth: 960 }}>
               <Table size="small">
@@ -794,26 +901,39 @@ const SummaryReport = () => {
                       </TableCell>
                       <TableCell>
                         {row.expense ? (
-                          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}>
-                            <Box sx={{ maxWidth: "75%" }}>
-                              <Typography variant="body2" fontWeight="medium" noWrap>
-                                {row.expense.name || "-"}
+                          row.expense.isGrouped ? (
+                            // แสดงประเภทรายจ่ายที่รวมยอดแล้ว
+                            <Box>
+                              <Typography variant="body2" fontWeight="medium">
+                                {row.expense.typeName}
                               </Typography>
-                              <Typography variant="caption" color="text.secondary" noWrap>
-                                {row.expense.refno || "-"} • {row.expense.type || "-"}
-                              </Typography>
-                              <Typography variant="caption" color="text.secondary" noWrap>
-                                {formatThaiDateShort(row.expense.date)}
+                              <Typography variant="caption" color="text.secondary">
+                                {row.expense.typeCode || "-"} • {row.expense.count} รายการ
                               </Typography>
                             </Box>
-                            <IconButton
-                              size="small"
-                              onClick={() => loadExpenseDetail(row.expense.refno)}
-                              sx={{ border: "1px solid #f97316", borderRadius: "7px", color: "#f97316" }}
-                            >
-                              <VisibilityIcon fontSize="small" />
-                            </IconButton>
-                          </Box>
+                          ) : (
+                            // แสดงรายละเอียดรายการ (กรณีไม่ได้ group)
+                            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}>
+                              <Box sx={{ maxWidth: "75%" }}>
+                                <Typography variant="body2" fontWeight="medium" noWrap>
+                                  {row.expense.name || "-"}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary" noWrap>
+                                  {row.expense.refno || "-"} • {row.expense.type || "-"}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary" noWrap>
+                                  {formatThaiDateShort(row.expense.date)}
+                                </Typography>
+                              </Box>
+                              <IconButton
+                                size="small"
+                                onClick={() => loadExpenseDetail(row.expense.refno)}
+                                sx={{ border: "1px solid #f97316", borderRadius: "7px", color: "#f97316" }}
+                              >
+                                <VisibilityIcon fontSize="small" />
+                              </IconButton>
+                            </Box>
+                          )
                         ) : (
                           "-"
                         )}
