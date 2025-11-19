@@ -252,13 +252,16 @@ const Paymentanddispensingmedicine = () => {
         const filteredPatients = patientsWithTreatmentStatus.filter(patient => {
           const queueStatus = patient.queueStatus || patient.QUEUE_STATUS || patient.STATUS || 'รอตรวจ';
           const treatmentStatus = patient.STATUS1 || 'กำลังตรวจ';
-          const paymentStatus = patient.PAYMENT_STATUS || 'รอชำระ'; // เพิ่มบรรทัดนี้
+          const paymentStatus = patient.PAYMENT_STATUS || 'รอชำระ';
 
           console.log(`Patient ${patient.HNCODE}: queueStatus="${queueStatus}", treatmentStatus="${treatmentStatus}", paymentStatus="${paymentStatus}"`);
 
+          if (treatmentStatus === 'เสร็จแล้ว') {
+            return false;
+          }
+
           return queueStatus === 'เสร็จแล้ว' &&
-            treatmentStatus === 'เสร็จแล้ว' &&
-            paymentStatus !== 'ชำระเงินแล้ว'; // เช็ค PAYMENT_STATUS แทน
+            paymentStatus !== 'ชำระเงินแล้ว';
         });
 
         console.log(`Found ${filteredPatients.length} patients waiting for payment`);
@@ -309,6 +312,15 @@ const Paymentanddispensingmedicine = () => {
 
       if (!treatmentResponse.success) {
         throw new Error('ไม่สามารถปิดการรักษาได้: ' + treatmentResponse.message);
+      }
+
+      // ลบคิวออกจากระบบเพื่อไม่ให้กลับมาแสดงอีก
+      if (currentPatient.queueId) {
+        try {
+          await QueueService.removeQueue(currentPatient.queueId);
+        } catch (queueError) {
+          console.warn('⚠️ ไม่สามารถลบคิวได้:', queueError);
+        }
       }
 
       // ลบผู้ป่วยออกจาก state

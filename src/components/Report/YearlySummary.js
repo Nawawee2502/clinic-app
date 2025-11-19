@@ -5,7 +5,6 @@ import {
   Button,
   Card,
   CardContent,
-  Chip,
   CircularProgress,
   Dialog,
   DialogActions,
@@ -39,44 +38,8 @@ import Income1Service from "../../services/income1Service";
 import Pay1Service from "../../services/pay1Service";
 import {
   formatThaiDateShort,
-  getCurrentDateForDB,
 } from "../../utils/dateTimeUtils";
 import SummaryPdfButton from "./SummaryPdfButton";
-
-const convertDateCEToBE = (ceDate) => {
-  if (!ceDate) return "";
-  const [year, month, day] = ceDate.split("-");
-  return `${parseInt(year, 10) + 543}-${month}-${day}`;
-};
-
-const convertDateBEToCE = (beDate) => {
-  if (!beDate) return "";
-  const [year, month, day] = beDate.split("-");
-  return `${parseInt(year, 10) - 543}-${month}-${day}`;
-};
-
-const DateInputBE = ({ label, value, onChange, ...props }) => {
-  const displayValue = value ? convertDateCEToBE(value) : "";
-
-  const handleChange = (event) => {
-    const beValue = event.target.value;
-    const ceValue = beValue ? convertDateBEToCE(beValue) : "";
-    onChange?.({ target: { value: ceValue } });
-  };
-
-  return (
-    <TextField
-      {...props}
-      fullWidth
-      label={label}
-      type="date"
-      value={displayValue}
-      onChange={handleChange}
-      InputLabelProps={{ shrink: true }}
-      inputProps={{ max: convertDateCEToBE("9999-12-31") }}
-    />
-  );
-};
 
 const formatCurrency = (amount) =>
   new Intl.NumberFormat("th-TH", {
@@ -158,9 +121,11 @@ const groupExpensesByType = (records) => {
   });
 };
 
-const SummaryReport = () => {
-  const [startDate, setStartDate] = useState(getCurrentDateForDB());
-  const [endDate, setEndDate] = useState(getCurrentDateForDB());
+const YearlySummary = () => {
+  const currentYear = new Date().getFullYear();
+  
+  const [startYear, setStartYear] = useState(currentYear.toString());
+  const [endYear, setEndYear] = useState(currentYear.toString());
   const [incomeRecords, setIncomeRecords] = useState([]);
   const [expenseRecords, setExpenseRecords] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -183,7 +148,7 @@ const SummaryReport = () => {
       setLoading(true);
       setError(null);
       
-      // ดึงข้อมูลทั้งหมดแล้ว filter ตามช่วงวันที่ฝั่ง client
+      // ดึงข้อมูลทั้งหมดแล้ว filter ตามช่วงปีฝั่ง client
       const status = statusFilter || 'ทำงานอยู่';
       
       // ดึงข้อมูลทั้งหมด (ไม่ส่ง year/month)
@@ -211,6 +176,8 @@ const SummaryReport = () => {
               flatExpenseData.push({
                 REFNO: item.REFNO,
                 RDATE: item.RDATE,
+                MYEAR: item.MYEAR,
+                MONTHH: item.MONTHH,
                 NAME1: item.NAME1,
                 STATUS: item.STATUS,
                 TYPE_PAY: item.TYPE_PAY,
@@ -243,28 +210,21 @@ const SummaryReport = () => {
     }
   };
 
-  const filterByDate = (records, start, end) => {
-    const startObj = start ? new Date(start) : null;
-    const endObj = end ? new Date(end) : null;
+  const filterByYear = (records, startYear, endYear) => {
+    const startYearNum = parseInt(startYear);
+    const endYearNum = parseInt(endYear);
 
     return records.filter((item) => {
-      if (!item.RDATE) return false;
-      const recordDate = new Date(item.RDATE);
-      if (startObj && recordDate < startObj) return false;
-      if (endObj) {
-        const endDay = new Date(endObj);
-        endDay.setHours(23, 59, 59, 999);
-        if (recordDate > endDay) return false;
-      }
-      return true;
+      const itemYear = parseInt(item.MYEAR) || 0;
+      return itemYear >= startYearNum && itemYear <= endYearNum;
     });
   };
 
   const filteredIncome = useMemo(() => {
     let result = [...incomeRecords];
     
-    // Filter ตามช่วงวันที่
-    result = filterByDate(result, startDate, endDate);
+    // Filter ตามช่วงปี
+    result = filterByYear(result, startYear, endYear);
     
     if (incomeTypeFilter) {
       result = result.filter((item) => item.TYPE_PAY === incomeTypeFilter);
@@ -282,13 +242,13 @@ const SummaryReport = () => {
       );
     }
     return result;
-  }, [incomeRecords, startDate, endDate, incomeTypeFilter, statusFilter, searchTerm]);
+  }, [incomeRecords, startYear, endYear, incomeTypeFilter, statusFilter, searchTerm]);
 
   const filteredExpense = useMemo(() => {
     let result = [...expenseRecords];
     
-    // Filter ตามช่วงวันที่
-    result = filterByDate(result, startDate, endDate);
+    // Filter ตามช่วงปี
+    result = filterByYear(result, startYear, endYear);
     
     if (expenseTypeFilter) {
       result = result.filter((item) => item.TYPE_PAY === expenseTypeFilter);
@@ -306,7 +266,7 @@ const SummaryReport = () => {
       );
     }
     return result;
-  }, [expenseRecords, startDate, endDate, expenseTypeFilter, statusFilter, searchTerm]);
+  }, [expenseRecords, startYear, endYear, expenseTypeFilter, statusFilter, searchTerm]);
 
   const summary = useMemo(() => {
     const incomeTotal = filteredIncome.reduce((sum, item) => sum + (parseFloat(item.TOTAL) || 0), 0);
@@ -418,7 +378,7 @@ const SummaryReport = () => {
       alert("ไม่มีข้อมูลรายรับสำหรับการส่งออก");
       return;
     }
-    Income1Service.downloadCSV(filteredIncome, "daily-income-report");
+    Income1Service.downloadCSV(filteredIncome, "yearly-income-report");
   };
 
   const handleExportExpense = () => {
@@ -428,7 +388,7 @@ const SummaryReport = () => {
     }
     // ส่งออกโดยใช้ข้อมูลที่รวมยอดแล้วตาม TYPE_PAY_CODE + BANK_NO
     const grouped = groupExpensesByTypeAndBank(filteredExpense);
-    Pay1Service.downloadCSV(grouped, "daily-expense-report");
+    Pay1Service.downloadCSV(grouped, "yearly-expense-report");
   };
 
   const loadIncomeDetail = async (refno) => {
@@ -499,7 +459,7 @@ const SummaryReport = () => {
                 </Grid>
                 <Grid item xs={12} md={4}>
                   <Typography variant="body2" color="text.secondary">
-                    ชื่อคู่สัญญา
+                    {title.includes("รับ") ? "รับจาก" : "จ่ายให้"}
                   </Typography>
                   <Typography variant="body1">
                     {dialogState.data.header.NAME1 || "-"}
@@ -507,7 +467,7 @@ const SummaryReport = () => {
                 </Grid>
                 <Grid item xs={12} md={4}>
                   <Typography variant="body2" color="text.secondary">
-                    วิธีชำระ
+                    {title.includes("รับ") ? "วิธีรับ" : "วิธีจ่าย"}
                   </Typography>
                   <Typography variant="body1">
                     {dialogState.data.header.TYPE_PAY || "-"}
@@ -556,12 +516,17 @@ const SummaryReport = () => {
     );
   };
 
+  const yearOptions = Array.from({ length: 10 }, (_, i) => {
+    const year = currentYear - i;
+    return year.toString();
+  });
+
   return (
     <Box sx={{ mt: 2 }}>
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
         <Box>
           <Typography variant="h5" fontWeight="bold" component="span">
-            สรุปรายรับ รายจ่ายประจำวัน
+            สรุปรายรับ รายจ่ายประจำปี
           </Typography>
         </Box>
         <Box sx={{ display: "flex", gap: 2 }}>
@@ -583,8 +548,8 @@ const SummaryReport = () => {
             ส่งออกรายจ่าย
           </Button>
           <SummaryPdfButton
-            startDate={startDate}
-            endDate={endDate}
+            startDate={null}
+            endDate={null}
             incomeRows={incomePdfRows}
             expenseRows={expensePdfRows}
             summary={summary}
@@ -598,21 +563,38 @@ const SummaryReport = () => {
             ตัวกรองข้อมูล
           </Typography>
           <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} sm={6} md={3}>
-              <DateInputBE
-                label="วันที่เริ่มต้น"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-              />
+            <Grid item xs={12} sm={6} md={2}>
+              <FormControl fullWidth>
+                <InputLabel>ปีเริ่มต้น</InputLabel>
+                <Select
+                  label="ปีเริ่มต้น"
+                  value={startYear}
+                  onChange={(e) => setStartYear(e.target.value)}
+                >
+                  {yearOptions.map((year) => (
+                    <MenuItem key={year} value={year}>
+                      {year}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
             </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <DateInputBE
-                label="วันที่สิ้นสุด"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-              />
+            <Grid item xs={12} sm={6} md={2}>
+              <FormControl fullWidth>
+                <InputLabel>ปีสิ้นสุด</InputLabel>
+                <Select
+                  label="ปีสิ้นสุด"
+                  value={endYear}
+                  onChange={(e) => setEndYear(e.target.value)}
+                >
+                  {yearOptions.map((year) => (
+                    <MenuItem key={year} value={year}>
+                      {year}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
             </Grid>
-
             <Grid item xs={12} sm={6} md={2}>
               <FormControl fullWidth>
                 <InputLabel>สถานะ</InputLabel>
@@ -699,8 +681,6 @@ const SummaryReport = () => {
           {error}
         </Alert>
       )}
-
-      {/* Summary stat boxes removed to match PDF layout */}
 
       {loading && (
         <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
@@ -860,10 +840,10 @@ const SummaryReport = () => {
         <Card>
           <CardContent sx={{ textAlign: "center", py: 8 }}>
             <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
-              ไม่มีข้อมูลในช่วงวันที่ที่เลือก
+              ไม่มีข้อมูลในช่วงปีที่เลือก
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              ลองปรับช่วงวันที่หรือเงื่อนไขการค้นหาอื่น ๆ
+              ลองปรับช่วงปีหรือเงื่อนไขการค้นหาอื่น ๆ
             </Typography>
           </CardContent>
         </Card>
@@ -875,4 +855,5 @@ const SummaryReport = () => {
   );
 };
 
-export default SummaryReport;
+export default YearlySummary;
+

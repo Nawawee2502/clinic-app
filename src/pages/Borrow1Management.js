@@ -922,11 +922,14 @@ const Borrow1Management = () => {
                                             details.map((detail, index) => {
                                                 // หา GENERIC_NAME จาก drugList โดยใช้ DRUG_CODE
                                                 const drug = drugList.find(d => d.DRUG_CODE === detail.DRUG_CODE);
-                                                const genericName = drug ? drug.GENERIC_NAME : (detail.GENERIC_NAME || '-');
+                                                const genericName = drug?.GENERIC_NAME || detail.GENERIC_NAME || '';
+                                                const tradeName = drug?.TRADE_NAME || '';
+                                                const drugCode = drug?.DRUG_CODE || detail.DRUG_CODE || '';
+                                                const drugDisplay = drug ? `${genericName}-${tradeName}-${drugCode}` : (detail.GENERIC_NAME || '-');
                                                 
                                                 return (
                                                     <TableRow key={index}>
-                                                        <TableCell>{genericName}</TableCell>
+                                                        <TableCell>{drugDisplay}</TableCell>
                                                         <TableCell align="right">{detail.QTY}</TableCell>
                                                         <TableCell>{detail.UNIT_NAME1 || '-'}</TableCell>
                                                         <TableCell align="right">{Borrow1Service.formatCurrency(detail.UNIT_COST)}</TableCell>
@@ -986,7 +989,10 @@ const Borrow1Management = () => {
                                         fullWidth
                                         options={drugList}
                                         getOptionLabel={(option) => {
-                                            return option.GENERIC_NAME || '';
+                                            const genericName = option.GENERIC_NAME || '';
+                                            const tradeName = option.TRADE_NAME || '';
+                                            const drugCode = option.DRUG_CODE || '';
+                                            return `${genericName}-${tradeName}-${drugCode}`;
                                         }}
                                         filterOptions={(options, { inputValue }) => {
                                             const searchTerm = inputValue.toLowerCase();

@@ -554,15 +554,23 @@ const BalMonthDrugManagement = () => {
                                         onChange={handleDrugSelect}
                                         options={drugList}
                                         getOptionLabel={(option) => {
-                                            return option.GENERIC_NAME || option.DRUG_CODE || '';
+                                            const genericName = option.GENERIC_NAME || '';
+                                            const tradeName = option.TRADE_NAME || '';
+                                            const drugCode = option.DRUG_CODE || '';
+                                            return `${genericName}-${tradeName}-${drugCode}`;
                                         }}
                                         // ✅ ใช้ DRUG_CODE เป็น key แทน GENERIC_NAME เพื่อหลีกเลี่ยง duplicate key
                                         isOptionEqualToValue={(option, value) => option?.DRUG_CODE === value?.DRUG_CODE}
-                                        renderOption={(props, option) => (
-                                            <li {...props} key={option.DRUG_CODE}>
-                                                {option.GENERIC_NAME || option.DRUG_CODE || ''} ({option.DRUG_CODE || ''})
-                                            </li>
-                                        )}
+                                        renderOption={(props, option) => {
+                                            const genericName = option.GENERIC_NAME || '';
+                                            const tradeName = option.TRADE_NAME || '';
+                                            const drugCode = option.DRUG_CODE || '';
+                                            return (
+                                                <li {...props} key={option.DRUG_CODE}>
+                                                    {`${genericName}-${tradeName}-${drugCode}`}
+                                                </li>
+                                            );
+                                        }}
                                         filterOptions={(options, { inputValue }) => {
                                             const searchTerm = inputValue.toLowerCase();
                                             return options.filter(option =>
@@ -795,7 +803,10 @@ const BalMonthDrugManagement = () => {
                                     <TableBody>
                                         {filteredList.slice((page - 1) * itemsPerPage, page * itemsPerPage).map((item, index) => {
                                             const drug = drugList.find(d => d.DRUG_CODE === item.DRUG_CODE);
-                                            const drugName = drug ? drug.GENERIC_NAME : '-';
+                                            const genericName = drug?.GENERIC_NAME || '';
+                                            const tradeName = drug?.TRADE_NAME || '';
+                                            const drugCode = drug?.DRUG_CODE || item.DRUG_CODE || '';
+                                            const drugName = drug ? `${genericName}-${tradeName}-${drugCode}` : '-';
                                             const unitName = drug && drug.UNIT_NAME1 ? drug.UNIT_NAME1 : (item.UNIT_CODE1 || '-');
 
                                             return (
