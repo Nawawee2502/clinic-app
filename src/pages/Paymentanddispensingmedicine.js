@@ -330,10 +330,15 @@ const Paymentanddispensingmedicine = () => {
         return;
       }
 
-      // ✅ เช็คว่าชำระเงินแล้วหรือยัง
+      // ✅ เช็ค UCS_CARD: ถ้าเป็น 'Y' ไม่ต้องชำระเงิน, ถ้าเป็น 'N' ต้องชำระเงินก่อน
+      const ucsCard = currentPatient?.UCS_CARD || 
+                      treatmentData?.treatment?.UCS_CARD || 
+                      treatmentData?.patient?.UCS_CARD || 
+                      'N';
       const paymentStatus = currentPatient.PAYMENT_STATUS || 'รอชำระ';
       
-      if (paymentStatus !== 'ชำระเงินแล้ว') {
+      // ถ้า UCS_CARD เป็น 'N' ต้องชำระเงินก่อน
+      if (ucsCard !== 'Y' && paymentStatus !== 'ชำระเงินแล้ว') {
         // ถ้ายังไม่ชำระเงิน ให้ขึ้น swal เตือน
         await Swal.fire({
           icon: 'warning',
