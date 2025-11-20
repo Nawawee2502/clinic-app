@@ -260,14 +260,6 @@ const PatientReceptionSection = ({
             return;
         }
 
-        const requiredVitals = ['WEIGHT1', 'HIGH1', 'BT1', 'BP1', 'BP2', 'RR1', 'PR1', 'SPO2'];
-        const missingVitals = requiredVitals.filter(field => !vitalsData[field]);
-
-        if (missingVitals.length > 0) {
-            showSnackbar('กรุณากรอกข้อมูล Vital Signs ให้ครบถ้วน', 'error');
-            return;
-        }
-
         setLoading(true);
 
         try {
@@ -299,16 +291,16 @@ const PatientReceptionSection = ({
                 HNNO: selectedPatient.HNCODE,
                 RDATE: new Date().toISOString().split('T')[0],
 
-                // Vital Signs ที่กรอกในหน้ารับผู้ป่วย
-                WEIGHT1: parseFloat(vitalsData.WEIGHT1),
-                HIGHT1: parseFloat(vitalsData.HIGH1),
-                BT1: parseFloat(vitalsData.BT1),
-                BP1: parseInt(vitalsData.BP1),
-                BP2: parseInt(vitalsData.BP2),
-                RR1: parseInt(vitalsData.RR1),
-                PR1: parseInt(vitalsData.PR1),
-                SPO2: parseInt(vitalsData.SPO2),
-                SYMPTOM: vitalsData.SYMPTOM,
+                // Vital Signs ที่กรอกในหน้ารับผู้ป่วย (ถ้าไม่กรอกจะส่งเป็น null)
+                WEIGHT1: vitalsData.WEIGHT1 ? parseFloat(vitalsData.WEIGHT1) : null,
+                HIGHT1: vitalsData.HIGH1 ? parseFloat(vitalsData.HIGH1) : null,
+                BT1: vitalsData.BT1 ? parseFloat(vitalsData.BT1) : null,
+                BP1: vitalsData.BP1 ? parseInt(vitalsData.BP1) : null,
+                BP2: vitalsData.BP2 ? parseInt(vitalsData.BP2) : null,
+                RR1: vitalsData.RR1 ? parseInt(vitalsData.RR1) : null,
+                PR1: vitalsData.PR1 ? parseInt(vitalsData.PR1) : null,
+                SPO2: vitalsData.SPO2 ? parseInt(vitalsData.SPO2) : null,
+                SYMPTOM: vitalsData.SYMPTOM || 'รับบริการทั่วไป',
 
                 // ข้อมูลพื้นฐาน
                 EMP_CODE: 'DOC001',
@@ -506,7 +498,7 @@ const PatientReceptionSection = ({
                             <Grid container spacing={2}>
                                 <Grid item xs={6} md={3}>
                                     <TextField
-                                        label="น้ำหนัก (kg) *"
+                                        label="น้ำหนัก (kg)"
                                         type="number"
                                         value={vitalsData.WEIGHT1}
                                         onChange={(e) => setVitalsData(prev => ({ ...prev, WEIGHT1: e.target.value }))}
@@ -523,7 +515,7 @@ const PatientReceptionSection = ({
                                 </Grid>
                                 <Grid item xs={6} md={3}>
                                     <TextField
-                                        label="ส่วนสูง (cm) *"
+                                        label="ส่วนสูง (cm)"
                                         type="number"
                                         value={vitalsData.HIGH1}  // ✅ แก้ไขจาก HIGHT1 เป็น HIGH1
                                         onChange={(e) => setVitalsData(prev => ({ ...prev, HIGH1: e.target.value }))}  // ✅ แก้ไขจาก HIGHT1 เป็น HIGH1
@@ -540,7 +532,7 @@ const PatientReceptionSection = ({
                                 </Grid>
                                 <Grid item xs={6} md={3}>
                                     <TextField
-                                        label="อุณหภูมิ (°C) *"
+                                        label="อุณหภูมิ (°C)"
                                         type="number"
                                         value={vitalsData.BT1}
                                         onChange={(e) => setVitalsData(prev => ({ ...prev, BT1: e.target.value }))}
@@ -557,7 +549,7 @@ const PatientReceptionSection = ({
                                 </Grid>
                                 <Grid item xs={6} md={3}>
                                     <TextField
-                                        label="SpO2 (%) *"
+                                        label="SpO2 (%)"
                                         type="number"
                                         value={vitalsData.SPO2}
                                         onChange={(e) => setVitalsData(prev => ({ ...prev, SPO2: e.target.value }))}
@@ -574,7 +566,7 @@ const PatientReceptionSection = ({
                                 </Grid>
                                 <Grid item xs={6} md={3}>
                                     <TextField
-                                        label="ความดันตัวบน *"
+                                        label="ความดันตัวบน"
                                         type="number"
                                         value={vitalsData.BP1}
                                         onChange={(e) => setVitalsData(prev => ({ ...prev, BP1: e.target.value }))}
@@ -591,7 +583,7 @@ const PatientReceptionSection = ({
                                 </Grid>
                                 <Grid item xs={6} md={3}>
                                     <TextField
-                                        label="ความดันตัวล่าง *"
+                                        label="ความดันตัวล่าง"
                                         type="number"
                                         value={vitalsData.BP2}
                                         onChange={(e) => setVitalsData(prev => ({ ...prev, BP2: e.target.value }))}
@@ -608,7 +600,7 @@ const PatientReceptionSection = ({
                                 </Grid>
                                 <Grid item xs={6} md={3}>
                                     <TextField
-                                        label="อัตราการหายใจ *"
+                                        label="อัตราการหายใจ"
                                         type="number"
                                         value={vitalsData.RR1}
                                         onChange={(e) => setVitalsData(prev => ({ ...prev, RR1: e.target.value }))}
@@ -625,7 +617,7 @@ const PatientReceptionSection = ({
                                 </Grid>
                                 <Grid item xs={6} md={3}>
                                     <TextField
-                                        label="ชีพจร (bpm) *"
+                                        label="ชีพจร (bpm)"
                                         type="number"
                                         value={vitalsData.PR1}
                                         onChange={(e) => setVitalsData(prev => ({ ...prev, PR1: e.target.value }))}

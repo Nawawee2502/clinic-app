@@ -72,8 +72,47 @@ const QueueDisplayPanel = ({
 
     return (
         <>
+
+                    {/* Navigation Menu */}
+                    <Card>
+                <CardContent>
+                    <Typography variant="h6" sx={{ mb: 2, color: '#1976d2' }}>
+                        เมนูหลัก
+                    </Typography>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                        <Button
+                            fullWidth
+                            variant={mainView === 'reception' ? 'contained' : 'outlined'}
+                            startIcon={<VitalsIcon />}
+                            onClick={() => setMainView('reception')}
+                            sx={{ borderRadius: '10px', py: 1.5, justifyContent: 'flex-start' }}
+                        >
+                            รับผู้ป่วย
+                        </Button>
+                        <Button
+                            fullWidth
+                            variant={mainView === 'newPatient' ? 'contained' : 'outlined'}
+                            startIcon={<PersonAddIcon />}
+                            onClick={() => setMainView('newPatient')}
+                            sx={{ borderRadius: '10px', py: 1.5, justifyContent: 'flex-start' }}
+                        >
+                            เพิ่มผู้ป่วยใหม่
+                        </Button>
+                        <Button
+                            fullWidth
+                            variant={mainView === 'appointments' ? 'contained' : 'outlined'}
+                            startIcon={<CalendarIcon />}
+                            onClick={() => setMainView('appointments')}
+                            sx={{ borderRadius: '10px', py: 1.5, justifyContent: 'flex-start' }}
+                        >
+                            จัดการนัดหมาย
+                        </Button>
+                    </Box>
+                </CardContent>
+            </Card>
+            
             {/* Queue Display */}
-            <Card sx={{ height: 'fit-content', mb: 2 }}>
+            <Card sx={{  mt: 2, height: '60vh', overflowY: 'auto' }}>
                 <CardContent>
                     <Box sx={{
                         display: 'flex',
@@ -185,43 +224,7 @@ const QueueDisplayPanel = ({
                 </CardContent>
             </Card>
 
-            {/* Navigation Menu */}
-            <Card>
-                <CardContent>
-                    <Typography variant="h6" sx={{ mb: 2, color: '#1976d2' }}>
-                        เมนูหลัก
-                    </Typography>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                        <Button
-                            fullWidth
-                            variant={mainView === 'reception' ? 'contained' : 'outlined'}
-                            startIcon={<VitalsIcon />}
-                            onClick={() => setMainView('reception')}
-                            sx={{ borderRadius: '10px', py: 1.5, justifyContent: 'flex-start' }}
-                        >
-                            รับผู้ป่วย
-                        </Button>
-                        <Button
-                            fullWidth
-                            variant={mainView === 'newPatient' ? 'contained' : 'outlined'}
-                            startIcon={<PersonAddIcon />}
-                            onClick={() => setMainView('newPatient')}
-                            sx={{ borderRadius: '10px', py: 1.5, justifyContent: 'flex-start' }}
-                        >
-                            เพิ่มผู้ป่วยใหม่
-                        </Button>
-                        <Button
-                            fullWidth
-                            variant={mainView === 'appointments' ? 'contained' : 'outlined'}
-                            startIcon={<CalendarIcon />}
-                            onClick={() => setMainView('appointments')}
-                            sx={{ borderRadius: '10px', py: 1.5, justifyContent: 'flex-start' }}
-                        >
-                            จัดการนัดหมาย
-                        </Button>
-                    </Box>
-                </CardContent>
-            </Card>
+
         </>
     );
 };

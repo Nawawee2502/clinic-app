@@ -20,7 +20,7 @@ const DrugLabelsPrint = ({ patient, drugs }) => {
           .labels-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
 
           .drug-label {
-            width: 260px; height: 360px;
+            width: 260px;
             border: 1px solid #999;
             padding: 8px;
             display: flex; flex-direction: column;
@@ -72,68 +72,16 @@ const DrugLabelsPrint = ({ patient, drugs }) => {
             font-weight: bold;
           }
 
-          .time-grid {
-            display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px;
-            margin: 4px 0;
-          }
-          .time-cell {
-            text-align: center; font-size: 8px;
-            border: 1px solid #90caf9; border-radius: 2px;
-            padding: 2px 0;
-          }
-
-          .instructions {
-            border-top: 1px solid #000;
-            margin-top: 4px; padding-top: 4px;
-            font-size: 8px;
-          }
-          .instructions .title { 
-            font-weight: 600; 
-            margin-bottom: 3px; 
-            font-size: 9px;
-            text-align: center;
-          }
-          .meal-row {
-            display: flex;
-            align-items: center;
-            font-size: 8px;
-            margin-bottom: 4px;
-          }
-          .instructions .grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 3px 8px;
-          }
-          .instructions .item { display: flex; align-items: center; }
-          .instructions .item .checkbox { flex-shrink: 0; }
-
-          .expiry { font-size: 8px; margin-top: auto; }
+          .expiry { font-size: 8px; margin-top: 8px; }
         </style>
       </head>
       <body>
         <div class="labels-container">
           ${drugs.map(drug => {
-            const dosage = drug.DOSAGE || drug.Dose1 || "1";
-            const freq = parseInt(drug.FREQUENCY || drug.TIME1 || "3");
             const qty = drug.QTY || 1;
             const unit = drug.UNIT_CODE || "เม็ด";
             const name = drug.GENERIC_NAME || drug.DRUG_CODE || "ยา";
             const expire = drug.EXPIRE_DATE || "...............";
-            
-            // ✅ ดึงข้อมูลวิธีการกินยาเพื่อ auto-check
-            const note1 = drug.NOTE1 || drug.Comment1 || '';
-            const beforeAfter = drug.beforeAfter || '';
-            const usage = drug.usage || drug.Indication1 || '';
-            const time1 = drug.TIME1 || '';
-            
-            // ✅ ตรวจสอบว่าต้องเช็ค checkbox อะไรบ้าง
-            const isBeforeMeal = beforeAfter.includes('ก่อน') || note1.includes('ก่อน') || usage.includes('ก่อน');
-            const isAfterMeal = beforeAfter.includes('หลัง') || note1.includes('หลัง') || usage.includes('หลัง') || time1.includes('หลัง');
-            const isBeforeMealHalfHour = note1.includes('ก่อนอาหารครึ่ง') || note1.includes('ก่อนอาหาร') || time1.includes('ก่อนอาหารครึ่ง');
-            const isAfterMealImmediately = note1.includes('หลังอาหารทันที') || note1.includes('หลังอาหาร') || time1.includes('หลังอาหารทันที');
-            const isContinueUntilFinished = note1.includes('ติดต่อกันจนหมด') || note1.includes('จนหมด') || time1.includes('จนหมด');
-            const isDrinkWater = note1.includes('ดื่มน้ำ') || note1.includes('น้ำตาม') || time1.includes('ดื่มน้ำ');
-            const isDrowsy = note1.includes('ง่วง') || note1.includes('ง่วงซึม') || time1.includes('ง่วง');
 
             return `
               <div class="drug-label">
@@ -147,32 +95,7 @@ const DrugLabelsPrint = ({ patient, drugs }) => {
                 <div class="line-field"><span>HN</span> ${patient.HNCODE}</div>
                 <div class="line-field"><span>ชื่อยา</span> ${name}</div>
                 <div class="line-field"><span>จำนวน</span> ${qty} ${unit}</div>
-                <div class="line-field"><span>ข้อบ่งใช้</span> ........................................</div>
-                <div class="line-field">รับประทานครั้งละ ${dosage} เม็ด วันละ ${freq} ครั้ง</div>
-
-                <div class="meal-row">
-                    <div class="checkbox ${isBeforeMeal ? 'checked' : ''}"></div> ก่อนอาหาร (Before meal)
-                    <div class="checkbox ${isAfterMeal ? 'checked' : ''}" style="margin-left:12px;"></div> หลังอาหาร (After meal)
-                </div>
-
-                <div class="time-grid">
-                  <div class="time-cell ${freq >= 1 ? "active" : ""}">🌅 เช้า<br>Breakfast</div>
-                  <div class="time-cell ${freq >= 2 ? "active" : ""}">☀️ กลางวัน<br>Lunch</div>
-                  <div class="time-cell ${freq >= 3 ? "active" : ""}">🌆 เย็น<br>Dinner</div>
-                  <div class="time-cell ${freq >= 4 ? "active" : ""}">🌙 ก่อนนอน<br>Bedtime</div>
-                </div>
-
-                <div class="instructions">
-                  <div class="title">คำแนะนำ</div>
-                  <div class="grid">
-                    <div class="item"><div class="checkbox ${isBeforeMealHalfHour ? 'checked' : ''}"></div> ก่อนอาหารครึ่ง-หนึ่งชั่วโมง</div>
-                    <div class="item"><div class="checkbox ${isContinueUntilFinished ? 'checked' : ''}"></div> ทานยาติดต่อกันจนหมด</div>
-                    <div class="item"><div class="checkbox ${isAfterMealImmediately ? 'checked' : ''}"></div> ทานหลังอาหารทันที</div>
-                    <div class="item"><div class="checkbox ${isDrinkWater ? 'checked' : ''}"></div> ดื่มน้ำตามมากๆ</div>
-                    <div class="item"><div class="checkbox ${isDrowsy ? 'checked' : ''}"></div> ยานี้อาจทำให้ง่วงซึม</div>
-                    <div class="item"><div class="checkbox"></div> อื่นๆ...........................</div>
-                  </div>
-                </div>
+                <div class="line-field"><span>ข้อบ่งใช้</span> ${drug.eat1 || drug.EAT1 || ''}</div>
 
                 <div class="expiry">วันหมดอายุ (Exp.) ${expire}</div>
               </div>

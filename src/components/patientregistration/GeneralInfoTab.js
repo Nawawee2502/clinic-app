@@ -190,7 +190,7 @@ const GeneralInfoTab = ({ onNext, patientData, updatePatientData }) => {
     }
   };
 
-  // ฟังก์ชันคำนวณอายุจากวันเกิด
+  // ฟังก์ชันคำนวณอายุจากวันเกิด (รองรับอายุน้อยกว่า 1 ปี)
   const calculateAge = (day, month, year) => {
     if (!day || !month || !year) return '';
 
@@ -201,6 +201,17 @@ const GeneralInfoTab = ({ onNext, patientData, updatePatientData }) => {
       // ตรวจสอบว่าวันที่ valid หรือไม่
       if (isNaN(birth.getTime())) return '';
 
+      // คำนวณความแตกต่างเป็นวัน
+      const diffTime = today - birth;
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+      // ถ้าน้อยกว่า 1 ปี ให้คำนวณเป็นเดือน (ทศนิยม 2 ตำแหน่ง)
+      if (diffDays < 365) {
+        const months = diffDays / 30.44; // ใช้ค่าเฉลี่ย 30.44 วันต่อเดือน
+        return months.toFixed(2); // คืนค่าเป็นเดือน เช่น "6.50" = 6 เดือนครึ่ง
+      }
+
+      // ถ้ามากกว่าหรือเท่ากับ 1 ปี ให้คำนวณเป็นปี
       let age = today.getFullYear() - birth.getFullYear();
       const monthDiff = today.getMonth() - birth.getMonth();
 
@@ -690,27 +701,30 @@ const GeneralInfoTab = ({ onNext, patientData, updatePatientData }) => {
 
           <Grid item xs={12} sm={6}>
             <Typography sx={{ fontWeight: '400', fontSize: '16px', textAlign: "left" }}>
-              อายุ (ปี)
+              อายุ (ปี/เดือน)
             </Typography>
             <TextField
-              placeholder="อายุจะคำนวณอัตโนมัติจากวันเกิด"
+              placeholder="อายุจะคำนวณอัตโนมัติจากวันเกิด หรือกรอกเองได้ (เช่น 0.5 = 6 เดือน)"
               size="small"
               fullWidth
               type="number"
               value={patientData.AGE || ''}
               onChange={handleInputChange('AGE')}
+              inputProps={{
+                min: "0",
+                max: "150",
+                step: "0.01"
+              }}
               sx={{
                 mt: 1,
                 '& .MuiOutlinedInput-root': {
                   borderRadius: '10px',
                 },
                 '& input': {
-                  backgroundColor: (selectedDay && selectedMonth && selectedYear) ? '#f5f5f5' : 'white',
+                  backgroundColor: (selectedDay && selectedMonth && selectedYear) ? '#f0f8ff' : 'white',
                 }
               }}
-              InputProps={{
-                readOnly: !!(selectedDay && selectedMonth && selectedYear), // ถ้ามีวันเกิดครบแล้วให้ readonly
-              }}
+              helperText={(selectedDay && selectedMonth && selectedYear) ? "อายุคำนวณอัตโนมัติจากวันเกิด (สามารถแก้ไขได้)" : "กรอกอายุเป็นปี หรือทศนิยม เช่น 0.5 = 6 เดือน"}
             />
           </Grid>
 

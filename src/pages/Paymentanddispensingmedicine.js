@@ -26,6 +26,7 @@ import { Print as PrintIcon } from "@mui/icons-material";
 // Import Services
 import PatientService from "../services/patientService";
 import TreatmentService from "../services/treatmentService";
+import Swal from "sweetalert2";
 
 // Import Utilities
 import { 
@@ -248,25 +249,61 @@ const Paymentanddispensingmedicine = () => {
           })
         );
 
-        // แก้ไขเงื่อนไขการกรอง
+        // ✅ กรองผู้ป่วย: แสดงทั้ง PAYMENT_STATUS === 'รอชำระ' และ 'ชำระเงินแล้ว' แต่ไม่แสดงถ้า STATUS1 === 'ปิดการรักษา'
         const filteredPatients = patientsWithTreatmentStatus.filter(patient => {
-          const queueStatus = patient.queueStatus || patient.QUEUE_STATUS || patient.STATUS || 'รอตรวจ';
-          const treatmentStatus = patient.STATUS1 || 'กำลังตรวจ';
           const paymentStatus = patient.PAYMENT_STATUS || 'รอชำระ';
+          const treatmentStatus = patient.STATUS1 || 'กำลังตรวจ';
 
-          console.log(`Patient ${patient.HNCODE}: queueStatus="${queueStatus}", treatmentStatus="${treatmentStatus}", paymentStatus="${paymentStatus}"`);
+          console.log(`Patient ${patient.HNCODE}: paymentStatus="${paymentStatus}", treatmentStatus="${treatmentStatus}"`);
 
-          if (treatmentStatus === 'เสร็จแล้ว') {
+          // ไม่แสดงผู้ป่วยที่ STATUS1 === 'ปิดการรักษา'
+          if (treatmentStatus === 'ปิดการรักษา') {
             return false;
           }
 
-          return queueStatus === 'เสร็จแล้ว' &&
-            paymentStatus !== 'ชำระเงินแล้ว';
+          // แสดงทั้ง PAYMENT_STATUS === 'รอชำระ' และ 'ชำระเงินแล้ว'
+          return true;
         });
 
-        console.log(`Found ${filteredPatients.length} patients waiting for payment`);
+        // ✅ เรียงลำดับให้ผู้ป่วยที่ PAYMENT_STATUS === 'รอชำระ' ขึ้นมาก่อน 'ชำระเงินแล้ว'
+        const sortedPatients = filteredPatients.sort((a, b) => {
+          const statusA = a.PAYMENT_STATUS || 'รอชำระ';
+          const statusB = b.PAYMENT_STATUS || 'รอชำระ';
+          
+          // ถ้า A เป็น "รอชำระ" และ B เป็น "ชำระเงินแล้ว" ให้ A ขึ้นก่อน
+          if (statusA === 'รอชำระ' && statusB === 'ชำระเงินแล้ว') {
+            return -1;
+          }
+          // ถ้า B เป็น "รอชำระ" และ A เป็น "ชำระเงินแล้ว" ให้ B ขึ้นก่อน
+          if (statusB === 'รอชำระ' && statusA === 'ชำระเงินแล้ว') {
+            return 1;
+          }
+          
+          // ถ้าทั้งคู่เป็น "รอชำระ" หรือทั้งคู่เป็น "ชำระเงินแล้ว" ให้เรียงตาม QUEUE_NUMBER หรือ QUEUE_TIME
+          const queueNumA = parseInt(a.QUEUE_NUMBER || a.queueNumber || a.QUEUE_ID || 999999);
+          const queueNumB = parseInt(b.QUEUE_NUMBER || b.queueNumber || b.QUEUE_ID || 999999);
+          
+          // ถ้ามี QUEUE_TIME ให้เรียงตามเวลาก่อน (คิวที่มาก่อนขึ้นก่อน)
+          if (a.QUEUE_TIME && b.QUEUE_TIME) {
+            const timeA = new Date(a.QUEUE_TIME).getTime();
+            const timeB = new Date(b.QUEUE_TIME).getTime();
+            if (!isNaN(timeA) && !isNaN(timeB) && timeA !== timeB) {
+              return timeA - timeB; // เวลาก่อนขึ้นก่อน
+            }
+          }
+          
+          // ถ้าไม่มี QUEUE_TIME หรือเวลาเท่ากัน ให้เรียงตาม QUEUE_NUMBER (คิวน้อยกว่าขึ้นก่อน)
+          return queueNumA - queueNumB;
+        });
 
-        setPatients(filteredPatients);
+        console.log(`Found ${sortedPatients.length} patients waiting for payment`);
+        console.log('Sorted patients:', sortedPatients.map(p => ({
+          HN: p.HNCODE,
+          queueNum: p.QUEUE_NUMBER || p.queueNumber,
+          paymentStatus: p.PAYMENT_STATUS || 'null/undefined'
+        })));
+
+        setPatients(sortedPatients);
 
 
       } else {
@@ -293,9 +330,24 @@ const Paymentanddispensingmedicine = () => {
         return;
       }
 
-      // อัปเดต STATUS1 เป็น 'ปิดแล้ว' ใช้ updateTreatment แทน updateTreatmentStatus
+      // ✅ เช็คว่าชำระเงินแล้วหรือยัง
+      const paymentStatus = currentPatient.PAYMENT_STATUS || 'รอชำระ';
+      
+      if (paymentStatus !== 'ชำระเงินแล้ว') {
+        // ถ้ายังไม่ชำระเงิน ให้ขึ้น swal เตือน
+        await Swal.fire({
+          icon: 'warning',
+          title: 'ยังไม่สามารถปิดการรักษาได้',
+          text: 'กรุณาชำระเงินก่อนปิดการรักษา',
+          confirmButtonText: 'ตกลง',
+          confirmButtonColor: '#5698E0'
+        });
+        return;
+      }
+
+      // ✅ อัปเดต STATUS1 เป็น 'ปิดการรักษา'
       const treatmentUpdateData = {
-        STATUS1: 'เสร็จแล้ว',
+        STATUS1: 'ปิดการรักษา',
         // เพิ่มข้อมูลเวลาปิดการรักษา (optional)
         CLOSE_DATE: getCurrentDateForDB(), // ✅ ใช้ utility สำหรับบันทึก DB (ค.ศ.)
         CLOSE_TIME: getCurrentTimeForDB(), // ✅ ใช้ utility สำหรับบันทึก DB (เวลาไทย)
@@ -314,15 +366,7 @@ const Paymentanddispensingmedicine = () => {
         throw new Error('ไม่สามารถปิดการรักษาได้: ' + treatmentResponse.message);
       }
 
-      // ลบคิวออกจากระบบเพื่อไม่ให้กลับมาแสดงอีก
-      if (currentPatient.queueId) {
-        try {
-          await QueueService.removeQueue(currentPatient.queueId);
-        } catch (queueError) {
-          console.warn('⚠️ ไม่สามารถลบคิวได้:', queueError);
-        }
-      }
-
+      // ✅ ไม่ต้องลบคิวออก เพราะจะกรองด้วย STATUS1 === 'ปิดการรักษา' แทน
       // ลบผู้ป่วยออกจาก state
       const updatedPatients = patients.filter((_, index) => index !== selectedPatientIndex);
       setPatients(updatedPatients);
