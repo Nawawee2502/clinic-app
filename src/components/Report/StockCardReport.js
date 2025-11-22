@@ -308,7 +308,12 @@ const StockCardReport = () => {
     const generatePrintHTML = () => {
         const totals = calculateTotals();
         const monthName = monthNames[parseInt(selectedMonth) - 1];
-        const drugName = selectedDrug ? (selectedDrug.GENERIC_NAME || selectedDrug.DRUG_CODE) : '';
+        const drugName = selectedDrug ? (() => {
+            const genericName = selectedDrug.GENERIC_NAME || '';
+            const tradeName = selectedDrug.TRADE_NAME || '';
+            const drugCode = selectedDrug.DRUG_CODE || '';
+            return `${genericName}-${tradeName}-${drugCode}`;
+        })() : '';
         const lotDisplay = selectedLot ? selectedLot : '';
 
         return `
@@ -501,7 +506,12 @@ const StockCardReport = () => {
                         <Grid item xs={12} md={4}>
                             <Autocomplete
                                 options={drugList}
-                                getOptionLabel={(option) => `${option.GENERIC_NAME || option.DRUG_CODE || ''} (${option.DRUG_CODE || ''})`}
+                                getOptionLabel={(option) => {
+                                    const genericName = option.GENERIC_NAME || '';
+                                    const tradeName = option.TRADE_NAME || '';
+                                    const drugCode = option.DRUG_CODE || '';
+                                    return `${genericName}-${tradeName}-${drugCode}`;
+                                }}
                                 value={selectedDrug}
                                 onChange={(event, newValue) => {
                                     setSelectedDrug(newValue);
@@ -509,11 +519,16 @@ const StockCardReport = () => {
                                 }}
                                 // ✅ ใช้ DRUG_CODE เพื่อเปรียบเทียบเพื่อหลีกเลี่ยง duplicate key
                                 isOptionEqualToValue={(option, value) => option?.DRUG_CODE === value?.DRUG_CODE}
-                                renderOption={(props, option) => (
-                                    <li {...props} key={option.DRUG_CODE}>
-                                        {option.GENERIC_NAME || option.DRUG_CODE || ''} ({option.DRUG_CODE || ''})
-                                    </li>
-                                )}
+                                renderOption={(props, option) => {
+                                    const genericName = option.GENERIC_NAME || '';
+                                    const tradeName = option.TRADE_NAME || '';
+                                    const drugCode = option.DRUG_CODE || '';
+                                    return (
+                                        <li {...props} key={option.DRUG_CODE}>
+                                            {`${genericName}-${tradeName}-${drugCode}`}
+                                        </li>
+                                    );
+                                }}
                                 renderInput={(params) => (
                                     <TextField
                                         {...params}
@@ -641,7 +656,12 @@ const StockCardReport = () => {
                             <Box sx={{ mt: 2, textAlign: 'left', display: 'inline-block' }}>
                                 <Typography variant="body1">
                                     <strong>ยา:</strong> {selectedDrug
-                                        ? (selectedDrug.GENERIC_NAME || selectedDrug.DRUG_CODE || '')
+                                        ? (() => {
+                                            const genericName = selectedDrug.GENERIC_NAME || '';
+                                            const tradeName = selectedDrug.TRADE_NAME || '';
+                                            const drugCode = selectedDrug.DRUG_CODE || '';
+                                            return `${genericName}-${tradeName}-${drugCode}`;
+                                        })()
                                         : 'ทั้งหมด'}
                                 </Typography>
                                 {/* {selectedLot && (
@@ -687,7 +707,12 @@ const StockCardReport = () => {
                                             <TableCell align="center" sx={{ border: '1px solid #ddd' }}>{index + 1}</TableCell>
                                             {!selectedDrug && (
                                                 <TableCell align="left" sx={{ border: '1px solid #ddd' }}>
-                                                    {item.GENERIC_NAME || item.DRUG_CODE || '-'}
+                                                    {(() => {
+                                                        const genericName = item.GENERIC_NAME || '';
+                                                        const tradeName = item.TRADE_NAME || '';
+                                                        const drugCode = item.DRUG_CODE || '';
+                                                        return `${genericName}-${tradeName}-${drugCode}`;
+                                                    })()}
                                                 </TableCell>
                                             )}
                                             <TableCell align="center" sx={{ border: '1px solid #ddd' }}>{formatDateBE(item.RDATE)}</TableCell>

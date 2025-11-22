@@ -13,6 +13,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import CloseIcon from '@mui/icons-material/Close';
 import PrintIcon from '@mui/icons-material/Print';
 import UnitService from '../../services/unitService';
+import TypeDrugService from '../../services/typeDrugService';
 
 const EnhancedDrugInformation = () => {
     // States
@@ -28,6 +29,7 @@ const EnhancedDrugInformation = () => {
     const [deleteDialog, setDeleteDialog] = useState({ open: false, drugCode: null });
     const [alert, setAlert] = useState({ open: false, message: '', severity: 'info' });
     const [unitOptions, setUnitOptions] = useState([]);
+    const [typeDrugOptions, setTypeDrugOptions] = useState([]);
 
     // Form states - ครบทุก fields ตาม TABLE_DRUG
     const [formData, setFormData] = useState({
@@ -54,6 +56,7 @@ const EnhancedDrugInformation = () => {
     useEffect(() => {
         loadDrugs();
         loadUnits();
+        loadTypeDrugs();
     }, []);
 
     useEffect(() => {
@@ -108,6 +111,23 @@ const EnhancedDrugInformation = () => {
         } catch (error) {
             console.error('❌ Error loading units:', error);
             setUnitOptions([]);
+        }
+    };
+
+    const loadTypeDrugs = async () => {
+        try {
+            const result = await TypeDrugService.getAllTypeDrugs();
+            
+            if (result.success && result.data) {
+                console.log(`✅ โหลดข้อมูลประเภทยา ${result.data.length} รายการ`);
+                setTypeDrugOptions(result.data);
+            } else {
+                console.warn('ไม่สามารถดึงข้อมูลประเภทยาได้ ใช้ข้อมูลเริ่มต้น');
+                setTypeDrugOptions([]);
+            }
+        } catch (error) {
+            console.error('❌ Error loading type drugs:', error);
+            setTypeDrugOptions([]);
         }
     };
 
@@ -323,9 +343,36 @@ const EnhancedDrugInformation = () => {
         ];
     };
 
-    const getTypeOptions = () => [
-        'ยาอันตราย', 'ยาสามัญประจำบ้าน', 'ยาใช้ภายนอก', 'วัถุอออกฤทธิ์'
-    ];
+    const getTypeOptions = () => {
+        // ดึงข้อมูลจาก TYPE_DRUG table
+        if (typeDrugOptions.length > 0) {
+            return typeDrugOptions.map(typeDrug => ({
+                value: typeDrug.TYPE_DRUG_CODE,
+                label: `${typeDrug.TYPE_DRUG_CODE} - ${typeDrug.TYPE_DRUG_NAME}`
+            }));
+        }
+        // Fallback ถ้ายังไม่มีข้อมูล
+        return [
+            { value: 'ยาอันตราย', label: 'ยาอันตราย' },
+            { value: 'ยาสามัญประจำบ้าน', label: 'ยาสามัญประจำบ้าน' },
+            { value: 'ยาใช้ภายนอก', label: 'ยาใช้ภายนอก' },
+            { value: 'วัถุอออกฤทธิ์', label: 'วัถุอออกฤทธิ์' }
+        ];
+    };
+
+    // Helper function: แปลง TYPE_DRUG_CODE เป็นชื่อประเภทยา
+    const getTypeDrugName = (typeCode) => {
+        if (!typeCode) return '-';
+        
+        // หาจาก TYPE_DRUG table
+        const typeDrug = typeDrugOptions.find(td => td.TYPE_DRUG_CODE === typeCode);
+        if (typeDrug) {
+            return typeDrug.TYPE_DRUG_NAME;
+        }
+        
+        // ถ้าไม่เจอ (อาจเป็นข้อมูลเก่าที่เก็บเป็นชื่อ) ให้แสดงตามเดิม
+        return typeCode;
+    };
 
     const getFormulationOptions = () => [
         'Tablets', 'Capsules', 'Topical', 'Injections', 'ยาน้ำ', 'Drops'
@@ -478,9 +525,15 @@ const EnhancedDrugInformation = () => {
                                         value={formData.Type1}
                                         onChange={(e) => handleFormChange('Type1', e.target.value)}
                                         sx={{ borderRadius: "10px" }}
+                                        displayEmpty
                                     >
+                                        <MenuItem value="">
+                                            <em>เลือกประเภทยา</em>
+                                        </MenuItem>
                                         {getTypeOptions().map((option) => (
-                                            <MenuItem key={option} value={option}>{option}</MenuItem>
+                                            <MenuItem key={option.value || option} value={option.value || option}>
+                                                {option.label || option}
+                                            </MenuItem>
                                         ))}
                                     </Select>
                                 </FormControl>
@@ -754,7 +807,7 @@ const EnhancedDrugInformation = () => {
                                             <td style={{ padding: '12px 8px', fontWeight: 500 }}>{drug.DRUG_CODE}</td>
                                             <td style={{ padding: '12px 8px' }}>{drug.GENERIC_NAME}</td>
                                             <td style={{ padding: '12px 8px' }}>{drug.TRADE_NAME || '-'}</td>
-                                            <td style={{ padding: '12px 8px' }}>{drug.Type1 || '-'}</td>
+                                            <td style={{ padding: '12px 8px' }}>{getTypeDrugName(drug.Type1)}</td>
                                             <td style={{ padding: '12px 8px' }}>
                                                 {drug.UNIT_PRICE ? `฿${drug.UNIT_PRICE}` : '-'}
                                             </td>

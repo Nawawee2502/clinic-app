@@ -20,6 +20,23 @@ class QueueService {
         }
     }
 
+    // ดึงคิวทั้งหมด (ไม่กรองตามวันที่)
+    static async getAllQueue() {
+        try {
+            console.log('🔗 Calling API:', `${API_BASE_URL}/queue/all`);
+            const response = await fetch(`${API_BASE_URL}/queue/all`);
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('Error fetching all queue:', error);
+            throw error;
+        }
+    }
+
     // ดึงนัดหมายวันนี้
     static async getTodayAppointments() {
         try {

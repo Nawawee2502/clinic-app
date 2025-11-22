@@ -85,6 +85,16 @@ const GeneralInfoTab = ({ onNext, patientData, updatePatientData }) => {
       setSelectedDay(day);
       setSelectedMonth(month);
       setSelectedYear(year);
+      
+      // ถ้า AGE เป็น 0 หรือไม่มี ให้คำนวณใหม่จาก BDATE
+      if (!patientData.AGE || patientData.AGE === 0 || patientData.AGE === '0') {
+        if (day && month && year) {
+          const calculatedAge = calculateAge(day, month, year);
+          if (calculatedAge) {
+            updatePatientData({ AGE: calculatedAge });
+          }
+        }
+      }
     }
   }, [patientData.BDATE]);
 
@@ -190,7 +200,7 @@ const GeneralInfoTab = ({ onNext, patientData, updatePatientData }) => {
     }
   };
 
-  // ฟังก์ชันคำนวณอายุจากวันเกิด (รองรับอายุน้อยกว่า 1 ปี)
+  // ฟังก์ชันคำนวณอายุจากวันเกิด (รองรับอายุน้อยกว่า 1 ปี - แสดงเป็นเดือน)
   const calculateAge = (day, month, year) => {
     if (!day || !month || !year) return '';
 
@@ -201,25 +211,23 @@ const GeneralInfoTab = ({ onNext, patientData, updatePatientData }) => {
       // ตรวจสอบว่าวันที่ valid หรือไม่
       if (isNaN(birth.getTime())) return '';
 
-      // คำนวณความแตกต่างเป็นวัน
-      const diffTime = today - birth;
-      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-
-      // ถ้าน้อยกว่า 1 ปี ให้คำนวณเป็นเดือน (ทศนิยม 2 ตำแหน่ง)
-      if (diffDays < 365) {
-        const months = diffDays / 30.44; // ใช้ค่าเฉลี่ย 30.44 วันต่อเดือน
-        return months.toFixed(2); // คืนค่าเป็นเดือน เช่น "6.50" = 6 เดือนครึ่ง
+      // คำนวณความแตกต่างเป็นเดือน
+      let ageMonths = (today.getFullYear() - birth.getFullYear()) * 12;
+      ageMonths += today.getMonth() - birth.getMonth();
+      
+      // ถ้าวันที่เกิดยังไม่ถึงวันนี้ในเดือนนี้ ให้ลบ 1 เดือน
+      if (today.getDate() < birth.getDate()) {
+        ageMonths--;
       }
 
-      // ถ้ามากกว่าหรือเท่ากับ 1 ปี ให้คำนวณเป็นปี
-      let age = today.getFullYear() - birth.getFullYear();
-      const monthDiff = today.getMonth() - birth.getMonth();
-
-      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-        age--;
+      // ถ้าน้อยกว่า 12 เดือน (1 ปี) ให้แสดงเป็นเดือน
+      if (ageMonths < 12 && ageMonths >= 1) {
+        return `${ageMonths} เดือน`; // แสดงเป็น "6 เดือน"
       }
 
-      return age >= 0 ? age.toString() : '';
+      // ถ้ามากกว่าหรือเท่ากับ 12 เดือน ให้คำนวณเป็นปี
+      const ageYears = Math.floor(ageMonths / 12);
+      return ageYears.toString();
     } catch (error) {
       console.error('Error calculating age:', error);
       return '';
@@ -406,7 +414,11 @@ const GeneralInfoTab = ({ onNext, patientData, updatePatientData }) => {
           }
         </Typography>
         <Typography variant="body2">
-          {patientData.AGE ? `${patientData.AGE} ปี` : ''}
+          {patientData.AGE ? (
+            patientData.AGE.toString().includes('เดือน')
+              ? patientData.AGE.toString()
+              : `${patientData.AGE} ปี`
+          ) : ''}
           {patientData.AGE && patientData.SEX ? ', ' : ''}
           {patientData.SEX || ''}
         </Typography>
@@ -704,16 +716,13 @@ const GeneralInfoTab = ({ onNext, patientData, updatePatientData }) => {
               อายุ (ปี/เดือน)
             </Typography>
             <TextField
-              placeholder="อายุจะคำนวณอัตโนมัติจากวันเกิด หรือกรอกเองได้ (เช่น 0.5 = 6 เดือน)"
+              placeholder="คำนวณอัตโนมัติจากวันเกิด"
               size="small"
               fullWidth
-              type="number"
               value={patientData.AGE || ''}
-              onChange={handleInputChange('AGE')}
-              inputProps={{
-                min: "0",
-                max: "150",
-                step: "0.01"
+              onChange={(e) => {
+                const value = e.target.value;
+                updatePatientData({ AGE: value });
               }}
               sx={{
                 mt: 1,
@@ -724,7 +733,6 @@ const GeneralInfoTab = ({ onNext, patientData, updatePatientData }) => {
                   backgroundColor: (selectedDay && selectedMonth && selectedYear) ? '#f0f8ff' : 'white',
                 }
               }}
-              helperText={(selectedDay && selectedMonth && selectedYear) ? "อายุคำนวณอัตโนมัติจากวันเกิด (สามารถแก้ไขได้)" : "กรอกอายุเป็นปี หรือทศนิยม เช่น 0.5 = 6 เดือน"}
             />
           </Grid>
 

@@ -216,6 +216,73 @@ class PatientService {
         }
     }
 
+    // ดึงข้อมูลผู้ป่วยจากคิวทั้งหมด (ไม่กรองตามวันที่)
+    static async getAllPatientsFromQueue() {
+        try {
+            // Import QueueService dynamically to avoid circular dependency
+            const QueueService = await import('./queueService');
+            const queueResponse = await QueueService.default.getAllQueue();
+
+            if (!queueResponse.success) {
+                throw new Error('Failed to fetch all queue');
+            }
+
+            // แปลงข้อมูลจากคิวให้เป็นรูปแบบที่ component ใช้งานได้
+            const patientsWithQueue = queueResponse.data.map(queueItem => ({
+                // ข้อมูลคิว
+                queueNumber: queueItem.QUEUE_NUMBER,
+                queueTime: queueItem.QUEUE_TIME,
+                queueStatus: queueItem.STATUS,
+                queueType: queueItem.TYPE,
+                queueId: queueItem.QUEUE_ID,
+                queueDate: queueItem.QUEUE_DATE,
+
+                // ข้อมูลผู้ป่วย
+                HNCODE: queueItem.HNCODE,
+                PRENAME: queueItem.PRENAME,
+                NAME1: queueItem.NAME1,
+                SURNAME: queueItem.SURNAME,
+                AGE: queueItem.AGE,
+                SEX: queueItem.SEX,
+                TEL1: queueItem.TEL1,
+
+                // ข้อมูล VN ถ้ามี
+                VNO: queueItem.VNO,
+                TREATMENT_STATUS: queueItem.TREATMENT_STATUS,
+
+                // อาการเบื้องต้น
+                SYMPTOM: queueItem.CHIEF_COMPLAINT,
+
+                // Avatar placeholder
+                avatar: this.generateAvatarUrl(queueItem.SEX, queueItem.NAME1),
+
+                // ✅ เพิ่มข้อมูลบัตร
+                SOCIAL_CARD: queueItem.SOCIAL_CARD,
+                UCS_CARD: queueItem.UCS_CARD,
+
+                // ข้อมูลสำหรับ Vital Signs (ยังไม่มี จะได้จาก Treatment)
+                WEIGHT1: null,
+                HIGHT1: null,
+                BT1: null,
+                BP1: null,
+                BP2: null,
+                RR1: null,
+                PR1: null,
+                SPO2: null
+            }));
+
+            return {
+                success: true,
+                data: patientsWithQueue,
+                count: patientsWithQueue.length
+            };
+
+        } catch (error) {
+            console.error('Error fetching all patients from queue:', error);
+            throw error;
+        }
+    }
+
     // ดึงข้อมูลนัดหมายวันนี้
     static async getTodayAppointments() {
         try {
@@ -364,9 +431,22 @@ class PatientService {
             errors.push('รูปแบบเบอร์โทรศัพท์ไม่ถูกต้อง');
         }
 
-        // ตรวจสอบอายุ
-        if (data.AGE && (isNaN(data.AGE) || data.AGE < 0 || data.AGE > 150)) {
-            errors.push('อายุต้องเป็นตัวเลขระหว่าง 0-150');
+        // ตรวจสอบอายุ (รองรับรูปแบบ "X เดือน" สำหรับเดือน หรือตัวเลขสำหรับปี)
+        if (data.AGE) {
+            const ageStr = data.AGE.toString();
+            // ถ้าเป็นรูปแบบ "X เดือน" (เช่น "6 เดือน")
+            if (ageStr.includes('เดือน')) {
+                const months = parseInt(ageStr.replace(' เดือน', ''));
+                if (isNaN(months) || months < 1 || months > 12) {
+                    errors.push('อายุเป็นเดือนต้องอยู่ระหว่าง 1-12 เดือน');
+                }
+            } else {
+                // ถ้าเป็นตัวเลข (ปี)
+                const age = parseFloat(data.AGE);
+                if (isNaN(age) || age < 0 || age > 150) {
+                    errors.push('อายุต้องเป็นตัวเลขระหว่าง 0-150');
+                }
+            }
         }
 
         // ตรวจสอบน้ำหนัก
@@ -393,7 +473,14 @@ class PatientService {
             SURNAME: (data.SURNAME || '').toString().trim(),
             SEX: (data.SEX || '').toString().trim(),
             BDATE: (data.BDATE || '').toString().trim(),
-            AGE: data.AGE ? parseInt(data.AGE, 10) : 0,
+            // ถ้า AGE เป็นรูปแบบ "X เดือน" (เช่น "6 เดือน") ให้แปลงเป็น 0 (อายุน้อยกว่า 1 ปี)
+            // เพราะ database เก็บ AGE เป็น INT ไม่สามารถเก็บข้อมูลเดือนได้
+            // ข้อมูลเดือนจะคำนวณจาก BDATE ใน frontend
+            AGE: data.AGE ? (
+                data.AGE.toString().includes('เดือน') 
+                    ? 0 
+                    : parseInt(data.AGE, 10)
+            ) : 0,
             BLOOD_GROUP1: (data.BLOOD_GROUP1 || '').toString().trim(),
             OCCUPATION1: (data.OCCUPATION1 || '').toString().trim(),
             ORIGIN1: (data.ORIGIN1 || '').toString().trim(),

@@ -699,27 +699,35 @@ const Receipt1Management = () => {
 
     const calculateTotals = () => {
         const total = details.reduce((sum, item) => sum + (parseFloat(item.AMT) || 0), 0);
-        const vatRate = parseFloat(headerData.VAT1) / 100;
+        const vatRate = parseFloat(headerData.VAT1) || 0;
+        const vatRateDecimal = vatRate / 100;
 
         let vamt, gtotal, displayTotal;
 
-        // ถ้ามีการกรอกยอด VAT เอง ให้ใช้ค่านั้น
-        if (manualVAMT !== null && manualVAMT !== '') {
-            vamt = parseFloat(manualVAMT) || 0;
-            gtotal = total + vamt;
+        // ✅ ถ้า VAT1 เป็น 0% ให้ไม่คำนวณ VAT
+        if (vatRate === 0) {
+            vamt = 0;
             displayTotal = total;
+            gtotal = total;
         } else {
-            // คำนวณอัตโนมัติ
-            if (headerData.TYPE_VAT === 'include') {
-                // VAT ใน: รวมทั้งสิ้น = total, คำนวณ vamt และ displayTotal
-                gtotal = total; // รวมทั้งสิ้น (รวม VAT แล้ว)
-                vamt = total * (vatRate / (1 + vatRate)); // VAT
-                displayTotal = gtotal - vamt; // รวมเป็นเงิน (ก่อน VAT)
-            } else {
-                // VAT นอก: รวมเป็นเงิน = total
+            // ถ้ามีการกรอกยอด VAT เอง ให้ใช้ค่านั้น
+            if (manualVAMT !== null && manualVAMT !== '') {
+                vamt = parseFloat(manualVAMT) || 0;
+                gtotal = total + vamt;
                 displayTotal = total;
-                vamt = total * vatRate; // VAT
-                gtotal = total + vamt; // รวมทั้งสิ้น
+            } else {
+                // คำนวณอัตโนมัติ
+                if (headerData.TYPE_VAT === 'include') {
+                    // VAT ใน: รวมทั้งสิ้น = total, คำนวณ vamt และ displayTotal
+                    gtotal = total; // รวมทั้งสิ้น (รวม VAT แล้ว)
+                    vamt = total * (vatRateDecimal / (1 + vatRateDecimal)); // VAT
+                    displayTotal = gtotal - vamt; // รวมเป็นเงิน (ก่อน VAT)
+                } else {
+                    // VAT นอก: รวมเป็นเงิน = total
+                    displayTotal = total;
+                    vamt = total * vatRateDecimal; // VAT
+                    gtotal = total + vamt; // รวมทั้งสิ้น
+                }
             }
         }
 

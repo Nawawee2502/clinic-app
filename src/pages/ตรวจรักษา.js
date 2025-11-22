@@ -92,11 +92,11 @@ const ตรวจรักษา = () => {
     loadQueueStats();
   }, []);
 
-  // โหลดข้อมูลผู้ป่วยวันนี้จากคิว (ยกเว้นคนไข้ที่เสร็จสิ้นแล้ว)
+  // โหลดข้อมูลผู้ป่วยทั้งหมดจากคิว (ไม่กรองตามวันที่, ยกเว้นคนไข้ที่เสร็จสิ้นแล้ว)
   const loadTodayPatients = async () => {
     try {
       setLoading(true);
-      const response = await PatientService.getTodayPatientsFromQueue();
+      const response = await PatientService.getAllPatientsFromQueue();
 
       if (response.success) {
         // กรองเฉพาะคนไข้ที่ยังไม่เสร็จสิ้น
@@ -114,7 +114,7 @@ const ตรวจรักษา = () => {
         setError('ไม่สามารถโหลดข้อมูลผู้ป่วยได้');
       }
     } catch (err) {
-      console.error('Error loading today patients:', err);
+      console.error('Error loading all patients:', err);
       setError('เกิดข้อผิดพลาดในการโหลดข้อมูล: ' + err.message);
       setPatients([]);
     } finally {
@@ -284,6 +284,25 @@ const ตรวจรักษา = () => {
       case 'กำลังตรวจ': return 'info';
       case 'เสร็จแล้ว': return 'success';
       default: return 'default';
+    }
+  };
+
+  // Format วันที่สำหรับแสดงผล
+  const formatQueueDate = (dateString) => {
+    if (!dateString) return '-';
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return dateString; // ถ้าแปลงไม่ได้ ให้แสดง string เดิม
+      
+      // แปลงเป็น พ.ศ.
+      const buddhistYear = date.getFullYear() + 543;
+      const monthNames = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+      const day = date.getDate();
+      const month = monthNames[date.getMonth()];
+      
+      return `${day} ${month} ${buddhistYear}`;
+    } catch (error) {
+      return dateString;
     }
   };
 
@@ -761,7 +780,15 @@ const ตรวจรักษา = () => {
                                 fontWeight: 500,
                                 mb: 0.3
                               }}>
-                                ⏰ {patient.queueTime} • 👤 อายุ {patient.AGE} ปี
+                                📅 {formatQueueDate(patient.queueDate)} • ⏰ {patient.queueTime}
+                              </Typography>
+                              <Typography variant="caption" display="block" sx={{
+                                fontSize: '11px',
+                                color: selectedPatientIndex === index ? 'rgba(255,255,255,0.9)' : '#64748b',
+                                fontWeight: 500,
+                                mb: 0.3
+                              }}>
+                                👤 อายุ {patient.AGE} ปี
                               </Typography>
                               <Typography variant="caption" display="block" sx={{
                                 fontSize: '11px',

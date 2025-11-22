@@ -295,21 +295,26 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
     }
   };
 
-  // ✅ แก้ไข: การบันทึกข้อมูล
+  // ✅ แก้ไข: การบันทึกข้อมูล (ไม่ต้อง validate field)
   const handleSave = async () => {
-    const requiredFields = ['WEIGHT1', 'HIGHT1', 'BT1', 'BP1', 'BP2', 'RR1', 'PR1', 'SPO2'];
-    const missingFields = requiredFields.filter(field => !vitals[field]);
-
-    if (missingFields.length > 0) {
-      alert('กรุณากรอกข้อมูล Vital Signs ให้ครบถ้วน');
-      return;
-    }
-
     try {
       setSaving(true);
 
       // แปลงวันที่จาก พ.ศ. เป็น ค.ศ. สำหรับการส่ง API
       const christianDate = getChristianDate(vitals.RDATE);
+
+      // Helper function สำหรับแปลงค่าเป็น number หรือ null
+      const parseNumberOrNull = (value) => {
+        if (!value || value === '' || value === null || value === undefined) return null;
+        const parsed = parseFloat(value);
+        return isNaN(parsed) ? null : parsed;
+      };
+
+      const parseIntOrNull = (value) => {
+        if (!value || value === '' || value === null || value === undefined) return null;
+        const parsed = parseInt(value);
+        return isNaN(parsed) ? null : parsed;
+      };
 
       // จัดรูปแบบข้อมูลสำหรับส่ง API
       const treatmentData = {
@@ -318,16 +323,16 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
         HNNO: currentPatient.HNCODE,
         RDATE: christianDate, // ส่งเป็น ค.ศ.
 
-        // Vital Signs
-        WEIGHT1: parseFloat(vitals.WEIGHT1),
-        HIGHT1: parseFloat(vitals.HIGHT1),
-        BT1: parseFloat(vitals.BT1),
-        BP1: parseInt(vitals.BP1),
-        BP2: parseInt(vitals.BP2),
-        RR1: parseInt(vitals.RR1),
-        PR1: parseInt(vitals.PR1),
-        SPO2: parseInt(vitals.SPO2),
-        SYMPTOM: vitals.SYMPTOM,
+        // Vital Signs (รองรับ null/empty)
+        WEIGHT1: parseNumberOrNull(vitals.WEIGHT1),
+        HIGHT1: parseNumberOrNull(vitals.HIGHT1),
+        BT1: parseNumberOrNull(vitals.BT1),
+        BP1: parseIntOrNull(vitals.BP1),
+        BP2: parseIntOrNull(vitals.BP2),
+        RR1: parseIntOrNull(vitals.RR1),
+        PR1: parseIntOrNull(vitals.PR1),
+        SPO2: parseIntOrNull(vitals.SPO2),
+        SYMPTOM: vitals.SYMPTOM || '',
 
         // ข้อมูลพื้นฐาน
         EMP_CODE: 'DOC001',
@@ -645,7 +650,7 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
                     color: isVitalAbnormal('WEIGHT1') ? '#d32f2f' : 'inherit',
                     fontWeight: isVitalAbnormal('WEIGHT1') ? 'bold' : 400
                   }}>
-                    น้ำหนัก (kg) * {isVitalAbnormal('WEIGHT1') && '⚠️'}
+                    น้ำหนัก (kg) {isVitalAbnormal('WEIGHT1') && '⚠️'}
                   </Typography>
                   <TextField
                     type="number"
@@ -667,7 +672,7 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
                     color: isVitalAbnormal('HIGHT1') ? '#d32f2f' : 'inherit',
                     fontWeight: isVitalAbnormal('HIGHT1') ? 'bold' : 400
                   }}>
-                    ส่วนสูง (cm) * {isVitalAbnormal('HIGHT1') && '⚠️'}
+                    ส่วนสูง (cm) {isVitalAbnormal('HIGHT1') && '⚠️'}
                   </Typography>
                   <TextField
                     type="number"
@@ -689,7 +694,7 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
                     color: isVitalAbnormal('BT1') ? '#d32f2f' : 'inherit',
                     fontWeight: isVitalAbnormal('BT1') ? 'bold' : 400
                   }}>
-                    อุณหภูมิ (°C) * {isVitalAbnormal('BT1') && '🌡️'}
+                    อุณหภูมิ (°C) {isVitalAbnormal('BT1') && '🌡️'}
                   </Typography>
                   <TextField
                     type="number"
@@ -711,7 +716,7 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
                     color: isVitalAbnormal('SPO2') ? '#d32f2f' : 'inherit',
                     fontWeight: isVitalAbnormal('SPO2') ? 'bold' : 400
                   }}>
-                    SpO2 (%) * {isVitalAbnormal('SPO2') && '🫁'}
+                    SpO2 (%) {isVitalAbnormal('SPO2') && '🫁'}
                   </Typography>
                   <TextField
                     type="number"
@@ -733,7 +738,7 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
                     color: isVitalAbnormal('BP1') ? '#d32f2f' : 'inherit',
                     fontWeight: isVitalAbnormal('BP1') ? 'bold' : 400
                   }}>
-                    ความดันตัวบน * {isVitalAbnormal('BP1') && '💓'}
+                    ความดันตัวบน {isVitalAbnormal('BP1') && '💓'}
                   </Typography>
                   <TextField
                     type="number"
@@ -755,7 +760,7 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
                     color: isVitalAbnormal('BP2') ? '#d32f2f' : 'inherit',
                     fontWeight: isVitalAbnormal('BP2') ? 'bold' : 400
                   }}>
-                    ความดันตัวล่าง * {isVitalAbnormal('BP2') && '💓'}
+                    ความดันตัวล่าง {isVitalAbnormal('BP2') && '💓'}
                   </Typography>
                   <TextField
                     type="number"
@@ -777,7 +782,7 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
                     color: isVitalAbnormal('RR1') ? '#d32f2f' : 'inherit',
                     fontWeight: isVitalAbnormal('RR1') ? 'bold' : 400
                   }}>
-                    อัตราการหายใจ * {isVitalAbnormal('RR1') && '🫁'}
+                    อัตราการหายใจ {isVitalAbnormal('RR1') && '🫁'}
                   </Typography>
                   <TextField
                     type="number"
@@ -799,7 +804,7 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
                     color: isVitalAbnormal('PR1') ? '#d32f2f' : 'inherit',
                     fontWeight: isVitalAbnormal('PR1') ? 'bold' : 400
                   }}>
-                    ชีพจร (bpm) * {isVitalAbnormal('PR1') && '❤️'}
+                    ชีพจร (bpm) {isVitalAbnormal('PR1') && '❤️'}
                   </Typography>
                   <TextField
                     type="number"

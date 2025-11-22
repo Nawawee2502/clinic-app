@@ -42,12 +42,16 @@ import {
     Email,
     Home,
     LocalHospital,
+    LocationOn,
     KeyboardArrowLeft,
     KeyboardArrowRight,
     CancelOutlined
 } from '@mui/icons-material';
 import PatientService from '../services/patientService';
 import TreatmentService from '../services/treatmentService';
+
+// API Base URL
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
 
 // Helper function outside component
 const getAvatarColor = (sex) => {
@@ -179,6 +183,326 @@ const PatientDetailPanel = React.memo(({
     onDelete, 
     onFormChange 
 }) => {
+    // Address states for CARD (ที่อยู่ตามบัตร)
+    const [cardProvinces, setCardProvinces] = React.useState([]);
+    const [cardAmphers, setCardAmphers] = React.useState([]);
+    const [cardTumbols, setCardTumbols] = React.useState([]);
+    const [selectedCardProvince, setSelectedCardProvince] = React.useState(null);
+    const [selectedCardAmpher, setSelectedCardAmpher] = React.useState(null);
+    const [selectedCardTumbol, setSelectedCardTumbol] = React.useState(null);
+
+    // Address states for CURRENT (ที่อยู่ปัจจุบัน)
+    const [currentProvinces, setCurrentProvinces] = React.useState([]);
+    const [currentAmphers, setCurrentAmphers] = React.useState([]);
+    const [currentTumbols, setCurrentTumbols] = React.useState([]);
+    const [selectedCurrentProvince, setSelectedCurrentProvince] = React.useState(null);
+    const [selectedCurrentAmpher, setSelectedCurrentAmpher] = React.useState(null);
+    const [selectedCurrentTumbol, setSelectedCurrentTumbol] = React.useState(null);
+
+    // Load provinces
+    const loadProvinces = React.useCallback(async () => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/provinces`);
+            const result = await response.json();
+            if (result.success) {
+                setCardProvinces(result.data);
+                setCurrentProvinces(result.data);
+                return result.data;
+            }
+            return null;
+        } catch (error) {
+            console.error('Error loading provinces:', error);
+            return null;
+        }
+    }, []);
+
+    // Load amphers by province (for CARD)
+    const loadCardAmphersByProvince = React.useCallback(async (provinceCode) => {
+        if (!provinceCode) {
+            setCardAmphers([]);
+            setCardTumbols([]);
+            return;
+        }
+        try {
+            const response = await fetch(`${API_BASE_URL}/amphers/province/${provinceCode}`);
+            const result = await response.json();
+            if (result.success) {
+                setCardAmphers(result.data);
+            }
+        } catch (error) {
+            console.error('Error loading card amphers:', error);
+        }
+    }, []);
+
+    // Load tumbols by ampher (for CARD)
+    const loadCardTumbolsByAmpher = React.useCallback(async (ampherCode) => {
+        if (!ampherCode) {
+            setCardTumbols([]);
+            return;
+        }
+        try {
+            const response = await fetch(`${API_BASE_URL}/tumbols/ampher/${ampherCode}`);
+            const result = await response.json();
+            if (result.success) {
+                setCardTumbols(result.data);
+            }
+        } catch (error) {
+            console.error('Error loading card tumbols:', error);
+        }
+    }, []);
+
+    // Load amphers by province (for CURRENT)
+    const loadCurrentAmphersByProvince = React.useCallback(async (provinceCode) => {
+        if (!provinceCode) {
+            setCurrentAmphers([]);
+            setCurrentTumbols([]);
+            return;
+        }
+        try {
+            const response = await fetch(`${API_BASE_URL}/amphers/province/${provinceCode}`);
+            const result = await response.json();
+            if (result.success) {
+                setCurrentAmphers(result.data);
+            }
+        } catch (error) {
+            console.error('Error loading current amphers:', error);
+        }
+    }, []);
+
+    // Load tumbols by ampher (for CURRENT)
+    const loadCurrentTumbolsByAmpher = React.useCallback(async (ampherCode) => {
+        if (!ampherCode) {
+            setCurrentTumbols([]);
+            return;
+        }
+        try {
+            const response = await fetch(`${API_BASE_URL}/tumbols/ampher/${ampherCode}`);
+            const result = await response.json();
+            if (result.success) {
+                setCurrentTumbols(result.data);
+            }
+        } catch (error) {
+            console.error('Error loading current tumbols:', error);
+        }
+    }, []);
+
+    // Initialize address data when patient is selected or editing starts
+    React.useEffect(() => {
+        if (selectedPatient && isEditing) {
+            const initializeAddressData = async () => {
+                // Load provinces first
+                const provincesData = await loadProvinces();
+                
+                if (!provincesData || provincesData.length === 0) {
+                    return;
+                }
+                
+                // Initialize CARD address
+                if (editFormData.CARD_PROVINCE_CODE || selectedPatient.CARD_PROVINCE_CODE) {
+                    const cardProvinceCode = editFormData.CARD_PROVINCE_CODE || selectedPatient.CARD_PROVINCE_CODE;
+                    const cardProvince = provincesData.find(p => p.PROVINCE_CODE === cardProvinceCode);
+                    if (cardProvince) {
+                        setSelectedCardProvince(cardProvince);
+                        await loadCardAmphersByProvince(cardProvinceCode);
+                        
+                        const cardAmpherCode = editFormData.CARD_AMPHER_CODE || selectedPatient.CARD_AMPHER_CODE;
+                        if (cardAmpherCode) {
+                            try {
+                                const amphersRes = await fetch(`${API_BASE_URL}/amphers/province/${cardProvinceCode}`);
+                                const amphersResult = await amphersRes.json();
+                                if (amphersResult.success && amphersResult.data) {
+                                    const cardAmpher = amphersResult.data.find(a => a.AMPHER_CODE === cardAmpherCode);
+                                    if (cardAmpher) {
+                                        setSelectedCardAmpher(cardAmpher);
+                                        await loadCardTumbolsByAmpher(cardAmpherCode);
+                                        
+                                        const cardTumbolCode = editFormData.CARD_TUMBOL_CODE || selectedPatient.CARD_TUMBOL_CODE;
+                                        if (cardTumbolCode) {
+                                            try {
+                                                const tumbolsRes = await fetch(`${API_BASE_URL}/tumbols/ampher/${cardAmpherCode}`);
+                                                const tumbolsResult = await tumbolsRes.json();
+                                                if (tumbolsResult.success && tumbolsResult.data) {
+                                                    const cardTumbol = tumbolsResult.data.find(t => t.TUMBOL_CODE === cardTumbolCode);
+                                                    if (cardTumbol) {
+                                                        setSelectedCardTumbol(cardTumbol);
+                                                    }
+                                                }
+                                            } catch (error) {
+                                                console.error('Error loading card tumbols:', error);
+                                            }
+                                        }
+                                    }
+                                }
+                            } catch (error) {
+                                console.error('Error loading card amphers:', error);
+                            }
+                        }
+                    }
+                }
+
+                // Initialize CURRENT address
+                if (editFormData.PROVINCE_CODE || selectedPatient.PROVINCE_CODE) {
+                    const currentProvinceCode = editFormData.PROVINCE_CODE || selectedPatient.PROVINCE_CODE;
+                    const currentProvince = provincesData.find(p => p.PROVINCE_CODE === currentProvinceCode);
+                    if (currentProvince) {
+                        setSelectedCurrentProvince(currentProvince);
+                        await loadCurrentAmphersByProvince(currentProvinceCode);
+                        
+                        const currentAmpherCode = editFormData.AMPHER_CODE || selectedPatient.AMPHER_CODE;
+                        if (currentAmpherCode) {
+                            try {
+                                const amphersRes = await fetch(`${API_BASE_URL}/amphers/province/${currentProvinceCode}`);
+                                const amphersResult = await amphersRes.json();
+                                if (amphersResult.success && amphersResult.data) {
+                                    const currentAmpher = amphersResult.data.find(a => a.AMPHER_CODE === currentAmpherCode);
+                                    if (currentAmpher) {
+                                        setSelectedCurrentAmpher(currentAmpher);
+                                        await loadCurrentTumbolsByAmpher(currentAmpherCode);
+                                        
+                                        const currentTumbolCode = editFormData.TUMBOL_CODE || selectedPatient.TUMBOL_CODE;
+                                        if (currentTumbolCode) {
+                                            try {
+                                                const tumbolsRes = await fetch(`${API_BASE_URL}/tumbols/ampher/${currentAmpherCode}`);
+                                                const tumbolsResult = await tumbolsRes.json();
+                                                if (tumbolsResult.success && tumbolsResult.data) {
+                                                    const currentTumbol = tumbolsResult.data.find(t => t.TUMBOL_CODE === currentTumbolCode);
+                                                    if (currentTumbol) {
+                                                        setSelectedCurrentTumbol(currentTumbol);
+                                                    }
+                                                }
+                                            } catch (error) {
+                                                console.error('Error loading current tumbols:', error);
+                                            }
+                                        }
+                                    }
+                                }
+                            } catch (error) {
+                                console.error('Error loading current amphers:', error);
+                            }
+                        }
+                    }
+                }
+            };
+            
+            initializeAddressData();
+        } else {
+            // Reset states when not editing
+            setSelectedCardProvince(null);
+            setSelectedCardAmpher(null);
+            setSelectedCardTumbol(null);
+            setCardAmphers([]);
+            setCardTumbols([]);
+            setSelectedCurrentProvince(null);
+            setSelectedCurrentAmpher(null);
+            setSelectedCurrentTumbol(null);
+            setCurrentAmphers([]);
+            setCurrentTumbols([]);
+        }
+    }, [selectedPatient, isEditing, editFormData, loadProvinces, loadCardAmphersByProvince, loadCardTumbolsByAmpher, loadCurrentAmphersByProvince, loadCurrentTumbolsByAmpher]);
+
+    // Handle CARD province change
+    const handleCardProvinceChange = React.useCallback((event) => {
+        const provinceCode = event.target.value;
+        const province = cardProvinces.find(p => p.PROVINCE_CODE === provinceCode);
+        
+        setSelectedCardProvince(province || null);
+        setSelectedCardAmpher(null);
+        setSelectedCardTumbol(null);
+        setCardAmphers([]);
+        setCardTumbols([]);
+        
+        onFormChange('CARD_PROVINCE_CODE', provinceCode || '');
+        onFormChange('CARD_AMPHER_CODE', '');
+        onFormChange('CARD_TUMBOL_CODE', '');
+        onFormChange('CARD_ZIPCODE', '');
+        
+        if (provinceCode) {
+            loadCardAmphersByProvince(provinceCode);
+        }
+    }, [cardProvinces, loadCardAmphersByProvince, onFormChange]);
+
+    // Handle CARD ampher change
+    const handleCardAmpherChange = React.useCallback((event) => {
+        const ampherCode = event.target.value;
+        const ampher = cardAmphers.find(a => a.AMPHER_CODE === ampherCode);
+        
+        setSelectedCardAmpher(ampher || null);
+        setSelectedCardTumbol(null);
+        setCardTumbols([]);
+        
+        onFormChange('CARD_AMPHER_CODE', ampherCode || '');
+        onFormChange('CARD_TUMBOL_CODE', '');
+        onFormChange('CARD_ZIPCODE', '');
+        
+        if (ampherCode) {
+            loadCardTumbolsByAmpher(ampherCode);
+        }
+    }, [cardAmphers, loadCardTumbolsByAmpher, onFormChange]);
+
+    // Handle CARD tumbol change
+    const handleCardTumbolChange = React.useCallback((event) => {
+        const tumbolCode = event.target.value;
+        const tumbol = cardTumbols.find(t => t.TUMBOL_CODE === tumbolCode);
+        
+        setSelectedCardTumbol(tumbol || null);
+        
+        const zipcode = tumbol ? (tumbol.zipcode || tumbol.ZIPCODE || '') : '';
+        
+        onFormChange('CARD_TUMBOL_CODE', tumbolCode || '');
+        onFormChange('CARD_ZIPCODE', zipcode);
+    }, [cardTumbols, onFormChange]);
+
+    // Handle CURRENT province change
+    const handleCurrentProvinceChange = React.useCallback((event) => {
+        const provinceCode = event.target.value;
+        const province = currentProvinces.find(p => p.PROVINCE_CODE === provinceCode);
+        
+        setSelectedCurrentProvince(province || null);
+        setSelectedCurrentAmpher(null);
+        setSelectedCurrentTumbol(null);
+        setCurrentAmphers([]);
+        setCurrentTumbols([]);
+        
+        onFormChange('PROVINCE_CODE', provinceCode || '');
+        onFormChange('AMPHER_CODE', '');
+        onFormChange('TUMBOL_CODE', '');
+        onFormChange('ZIPCODE', '');
+        
+        if (provinceCode) {
+            loadCurrentAmphersByProvince(provinceCode);
+        }
+    }, [currentProvinces, loadCurrentAmphersByProvince, onFormChange]);
+
+    // Handle CURRENT ampher change
+    const handleCurrentAmpherChange = React.useCallback((event) => {
+        const ampherCode = event.target.value;
+        const ampher = currentAmphers.find(a => a.AMPHER_CODE === ampherCode);
+        
+        setSelectedCurrentAmpher(ampher || null);
+        setSelectedCurrentTumbol(null);
+        setCurrentTumbols([]);
+        
+        onFormChange('AMPHER_CODE', ampherCode || '');
+        onFormChange('TUMBOL_CODE', '');
+        onFormChange('ZIPCODE', '');
+        
+        if (ampherCode) {
+            loadCurrentTumbolsByAmpher(ampherCode);
+        }
+    }, [currentAmphers, loadCurrentTumbolsByAmpher, onFormChange]);
+
+    // Handle CURRENT tumbol change
+    const handleCurrentTumbolChange = React.useCallback((event) => {
+        const tumbolCode = event.target.value;
+        const tumbol = currentTumbols.find(t => t.TUMBOL_CODE === tumbolCode);
+        
+        setSelectedCurrentTumbol(tumbol || null);
+        
+        const zipcode = tumbol ? (tumbol.zipcode || tumbol.ZIPCODE || '') : '';
+        
+        onFormChange('TUMBOL_CODE', tumbolCode || '');
+        onFormChange('ZIPCODE', zipcode);
+    }, [currentTumbols, onFormChange]);
     if (!selectedPatient) {
         return (
             <Box 
@@ -446,25 +770,85 @@ const PatientDetailPanel = React.memo(({
                                 ข้อมูลส่วนบุคคล
                             </Typography>
 
-                            <Grid container spacing={3}>
-                                {renderField('รหัส HN', 'HNCODE', { sm: 4, readOnly: true })}
-                                {renderField('เลขบัตรประชาชน', 'IDNO', { sm: 4 })}
-                                {renderField('วันเกิด', 'BDATE', { sm: 4, type: 'date' })}
-                                {renderField('คำนำหน้า', 'PRENAME', { sm: 4, selectOptions: PRENAME_OPTIONS })}
-                                {renderField('ชื่อ', 'NAME1', { sm: 4 })}
-                                {renderField('นามสกุล', 'SURNAME', { sm: 4 })}
-                                {renderField('เพศ', 'SEX', { sm: 4, selectOptions: SEX_OPTIONS })}
-                                {renderField('อายุ', 'AGE', {
-                                    sm: 4,
-                                    type: 'number',
-                                    transformDisplay: (value) => (value || value === 0 ? `${value} ปี` : '')
-                                })}
-                                {renderField('กรุ๊ปเลือด', 'BLOOD_GROUP1', { sm: 4 })}
-                                {renderField('สถานภาพ', 'STATUS1', { sm: 4, selectOptions: STATUS_OPTIONS })}
-                                {renderField('สัญชาติ', 'NATIONAL1', { sm: 4 })}
-                                {renderField('ศาสนา', 'RELIGION1', { sm: 4 })}
-                                {renderField('อาชีพ', 'OCCUPATION1', { sm: 6 })}
-                                {renderField('เชื้อชาติ', 'ORIGIN1', { sm: 6 })}
+                            <Grid container spacing={2}>
+                                {[
+                                    { label: 'รหัส HN', field: 'HNCODE', readOnly: true },
+                                    { label: 'เลขบัตรประชาชน', field: 'IDNO' },
+                                    { label: 'วันเกิด', field: 'BDATE', type: 'date' },
+                                    { label: 'คำนำหน้า', field: 'PRENAME', selectOptions: PRENAME_OPTIONS },
+                                    { label: 'ชื่อ', field: 'NAME1' },
+                                    { label: 'นามสกุล', field: 'SURNAME' },
+                                    { label: 'เพศ', field: 'SEX', selectOptions: SEX_OPTIONS },
+                                    { label: 'อายุ', field: 'AGE', type: 'number', transformDisplay: (value) => (value || value === 0 ? `${value} ปี` : '') },
+                                    { label: 'กรุ๊ปเลือด', field: 'BLOOD_GROUP1' },
+                                    { label: 'สถานภาพ', field: 'STATUS1', selectOptions: STATUS_OPTIONS },
+                                    { label: 'สัญชาติ', field: 'NATIONAL1' },
+                                    { label: 'ศาสนา', field: 'RELIGION1' },
+                                    { label: 'อาชีพ', field: 'OCCUPATION1' },
+                                    { label: 'เชื้อชาติ', field: 'ORIGIN1' }
+                                ].map(({ label, field, type, selectOptions, readOnly, transformDisplay }) => (
+                                    <Grid item xs={12} sm={6} key={field}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                            <Typography
+                                                variant="body2"
+                                                sx={{
+                                                    color: '#64748b',
+                                                    fontWeight: 600,
+                                                    minWidth: 120
+                                                }}
+                                            >
+                                                {label}
+                                            </Typography>
+                                            {isEditing ? (
+                                                selectOptions ? (
+                                                    <TextField
+                                                        select
+                                                        fullWidth
+                                                        size="small"
+                                                        value={editFormData[field] || ''}
+                                                        onChange={(e) => onFormChange(field, e.target.value)}
+                                                        disabled={readOnly}
+                                                        sx={{
+                                                            flex: 1,
+                                                            '& .MuiOutlinedInput-root': {
+                                                                borderRadius: 2
+                                                            }
+                                                        }}
+                                                    >
+                                                        {selectOptions.map((option) => (
+                                                            <MenuItem key={option.value} value={option.value}>
+                                                                {option.label}
+                                                            </MenuItem>
+                                                        ))}
+                                                    </TextField>
+                                                ) : (
+                                                    <TextField
+                                                        fullWidth
+                                                        size="small"
+                                                        type={type || 'text'}
+                                                        value={type === 'date' ? normalizeDateForInput(editFormData[field]) : (editFormData[field] || '')}
+                                                        onChange={(e) => onFormChange(field, e.target.value)}
+                                                        disabled={readOnly}
+                                                        sx={{
+                                                            flex: 1,
+                                                            '& .MuiOutlinedInput-root': {
+                                                                borderRadius: 2
+                                                            }
+                                                        }}
+                                                    />
+                                                )
+                                            ) : (
+                                                <Typography variant="body1" fontWeight={500} sx={{ color: '#1f2937', flex: 1 }}>
+                                                    {transformDisplay 
+                                                        ? transformDisplay(selectedPatient[field])
+                                                        : (type === 'date' && selectedPatient[field] 
+                                                            ? formatDateDisplay(selectedPatient[field])
+                                                            : (selectedPatient[field] || 'ไม่มีข้อมูล'))}
+                                                </Typography>
+                                            )}
+                                        </Box>
+                                    </Grid>
+                                ))}
                             </Grid>
                         </Paper>
                     </Grid>
@@ -480,20 +864,61 @@ const PatientDetailPanel = React.memo(({
                                 ข้อมูลสุขภาพ
                             </Typography>
 
-                            <Grid container spacing={3}>
-                                {renderField('น้ำหนัก (กก.)', 'WEIGHT1', {
-                                    sm: 4,
-                                    type: 'number',
-                                    transformDisplay: (value) => (value || value === 0 ? `${value} กก.` : '')
-                                })}
-                                {renderField('ส่วนสูง (ซม.)', 'HIGH1', {
-                                    sm: 4,
-                                    type: 'number',
-                                    transformDisplay: (value) => (value || value === 0 ? `${value} ซม.` : '')
-                                })}
-                                {renderField('โรคประจำตัว', 'DISEASE1', { xs: 12, sm: 12, multiline: true, rows: 3 })}
-                                {renderField('แพ้ยา', 'DRUG_ALLERGY', { xs: 12, sm: 6, multiline: true, rows: 2 })}
-                                {renderField('แพ้อาหาร', 'FOOD_ALLERGIES', { xs: 12, sm: 6, multiline: true, rows: 2 })}
+                            <Grid container spacing={2}>
+                                {[
+                                    { label: 'น้ำหนัก (กก.)', field: 'WEIGHT1', type: 'number', transformDisplay: (value) => (value || value === 0 ? `${value} กก.` : '') },
+                                    { label: 'ส่วนสูง (ซม.)', field: 'HIGH1', type: 'number', transformDisplay: (value) => (value || value === 0 ? `${value} ซม.` : '') },
+                                    { label: 'โรคประจำตัว', field: 'DISEASE1', multiline: true, rows: 2, fullWidth: true },
+                                    { label: 'แพ้ยา', field: 'DRUG_ALLERGY', multiline: true, rows: 2 },
+                                    { label: 'แพ้อาหาร', field: 'FOOD_ALLERGIES', multiline: true, rows: 2 }
+                                ].map(({ label, field, type, multiline, rows, transformDisplay, fullWidth }) => (
+                                    <Grid item xs={12} sm={fullWidth ? 12 : 6} key={field}>
+                                        <Box sx={{ display: 'flex', alignItems: multiline ? 'flex-start' : 'center', gap: 2 }}>
+                                            <Typography
+                                                variant="body2"
+                                                sx={{
+                                                    color: '#64748b',
+                                                    fontWeight: 600,
+                                                    minWidth: 120,
+                                                    pt: multiline ? 1 : 0
+                                                }}
+                                            >
+                                                {label}
+                                            </Typography>
+                                            {isEditing ? (
+                                                <TextField
+                                                    fullWidth
+                                                    size="small"
+                                                    type={type || 'text'}
+                                                    multiline={multiline}
+                                                    rows={rows || 1}
+                                                    value={editFormData[field] || ''}
+                                                    onChange={(e) => onFormChange(field, e.target.value)}
+                                                    sx={{
+                                                        flex: 1,
+                                                        '& .MuiOutlinedInput-root': {
+                                                            borderRadius: 2
+                                                        }
+                                                    }}
+                                                />
+                                            ) : (
+                                                <Typography 
+                                                    variant="body1" 
+                                                    fontWeight={500} 
+                                                    sx={{ 
+                                                        color: '#1f2937', 
+                                                        flex: 1,
+                                                        whiteSpace: multiline ? 'pre-wrap' : 'normal'
+                                                    }}
+                                                >
+                                                    {transformDisplay 
+                                                        ? transformDisplay(selectedPatient[field])
+                                                        : (selectedPatient[field] || 'ไม่มีข้อมูล')}
+                                                </Typography>
+                                            )}
+                                        </Box>
+                                    </Grid>
+                                ))}
                             </Grid>
                         </Paper>
                     </Grid>
@@ -509,64 +934,519 @@ const PatientDetailPanel = React.memo(({
                                 ข้อมูลติดต่อ
                             </Typography>
 
-                            <Grid container spacing={3}>
-                                {renderField('เบอร์โทรศัพท์', 'TEL1', {
-                                    sm: 6,
-                                    onChange: (event) => {
-                                        const value = event.target.value.replace(/\D/g, '').slice(0, 10);
-                                        onFormChange('TEL1', value);
-                                    },
-                                    inputProps: { maxLength: 10 },
-                                    placeholder: 'เฉพาะตัวเลข 10 หลัก'
-                                })}
-                                {renderField('อีเมล', 'EMAIL1', { sm: 6, type: 'email' })}
+                            <Grid container spacing={2}>
+                                <Grid item xs={12} sm={6}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                        <Typography
+                                            variant="body2"
+                                            sx={{
+                                                color: '#64748b',
+                                                fontWeight: 600,
+                                                minWidth: 120
+                                            }}
+                                        >
+                                            เบอร์โทรศัพท์
+                                        </Typography>
+                                        {isEditing ? (
+                                            <TextField
+                                                fullWidth
+                                                size="small"
+                                                value={editFormData.TEL1 || ''}
+                                                onChange={(event) => {
+                                                    const value = event.target.value.replace(/\D/g, '').slice(0, 10);
+                                                    onFormChange('TEL1', value);
+                                                }}
+                                                inputProps={{ maxLength: 10 }}
+                                                placeholder="เฉพาะตัวเลข 10 หลัก"
+                                                sx={{
+                                                    flex: 1,
+                                                    '& .MuiOutlinedInput-root': {
+                                                        borderRadius: 2
+                                                    }
+                                                }}
+                                            />
+                                        ) : (
+                                            <Typography variant="body1" fontWeight={500} sx={{ color: '#1f2937', flex: 1 }}>
+                                                {selectedPatient.TEL1 || 'ไม่มีข้อมูล'}
+                                            </Typography>
+                                        )}
+                                    </Box>
+                                </Grid>
+                                <Grid item xs={12} sm={6}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                        <Typography
+                                            variant="body2"
+                                            sx={{
+                                                color: '#64748b',
+                                                fontWeight: 600,
+                                                minWidth: 120
+                                            }}
+                                        >
+                                            อีเมล
+                                        </Typography>
+                                        {isEditing ? (
+                                            <TextField
+                                                fullWidth
+                                                size="small"
+                                                type="email"
+                                                value={editFormData.EMAIL1 || ''}
+                                                onChange={(e) => onFormChange('EMAIL1', e.target.value)}
+                                                sx={{
+                                                    flex: 1,
+                                                    '& .MuiOutlinedInput-root': {
+                                                        borderRadius: 2
+                                                    }
+                                                }}
+                                            />
+                                        ) : (
+                                            <Typography variant="body1" fontWeight={500} sx={{ color: '#1f2937', flex: 1 }}>
+                                                {selectedPatient.EMAIL1 || 'ไม่มีข้อมูล'}
+                                            </Typography>
+                                        )}
+                                    </Box>
+                                </Grid>
                             </Grid>
                         </Paper>
                     </Grid>
 
                     <Grid item xs={12}>
                         <Paper sx={{ p: 3, borderRadius: 3, border: '1px solid #e2e8f0' }}>
-                            <Typography variant="h6" fontWeight={600} sx={{ mb: 2 }}>
+                            <Typography 
+                                variant="h6" 
+                                fontWeight={600} 
+                                sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}
+                            >
+                                <Home sx={{ color: '#4A9EFF' }} />
                                 ที่อยู่ตามบัตรประชาชน
                             </Typography>
-                            <Grid container spacing={3}>
-                                {renderField('ที่อยู่ตามบัตร', 'CARD_ADDR1', { xs: 12, multiline: true, rows: 3 })}
-                                {renderField('ตำบล', 'CARD_TUMBOL_CODE', {
-                                    sm: 4,
-                                    transformDisplay: (_, patient) => patient.CARD_TUMBOL_NAME || 'ไม่มีข้อมูล'
-                                })}
-                                {renderField('อำเภอ', 'CARD_AMPHER_CODE', {
-                                    sm: 4,
-                                    transformDisplay: (_, patient) => patient.CARD_AMPHER_NAME || 'ไม่มีข้อมูล'
-                                })}
-                                {renderField('จังหวัด', 'CARD_PROVINCE_CODE', {
-                                    sm: 4,
-                                    transformDisplay: (_, patient) => patient.CARD_PROVINCE_NAME || 'ไม่มีข้อมูล'
-                                })}
+                            <Grid container spacing={2}>
+                                {/* ที่อยู่ตามบัตร */}
+                                <Grid item xs={12}>
+                                    <Box>
+                                        <Typography
+                                            variant="caption"
+                                            sx={{
+                                                color: '#64748b',
+                                                textTransform: 'uppercase',
+                                                fontWeight: 600,
+                                                letterSpacing: 0.3,
+                                                mb: 0.5,
+                                                display: 'block'
+                                            }}
+                                        >
+                                            ที่อยู่ตามบัตร
+                                        </Typography>
+                                        {isEditing ? (
+                                            <TextField
+                                                fullWidth
+                                                size="small"
+                                                multiline
+                                                rows={2}
+                                                value={editFormData.CARD_ADDR1 || ''}
+                                                onChange={(e) => onFormChange('CARD_ADDR1', e.target.value)}
+                                                sx={{
+                                                    '& .MuiOutlinedInput-root': {
+                                                        borderRadius: 2
+                                                    }
+                                                }}
+                                            />
+                                        ) : (
+                                            <Typography variant="body1" fontWeight={500} sx={{ color: '#1f2937', mt: 0.5 }}>
+                                                {selectedPatient.CARD_ADDR1 || 'ไม่มีข้อมูล'}
+                                            </Typography>
+                                        )}
+                                    </Box>
+                                </Grid>
+
+                                {/* ตำบล */}
+                                <Grid item xs={12} sm={6}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                        <Typography
+                                            variant="body2"
+                                            sx={{
+                                                color: '#64748b',
+                                                fontWeight: 600,
+                                                minWidth: 120
+                                            }}
+                                        >
+                                            ตำบล
+                                        </Typography>
+                                        {isEditing ? (
+                                            <TextField
+                                                select
+                                                fullWidth
+                                                size="small"
+                                                value={editFormData.CARD_TUMBOL_CODE || ''}
+                                                onChange={handleCardTumbolChange}
+                                                disabled={!selectedCardAmpher || cardTumbols.length === 0}
+                                                sx={{
+                                                    flex: 1,
+                                                    '& .MuiOutlinedInput-root': {
+                                                        borderRadius: 2
+                                                    }
+                                                }}
+                                            >
+                                                <MenuItem value="">
+                                                    <em>-- เลือกตำบล/แขวง --</em>
+                                                </MenuItem>
+                                                {cardTumbols.map((tumbol) => (
+                                                    <MenuItem key={tumbol.TUMBOL_CODE} value={tumbol.TUMBOL_CODE}>
+                                                        {tumbol.TUMBOL_NAME}
+                                                    </MenuItem>
+                                                ))}
+                                            </TextField>
+                                        ) : (
+                                            <Typography variant="body1" fontWeight={500} sx={{ color: '#1f2937', flex: 1 }}>
+                                                {selectedPatient.CARD_TUMBOL_NAME || 'ไม่มีข้อมูล'}
+                                            </Typography>
+                                        )}
+                                    </Box>
+                                </Grid>
+
+                                {/* อำเภอ */}
+                                <Grid item xs={12} sm={6}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                        <Typography
+                                            variant="body2"
+                                            sx={{
+                                                color: '#64748b',
+                                                fontWeight: 600,
+                                                minWidth: 120
+                                            }}
+                                        >
+                                            อำเภอ
+                                        </Typography>
+                                        {isEditing ? (
+                                            <TextField
+                                                select
+                                                fullWidth
+                                                size="small"
+                                                value={editFormData.CARD_AMPHER_CODE || ''}
+                                                onChange={handleCardAmpherChange}
+                                                disabled={!selectedCardProvince || cardAmphers.length === 0}
+                                                sx={{
+                                                    flex: 1,
+                                                    '& .MuiOutlinedInput-root': {
+                                                        borderRadius: 2
+                                                    }
+                                                }}
+                                            >
+                                                <MenuItem value="">
+                                                    <em>-- เลือกอำเภอ/เขต --</em>
+                                                </MenuItem>
+                                                {cardAmphers.map((ampher) => (
+                                                    <MenuItem key={ampher.AMPHER_CODE} value={ampher.AMPHER_CODE}>
+                                                        {ampher.AMPHER_NAME}
+                                                    </MenuItem>
+                                                ))}
+                                            </TextField>
+                                        ) : (
+                                            <Typography variant="body1" fontWeight={500} sx={{ color: '#1f2937', flex: 1 }}>
+                                                {selectedPatient.CARD_AMPHER_NAME || 'ไม่มีข้อมูล'}
+                                            </Typography>
+                                        )}
+                                    </Box>
+                                </Grid>
+
+                                {/* จังหวัด */}
+                                <Grid item xs={12} sm={6}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                        <Typography
+                                            variant="body2"
+                                            sx={{
+                                                color: '#64748b',
+                                                fontWeight: 600,
+                                                minWidth: 120
+                                            }}
+                                        >
+                                            จังหวัด
+                                        </Typography>
+                                        {isEditing ? (
+                                            <TextField
+                                                select
+                                                fullWidth
+                                                size="small"
+                                                value={editFormData.CARD_PROVINCE_CODE || ''}
+                                                onChange={handleCardProvinceChange}
+                                                sx={{
+                                                    flex: 1,
+                                                    '& .MuiOutlinedInput-root': {
+                                                        borderRadius: 2
+                                                    }
+                                                }}
+                                            >
+                                                <MenuItem value="">
+                                                    <em>-- เลือกจังหวัด --</em>
+                                                </MenuItem>
+                                                {cardProvinces.map((province) => (
+                                                    <MenuItem key={province.PROVINCE_CODE} value={province.PROVINCE_CODE}>
+                                                        {province.PROVINCE_NAME}
+                                                    </MenuItem>
+                                                ))}
+                                            </TextField>
+                                        ) : (
+                                            <Typography variant="body1" fontWeight={500} sx={{ color: '#1f2937', flex: 1 }}>
+                                                {selectedPatient.CARD_PROVINCE_NAME || 'ไม่มีข้อมูล'}
+                                            </Typography>
+                                        )}
+                                    </Box>
+                                </Grid>
+
+                                {/* รหัสไปรษณีย์ */}
+                                <Grid item xs={12} sm={6}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                        <Typography
+                                            variant="body2"
+                                            sx={{
+                                                color: '#64748b',
+                                                fontWeight: 600,
+                                                minWidth: 120
+                                            }}
+                                        >
+                                            รหัสไปรษณีย์
+                                        </Typography>
+                                        {isEditing ? (
+                                            <TextField
+                                                fullWidth
+                                                size="small"
+                                                value={editFormData.CARD_ZIPCODE || ''}
+                                                onChange={(e) => onFormChange('CARD_ZIPCODE', e.target.value)}
+                                                placeholder="อัปเดตอัตโนมัติเมื่อเลือกตำบล"
+                                                sx={{
+                                                    flex: 1,
+                                                    '& .MuiOutlinedInput-root': {
+                                                        borderRadius: 2
+                                                    }
+                                                }}
+                                            />
+                                        ) : (
+                                            <Typography variant="body1" fontWeight={500} sx={{ color: '#1f2937', flex: 1 }}>
+                                                {selectedPatient.CARD_ZIPCODE || 'ไม่มีข้อมูล'}
+                                            </Typography>
+                                        )}
+                                    </Box>
+                                </Grid>
                             </Grid>
                         </Paper>
                     </Grid>
 
                     <Grid item xs={12}>
                         <Paper sx={{ p: 3, borderRadius: 3, border: '1px solid #e2e8f0' }}>
-                            <Typography variant="h6" fontWeight={600} sx={{ mb: 2 }}>
+                            <Typography 
+                                variant="h6" 
+                                fontWeight={600} 
+                                sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}
+                            >
+                                <LocationOn sx={{ color: '#4A9EFF' }} />
                                 ที่อยู่ปัจจุบัน
                             </Typography>
-                            <Grid container spacing={3}>
-                                {renderField('ที่อยู่ปัจจุบัน', 'ADDR1', { xs: 12, multiline: true, rows: 3 })}
-                                {renderField('ตำบล', 'TUMBOL_CODE', {
-                                    sm: 4,
-                                    transformDisplay: (_, patient) => patient.TUMBOL_NAME || 'ไม่มีข้อมูล'
-                                })}
-                                {renderField('อำเภอ', 'AMPHER_CODE', {
-                                    sm: 4,
-                                    transformDisplay: (_, patient) => patient.AMPHER_NAME || 'ไม่มีข้อมูล'
-                                })}
-                                {renderField('จังหวัด', 'PROVINCE_CODE', {
-                                    sm: 4,
-                                    transformDisplay: (_, patient) => patient.PROVINCE_NAME || 'ไม่มีข้อมูล'
-                                })}
-                                {renderField('รหัสไปรษณีย์', 'ZIPCODE', { sm: 4 })}
+                            <Grid container spacing={2}>
+                                {/* ที่อยู่ปัจจุบัน */}
+                                <Grid item xs={12}>
+                                    <Box>
+                                        <Typography
+                                            variant="caption"
+                                            sx={{
+                                                color: '#64748b',
+                                                textTransform: 'uppercase',
+                                                fontWeight: 600,
+                                                letterSpacing: 0.3,
+                                                mb: 0.5,
+                                                display: 'block'
+                                            }}
+                                        >
+                                            ที่อยู่ปัจจุบัน
+                                        </Typography>
+                                        {isEditing ? (
+                                            <TextField
+                                                fullWidth
+                                                size="small"
+                                                multiline
+                                                rows={2}
+                                                value={editFormData.ADDR1 || ''}
+                                                onChange={(e) => onFormChange('ADDR1', e.target.value)}
+                                                sx={{
+                                                    '& .MuiOutlinedInput-root': {
+                                                        borderRadius: 2
+                                                    }
+                                                }}
+                                            />
+                                        ) : (
+                                            <Typography variant="body1" fontWeight={500} sx={{ color: '#1f2937', mt: 0.5 }}>
+                                                {selectedPatient.ADDR1 || 'ไม่มีข้อมูล'}
+                                            </Typography>
+                                        )}
+                                    </Box>
+                                </Grid>
+
+                                {/* ตำบล */}
+                                <Grid item xs={12} sm={6}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                        <Typography
+                                            variant="body2"
+                                            sx={{
+                                                color: '#64748b',
+                                                fontWeight: 600,
+                                                minWidth: 120
+                                            }}
+                                        >
+                                            ตำบล
+                                        </Typography>
+                                        {isEditing ? (
+                                            <TextField
+                                                select
+                                                fullWidth
+                                                size="small"
+                                                value={editFormData.TUMBOL_CODE || ''}
+                                                onChange={handleCurrentTumbolChange}
+                                                disabled={!selectedCurrentAmpher || currentTumbols.length === 0}
+                                                sx={{
+                                                    flex: 1,
+                                                    '& .MuiOutlinedInput-root': {
+                                                        borderRadius: 2
+                                                    }
+                                                }}
+                                            >
+                                                <MenuItem value="">
+                                                    <em>-- เลือกตำบล/แขวง --</em>
+                                                </MenuItem>
+                                                {currentTumbols.map((tumbol) => (
+                                                    <MenuItem key={tumbol.TUMBOL_CODE} value={tumbol.TUMBOL_CODE}>
+                                                        {tumbol.TUMBOL_NAME}
+                                                    </MenuItem>
+                                                ))}
+                                            </TextField>
+                                        ) : (
+                                            <Typography variant="body1" fontWeight={500} sx={{ color: '#1f2937', flex: 1 }}>
+                                                {selectedPatient.TUMBOL_NAME || 'ไม่มีข้อมูล'}
+                                            </Typography>
+                                        )}
+                                    </Box>
+                                </Grid>
+
+                                {/* อำเภอ */}
+                                <Grid item xs={12} sm={6}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                        <Typography
+                                            variant="body2"
+                                            sx={{
+                                                color: '#64748b',
+                                                fontWeight: 600,
+                                                minWidth: 120
+                                            }}
+                                        >
+                                            อำเภอ
+                                        </Typography>
+                                        {isEditing ? (
+                                            <TextField
+                                                select
+                                                fullWidth
+                                                size="small"
+                                                value={editFormData.AMPHER_CODE || ''}
+                                                onChange={handleCurrentAmpherChange}
+                                                disabled={!selectedCurrentProvince || currentAmphers.length === 0}
+                                                sx={{
+                                                    flex: 1,
+                                                    '& .MuiOutlinedInput-root': {
+                                                        borderRadius: 2
+                                                    }
+                                                }}
+                                            >
+                                                <MenuItem value="">
+                                                    <em>-- เลือกอำเภอ/เขต --</em>
+                                                </MenuItem>
+                                                {currentAmphers.map((ampher) => (
+                                                    <MenuItem key={ampher.AMPHER_CODE} value={ampher.AMPHER_CODE}>
+                                                        {ampher.AMPHER_NAME}
+                                                    </MenuItem>
+                                                ))}
+                                            </TextField>
+                                        ) : (
+                                            <Typography variant="body1" fontWeight={500} sx={{ color: '#1f2937', flex: 1 }}>
+                                                {selectedPatient.AMPHER_NAME || 'ไม่มีข้อมูล'}
+                                            </Typography>
+                                        )}
+                                    </Box>
+                                </Grid>
+
+                                {/* จังหวัด */}
+                                <Grid item xs={12} sm={6}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                        <Typography
+                                            variant="body2"
+                                            sx={{
+                                                color: '#64748b',
+                                                fontWeight: 600,
+                                                minWidth: 120
+                                            }}
+                                        >
+                                            จังหวัด
+                                        </Typography>
+                                        {isEditing ? (
+                                            <TextField
+                                                select
+                                                fullWidth
+                                                size="small"
+                                                value={editFormData.PROVINCE_CODE || ''}
+                                                onChange={handleCurrentProvinceChange}
+                                                sx={{
+                                                    flex: 1,
+                                                    '& .MuiOutlinedInput-root': {
+                                                        borderRadius: 2
+                                                    }
+                                                }}
+                                            >
+                                                <MenuItem value="">
+                                                    <em>-- เลือกจังหวัด --</em>
+                                                </MenuItem>
+                                                {currentProvinces.map((province) => (
+                                                    <MenuItem key={province.PROVINCE_CODE} value={province.PROVINCE_CODE}>
+                                                        {province.PROVINCE_NAME}
+                                                    </MenuItem>
+                                                ))}
+                                            </TextField>
+                                        ) : (
+                                            <Typography variant="body1" fontWeight={500} sx={{ color: '#1f2937', flex: 1 }}>
+                                                {selectedPatient.PROVINCE_NAME || 'ไม่มีข้อมูล'}
+                                            </Typography>
+                                        )}
+                                    </Box>
+                                </Grid>
+
+                                {/* รหัสไปรษณีย์ */}
+                                <Grid item xs={12} sm={6}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                        <Typography
+                                            variant="body2"
+                                            sx={{
+                                                color: '#64748b',
+                                                fontWeight: 600,
+                                                minWidth: 120
+                                            }}
+                                        >
+                                            รหัสไปรษณีย์
+                                        </Typography>
+                                        {isEditing ? (
+                                            <TextField
+                                                fullWidth
+                                                size="small"
+                                                value={editFormData.ZIPCODE || ''}
+                                                onChange={(e) => onFormChange('ZIPCODE', e.target.value)}
+                                                placeholder="อัปเดตอัตโนมัติเมื่อเลือกตำบล"
+                                                sx={{
+                                                    flex: 1,
+                                                    '& .MuiOutlinedInput-root': {
+                                                        borderRadius: 2
+                                                    }
+                                                }}
+                                            />
+                                        ) : (
+                                            <Typography variant="body1" fontWeight={500} sx={{ color: '#1f2937', flex: 1 }}>
+                                                {selectedPatient.ZIPCODE || 'ไม่มีข้อมูล'}
+                                            </Typography>
+                                        )}
+                                    </Box>
+                                </Grid>
                             </Grid>
                         </Paper>
                     </Grid>
@@ -582,22 +1462,52 @@ const PatientDetailPanel = React.memo(({
                                 สิทธิการรักษา
                             </Typography>
 
-                            <Grid container spacing={3}>
-                                {renderField('บัตรการรักษา', 'TREATMENT_CARD', {
-                                    sm: 4,
-                                    selectOptions: BOOLEAN_OPTIONS,
-                                    transformDisplay: (value) => formatBooleanFlag(value)
-                                })}
-                                {renderField('บัตรประกันสังคม', 'SOCIAL_CARD', {
-                                    sm: 4,
-                                    selectOptions: BOOLEAN_OPTIONS,
-                                    transformDisplay: (value) => formatBooleanFlag(value)
-                                })}
-                                {renderField('บัตรทอง/บัตร UC', 'UCS_CARD', {
-                                    sm: 4,
-                                    selectOptions: BOOLEAN_OPTIONS,
-                                    transformDisplay: (value) => formatBooleanFlag(value)
-                                })}
+                            <Grid container spacing={2}>
+                                {[
+                                    { label: 'บัตรการรักษา', field: 'TREATMENT_CARD' },
+                                    { label: 'บัตรประกันสังคม', field: 'SOCIAL_CARD' },
+                                    { label: 'บัตรทอง/บัตร UC', field: 'UCS_CARD' }
+                                ].map(({ label, field }) => (
+                                    <Grid item xs={12} sm={4} key={field}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                            <Typography
+                                                variant="body2"
+                                                sx={{
+                                                    color: '#64748b',
+                                                    fontWeight: 600,
+                                                    minWidth: 120
+                                                }}
+                                            >
+                                                {label}
+                                            </Typography>
+                                            {isEditing ? (
+                                                <TextField
+                                                    select
+                                                    fullWidth
+                                                    size="small"
+                                                    value={editFormData[field] || ''}
+                                                    onChange={(e) => onFormChange(field, e.target.value)}
+                                                    sx={{
+                                                        flex: 1,
+                                                        '& .MuiOutlinedInput-root': {
+                                                            borderRadius: 2
+                                                        }
+                                                    }}
+                                                >
+                                                    {BOOLEAN_OPTIONS.map((option) => (
+                                                        <MenuItem key={option.value} value={option.value}>
+                                                            {option.label}
+                                                        </MenuItem>
+                                                    ))}
+                                                </TextField>
+                                            ) : (
+                                                <Typography variant="body1" fontWeight={500} sx={{ color: '#1f2937', flex: 1 }}>
+                                                    {formatBooleanFlag(selectedPatient[field]) || 'ไม่มีข้อมูล'}
+                                                </Typography>
+                                            )}
+                                        </Box>
+                                    </Grid>
+                                ))}
                             </Grid>
                         </Paper>
                     </Grid>

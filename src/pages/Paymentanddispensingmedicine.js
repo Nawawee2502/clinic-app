@@ -332,12 +332,21 @@ const Paymentanddispensingmedicine = () => {
 
       // ✅ เช็ค UCS_CARD: ถ้าเป็น 'Y' ไม่ต้องชำระเงิน, ถ้าเป็น 'N' ต้องชำระเงินก่อน
       const ucsCard = currentPatient?.UCS_CARD || 
+                      currentPatient?.PATIENT_UCS_CARD ||
                       treatmentData?.treatment?.UCS_CARD || 
                       treatmentData?.patient?.UCS_CARD || 
                       'N';
       const paymentStatus = currentPatient.PAYMENT_STATUS || 'รอชำระ';
       
-      // ถ้า UCS_CARD เป็น 'N' ต้องชำระเงินก่อน
+      console.log('🔍 Close Case Check:', {
+        HNCODE: currentPatient.HNCODE,
+        UCS_CARD: ucsCard,
+        PAYMENT_STATUS: paymentStatus,
+        canClose: ucsCard === 'Y' || paymentStatus === 'ชำระเงินแล้ว'
+      });
+      
+      // ✅ ถ้า UCS_CARD เป็น 'Y' สามารถปิดได้เลย (ไม่ต้องชำระเงิน)
+      // ✅ ถ้า UCS_CARD เป็น 'N' ต้องชำระเงินก่อน (paymentStatus === 'ชำระเงินแล้ว')
       if (ucsCard !== 'Y' && paymentStatus !== 'ชำระเงินแล้ว') {
         // ถ้ายังไม่ชำระเงิน ให้ขึ้น swal เตือน
         await Swal.fire({
@@ -348,6 +357,24 @@ const Paymentanddispensingmedicine = () => {
           confirmButtonColor: '#5698E0'
         });
         return;
+      }
+      
+      // ✅ ถ้าเป็นบัตรทอง (UCS_CARD = 'Y') แสดงข้อความยืนยัน
+      if (ucsCard === 'Y') {
+        const confirmResult = await Swal.fire({
+          icon: 'info',
+          title: 'ยืนยันการปิดการรักษา',
+          text: 'ผู้ป่วยรายนี้เป็นบัตรทอง (ไม่ต้องชำระเงิน) ต้องการปิดการรักษาหรือไม่?',
+          showCancelButton: true,
+          confirmButtonText: 'ยืนยันปิดการรักษา',
+          cancelButtonText: 'ยกเลิก',
+          confirmButtonColor: '#5698E0',
+          cancelButtonColor: '#64748b'
+        });
+        
+        if (!confirmResult.isConfirmed) {
+          return; // ถ้ายกเลิก ไม่ต้องทำอะไร
+        }
       }
 
       // ✅ อัปเดต STATUS1 เป็น 'ปิดการรักษา'

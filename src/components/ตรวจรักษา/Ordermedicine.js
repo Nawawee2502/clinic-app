@@ -683,18 +683,18 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
                                     </Typography>
                                     <TextField
                                         size="small"
-                                        placeholder="ดึงมาจาก eat1 ของ TABLE_DRUG"
+                                        fullWidth
+                                        multiline
+                                        rows={2}
+                                        placeholder="ดึงค่า default มาจาก eat1 ของยา (สามารถแก้ไขได้)"
                                         value={medicineData.time}
                                         onChange={(e) => handleMedicineChange('time', e.target.value)}
                                         sx={{
                                             width: '100%',
                                             '& .MuiOutlinedInput-root': {
                                                 borderRadius: '10px',
-                                                backgroundColor: medicineData.drugCode ? '#f5f5f5' : 'inherit'
+                                                backgroundColor: medicineData.time ? '#f0f8ff' : 'inherit'
                                             },
-                                        }}
-                                        InputProps={{
-                                            readOnly: !!medicineData.drugCode, // ✅ ถ้าเลือกยาแล้ว ให้เป็น readonly
                                         }}
                                     />
                                 </Grid>

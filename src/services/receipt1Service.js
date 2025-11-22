@@ -273,18 +273,26 @@ class Receipt1Service {
             return sum + amount;
         }, 0);
 
+        const parsedVatRate = parseFloat(vatRate) || 0;
         let total, vamt, gtotal;
 
-        if (typeVat === 'include') {
-            // VAT รวมอยู่ในราคาแล้ว
-            gtotal = detailTotal;
-            vamt = (detailTotal * vatRate) / (100 + vatRate);
-            total = detailTotal - vamt;
-        } else {
-            // VAT ไม่รวมในราคา
+        // ✅ ถ้า VAT1 เป็น 0% ให้ไม่คำนวณ VAT
+        if (parsedVatRate === 0) {
             total = detailTotal;
-            vamt = total * (vatRate / 100);
-            gtotal = total + vamt;
+            vamt = 0;
+            gtotal = detailTotal;
+        } else {
+            if (typeVat === 'include') {
+                // VAT รวมอยู่ในราคาแล้ว
+                gtotal = detailTotal;
+                vamt = (detailTotal * parsedVatRate) / (100 + parsedVatRate);
+                total = detailTotal - vamt;
+            } else {
+                // VAT ไม่รวมในราคา
+                total = detailTotal;
+                vamt = total * (parsedVatRate / 100);
+                gtotal = total + vamt;
+            }
         }
 
         return {
