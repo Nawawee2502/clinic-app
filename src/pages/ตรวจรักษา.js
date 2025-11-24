@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from 'react-router-dom';
 import {
   Grid,
@@ -10,8 +10,6 @@ import {
   Typography,
   List,
   ListItem,
-  ListItemAvatar,
-  ListItemText,
   ListItemButton,
   Chip,
   Box,
@@ -24,6 +22,8 @@ import {
   Alert,
   CircularProgress,
   Snackbar,
+  TextField,
+  InputAdornment,
   Dialog,
   DialogActions,
   DialogContent,
@@ -35,7 +35,8 @@ import {
   NavigateBefore as PrevIcon,
   Refresh as RefreshIcon,
   CheckCircle as CheckCircleIcon,
-  Warning as WarningIcon
+  Warning as WarningIcon,
+  Search as SearchIcon
 } from "@mui/icons-material";
 
 // Import Services
@@ -63,6 +64,7 @@ const ตรวจรักษา = () => {
   const [tabIndex, setTabIndex] = useState(0);
   const [selectedPatientIndex, setSelectedPatientIndex] = useState(0);
   const [patients, setPatients] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [queueStats, setQueueStats] = useState({
@@ -99,10 +101,11 @@ const ตรวจรักษา = () => {
       const response = await PatientService.getAllPatientsFromQueue();
 
       if (response.success) {
-        // กรองเฉพาะคนไข้ที่ยังไม่เสร็จสิ้น
-        const activePatients = response.data.filter(patient =>
-          patient.queueStatus !== 'เสร็จแล้ว'
-        );
+        // กรองเฉพาะคนไข้ที่ยังไม่ชำระเงินหรือปิดการรักษา
+        const activePatients = response.data.filter(patient => {
+          const treatmentStatus = (patient.TREATMENT_STATUS || patient.STATUS1 || '').trim();
+          return treatmentStatus !== 'ชำระเงินแล้ว' && treatmentStatus !== 'ปิดการรักษา';
+        });
 
         setPatients(activePatients);
 
@@ -188,12 +191,12 @@ const ตรวจรักษา = () => {
             });
           }, 2000);
 
-          const updatedPatients = patients.filter(p => p.queueId !== targetPatient.queueId);
+          const updatedPatients = patients.map(p =>
+            p.queueId === targetPatient.queueId
+              ? { ...p, queueStatus: newStatus }
+              : p
+          );
           setPatients(updatedPatients);
-
-          if (selectedPatientIndex >= updatedPatients.length && updatedPatients.length > 0) {
-            setSelectedPatientIndex(Math.max(0, updatedPatients.length - 1));
-          }
         } else {
           const updatedPatients = [...patients];
           const patientIndex = patients.findIndex(p => p.queueId === targetPatient.queueId);
@@ -328,6 +331,25 @@ const ตรวจรักษา = () => {
   const goToPatientRegistration = () => {
     navigate('/clinic/patientregistration');
   };
+
+  const displayedPatients = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    return patients
+      .map((patient, index) => ({ patient, originalIndex: index }))
+      .filter(({ patient }) => {
+        if (!term) return true;
+        const fullName = `${patient.PRENAME || ''}${patient.NAME1 || ''} ${patient.SURNAME || ''}`.toLowerCase();
+        const hn = (patient.HNCODE || '').toLowerCase();
+        const vn = (patient.VNO || '').toLowerCase();
+        const queueNumber = String(patient.queueNumber || '').toLowerCase();
+        return (
+          fullName.includes(term) ||
+          hn.includes(term) ||
+          vn.includes(term) ||
+          queueNumber.includes(term)
+        );
+      });
+  }, [patients, searchTerm]);
 
   const currentPatient = patients[selectedPatientIndex];
 
@@ -498,6 +520,28 @@ const ตรวจรักษา = () => {
                     </Typography>
                   </Box>
                 </Box>
+              </Box>
+
+              {/* Search Box */}
+              <Box sx={{ p: 2, borderBottom: '1px solid rgba(0,0,0,0.06)', bgcolor: '#f1f5f9' }}>
+                <TextField
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
+                  placeholder="ค้นหา HN / VN / ชื่อผู้ป่วย"
+                  fullWidth
+                  size="small"
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchIcon fontSize="small" sx={{ color: '#94a3b8' }} />
+                      </InputAdornment>
+                    ),
+                    sx: {
+                      borderRadius: '12px',
+                      backgroundColor: 'white'
+                    }
+                  }}
+                />
               </Box>
 
               {/* Current Patient Control - Premium Look */}
@@ -675,150 +719,148 @@ const ตรวจรักษา = () => {
                       ไปหน้าลงทะเบียน
                     </Button>
                   </Box>
+                ) : displayedPatients.length === 0 ? (
+                  <Box sx={{
+                    p: 3,
+                    textAlign: 'center',
+                    bgcolor: 'rgba(241,245,249,0.8)',
+                    borderRadius: '16px',
+                    margin: 1,
+                    border: '1px dashed rgba(148,163,184,0.6)'
+                  }}>
+                    <Typography variant="body2" sx={{ color: '#475569', fontWeight: 600 }}>
+                      ไม่พบผู้ป่วยที่ตรงกับคำค้นหา
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: '#94a3b8' }}>
+                      ลองค้นหาใหม่อีกครั้ง
+                    </Typography>
+                  </Box>
                 ) : (
-                  patients.map((patient, index) => (
-                    <Box
-                      key={patient.queueId || index}
-                      sx={{
-                        mb: 1.5,
-                        mx: 1,
-                        borderRadius: '16px',
-                        overflow: 'hidden',
-                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                        transform: selectedPatientIndex === index ? 'scale(1.02)' : 'scale(1)',
-                        '&:hover': {
-                          transform: 'scale(1.02) translateY(-2px)',
-                          boxShadow: '0 12px 40px rgba(0,0,0,0.15)'
-                        }
-                      }}
-                    >
+                  displayedPatients.map(({ patient, originalIndex }) => {
+                    const isActive = selectedPatientIndex === originalIndex;
+                    return (
                       <ListItemButton
-                        selected={selectedPatientIndex === index}
-                        onClick={() => handlePatientSelect(index)}
+                        key={patient.queueId || originalIndex}
+                        selected={isActive}
+                        onClick={() => handlePatientSelect(originalIndex)}
                         sx={{
-                          background: selectedPatientIndex === index
-                            ? 'linear-gradient(135deg, #5698E0 0%, #2B69AC 100%)'
-                            : 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
-                          color: selectedPatientIndex === index ? 'white' : '#1e293b',
-                          backdropFilter: 'blur(10px)',
-                          border: selectedPatientIndex === index
-                            ? '2px solid rgba(255,255,255,0.3)'
-                            : '1px solid rgba(0,0,0,0.1)',
-                          py: 2,
-                          px: 2,
+                          mb: 0.85,
+                          mx: 0.4,
                           borderRadius: '16px',
-                          boxShadow: selectedPatientIndex === index
-                            ? '0 8px 32px rgba(86, 152, 224, 0.3)'
-                            : '0 4px 16px rgba(0,0,0,0.1)',
+                          border: isActive ? '2px solid #1f4c97' : '1px solid rgba(148,163,184,0.35)',
+                          background: isActive
+                            ? 'linear-gradient(135deg, #3d74c2 0%, #1f4c97 100%)'
+                            : '#f9fbff',
+                          alignItems: 'flex-start',
+                          py: 1.1,
+                          px: 1.4,
+                          minHeight: '84px',
+                          boxShadow: isActive
+                            ? '0 10px 28px rgba(31,76,151,0.25)'
+                            : '0 4px 12px rgba(15,23,42,0.08)',
+                          transition: 'all 0.2s ease',
                           '&:hover': {
-                            bgcolor: selectedPatientIndex === index ? undefined : 'rgba(248, 250, 252, 0.8)'
+                            borderColor: '#1f4c97',
+                            transform: 'translateY(-1px)'
                           }
                         }}
                       >
-                        <ListItemAvatar sx={{ minWidth: 50 }}>
+                        <Box sx={{ width: '100%', display: 'flex', gap: 1.2 }}>
                           <Box sx={{
                             width: 42,
                             height: 42,
                             borderRadius: '12px',
-                            background: selectedPatientIndex === index
-                              ? 'rgba(255,255,255,0.2)'
-                              : 'linear-gradient(135deg, #5698E0 0%, #2B69AC 100%)',
-                            color: 'white',
+                            background: isActive ? '#193c7b' : '#dbeafe',
+                            color: isActive ? '#ffffff' : '#1e3a8a',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            fontSize: '16px',
-                            fontWeight: 800,
-                            backdropFilter: 'blur(10px)',
-                            border: '1px solid rgba(255,255,255,0.3)',
-                            boxShadow: '0 4px 16px rgba(0,0,0,0.2)'
+                            fontWeight: 700,
+                            fontSize: '15px',
+                            boxShadow: isActive ? '0 6px 14px rgba(0,0,0,0.2)' : 'none'
                           }}>
                             {patient.queueNumber}
                           </Box>
-                        </ListItemAvatar>
 
-                        <ListItemText
-                          primary={
-                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
-                              <Typography variant="body1" fontWeight={700} sx={{
-                                fontSize: '14px',
-                                color: selectedPatientIndex === index ? 'white' : '#1e293b'
-                              }}>
-                                คิว {patient.queueNumber}
-                              </Typography>
-                              <Chip
-                                size="small"
-                                label={patient.queueStatus}
-                                color={getStatusColor(patient.queueStatus)}
-                                sx={{
-                                  fontSize: '9px',
-                                  height: 22,
-                                  fontWeight: 600,
-                                  borderRadius: '8px',
-                                  '& .MuiChip-label': { px: 1 },
-                                  bgcolor: selectedPatientIndex === index ? 'rgba(255,255,255,0.2)' : undefined,
-                                  color: selectedPatientIndex === index ? 'white' : undefined,
-                                  backdropFilter: 'blur(10px)'
-                                }}
-                              />
+                          <Box sx={{ flex: 1, minWidth: 0 }}>
+                            <Box sx={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              gap: 1,
+                              mb: 0.4
+                            }}>
+                            <Typography sx={{
+                              fontWeight: 700,
+                              color: isActive ? '#ffffff' : '#0f172a',
+                              fontSize: '15px',
+                              letterSpacing: 0.2,
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis'
+                            }}>
+                              {patient.PRENAME}{patient.NAME1} {patient.SURNAME}
+                            </Typography>
+                            <Chip
+                              size="small"
+                              label={patient.queueStatus}
+                              color={getStatusColor(patient.queueStatus)}
+                              sx={{
+                                fontSize: '10px',
+                                height: 22,
+                                fontWeight: 700,
+                                borderRadius: '999px',
+                                backgroundColor: isActive ? '#ffffff' : '#f1f5f9',
+                                color: isActive ? '#0f172a' : '#0f172a',
+                                border: '1px solid rgba(15,23,42,0.12)',
+                                boxShadow: '0 4px 10px rgba(15,23,42,0.1)'
+                              }}
+                            />
+                          </Box>
+
+                            <Typography sx={{
+                              fontSize: '13px',
+                              color: isActive ? 'rgba(255,255,255,0.95)' : '#334155',
+                              fontWeight: 600,
+                              mb: 0.2
+                            }}>
+                              HN: {patient.HNCODE || '-'} {patient.VNO && `• VN: ${patient.VNO}`}
+                            </Typography>
+
+                            <Box sx={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 0.8,
+                              fontSize: '12px',
+                              color: isActive ? 'rgba(255,255,255,0.85)' : '#64748b',
+                              mb: patient.SYMPTOM ? 0.3 : 0
+                            }}>
+                              <span>📅 {formatQueueDate(patient.queueDate)}</span>
+                              <span>•</span>
+                              <span>⏰ {patient.queueTime || '-'}</span>
                             </Box>
-                          }
-                          secondary={
-                            <Box>
-                              <Typography variant="body1" sx={{
-                                fontWeight: 600,
-                                color: selectedPatientIndex === index ? 'white' : '#0f172a',
-                                fontSize: '13px',
-                                lineHeight: 1.4,
-                                mb: 0.5
+
+                            {patient.SYMPTOM && (
+                              <Box sx={{
+                                backgroundColor: isActive ? 'rgba(255,255,255,0.15)' : '#f1f5f9',
+                                borderRadius: '10px',
+                                padding: '4px 10px',
+                                color: isActive ? '#ffffff' : '#475569',
+                                fontSize: '12px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 0.4,
+                                border: isActive ? '1px solid rgba(255,255,255,0.3)' : '1px solid rgba(148,163,184,0.4)'
                               }}>
-                                {patient.PRENAME}{patient.NAME1} {patient.SURNAME}
-                              </Typography>
-                              <Typography variant="caption" display="block" sx={{
-                                fontSize: '11px',
-                                color: selectedPatientIndex === index ? 'rgba(255,255,255,0.9)' : '#64748b',
-                                fontWeight: 500,
-                                mb: 0.3
-                              }}>
-                                📅 {formatQueueDate(patient.queueDate)} • ⏰ {patient.queueTime}
-                              </Typography>
-                              <Typography variant="caption" display="block" sx={{
-                                fontSize: '11px',
-                                color: selectedPatientIndex === index ? 'rgba(255,255,255,0.9)' : '#64748b',
-                                fontWeight: 500,
-                                mb: 0.3
-                              }}>
-                                👤 อายุ {patient.AGE} ปี
-                              </Typography>
-                              <Typography variant="caption" display="block" sx={{
-                                fontSize: '11px',
-                                color: selectedPatientIndex === index ? 'rgba(255,255,255,0.8)' : '#64748b',
-                                fontWeight: 500
-                              }}>
-                                🏥 HN: {patient.HNCODE}
-                              </Typography>
-                              {patient.SYMPTOM && (
-                                <Typography variant="caption" display="block" sx={{
-                                  fontSize: '11px',
-                                  mt: 0.5,
-                                  p: 1,
-                                  bgcolor: selectedPatientIndex === index
-                                    ? 'rgba(255,255,255,0.1)'
-                                    : 'rgba(86, 152, 224, 0.1)',
-                                  borderRadius: '8px',
-                                  color: selectedPatientIndex === index ? 'white' : '#2B69AC',
-                                  fontWeight: 500,
-                                  border: '1px solid rgba(255,255,255,0.2)'
-                                }}>
-                                  💬 {patient.SYMPTOM}
-                                </Typography>
-                              )}
-                            </Box>
-                          }
-                        />
+                                <span role="img" aria-label="chat">💬</span>
+                                <span>{patient.SYMPTOM}</span>
+                              </Box>
+                            )}
+                          </Box>
+                        </Box>
                       </ListItemButton>
-                    </Box>
-                  ))
+                    );
+                  })
                 )}
               </List>
             </Card>

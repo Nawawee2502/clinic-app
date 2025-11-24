@@ -26,6 +26,7 @@ import { Print as PrintIcon } from "@mui/icons-material";
 // Import Services
 import PatientService from "../services/patientService";
 import TreatmentService from "../services/treatmentService";
+import DrugService from "../services/drugService";
 import Swal from "sweetalert2";
 
 // Import Utilities
@@ -338,14 +339,34 @@ const Paymentanddispensingmedicine = () => {
                       'N';
       const paymentStatus = currentPatient.PAYMENT_STATUS || 'รอชำระ';
       
+      // ✅ ตรวจสอบว่ามียาที่ต้องจ่ายหรือไม่ (ยาที่ UCS_CARD = 'N')
+      const payableDrugs = editablePrices.drugs.filter(drug => drug.DRUG_UCS_CARD === 'N' && drug.editablePrice > 0);
+      const payableAmount = payableDrugs.reduce((sum, drug) => sum + drug.editablePrice, 0);
+      const hasPayableDrugs = payableAmount > 0;
+      
       console.log('🔍 Close Case Check:', {
         HNCODE: currentPatient.HNCODE,
         UCS_CARD: ucsCard,
         PAYMENT_STATUS: paymentStatus,
-        canClose: ucsCard === 'Y' || paymentStatus === 'ชำระเงินแล้ว'
+        hasPayableDrugs,
+        payableAmount,
+        payableDrugsCount: payableDrugs.length
       });
       
-      // ✅ ถ้า UCS_CARD เป็น 'Y' สามารถปิดได้เลย (ไม่ต้องชำระเงิน)
+      // ✅ ถ้าเป็นบัตรทอง แต่มียาที่ต้องจ่าย (UCS_CARD = 'N') ต้องชำระเงินก่อน
+      if (ucsCard === 'Y' && hasPayableDrugs && paymentStatus !== 'ชำระเงินแล้ว') {
+        await Swal.fire({
+          icon: 'warning',
+          title: 'ยังไม่สามารถปิดการรักษาได้',
+          html: `ผู้ป่วยรายนี้เป็นบัตรทอง แต่มียาที่ต้องจ่ายเงิน<br/>
+                 <strong>จำนวน ${payableDrugs.length} รายการ</strong> รวมเป็นเงิน <strong>฿${payableAmount.toFixed(2)}</strong><br/>
+                 กรุณาชำระเงินก่อนปิดการรักษา`,
+          confirmButtonText: 'ตกลง',
+          confirmButtonColor: '#5698E0'
+        });
+        return;
+      }
+      
       // ✅ ถ้า UCS_CARD เป็น 'N' ต้องชำระเงินก่อน (paymentStatus === 'ชำระเงินแล้ว')
       if (ucsCard !== 'Y' && paymentStatus !== 'ชำระเงินแล้ว') {
         // ถ้ายังไม่ชำระเงิน ให้ขึ้น swal เตือน
@@ -359,8 +380,8 @@ const Paymentanddispensingmedicine = () => {
         return;
       }
       
-      // ✅ ถ้าเป็นบัตรทอง (UCS_CARD = 'Y') แสดงข้อความยืนยัน
-      if (ucsCard === 'Y') {
+      // ✅ ถ้าเป็นบัตรทอง (UCS_CARD = 'Y') และไม่มียาที่ต้องจ่าย แสดงข้อความยืนยัน
+      if (ucsCard === 'Y' && !hasPayableDrugs) {
         const confirmResult = await Swal.fire({
           icon: 'info',
           title: 'ยืนยันการปิดการรักษา',
@@ -528,14 +549,35 @@ const Paymentanddispensingmedicine = () => {
           }));
         }
 
-        // ดึงข้อมูล Drugs
+        // ดึงข้อมูล Drugs พร้อม UCS_CARD
         let drugsArray = [];
         if (response.data.drugs && response.data.drugs.length > 0) {
-          drugsArray = response.data.drugs.map(item => ({
-            ...item,
-            editablePrice: parseFloat(item.AMT || 0),
-            originalPrice: parseFloat(item.AMT || 0)
-          }));
+          // ดึงข้อมูล UCS_CARD ของยาแต่ละตัว
+          drugsArray = await Promise.all(
+            response.data.drugs.map(async (item) => {
+              let drugUcsCard = item.UCS_CARD || 'N';
+              
+              // ถ้ายังไม่มี UCS_CARD ให้ดึงจาก DrugService
+              if (!drugUcsCard || drugUcsCard === 'N') {
+                try {
+                  const drugResponse = await DrugService.getDrugByCode(item.DRUG_CODE);
+                  if (drugResponse.success && drugResponse.data) {
+                    drugUcsCard = drugResponse.data.UCS_CARD || 'N';
+                  }
+                } catch (error) {
+                  console.warn(`Could not fetch UCS_CARD for drug ${item.DRUG_CODE}:`, error);
+                  drugUcsCard = 'N';
+                }
+              }
+              
+              return {
+                ...item,
+                editablePrice: parseFloat(item.AMT || 0),
+                originalPrice: parseFloat(item.AMT || 0),
+                DRUG_UCS_CARD: drugUcsCard // เก็บ UCS_CARD ของยาแต่ละตัว
+              };
+            })
+          );
         }
 
         // ✅ เช็คบัตรทอง (UCS_CARD) จาก patient หรือ treatment
@@ -545,6 +587,7 @@ const Paymentanddispensingmedicine = () => {
                           response.data.patient?.UCS_CARD === 'Y';
 
         // ✅ ถ้าผู้ป่วยเป็นบัตรทอง ให้ตั้งราคาเริ่มต้นเป็น 0 (แต่ยังแก้ไขได้)
+        // แต่ถ้ายามี UCS_CARD = 'N' ให้เก็บราคาไว้
         if (isGoldCard) {
           labsArray = labsArray.map(item => ({
             ...item,
@@ -556,9 +599,10 @@ const Paymentanddispensingmedicine = () => {
             editablePrice: 0,
             originalPrice: item.originalPrice
           }));
+          // ✅ สำหรับยา: ถ้า UCS_CARD = 'N' ให้เก็บราคาไว้, ถ้า = 'Y' ให้เป็น 0
           drugsArray = drugsArray.map(item => ({
             ...item,
-            editablePrice: 0,
+            editablePrice: item.DRUG_UCS_CARD === 'N' ? item.originalPrice : 0,
             originalPrice: item.originalPrice
           }));
         }
@@ -643,7 +687,26 @@ const Paymentanddispensingmedicine = () => {
   const calculateTotalFromEditablePrices = () => {
     const labTotal = editablePrices.labs.reduce((sum, item) => sum + item.editablePrice, 0);
     const procedureTotal = editablePrices.procedures.reduce((sum, item) => sum + item.editablePrice, 0);
-    const drugTotal = editablePrices.drugs.reduce((sum, item) => sum + item.editablePrice, 0);
+    
+    // ✅ สำหรับผู้ป่วยบัตรทอง: คำนวณเฉพาะยาที่ UCS_CARD = 'N'
+    const currentPatient = patients[selectedPatientIndex];
+    const isGoldCard = currentPatient?.UCS_CARD === 'Y' || 
+                      treatmentData?.treatment?.UCS_CARD === 'Y' ||
+                      treatmentData?.patient?.UCS_CARD === 'Y';
+    
+    let drugTotal = 0;
+    if (isGoldCard) {
+      // คำนวณเฉพาะยาที่ UCS_CARD = 'N'
+      drugTotal = editablePrices.drugs.reduce((sum, item) => {
+        if (item.DRUG_UCS_CARD === 'N') {
+          return sum + item.editablePrice;
+        }
+        return sum;
+      }, 0);
+    } else {
+      // ผู้ป่วยไม่ใช่บัตรทอง คำนวณยาทั้งหมด
+      drugTotal = editablePrices.drugs.reduce((sum, item) => sum + item.editablePrice, 0);
+    }
 
     return labTotal + procedureTotal + drugTotal;
   };

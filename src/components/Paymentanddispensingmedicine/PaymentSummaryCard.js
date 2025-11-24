@@ -31,7 +31,23 @@ const PaymentSummaryCard = ({
     const calculateTotalFromEditablePrices = () => {
         const labTotal = editablePrices.labs.reduce((sum, item) => sum + item.editablePrice, 0);
         const procedureTotal = editablePrices.procedures.reduce((sum, item) => sum + item.editablePrice, 0);
-        const drugTotal = editablePrices.drugs.reduce((sum, item) => sum + item.editablePrice, 0);
+        
+        // ✅ สำหรับผู้ป่วยบัตรทอง: คำนวณเฉพาะยาที่ UCS_CARD = 'N'
+        const isGoldCard = patient?.UCS_CARD === 'Y' || patient?.treatment?.UCS_CARD === 'Y';
+        
+        let drugTotal = 0;
+        if (isGoldCard) {
+            // คำนวณเฉพาะยาที่ UCS_CARD = 'N'
+            drugTotal = editablePrices.drugs.reduce((sum, item) => {
+                if (item.DRUG_UCS_CARD === 'N') {
+                    return sum + item.editablePrice;
+                }
+                return sum;
+            }, 0);
+        } else {
+            // ผู้ป่วยไม่ใช่บัตรทอง คำนวณยาทั้งหมด
+            drugTotal = editablePrices.drugs.reduce((sum, item) => sum + item.editablePrice, 0);
+        }
 
         return labTotal + procedureTotal + drugTotal;
     };
@@ -39,13 +55,6 @@ const PaymentSummaryCard = ({
     const calculateTotal = () => {
         const totalCost = calculateTotalFromEditablePrices();
         const discount = parseFloat(paymentData.discount || 0);
-        
-        // ✅ ถ้าผู้ป่วยเป็นบัตรทอง (UCS_CARD = 'Y') ให้ราคาเป็น 0
-        const isGoldCard = patient?.UCS_CARD === 'Y' || patient?.treatment?.UCS_CARD === 'Y';
-        
-        if (isGoldCard) {
-            return 0; // บัตรทอง = 0 บาท
-        }
         
         return Math.max(0, totalCost - discount);
     };

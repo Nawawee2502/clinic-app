@@ -11,6 +11,7 @@ import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import CloseIcon from '@mui/icons-material/Close';
+import TypeProcedureService from '../../services/typeProcedureService';
 
 const EnhancedMedicalProcedures = () => {
     // States
@@ -25,6 +26,7 @@ const EnhancedMedicalProcedures = () => {
     const [editingProcedure, setEditingProcedure] = useState(null);
     const [deleteDialog, setDeleteDialog] = useState({ open: false, procedureCode: null });
     const [alert, setAlert] = useState({ open: false, message: '', severity: 'info' });
+    const [typeProcedures, setTypeProcedures] = useState([]);
 
     // Form states
     const [formData, setFormData] = useState({
@@ -41,6 +43,7 @@ const EnhancedMedicalProcedures = () => {
 
     useEffect(() => {
         loadProcedures();
+        loadTypeProcedures();
     }, []);
 
     useEffect(() => {
@@ -293,10 +296,20 @@ const EnhancedMedicalProcedures = () => {
         setAlert({ open: true, message, severity });
     };
 
-    const getProcedureTypeOptions = () => [
-        'ตรวจร่างกาย', 'รักษาทั่วไป', 'ผ่าตัดเล็ก', 'ทันตกรรม',
-        'ฟื้นฟูสมรรถภาพ', 'ฉีดวัคซีน', 'ตรวจเลือด', 'เอ็กซ์เรย์'
-    ];
+    const loadTypeProcedures = async () => {
+        try {
+            const result = await TypeProcedureService.getAllTypeProcedures();
+            if (result.success && result.data) {
+                setTypeProcedures(result.data);
+            }
+        } catch (error) {
+            console.error('❌ Error loading type procedures:', error);
+        }
+    };
+
+    const getProcedureTypeOptions = () => {
+        return typeProcedures.map(tp => tp.TYPE_PROCEDURE_CODE);
+    };
 
     // Form View
     if (currentView === "add" || currentView === "edit") {
@@ -381,9 +394,15 @@ const EnhancedMedicalProcedures = () => {
                                         value={formData.MED_PRO_TYPE}
                                         onChange={(e) => handleFormChange('MED_PRO_TYPE', e.target.value)}
                                         sx={{ borderRadius: "10px" }}
+                                        displayEmpty
                                     >
-                                        {getProcedureTypeOptions().map((option) => (
-                                            <MenuItem key={option} value={option}>{option}</MenuItem>
+                                        <MenuItem value="">
+                                            <em>เลือกประเภทหัตถการ</em>
+                                        </MenuItem>
+                                        {typeProcedures.map((typeProcedure) => (
+                                            <MenuItem key={typeProcedure.TYPE_PROCEDURE_CODE} value={typeProcedure.TYPE_PROCEDURE_CODE}>
+                                                {typeProcedure.TYPE_PROCEDURE_NAME}
+                                            </MenuItem>
                                         ))}
                                     </Select>
                                 </FormControl>
@@ -408,7 +427,7 @@ const EnhancedMedicalProcedures = () => {
                             {/* บัตรสวัสดิการ */}
                             <Grid item xs={12} sm={6}>
                                 <Typography sx={{ fontWeight: 400, fontSize: 16, mb: 1 }}>
-                                    บัตรสวัสดิการ
+                                    ประกันสังคม
                                 </Typography>
                                 <FormControl fullWidth size="small">
                                     <Select
@@ -559,7 +578,12 @@ const EnhancedMedicalProcedures = () => {
                                             <td style={{ padding: '12px 8px', fontWeight: 500 }}>{procedure.MEDICAL_PROCEDURE_CODE}</td>
                                             <td style={{ padding: '12px 8px' }}>{procedure.MED_PRO_NAME_THAI}</td>
                                             <td style={{ padding: '12px 8px' }}>{procedure.MED_PRO_NAME_ENG || '-'}</td>
-                                            <td style={{ padding: '12px 8px' }}>{procedure.MED_PRO_TYPE || '-'}</td>
+                                            <td style={{ padding: '12px 8px' }}>
+                                                {procedure.MED_PRO_TYPE 
+                                                    ? (typeProcedures.find(tp => tp.TYPE_PROCEDURE_CODE === procedure.MED_PRO_TYPE)?.TYPE_PROCEDURE_NAME || procedure.MED_PRO_TYPE)
+                                                    : '-'
+                                                }
+                                            </td>
                                             <td style={{ padding: '12px 8px' }}>
                                                 {procedure.UNIT_PRICE ? `฿${procedure.UNIT_PRICE}` : '-'}
                                             </td>

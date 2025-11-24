@@ -68,6 +68,7 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(false);
   const [editingIndex, setEditingIndex] = useState(-1);
+  const hasProcedures = savedProcedures.length > 0;
 
   // โหลดข้อมูลเมื่อ currentPatient เปลี่ยน
   useEffect(() => {
@@ -336,6 +337,10 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
   };
 
   const handleDrugSelect = (newValue) => {
+    if (!hasProcedures) {
+      showSnackbar('กรุณาเพิ่มหัตถการอย่างน้อย 1 รายการก่อนเลือกยา', 'warning');
+      return;
+    }
     if (newValue) {
       if (isDuplicateMedicine(newValue.DRUG_CODE)) {
         showSnackbar('ยาตัวนี้ถูกเพิ่มไปแล้ว กรุณาเลือกยาตัวอื่น', 'warning');
@@ -367,6 +372,10 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
   };
 
   const handleAddMedicine = () => {
+    if (!hasProcedures) {
+      showSnackbar('ต้องมีหัตถการก่อนจึงจะเพิ่มยาได้', 'error');
+      return;
+    }
     const errors = [];
 
     if (!medicineData.drugName.trim()) {
@@ -811,11 +820,17 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
           </Card>
 
           {/* Medicine Form */}
-          <Card sx={{ p: 2, mb: 2 }}>
+          <Card sx={{ p: 2, mb: 2, position: 'relative' }}>
             <CardContent>
               <Typography variant="h6" fontWeight="600" sx={{ mb: 2, color: '#1976d2' }}>
                 {editingMedicineIndex >= 0 ? '🔄 แก้ไขยา' : '💊 เพิ่มยา (สำหรับหัตถการที่ต้องใช้ยา)'}
               </Typography>
+
+              {!hasProcedures && (
+                <Alert severity="info" sx={{ mb: 2, borderRadius: '10px' }}>
+                  กรุณาเพิ่มหัตถการก่อน จากนั้นจึงสามารถเพิ่มยาที่ใช้ร่วมได้
+                </Alert>
+              )}
 
               <Grid container spacing={2}>
                 {/* Drug Name */}
@@ -824,6 +839,7 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
                     ชื่อยา *
                   </Typography>
                   <Autocomplete
+                    disabled={!hasProcedures}
                     options={getAvailableDrugs()}
                     getOptionLabel={(option) => {
                       const genericName = option.GENERIC_NAME || '';
@@ -885,6 +901,7 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
                     จำนวน *
                   </Typography>
                   <TextField
+                    disabled={!hasProcedures}
                     size="small"
                     type="number"
                     placeholder="จำนวน"
@@ -906,10 +923,10 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
                     หน่วยนับ *
                   </Typography>
                   <TextField
+                    disabled
                     size="small"
                     value={medicineData.unitName || (medicineData.unit ? getUnitName(medicineData.unit) : '')}
                     placeholder="หน่วยนับ"
-                    disabled
                     sx={{
                       width: '100%',
                       '& .MuiOutlinedInput-root': {
@@ -924,7 +941,8 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
                 <Grid item xs={12} sx={{ textAlign: "right" }}>
                   <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
                     {editingMedicineIndex >= 0 && (
-                      <Button
+                    <Button
+                      disabled={!hasProcedures}
                         variant="outlined"
                         onClick={() => {
                           resetMedicineForm();
@@ -937,6 +955,7 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
                       </Button>
                     )}
                     <Button
+                      disabled={!hasProcedures}
                       variant="contained"
                       onClick={handleAddMedicine}
                       startIcon={<AddIcon />}

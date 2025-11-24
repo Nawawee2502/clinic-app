@@ -5,6 +5,7 @@ import EnhancedMedicalProcedures from '../components/Drugandmedical/EnhancedMedi
 import SupplierManagement from "../components/Drugandmedical/SupplierManagement";
 import UnitManagement from "../components/Drugandmedical/UnitManagement";
 import TypeDrugManagement from "../components/Drugandmedical/TypeDrugManagement";
+import TypeProcedureManagement from "../components/Drugandmedical/TypeProcedureManagement";
 
 const Medicalstock = () => {
   const [tabIndex, setTabIndex] = React.useState(0);
@@ -54,6 +55,7 @@ const Medicalstock = () => {
         <Tab label="ตัวแทนจำหน่าย" />
         <Tab label="หน่วยนับ" />
         <Tab label="ประเภทยา" />
+        <Tab label="ประเภทหัตถการ" />
         {/* <Tab label="ใบรับยา/เวชภัณฑ์"/>
         <Tab label="ใบคืนยา/เวชภัณฑ์"/>
         <Tab label="บันทึกจำนวนสินค้าประจำเดือน"/>
@@ -71,6 +73,7 @@ const Medicalstock = () => {
           {tabIndex === 2 && <SupplierManagement />}
           {tabIndex === 3 && <UnitManagement />}
           {tabIndex === 4 && <TypeDrugManagement />}
+          {tabIndex === 5 && <TypeProcedureManagement />}
         </CardContent>
       </Card>
     </Container>
