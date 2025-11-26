@@ -126,7 +126,17 @@ const PaymentSummaryCard = ({
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                         <Typography variant="body2">ค่ายา:</Typography>
                         <Typography variant="body2" fontWeight="bold">
-                            {editablePrices.drugs.reduce((sum, item) => sum + item.editablePrice, 0).toFixed(2)} บาท
+                            {(() => {
+                                // ✅ สำหรับผู้ป่วยบัตรทอง: คำนวณเฉพาะยาที่ UCS_CARD = 'N'
+                                const isGoldCard = patient?.UCS_CARD === 'Y' || patient?.treatment?.UCS_CARD === 'Y';
+                                if (isGoldCard) {
+                                    return editablePrices.drugs.reduce((sum, item) => {
+                                        return sum + (item.DRUG_UCS_CARD === 'N' ? item.editablePrice : 0);
+                                    }, 0).toFixed(2);
+                                } else {
+                                    return editablePrices.drugs.reduce((sum, item) => sum + item.editablePrice, 0).toFixed(2);
+                                }
+                            })()} บาท
                         </Typography>
                     </Box>
 

@@ -224,10 +224,8 @@ const Paymentanddispensingmedicine = () => {
       setLoading(true);
       setError(null);
 
-      const response = await PatientService.getTodayPatientsFromQueue({
-        refresh: true,
-        timestamp: Date.now()
-      });
+      // ✅ ใช้ getAllPatientsFromQueue แทน getTodayPatientsFromQueue เพื่อไม่ล็อควันที่
+      const response = await PatientService.getAllPatientsFromQueue();
 
       if (response.success) {
         console.log('Raw queue data:', response.data.length, 'patients');
@@ -250,41 +248,28 @@ const Paymentanddispensingmedicine = () => {
           })
         );
 
-        // ✅ กรองผู้ป่วย: แสดงทั้ง PAYMENT_STATUS === 'รอชำระ' และ 'ชำระเงินแล้ว' แต่ไม่แสดงถ้า STATUS1 === 'ปิดการรักษา'
+        // ✅ กรองผู้ป่วย: แสดงเฉพาะผู้ป่วยที่มี STATUS1 === 'รอชำระเงิน' หรือ 'ชำระเงินแล้ว'
         const filteredPatients = patientsWithTreatmentStatus.filter(patient => {
-          const paymentStatus = patient.PAYMENT_STATUS || 'รอชำระ';
           const treatmentStatus = patient.STATUS1 || 'กำลังตรวจ';
 
-          console.log(`Patient ${patient.HNCODE}: paymentStatus="${paymentStatus}", treatmentStatus="${treatmentStatus}"`);
+          console.log(`Patient ${patient.HNCODE}: STATUS1="${treatmentStatus}"`);
 
-          // ไม่แสดงผู้ป่วยที่ STATUS1 === 'ปิดการรักษา'
-          if (treatmentStatus === 'ปิดการรักษา') {
-            return false;
-          }
-
-          // แสดงทั้ง PAYMENT_STATUS === 'รอชำระ' และ 'ชำระเงินแล้ว'
-          return true;
+          // ✅ แสดงเฉพาะผู้ป่วยที่มี STATUS1 === 'รอชำระเงิน' หรือ 'ชำระเงินแล้ว'
+          return treatmentStatus === 'รอชำระเงิน' || treatmentStatus === 'ชำระเงินแล้ว';
         });
 
-        // ✅ เรียงลำดับให้ผู้ป่วยที่ PAYMENT_STATUS === 'รอชำระ' ขึ้นมาก่อน 'ชำระเงินแล้ว'
+        // ✅ เรียงลำดับตาม QUEUE_DATE และ QUEUE_TIME (วันที่ก่อนขึ้นก่อน, เวลาก่อนขึ้นก่อน)
         const sortedPatients = filteredPatients.sort((a, b) => {
-          const statusA = a.PAYMENT_STATUS || 'รอชำระ';
-          const statusB = b.PAYMENT_STATUS || 'รอชำระ';
-          
-          // ถ้า A เป็น "รอชำระ" และ B เป็น "ชำระเงินแล้ว" ให้ A ขึ้นก่อน
-          if (statusA === 'รอชำระ' && statusB === 'ชำระเงินแล้ว') {
-            return -1;
-          }
-          // ถ้า B เป็น "รอชำระ" และ A เป็น "ชำระเงินแล้ว" ให้ B ขึ้นก่อน
-          if (statusB === 'รอชำระ' && statusA === 'ชำระเงินแล้ว') {
-            return 1;
+          // เรียงตามวันที่ก่อน (QUEUE_DATE)
+          if (a.QUEUE_DATE && b.QUEUE_DATE) {
+            const dateA = new Date(a.QUEUE_DATE).getTime();
+            const dateB = new Date(b.QUEUE_DATE).getTime();
+            if (!isNaN(dateA) && !isNaN(dateB) && dateA !== dateB) {
+              return dateA - dateB; // วันที่ก่อนขึ้นก่อน
+            }
           }
           
-          // ถ้าทั้งคู่เป็น "รอชำระ" หรือทั้งคู่เป็น "ชำระเงินแล้ว" ให้เรียงตาม QUEUE_NUMBER หรือ QUEUE_TIME
-          const queueNumA = parseInt(a.QUEUE_NUMBER || a.queueNumber || a.QUEUE_ID || 999999);
-          const queueNumB = parseInt(b.QUEUE_NUMBER || b.queueNumber || b.QUEUE_ID || 999999);
-          
-          // ถ้ามี QUEUE_TIME ให้เรียงตามเวลาก่อน (คิวที่มาก่อนขึ้นก่อน)
+          // ถ้าวันที่เท่ากัน ให้เรียงตาม QUEUE_TIME (เวลาก่อนขึ้นก่อน)
           if (a.QUEUE_TIME && b.QUEUE_TIME) {
             const timeA = new Date(a.QUEUE_TIME).getTime();
             const timeB = new Date(b.QUEUE_TIME).getTime();
@@ -294,14 +279,17 @@ const Paymentanddispensingmedicine = () => {
           }
           
           // ถ้าไม่มี QUEUE_TIME หรือเวลาเท่ากัน ให้เรียงตาม QUEUE_NUMBER (คิวน้อยกว่าขึ้นก่อน)
+          const queueNumA = parseInt(a.QUEUE_NUMBER || a.queueNumber || a.QUEUE_ID || 999999);
+          const queueNumB = parseInt(b.QUEUE_NUMBER || b.queueNumber || b.QUEUE_ID || 999999);
           return queueNumA - queueNumB;
         });
 
-        console.log(`Found ${sortedPatients.length} patients waiting for payment`);
+        console.log(`Found ${sortedPatients.length} patients (รอชำระเงิน + ชำระเงินแล้ว)`);
         console.log('Sorted patients:', sortedPatients.map(p => ({
           HN: p.HNCODE,
           queueNum: p.QUEUE_NUMBER || p.queueNumber,
-          paymentStatus: p.PAYMENT_STATUS || 'null/undefined'
+          paymentStatus: p.PAYMENT_STATUS || 'null/undefined',
+          treatmentStatus: p.STATUS1 || 'null/undefined'
         })));
 
         setPatients(sortedPatients);
@@ -1155,6 +1143,7 @@ const Paymentanddispensingmedicine = () => {
                           <Grid item xs={12} lg={4}>
                             <Box sx={{ position: 'sticky', top: 20 }}>
                               <PaymentSummaryCard
+                                key={`payment-summary-${JSON.stringify(editablePrices)}-${JSON.stringify(paymentData)}`}
                                 editablePrices={editablePrices}
                                 paymentData={paymentData}
                                 onPaymentDataChange={setPaymentData}

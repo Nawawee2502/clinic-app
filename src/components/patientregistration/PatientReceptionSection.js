@@ -263,6 +263,39 @@ const PatientReceptionSection = ({
         setLoading(true);
 
         try {
+            // ✅ Step 0: ตรวจสอบว่า HN นี้มีอยู่ในคิวแล้วหรือยัง
+            console.log('🔍 Checking if patient already in queue:', selectedPatient.HNCODE);
+            const allQueueResponse = await PatientService.getAllPatientsFromQueue();
+            
+            if (allQueueResponse.success) {
+                // หาคิวที่มี HN นี้และยังไม่ปิดการรักษา
+                const existingQueues = allQueueResponse.data.filter(patient => {
+                    return patient.HNCODE === selectedPatient.HNCODE;
+                });
+
+                if (existingQueues.length > 0) {
+                    // ตรวจสอบ STATUS1 ของแต่ละคิว
+                    for (const queue of existingQueues) {
+                        // ตรวจสอบ STATUS1 จาก TREATMENT_STATUS หรือ STATUS1
+                        const status1 = queue.TREATMENT_STATUS || queue.STATUS1 || queue.queueStatus || '';
+                        
+                        // ถ้า STATUS1 = 'รอตรวจ', 'ทำงานอยู่', 'รอชำระเงิน', 'ชำระเงินแล้ว' -> ห้ามเพิ่ม
+                        const blockedStatuses = ['รอตรวจ', 'ทำงานอยู่', 'รอชำระเงิน', 'ชำระเงินแล้ว'];
+                        
+                        if (blockedStatuses.includes(status1)) {
+                            showSnackbar(
+                                `⚠️ ผู้ป่วย HN: ${selectedPatient.HNCODE} มีอยู่ในคิวแล้ว (สถานะ: ${status1}) ไม่สามารถเพิ่มได้ กรุณารอให้ปิดการรักษาก่อน`,
+                                'error'
+                            );
+                            setLoading(false);
+                            return;
+                        }
+                    }
+                    // ถ้าทุกคิวมี STATUS1 = 'ปิดการรักษา' หรือไม่มี STATUS1 -> สามารถเพิ่มได้
+                    console.log('✅ All existing queues are closed, can create new queue');
+                }
+            }
+
             // ✅ Step 1: สร้างคิวพร้อมข้อมูลบัตร
             const queueData = {
                 HNCODE: selectedPatient.HNCODE,

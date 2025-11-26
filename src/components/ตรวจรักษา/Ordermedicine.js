@@ -376,7 +376,7 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
     // เปิด Completion Confirmation Dialog - เรียกไปยัง parent component
     const handleCompleteRequest = () => {
         if (onCompletePatient) {
-            onCompletePatient('เสร็จแล้ว');
+            onCompletePatient('รอชำระเงิน');
         }
     };
 

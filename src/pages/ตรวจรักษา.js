@@ -42,6 +42,7 @@ import {
 // Import Services
 import PatientService from "../services/patientService";
 import QueueService from "../services/queueService";
+import TreatmentService from "../services/treatmentService";
 
 // Import components
 import Todaypatientinformation from "../components/ตรวจรักษา/Todaypatientinformation";
@@ -101,11 +102,27 @@ const ตรวจรักษา = () => {
       const response = await PatientService.getAllPatientsFromQueue();
 
       if (response.success) {
+        // Debug: ตรวจสอบ queueStatus ที่ได้จาก API
+        console.log('🔍 Raw queue data:', response.data.map(p => ({
+          queueId: p.queueId,
+          queueNumber: p.queueNumber,
+          queueStatus: p.queueStatus,
+          STATUS: p.STATUS
+        })));
+
         // กรองเฉพาะคนไข้ที่ยังไม่ชำระเงินหรือปิดการรักษา
         const activePatients = response.data.filter(patient => {
           const treatmentStatus = (patient.TREATMENT_STATUS || patient.STATUS1 || '').trim();
           return treatmentStatus !== 'ชำระเงินแล้ว' && treatmentStatus !== 'ปิดการรักษา';
         });
+
+        // Debug: ตรวจสอบ queueStatus หลังจากกรอง
+        console.log('🔍 Filtered patients:', activePatients.map(p => ({
+          queueId: p.queueId,
+          queueNumber: p.queueNumber,
+          queueStatus: p.queueStatus,
+          STATUS: p.STATUS
+        })));
 
         setPatients(activePatients);
 
@@ -148,8 +165,8 @@ const ตรวจรักษา = () => {
 
     const currentPatient = patients[selectedPatientIndex];
 
-    // ถ้าเปลี่ยนเป็น "เสร็จแล้ว" ให้แสดง modal ยืนยัน
-    if (newStatus === 'เสร็จแล้ว') {
+    // ถ้าเปลี่ยนเป็น "รอชำระเงิน" ให้แสดง modal ยืนยัน
+    if (newStatus === 'รอชำระเงิน') {
       setConfirmDialog({
         open: true,
         patient: currentPatient,
@@ -174,11 +191,26 @@ const ตรวจรักษา = () => {
       if (response.success) {
         console.log(`✅ Queue status updated safely to: ${newStatus}`);
 
-        // เหลือ logic เดิม...
-        if (newStatus === 'เสร็จแล้ว') {
+        // ถ้าเปลี่ยนเป็น "รอชำระเงิน" ให้อัปเดต STATUS1 และ PAYMENT_STATUS ใน treatment
+        // หมายเหตุ: updateQueueStatusSafe จะอัพเดต STATUS ใน DAILY_QUEUE และ STATUS1 ใน TREATMENT1 แล้ว
+        // แต่เราต้องอัพเดต PAYMENT_STATUS เพิ่มเติม
+        if (newStatus === 'รอชำระเงิน') {
+          // อัปเดต PAYMENT_STATUS ใน treatment (STATUS1 ถูกอัพเดตโดย updateQueueStatusSafe แล้ว)
+          if (targetPatient.VNO) {
+            try {
+              await TreatmentService.updateTreatment(targetPatient.VNO, {
+                PAYMENT_STATUS: 'รอชำระ'
+              });
+              console.log(`✅ Treatment PAYMENT_STATUS updated to รอชำระ`);
+            } catch (treatmentError) {
+              console.error('Error updating treatment PAYMENT_STATUS:', treatmentError);
+              // ไม่ throw error เพื่อให้ queue status ยังอัปเดตได้
+            }
+          }
+
           setSnackbar({
             open: true,
-            message: `✅ คนไข้คิว ${targetPatient.queueNumber} เสร็จสิ้นการรักษาแล้ว`,
+            message: `✅ คนไข้คิว ${targetPatient.queueNumber} เสร็จสิ้นการรักษาแล้ว (รอชำระเงิน)`,
             severity: 'success'
           });
 
@@ -191,12 +223,18 @@ const ตรวจรักษา = () => {
             });
           }, 2000);
 
+          // อัพเดต queueStatus ใน state
           const updatedPatients = patients.map(p =>
             p.queueId === targetPatient.queueId
-              ? { ...p, queueStatus: newStatus }
+              ? { ...p, queueStatus: newStatus, STATUS: newStatus }
               : p
           );
           setPatients(updatedPatients);
+          
+          // รีโหลดข้อมูลเพื่อให้แน่ใจว่าสถานะถูกต้อง
+          setTimeout(() => {
+            loadTodayPatients();
+          }, 500);
         } else {
           const updatedPatients = [...patients];
           const patientIndex = patients.findIndex(p => p.queueId === targetPatient.queueId);
@@ -286,6 +324,7 @@ const ตรวจรักษา = () => {
       case 'รอตรวจ': return 'warning';
       case 'กำลังตรวจ': return 'info';
       case 'เสร็จแล้ว': return 'success';
+      case 'รอชำระเงิน': return 'info';
       default: return 'default';
     }
   };
@@ -563,47 +602,36 @@ const ตรวจรักษา = () => {
                     🎯 ผู้ป่วยที่เลือก: คิว {currentPatient.queueNumber}
                   </Typography>
 
-                  <FormControl size="small" fullWidth sx={{ mb: 1.5 }}>
-                    <InputLabel sx={{
-                      fontSize: '12px',
+                  {/* แสดงสถานะปัจจุบัน */}
+                  <Box sx={{
+                    textAlign: 'center',
+                    mb: 1.5,
+                    p: 1,
+                    bgcolor: 'rgba(255,255,255,0.15)',
+                    borderRadius: '8px',
+                    backdropFilter: 'blur(10px)'
+                  }}>
+                    <Typography sx={{
+                      fontSize: '11px',
                       color: 'rgba(255,255,255,0.9)',
-                      '&.Mui-focused': { color: 'white' }
+                      mb: 0.5
                     }}>
-                      สถานะ
-                    </InputLabel>
-                    <Select
-                      value={currentPatient.queueStatus}
-                      label="สถานะ"
-                      onChange={handleStatusChange}
+                      สถานะ:
+                    </Typography>
+                    <Chip
+                      size="small"
+                      label={currentPatient.queueStatus || 'รอตรวจ'}
+                      color={getStatusColor(currentPatient.queueStatus)}
                       sx={{
-                        fontSize: '12px',
-                        height: '40px',
-                        bgcolor: 'rgba(255,255,255,0.1)',
-                        backdropFilter: 'blur(10px)',
-                        borderRadius: '10px',
+                        fontSize: '11px',
+                        height: 24,
+                        fontWeight: 700,
+                        backgroundColor: 'rgba(255,255,255,0.2)',
                         color: 'white',
-                        '& .MuiOutlinedInput-notchedOutline': {
-                          borderColor: 'rgba(255,255,255,0.3)'
-                        },
-                        '&:hover .MuiOutlinedInput-notchedOutline': {
-                          borderColor: 'rgba(255,255,255,0.5)'
-                        },
-                        '& .MuiSvgIcon-root': {
-                          color: 'white'
-                        }
+                        border: '1px solid rgba(255,255,255,0.3)'
                       }}
-                    >
-                      <MenuItem value="รอตรวจ" sx={{ fontSize: '12px' }}>
-                        ⏳ รอตรวจ
-                      </MenuItem>
-                      <MenuItem value="กำลังตรวจ" sx={{ fontSize: '12px' }}>
-                        🔍 กำลังตรวจ
-                      </MenuItem>
-                      <MenuItem value="เสร็จแล้ว" sx={{ fontSize: '12px' }}>
-                        ✅ เสร็จแล้ว
-                      </MenuItem>
-                    </Select>
-                  </FormControl>
+                    />
+                  </Box>
 
                   {/* Navigation Buttons - Modern Style */}
                   <Box sx={{ display: 'flex', gap: 1 }}>
@@ -1131,7 +1159,7 @@ const ตรวจรักษา = () => {
           <Box sx={{ position: 'relative', zIndex: 1 }}>
             <CheckCircleIcon sx={{ fontSize: 48, mb: 1, color: 'white' }} />
             <Typography variant="h6" fontWeight={700}>
-              ✅ ยืนยันการเสร็จสิ้นการรักษา
+              ✅ ยืนยันการเสร็จสิ้นการรักษา (รอชำระเงิน)
             </Typography>
           </Box>
         </DialogTitle>
@@ -1187,7 +1215,7 @@ const ตรวจรักษา = () => {
                 }}>
                   <WarningIcon sx={{ color: '#10B981', fontSize: 20 }} />
                   <Typography sx={{ color: '#065f46', fontWeight: 600, fontSize: '14px' }}>
-                    การรักษาจะถูกทำเครื่องหมายเป็น "เสร็จสิ้น"
+                    การรักษาจะถูกทำเครื่องหมายเป็น "รอชำระเงิน"
                   </Typography>
                 </Box>
 

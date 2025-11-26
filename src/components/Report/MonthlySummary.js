@@ -36,6 +36,7 @@ import {
 } from "@mui/icons-material";
 import Income1Service from "../../services/income1Service";
 import Pay1Service from "../../services/pay1Service";
+import TreatmentService from "../../services/treatmentService";
 import {
   formatThaiDateShort,
 } from "../../utils/dateTimeUtils";
@@ -151,19 +152,125 @@ const MonthlySummary = () => {
       setLoading(true);
       setError(null);
       
-      // ดึงข้อมูลทั้งหมดแล้ว filter ตามช่วงเดือนฝั่ง client
-      const status = statusFilter || 'ทำงานอยู่';
-      
-      // ดึงข้อมูลทั้งหมด (ไม่ส่ง year/month)
-      const [incomeResponse, expenseResponse] = await Promise.all([
-        Income1Service.getAllIncome1(1, 500),
-        Pay1Service.getExpensesReport(null, null, status),
+      // ✅ ดึงข้อมูลรายรับจาก TREATMENT1 ที่ชำระเงินแล้ว พร้อมแยกตามประเภท
+      const [treatmentIncomeResponse, expenseResponse] = await Promise.all([
+        TreatmentService.getPaidTreatmentsWithDetails({ page: 1, limit: 500 }),
+        Pay1Service.getExpensesReport(null, null, 'ทำงานอยู่'),
       ]);
       
-      if (incomeResponse.success) {
-        setIncomeRecords(Array.isArray(incomeResponse.data) ? incomeResponse.data : []);
+      // ✅ แปลงข้อมูลรายรับจาก TREATMENT1 เป็นรูปแบบที่ใช้ได้
+      if (treatmentIncomeResponse.success && treatmentIncomeResponse.data) {
+        const incomeFromTreatments = [];
+        
+        treatmentIncomeResponse.data.forEach(treatment => {
+          const paymentDate = treatment.PAYMENT_DATE || treatment.RDATE;
+          
+          // ✅ ค่าหัตถการ
+          if (treatment.procedures && treatment.procedures.length > 0) {
+            treatment.procedures.forEach(proc => {
+              incomeFromTreatments.push({
+                REFNO: `VN${treatment.VNO}`,
+                RDATE: paymentDate,
+                MYEAR: new Date(paymentDate).getFullYear() + 543, // พ.ศ.
+                MONTHH: new Date(paymentDate).getMonth() + 1,
+                VNO: treatment.VNO,
+                HNCODE: treatment.HNNO,
+                TYPE_INCOME: 'หัตถการ',
+                TYPE_INCOME_NAME: 'ค่าหัตถการ',
+                AMT: parseFloat(proc.AMT || proc.UNIT_PRICE * proc.QTY || 0),
+                TOTAL: parseFloat(proc.AMT || proc.UNIT_PRICE * proc.QTY || 0),
+                DESCRIPTION: proc.MED_PRO_NAME_THAI || proc.MEDICAL_PROCEDURE_CODE,
+                PAYMENT_METHOD: treatment.PAYMENT_METHOD || (treatment.UCS_CARD === 'Y' ? 'บัตรทอง' : 'เงินสด'),
+                UCS_CARD: treatment.UCS_CARD || 'N'
+              });
+            });
+          }
+          
+          // ✅ ค่า Lab
+          if (treatment.labTests && treatment.labTests.length > 0) {
+            treatment.labTests.forEach(lab => {
+              incomeFromTreatments.push({
+                REFNO: `VN${treatment.VNO}`,
+                RDATE: paymentDate,
+                MYEAR: new Date(paymentDate).getFullYear() + 543, // พ.ศ.
+                MONTHH: new Date(paymentDate).getMonth() + 1,
+                VNO: treatment.VNO,
+                HNCODE: treatment.HNNO,
+                TYPE_INCOME: 'Lab',
+                TYPE_INCOME_NAME: 'ค่า Lab',
+                AMT: parseFloat(lab.PRICE || 0),
+                TOTAL: parseFloat(lab.PRICE || 0),
+                DESCRIPTION: lab.LABNAME || lab.LABCODE,
+                PAYMENT_METHOD: treatment.PAYMENT_METHOD || (treatment.UCS_CARD === 'Y' ? 'บัตรทอง' : 'เงินสด'),
+                UCS_CARD: treatment.UCS_CARD || 'N'
+              });
+            });
+          }
+          
+          // ✅ ค่ายา
+          if (treatment.drugs && treatment.drugs.length > 0) {
+            treatment.drugs.forEach(drug => {
+              // ✅ สำหรับบัตรทอง: คำนวณเฉพาะยาที่ UCS_CARD = 'N'
+              const isGoldCard = treatment.UCS_CARD === 'Y';
+              const drugUcsCard = drug.UCS_CARD || drug.DRUG_UCS_CARD || 'N';
+              
+              // ถ้าเป็นบัตรทองและยามี UCS_CARD = 'Y' ให้ข้าม
+              if (isGoldCard && drugUcsCard === 'Y') {
+                return;
+              }
+              
+              incomeFromTreatments.push({
+                REFNO: `VN${treatment.VNO}`,
+                RDATE: paymentDate,
+                MYEAR: new Date(paymentDate).getFullYear() + 543, // พ.ศ.
+                MONTHH: new Date(paymentDate).getMonth() + 1,
+                VNO: treatment.VNO,
+                HNCODE: treatment.HNNO,
+                TYPE_INCOME: 'ยา',
+                TYPE_INCOME_NAME: 'ค่ายา',
+                AMT: parseFloat(drug.AMT || drug.UNIT_PRICE * drug.QTY || 0),
+                TOTAL: parseFloat(drug.AMT || drug.UNIT_PRICE * drug.QTY || 0),
+                DESCRIPTION: drug.GENERIC_NAME || drug.DRUG_CODE,
+                PAYMENT_METHOD: treatment.PAYMENT_METHOD || (treatment.UCS_CARD === 'Y' ? 'บัตรทอง' : 'เงินสด'),
+                UCS_CARD: treatment.UCS_CARD || 'N'
+              });
+            });
+          }
+        });
+        
+        // ✅ รวมกับข้อมูลรายรับเดิมจาก INCOME1 (ถ้ามี)
+        let allIncomeRecords = incomeFromTreatments;
+        try {
+          const incomeResponse = await Income1Service.getAllIncome1(1, 500);
+          if (incomeResponse.success && Array.isArray(incomeResponse.data)) {
+            // แปลงข้อมูล INCOME1 ให้เป็นรูปแบบเดียวกัน
+            const income1Records = incomeResponse.data.map(item => ({
+              REFNO: item.REFNO,
+              RDATE: item.RDATE,
+              MYEAR: item.MYEAR,
+              MONTHH: item.MONTHH,
+              TYPE_INCOME: item.TYPE_PAY,
+              TYPE_INCOME_NAME: item.TYPE_INCOME_NAME || item.TYPE_PAY,
+              AMT: parseFloat(item.TOTAL || 0),
+              TOTAL: parseFloat(item.TOTAL || 0),
+              DESCRIPTION: item.NAME1 || '',
+              PAYMENT_METHOD: item.TYPE_PAY || 'เงินสด'
+            }));
+            allIncomeRecords = [...incomeFromTreatments, ...income1Records];
+          }
+        } catch (err) {
+          console.warn('Could not load INCOME1 records:', err);
+        }
+        
+        setIncomeRecords(allIncomeRecords);
       } else {
-        throw new Error(incomeResponse.message || "โหลดข้อมูลรายรับไม่สำเร็จ");
+        // Fallback: ใช้ข้อมูลเดิมจาก INCOME1
+        const incomeResponse = await Income1Service.getAllIncome1(1, 500);
+        if (incomeResponse.success) {
+          setIncomeRecords(Array.isArray(incomeResponse.data) ? incomeResponse.data : []);
+        } else {
+          throw new Error(incomeResponse.message || "โหลดข้อมูลรายรับไม่สำเร็จ");
+        }
       }
       
       if (expenseResponse.success) {
@@ -238,11 +345,16 @@ const MonthlySummary = () => {
     // Filter ตามช่วงเดือน
     result = filterByMonth(result, startYear, startMonth, endYear, endMonth);
     
+    // ✅ Filter ตามวิธีรับเงิน (เงินสด, เงินโอน, บัตรทอง)
     if (incomeTypeFilter) {
-      result = result.filter((item) => item.TYPE_PAY === incomeTypeFilter);
-    }
-    if (statusFilter) {
-      result = result.filter((item) => item.STATUS === statusFilter);
+      result = result.filter((item) => {
+        const paymentMethod = item.PAYMENT_METHOD || item.TYPE_PAY || '';
+        // ✅ สำหรับบัตรทอง: ตรวจสอบจาก UCS_CARD หรือ PAYMENT_METHOD
+        if (incomeTypeFilter === 'บัตรทอง') {
+          return item.UCS_CARD === 'Y' || paymentMethod === 'บัตรทอง' || (!paymentMethod && item.UCS_CARD === 'Y');
+        }
+        return paymentMethod === incomeTypeFilter;
+      });
     }
     if (searchTerm) {
       const search = searchTerm.toLowerCase();
@@ -254,7 +366,7 @@ const MonthlySummary = () => {
       );
     }
     return result;
-  }, [incomeRecords, startYear, startMonth, endYear, endMonth, incomeTypeFilter, statusFilter, searchTerm]);
+  }, [incomeRecords, startYear, startMonth, endYear, endMonth, incomeTypeFilter, searchTerm]);
 
   const filteredExpense = useMemo(() => {
     let result = [...expenseRecords];
@@ -262,12 +374,7 @@ const MonthlySummary = () => {
     // Filter ตามช่วงเดือน
     result = filterByMonth(result, startYear, startMonth, endYear, endMonth);
     
-    if (expenseTypeFilter) {
-      result = result.filter((item) => item.TYPE_PAY === expenseTypeFilter);
-    }
-    if (statusFilter) {
-      result = result.filter((item) => item.STATUS === statusFilter);
-    }
+    // ✅ ลบการ filter ตาม expenseTypeFilter และ statusFilter
     if (searchTerm) {
       const search = searchTerm.toLowerCase();
       result = result.filter(
@@ -278,15 +385,38 @@ const MonthlySummary = () => {
       );
     }
     return result;
-  }, [expenseRecords, startYear, startMonth, endYear, endMonth, expenseTypeFilter, statusFilter, searchTerm]);
+  }, [expenseRecords, startYear, startMonth, endYear, endMonth, searchTerm]);
 
   const summary = useMemo(() => {
+    // ✅ คำนวณรายรับแยกตามประเภท
+    const incomeByType = {
+      หัตถการ: 0,
+      Lab: 0,
+      ยา: 0,
+      อื่นๆ: 0
+    };
+    
+    filteredIncome.forEach(item => {
+      const type = item.TYPE_INCOME_NAME || item.TYPE_INCOME || '';
+      const amount = parseFloat(item.TOTAL) || 0;
+      
+      if (type === 'หัตถการ' || type === 'ค่าหัตถการ') {
+        incomeByType.หัตถการ += amount;
+      } else if (type === 'Lab' || type === 'ค่า Lab') {
+        incomeByType.Lab += amount;
+      } else if (type === 'ยา' || type === 'ค่ายา') {
+        incomeByType.ยา += amount;
+      } else {
+        incomeByType.อื่นๆ += amount;
+      }
+    });
+    
     const incomeTotal = filteredIncome.reduce((sum, item) => sum + (parseFloat(item.TOTAL) || 0), 0);
     const incomeCash = filteredIncome
-      .filter((item) => item.TYPE_PAY === "เงินสด")
+      .filter((item) => (item.PAYMENT_METHOD || item.TYPE_PAY) === "เงินสด")
       .reduce((sum, item) => sum + (parseFloat(item.TOTAL) || 0), 0);
     const incomeTransfer = filteredIncome
-      .filter((item) => item.TYPE_PAY === "เงินโอน")
+      .filter((item) => (item.PAYMENT_METHOD || item.TYPE_PAY) === "เงินโอน")
       .reduce((sum, item) => sum + (parseFloat(item.TOTAL) || 0), 0);
 
     // สำหรับการสรุปรายจ่าย ให้รวมยอดตาม TYPE_PAY_CODE + BANK_NO
@@ -306,6 +436,7 @@ const MonthlySummary = () => {
       incomeTotal,
       incomeCash,
       incomeTransfer,
+      incomeByType, // ✅ เพิ่มรายรับแยกตามประเภท
       expenseTotal,
       expenseCash,
       expenseTransfer,
@@ -314,15 +445,44 @@ const MonthlySummary = () => {
   }, [filteredIncome, filteredExpense]);
 
   const combinedRows = useMemo(() => {
-    // รายรับ: แสดงรายละเอียดแต่ละรายการ
-    const incomeEntries = filteredIncome.map((item) => ({
-      refno: item.REFNO,
-      date: item.RDATE,
-      name: item.NAME1,
-      type: item.TYPE_PAY,
-      amount: parseFloat(item.TOTAL) || 0,
-      status: item.STATUS,
-    }));
+    // ✅ รายรับ: แสดงแค่ 3 ประเภท (ค่าหัตถการ, ค่า Lab, ค่ายา) - รวมทั้งหมด
+    const incomeByType = {
+      'ค่าหัตถการ': 0,
+      'ค่า Lab': 0,
+      'ค่ายา': 0
+    };
+    
+    filteredIncome.forEach(item => {
+      const type = item.TYPE_INCOME_NAME || item.TYPE_INCOME || '';
+      const amount = parseFloat(item.TOTAL) || 0;
+      
+      if (type === 'หัตถการ' || type === 'ค่าหัตถการ') {
+        incomeByType['ค่าหัตถการ'] += amount;
+      } else if (type === 'Lab' || type === 'ค่า Lab') {
+        incomeByType['ค่า Lab'] += amount;
+      } else if (type === 'ยา' || type === 'ค่ายา') {
+        incomeByType['ค่ายา'] += amount;
+      }
+    });
+    
+    // สร้างรายการรายรับ 3 แถว
+    const incomeEntries = [
+      {
+        type: 'ค่าหัตถการ',
+        amount: incomeByType['ค่าหัตถการ'],
+        isGrouped: true
+      },
+      {
+        type: 'ค่า Lab',
+        amount: incomeByType['ค่า Lab'],
+        isGrouped: true
+      },
+      {
+        type: 'ค่ายา',
+        amount: incomeByType['ค่ายา'],
+        isGrouped: true
+      }
+    ].filter(item => item.amount > 0); // แสดงเฉพาะที่มีจำนวนเงิน
 
     // รายจ่าย: รวมยอดตาม TYPE_PAY_CODE (ประเภทรายจ่าย)
     const groupedExpenses = groupExpensesByType(filteredExpense);
@@ -654,24 +814,7 @@ const MonthlySummary = () => {
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={12} sm={6} md={2}>
-              <FormControl fullWidth>
-                <InputLabel>สถานะ</InputLabel>
-                <Select
-                  label="สถานะ"
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                >
-                  <MenuItem value="">ทั้งหมด</MenuItem>
-                  {statusOptions.map((status) => (
-                    <MenuItem key={status} value={status}>
-                      {status}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} sm={6} md={2}>
+            <Grid item xs={12} sm={6} md={3}>
               <FormControl fullWidth>
                 <InputLabel>วิธีรับเงิน</InputLabel>
                 <Select
@@ -680,28 +823,9 @@ const MonthlySummary = () => {
                   onChange={(e) => setIncomeTypeFilter(e.target.value)}
                 >
                   <MenuItem value="">ทั้งหมด</MenuItem>
-                  {incomeTypeOptions.map((type) => (
-                    <MenuItem key={type} value={type}>
-                      {type}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} sm={6} md={2}>
-              <FormControl fullWidth>
-                <InputLabel>วิธีจ่ายเงิน</InputLabel>
-                <Select
-                  label="วิธีจ่ายเงิน"
-                  value={expenseTypeFilter}
-                  onChange={(e) => setExpenseTypeFilter(e.target.value)}
-                >
-                  <MenuItem value="">ทั้งหมด</MenuItem>
-                  {expenseTypeOptions.map((type) => (
-                    <MenuItem key={type} value={type}>
-                      {type}
-                    </MenuItem>
-                  ))}
+                  <MenuItem value="เงินสด">เงินสด</MenuItem>
+                  <MenuItem value="เงินโอน">เงินโอน</MenuItem>
+                  <MenuItem value="บัตรทอง">บัตรทอง</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
@@ -734,6 +858,52 @@ const MonthlySummary = () => {
           </Grid>
         </CardContent>
       </Card>
+
+      {/* ✅ Summary Cards - รายรับแยกตามประเภท */}
+      {!loading && summary.incomeByType && (
+        <Grid container spacing={3} sx={{ mb: 4 }}>
+          <Grid item xs={12} sm={6} md={3}>
+            <Card sx={{ height: "100%", background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", color: "white" }}>
+              <CardContent>
+                <Typography variant="h6" sx={{ mb: 1 }}>ค่าหัตถการ</Typography>
+                <Typography variant="h4" fontWeight="bold">
+                  {formatCurrency(summary.incomeByType.หัตถการ || 0)}
+                </Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <Card sx={{ height: "100%", background: "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)", color: "white" }}>
+              <CardContent>
+                <Typography variant="h6" sx={{ mb: 1 }}>ค่า Lab</Typography>
+                <Typography variant="h4" fontWeight="bold">
+                  {formatCurrency(summary.incomeByType.Lab || 0)}
+                </Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <Card sx={{ height: "100%", background: "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)", color: "white" }}>
+              <CardContent>
+                <Typography variant="h6" sx={{ mb: 1 }}>ค่ายา</Typography>
+                <Typography variant="h4" fontWeight="bold">
+                  {formatCurrency(summary.incomeByType.ยา || 0)}
+                </Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <Card sx={{ height: "100%", background: "linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)", color: "white" }}>
+              <CardContent>
+                <Typography variant="h6" sx={{ mb: 1 }}>รายรับรวม</Typography>
+                <Typography variant="h4" fontWeight="bold">
+                  {formatCurrency(summary.incomeTotal)}
+                </Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
+      )}
 
       {error && (
         <Alert severity="error" sx={{ mb: 3 }}>
@@ -788,26 +958,39 @@ const MonthlySummary = () => {
                     <TableRow key={index}>
                       <TableCell>
                         {row.income ? (
-                          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}>
-                            <Box sx={{ maxWidth: "75%" }}>
-                              <Typography variant="body2" fontWeight="medium" noWrap>
-                                {row.income.name || "-"}
+                          row.income.isGrouped ? (
+                            // ✅ แสดงประเภทที่รวมยอดแล้ว
+                            <Box>
+                              <Typography variant="body2" fontWeight="medium">
+                                {row.income.type}
                               </Typography>
-                              <Typography variant="caption" color="text.secondary" noWrap>
-                                {row.income.refno || "-"} • {row.income.type || "-"}
-                              </Typography>
-                              <Typography variant="caption" color="text.secondary" noWrap>
-                                {formatThaiDateShort(row.income.date)}
+                              <Typography variant="caption" color="text.secondary">
+                                รวมทั้งหมด
                               </Typography>
                             </Box>
-                            <IconButton
-                              size="small"
-                              onClick={() => loadIncomeDetail(row.income.refno)}
-                              sx={{ border: "1px solid #2563eb", borderRadius: "7px", color: "#2563eb" }}
-                            >
-                              <VisibilityIcon fontSize="small" />
-                            </IconButton>
-                          </Box>
+                          ) : (
+                            // แสดงรายละเอียดรายการ (กรณีไม่ได้ group)
+                            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}>
+                              <Box sx={{ maxWidth: "75%" }}>
+                                <Typography variant="body2" fontWeight="medium" noWrap>
+                                  {row.income.name || "-"}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary" noWrap>
+                                  {row.income.refno || "-"} • {row.income.type || "-"}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary" noWrap>
+                                  {formatThaiDateShort(row.income.date)}
+                                </Typography>
+                              </Box>
+                              <IconButton
+                                size="small"
+                                onClick={() => loadIncomeDetail(row.income.refno)}
+                                sx={{ border: "1px solid #2563eb", borderRadius: "7px", color: "#2563eb" }}
+                              >
+                                <VisibilityIcon fontSize="small" />
+                              </IconButton>
+                            </Box>
+                          )
                         ) : (
                           "-"
                         )}
