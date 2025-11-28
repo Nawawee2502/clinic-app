@@ -45,7 +45,8 @@ import {
     LocationOn,
     KeyboardArrowLeft,
     KeyboardArrowRight,
-    CancelOutlined
+    CancelOutlined,
+    Medication
 } from '@mui/icons-material';
 import PatientService from '../services/patientService';
 import TreatmentService from '../services/treatmentService';
@@ -1546,6 +1547,8 @@ const PatientManagement = () => {
     const [actionLoading, setActionLoading] = useState(false);
     const [summaryDialogOpen, setSummaryDialogOpen] = useState(false);
     const [summaryRecord, setSummaryRecord] = useState(null);
+    const [summaryDrugs, setSummaryDrugs] = useState([]);
+    const [summaryLoading, setSummaryLoading] = useState(false);
 
     const handleTabChange = useCallback((event, newValue) => {
         setActiveTab(newValue);
@@ -1763,6 +1766,44 @@ const PatientManagement = () => {
         // ถ้าไม่มีสรุปการรักษา ให้คืนค่าเป็นสตริงว่าง เพื่อไม่ให้แสดงข้อความ "ไม่มีข้อมูล"
         return '';
     }, []);
+
+    // ฟังก์ชันเปิด Dialog สรุปการรักษาพร้อมดึงข้อมูลยา
+    const handleViewSummary = useCallback(async (record) => {
+        const treatment1 = getTreatmentSummary(record);
+        const vno = record?.VNO || record?.VN;
+        
+        setSummaryRecord({
+            ...record,
+            TREATMENT1_TEXT: treatment1
+        });
+        setSummaryDialogOpen(true);
+        setSummaryDrugs([]);
+        
+        // ดึงข้อมูลยาพร้อม DXCODE และ DXNAME_THAI ถ้ามี VNO
+        if (vno) {
+            try {
+                setSummaryLoading(true);
+                const response = await TreatmentService.getTreatmentByVNO(vno);
+                
+                if (response.success && response.data) {
+                    const drugs = response.data.drugs || [];
+                    setSummaryDrugs(drugs);
+                    
+                    // อัพเดท DXCODE จาก treatment
+                    if (response.data.treatment) {
+                        setSummaryRecord(prev => ({
+                            ...prev,
+                            DXCODE: response.data.treatment.DXCODE || prev?.DXCODE
+                        }));
+                    }
+                }
+            } catch (error) {
+                console.error('Error fetching treatment details:', error);
+            } finally {
+                setSummaryLoading(false);
+            }
+        }
+    }, [getTreatmentSummary]);
 
     // ใช้ patientHistory แต่กรองเฉพาะรายการที่มีสรุปการรักษาเท่านั้น
     const filteredHistoryRecords = React.useMemo(() => {
@@ -2308,13 +2349,7 @@ const PatientManagement = () => {
                                                                     <Button
                                                                         variant="outlined"
                                                                         size="small"
-                                                                        onClick={() => {
-                                                                            setSummaryRecord({
-                                                                                ...record,
-                                                                                TREATMENT1_TEXT: treatment1
-                                                                            });
-                                                                            setSummaryDialogOpen(true);
-                                                                        }}
+                                                                        onClick={() => handleViewSummary(record)}
                                                                         sx={{ borderRadius: 2, textTransform: 'none', fontSize: 12 }}
                                                                     >
                                                                         ดูสรุปการรักษา
@@ -2514,47 +2549,259 @@ const PatientManagement = () => {
             {/* Treatment Summary Dialog */}
             <Dialog
                 open={summaryDialogOpen}
-                onClose={() => setSummaryDialogOpen(false)}
-                maxWidth="sm"
+                onClose={() => {
+                    setSummaryDialogOpen(false);
+                    setSummaryDrugs([]);
+                }}
+                maxWidth="md"
                 fullWidth
             >
-                <DialogTitle>สรุปการรักษา</DialogTitle>
-                <DialogContent dividers>
-                    {summaryRecord && (
-                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                            <Typography variant="body2" color="text.secondary">
-                                วันที่: {formatHistoryDate(summaryRecord)}
-                            </Typography>
-                            <Typography variant="body2" color="text.secondary">
-                                HN: {summaryRecord?.HNNO || summaryRecord?.HNCODE || '-'}
-                            </Typography>
+                <DialogTitle sx={{ 
+                    backgroundColor: '#f8fafc', 
+                    borderBottom: '1px solid #e2e8f0',
+                    pb: 2
+                }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <Typography variant="h6" sx={{ fontWeight: 600, color: '#1e293b' }}>
+                            สรุปการรักษา
+                        </Typography>
+                        {summaryRecord && (
                             <Typography variant="body2" color="text.secondary">
                                 VN: {summaryRecord?.VNO || summaryRecord?.VN || '-'}
                             </Typography>
-                            <Typography variant="body2" color="text.secondary">
-                                ชื่อ:{' '}
-                                {[summaryRecord?.PRENAME, summaryRecord?.NAME1, summaryRecord?.SURNAME]
-                                    .filter(Boolean)
-                                    .join(' ')}
-                            </Typography>
+                        )}
+                    </Box>
+                </DialogTitle>
+                <DialogContent dividers sx={{ p: 3 }}>
+                    {summaryRecord && (
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                            {/* ข้อมูลผู้ป่วย */}
+                            <Paper sx={{ p: 2, backgroundColor: '#f8fafc', borderRadius: 2 }}>
+                                <Grid container spacing={2}>
+                                    <Grid item xs={12} sm={6}>
+                                        <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>
+                                            วันที่รับบริการ
+                                        </Typography>
+                                        <Typography variant="body1" sx={{ fontWeight: 500, mt: 0.5 }}>
+                                            {formatHistoryDate(summaryRecord)}
+                                        </Typography>
+                                    </Grid>
+                                    <Grid item xs={12} sm={6}>
+                                        <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>
+                                            HN
+                                        </Typography>
+                                        <Typography variant="body1" sx={{ fontWeight: 500, mt: 0.5 }}>
+                                            {summaryRecord?.HNNO || summaryRecord?.HNCODE || '-'}
+                                        </Typography>
+                                    </Grid>
+                                    <Grid item xs={12} sm={6}>
+                                        <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>
+                                            ชื่อ-นามสกุล
+                                        </Typography>
+                                        <Typography variant="body1" sx={{ fontWeight: 500, mt: 0.5 }}>
+                                            {[summaryRecord?.PRENAME, summaryRecord?.NAME1, summaryRecord?.SURNAME]
+                                                .filter(Boolean)
+                                                .join(' ')}
+                                        </Typography>
+                                    </Grid>
+                                    <Grid item xs={12} sm={6}>
+                                        <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>
+                                            สถานะ
+                                        </Typography>
+                                        <Box sx={{ mt: 0.5 }}>
+                                            <Chip
+                                                label={summaryRecord?.STATUS1 || 'ทำงานอยู่'}
+                                                size="small"
+                                                sx={{
+                                                    backgroundColor: summaryRecord?.STATUS1 === 'ยกเลิก' 
+                                                        ? '#fee2e2' 
+                                                        : summaryRecord?.STATUS1 === 'ปิดแล้ว' || summaryRecord?.STATUS1 === 'ชำระเงินแล้ว'
+                                                        ? '#dcfce7' 
+                                                        : '#dbeafe',
+                                                    color: summaryRecord?.STATUS1 === 'ยกเลิก' 
+                                                        ? '#991b1b' 
+                                                        : summaryRecord?.STATUS1 === 'ปิดแล้ว' || summaryRecord?.STATUS1 === 'ชำระเงินแล้ว'
+                                                        ? '#166534' 
+                                                        : '#1e40af',
+                                                    fontWeight: 500,
+                                                    fontSize: '11px'
+                                                }}
+                                            />
+                                        </Box>
+                                    </Grid>
+                                </Grid>
+                            </Paper>
 
-                            <Box sx={{ mt: 2 }}>
-                                <Typography
-                                    variant="body1"
-                                    sx={{
-                                        whiteSpace: 'pre-wrap',
-                                        lineHeight: 1.7,
-                                        color: '#0f172a'
-                                    }}
-                                >
-                                    {summaryRecord.TREATMENT1_TEXT}
+                            {/* DX */}
+                            {summaryRecord?.DXCODE && (
+                                <Box>
+                                    <Typography variant="subtitle2" sx={{ 
+                                        fontWeight: 600, 
+                                        color: '#1e293b',
+                                        mb: 1.5,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 1
+                                    }}>
+                                        <LocalHospital sx={{ fontSize: 18, color: '#4A9EFF' }} />
+                                        DX
+                                    </Typography>
+                                    <Paper sx={{ p: 2, backgroundColor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 2 }}>
+                                        <Chip
+                                            label={summaryRecord.DXCODE}
+                                            size="medium"
+                                            sx={{
+                                                backgroundColor: '#e3f2fd',
+                                                color: '#1e40af',
+                                                fontWeight: 600,
+                                                fontSize: '14px',
+                                                height: '32px',
+                                                '& .MuiChip-label': {
+                                                    px: 2
+                                                }
+                                            }}
+                                        />
+                                    </Paper>
+                                </Box>
+                            )}
+
+                            {/* สรุปการรักษา */}
+                            {summaryRecord.TREATMENT1_TEXT && (
+                                <Box>
+                                    <Typography variant="subtitle2" sx={{ 
+                                        fontWeight: 600, 
+                                        color: '#1e293b',
+                                        mb: 1.5,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 1
+                                    }}>
+                                        <LocalHospital sx={{ fontSize: 18, color: '#4A9EFF' }} />
+                                        สรุปการรักษา
+                                    </Typography>
+                                    <Paper sx={{ p: 2, backgroundColor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 2 }}>
+                                        <Typography
+                                            variant="body1"
+                                            sx={{
+                                                whiteSpace: 'pre-wrap',
+                                                lineHeight: 1.8,
+                                                color: '#0f172a'
+                                            }}
+                                        >
+                                            {summaryRecord.TREATMENT1_TEXT}
+                                        </Typography>
+                                    </Paper>
+                                </Box>
+                            )}
+
+                            {/* รายการยา */}
+                            <Box>
+                                <Typography variant="subtitle2" sx={{ 
+                                    fontWeight: 600, 
+                                    color: '#1e293b',
+                                    mb: 1.5,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 1
+                                }}>
+                                    <Medication sx={{ fontSize: 18, color: '#4A9EFF' }} />
+                                    รายการยาที่สั่ง
                                 </Typography>
+                                
+                                {summaryLoading ? (
+                                    <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                                        <CircularProgress size={40} sx={{ color: '#4A9EFF' }} />
+                                    </Box>
+                                ) : summaryDrugs.length === 0 ? (
+                                    <Paper sx={{ p: 3, backgroundColor: '#f8fafc', borderRadius: 2, textAlign: 'center' }}>
+                                        <Medication sx={{ fontSize: 40, color: '#cbd5e1', mb: 1 }} />
+                                        <Typography variant="body2" color="text.secondary">
+                                            ไม่มียาที่สั่งในครั้งนี้
+                                        </Typography>
+                                    </Paper>
+                                ) : (
+                                    <TableContainer component={Paper} sx={{ border: '1px solid #e2e8f0' }}>
+                                        <Table size="small">
+                                            <TableHead>
+                                                <TableRow sx={{ backgroundColor: '#f8fafc' }}>
+                                                    <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }}>ลำดับ</TableCell>
+                                                    <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }}>รหัสยา</TableCell>
+                                                    <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }}>ชื่อยา</TableCell>
+                                                    <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }} align="right">จำนวน</TableCell>
+                                                    <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }}>หน่วย</TableCell>
+                                                    <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }} align="right">ราคาต่อหน่วย</TableCell>
+                                                    <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }} align="right">รวม</TableCell>
+                                                    <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }}>วิธีใช้</TableCell>
+                                                </TableRow>
+                                            </TableHead>
+                                            <TableBody>
+                                                {summaryDrugs.map((drug, index) => (
+                                                    <TableRow key={index} hover>
+                                                        <TableCell>{index + 1}</TableCell>
+                                                        <TableCell sx={{ fontWeight: 500, fontSize: '0.75rem' }}>
+                                                            {drug.DRUG_CODE || '-'}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <Typography variant="body2" sx={{ fontWeight: 500, fontSize: '0.75rem' }}>
+                                                                {drug.GENERIC_NAME || drug.TRADE_NAME || 'ยาไม่ระบุ'}
+                                                            </Typography>
+                                                            {drug.TRADE_NAME && drug.GENERIC_NAME && (
+                                                                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                                                                    ({drug.TRADE_NAME})
+                                                                </Typography>
+                                                            )}
+                                                        </TableCell>
+                                                        <TableCell align="right" sx={{ fontSize: '0.75rem' }}>{drug.QTY || 0}</TableCell>
+                                                        <TableCell sx={{ fontSize: '0.75rem' }}>{drug.UNIT_NAME || drug.UNIT_CODE || '-'}</TableCell>
+                                                        <TableCell align="right" sx={{ fontSize: '0.75rem' }}>
+                                                            {parseFloat(drug.UNIT_PRICE || 0).toLocaleString('th-TH', {
+                                                                minimumFractionDigits: 2,
+                                                                maximumFractionDigits: 2
+                                                            })}
+                                                        </TableCell>
+                                                        <TableCell align="right" sx={{ fontWeight: 500, fontSize: '0.75rem' }}>
+                                                            {parseFloat(drug.AMT || 0).toLocaleString('th-TH', {
+                                                                minimumFractionDigits: 2,
+                                                                maximumFractionDigits: 2
+                                                            })}
+                                                        </TableCell>
+                                                        <TableCell sx={{ fontSize: '0.75rem' }}>
+                                                            {drug.eat1 || drug.NOTE1 || drug.TIME1 || '-'}
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))}
+                                                <TableRow sx={{ backgroundColor: '#f8fafc' }}>
+                                                    <TableCell colSpan={6} align="right" sx={{ fontWeight: 600, fontSize: '0.875rem' }}>
+                                                        รวมทั้งสิ้น:
+                                                    </TableCell>
+                                                    <TableCell align="right" sx={{ fontWeight: 600, fontSize: '0.875rem', color: '#1e40af' }}>
+                                                        {summaryDrugs
+                                                            .reduce((sum, drug) => sum + parseFloat(drug.AMT || 0), 0)
+                                                            .toLocaleString('th-TH', {
+                                                                minimumFractionDigits: 2,
+                                                                maximumFractionDigits: 2
+                                                            })}
+                                                        {' '}บาท
+                                                    </TableCell>
+                                                    <TableCell></TableCell>
+                                                </TableRow>
+                                            </TableBody>
+                                        </Table>
+                                    </TableContainer>
+                                )}
                             </Box>
                         </Box>
                     )}
                 </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setSummaryDialogOpen(false)} color="primary">
+                <DialogActions sx={{ p: 2, borderTop: '1px solid #e2e8f0', backgroundColor: '#f8fafc' }}>
+                    <Button 
+                        onClick={() => {
+                            setSummaryDialogOpen(false);
+                            setSummaryDrugs([]);
+                        }} 
+                        variant="contained"
+                        sx={{ borderRadius: 2 }}
+                    >
                         ปิด
                     </Button>
                 </DialogActions>
