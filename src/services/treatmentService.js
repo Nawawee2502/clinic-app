@@ -504,7 +504,10 @@ class TreatmentService {
             return value;
         };
 
-        return {
+        const hasStatusField = Object.prototype.hasOwnProperty.call(data, 'STATUS1');
+        const statusValue = hasStatusField ? (toNull(data.STATUS1) || 'ทำงานอยู่') : undefined;
+
+        const formattedData = {
             VNO: toNull(data.VNO?.trim()),
             QUEUE_ID: toNull(data.QUEUE_ID?.trim()),
             HNNO: toNull(data.HNNO?.trim()),
@@ -526,7 +529,7 @@ class TreatmentService {
             APPOINTMENT_TDATE: toNull(data.APPOINTMENT_TDATE) || toNull(data.APPOINTMENT_DATE),
             EMP_CODE: toNull(data.EMP_CODE?.trim()),
             EMP_CODE1: toNull(data.EMP_CODE1?.trim()),
-            STATUS1: toNull(data.STATUS1) || 'ทำงานอยู่',
+            STATUS1: statusValue,
             INVESTIGATION_NOTES: toNull(data.INVESTIGATION_NOTES?.trim()),
 
             // ✅ เพิ่มฟิลด์การชำระเงิน
@@ -555,6 +558,12 @@ class TreatmentService {
             labTests: Array.isArray(data.labTests) ? data.labTests : [],
             radioTests: Array.isArray(data.radioTests) ? data.radioTests : []
         };
+
+        if (!hasStatusField) {
+            delete formattedData.STATUS1;
+        }
+
+        return formattedData;
     }
 
     // ดึงรายการสถานะการรักษา

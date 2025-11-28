@@ -204,6 +204,11 @@ const DxandTreatment = ({ currentPatient, onSaveSuccess }) => {
         investigationNotes += `[Laboratory] ${diagnosisData.laboratory.note}`;
       }
 
+      const lockedStatuses = ['รอชำระเงิน', 'ชำระเงินแล้ว', 'ปิดการรักษา'];
+      const currentStatus =
+        (currentPatient?.queueStatus || currentPatient?.STATUS1 || '').trim();
+      const isLockedStatus = lockedStatuses.includes(currentStatus);
+
       // ส่งข้อมูล Dx เป็น text ลงใน DXCODE โดยตรง
       const treatmentData = {
         VNO: currentPatient.VNO,
@@ -211,7 +216,7 @@ const DxandTreatment = ({ currentPatient, onSaveSuccess }) => {
         DXCODE: dxData.dx.trim() || null,
         ICD10CODE: null,
         TREATMENT1: dxData.treatment || null,
-        STATUS1: 'กำลังตรวจ',
+        ...(isLockedStatus ? {} : { STATUS1: 'กำลังตรวจ' }),
         INVESTIGATION_NOTES: investigationNotes.trim() || null // เพิ่มบรรทัดนี้
       };
 

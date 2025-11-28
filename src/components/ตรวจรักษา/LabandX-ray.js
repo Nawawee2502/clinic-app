@@ -149,11 +149,16 @@ const LabandXray = ({ currentPatient, onSaveSuccess }) => {
         });
       }
 
+      const lockedStatuses = ['รอชำระเงิน', 'ชำระเงินแล้ว', 'ปิดการรักษา'];
+      const currentStatus =
+        (currentPatient?.queueStatus || currentPatient?.STATUS1 || '').trim();
+      const isLockedStatus = lockedStatuses.includes(currentStatus);
+
       // แก้ไข: ปรับโครงสร้างข้อมูลให้ตรงกับ API backend
       const treatmentData = {
         VNO: currentPatient.VNO,
         HNNO: currentPatient.HNCODE,
-        STATUS1: 'กำลังตรวจ',
+        ...(isLockedStatus ? {} : { STATUS1: 'กำลังตรวจ' }),
         labTests: labTests,
         radioTests: radioTests
       };

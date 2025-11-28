@@ -507,6 +507,11 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
       }
 
       // เตรียมข้อมูลหัตถการในรูปแบบที่ API ต้องการ
+      const lockedStatuses = ['รอชำระเงิน', 'ชำระเงินแล้ว', 'ปิดการรักษา'];
+      const currentStatus =
+        (currentPatient?.queueStatus || currentPatient?.STATUS1 || '').trim();
+      const isLockedStatus = lockedStatuses.includes(currentStatus);
+
       const procedures = savedProcedures.map(procedure => {
         let finalCode = procedure.procedureCode;
 
@@ -544,7 +549,7 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
       const treatmentData = {
         VNO: currentPatient.VNO,
         HNNO: currentPatient.HNCODE,
-        STATUS1: 'กำลังตรวจ',
+        ...(isLockedStatus ? {} : { STATUS1: 'กำลังตรวจ' }),
         procedures: procedures,  // ส่งข้อมูลหัตถการไปด้วย
         drugs: drugs  // ส่งข้อมูลยาไปด้วย
       };

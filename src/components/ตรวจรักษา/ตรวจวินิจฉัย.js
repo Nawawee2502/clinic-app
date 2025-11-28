@@ -339,12 +339,17 @@ const ตรวจวินิจฉัย = ({ currentPatient, onSaveSuccess })
         PLAN1: diagnosisData.PLAN1.trim()
       };
 
+      const lockedStatuses = ['รอชำระเงิน', 'ชำระเงินแล้ว', 'ปิดการรักษา'];
+      const currentStatus =
+        (currentPatient?.queueStatus || currentPatient?.STATUS1 || '').trim();
+      const isLockedStatus = lockedStatuses.includes(currentStatus);
+
       // สร้าง treatmentData ที่เรียบง่าย
       const treatmentData = {
         VNO: currentPatient.VNO,
         HNNO: currentPatient.HNCODE,
         SYMPTOM: diagnosisData.CHIEF_COMPLAINT.trim(),
-        STATUS1: 'กำลังตรวจ'
+        ...(isLockedStatus ? {} : { STATUS1: 'กำลังตรวจ' })
       };
 
       // เพิ่มข้อมูลการวินิจฉัยถ้ามี

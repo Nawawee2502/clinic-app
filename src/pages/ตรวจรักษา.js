@@ -28,7 +28,8 @@ import {
   DialogActions,
   DialogContent,
   DialogContentText,
-  DialogTitle
+  DialogTitle,
+  Tooltip
 } from "@mui/material";
 import {
   NavigateNext as NextIcon,
@@ -36,7 +37,8 @@ import {
   Refresh as RefreshIcon,
   CheckCircle as CheckCircleIcon,
   Warning as WarningIcon,
-  Search as SearchIcon
+  Search as SearchIcon,
+  DeleteOutline as DeleteIcon
 } from "@mui/icons-material";
 
 // Import Services
@@ -87,6 +89,12 @@ const ตรวจรักษา = () => {
     patient: null,
     newStatus: null,
     isCompleting: false
+  });
+
+  const [cancelDialog, setCancelDialog] = useState({
+    open: false,
+    patient: null,
+    loading: false
   });
 
   // โหลดข้อมูลเมื่อ component mount
@@ -273,6 +281,86 @@ const ตรวจรักษา = () => {
       newStatus: null,
       isCompleting: false
     });
+  };
+
+  const handleCancelQueueRequest = (patient, event) => {
+    if (event) {
+      event.stopPropagation();
+    }
+    setCancelDialog({
+      open: true,
+      patient,
+      loading: false
+    });
+  };
+
+  const handleCancelQueueClose = () => {
+    setCancelDialog({
+      open: false,
+      patient: null,
+      loading: false
+    });
+  };
+
+  const handleCancelQueueConfirm = async () => {
+    if (!cancelDialog.patient) return;
+    setCancelDialog(prev => ({ ...prev, loading: true }));
+
+    try {
+      const response = await QueueService.removeQueue(cancelDialog.patient.queueId);
+      if (!response.success) {
+        throw new Error(response.message || 'ไม่สามารถยกเลิกคิวได้');
+      }
+
+      setPatients(prevPatients => {
+        const filtered = prevPatients.filter(
+          p => p.queueId !== cancelDialog.patient.queueId
+        );
+
+        setSelectedPatientIndex(prevIndex => {
+          if (filtered.length === 0) {
+            return 0;
+          }
+
+          const removedIndex = prevPatients.findIndex(
+            p => p.queueId === cancelDialog.patient.queueId
+          );
+
+          if (removedIndex === -1) {
+            return Math.min(prevIndex, filtered.length - 1);
+          }
+
+          if (prevIndex === removedIndex) {
+            return Math.min(prevIndex, filtered.length - 1);
+          }
+
+          if (removedIndex < prevIndex) {
+            return Math.max(0, prevIndex - 1);
+          }
+
+          return Math.min(prevIndex, filtered.length - 1);
+        });
+
+        return filtered;
+      });
+
+      setSnackbar({
+        open: true,
+        message: `🚫 ยกเลิกคิว ${cancelDialog.patient.queueNumber} สำเร็จ`,
+        severity: 'success'
+      });
+
+      handleCancelQueueClose();
+      loadQueueStats();
+    } catch (error) {
+      console.error('Error cancelling queue:', error);
+      setSnackbar({
+        open: true,
+        message: 'ไม่สามารถยกเลิกคิวได้: ' + error.message,
+        severity: 'error'
+      });
+      setCancelDialog(prev => ({ ...prev, loading: false }));
+    }
   };
 
   // ยกเลิก Confirmation Dialog
@@ -766,6 +854,11 @@ const ตรวจรักษา = () => {
                 ) : (
                   displayedPatients.map(({ patient, originalIndex }) => {
                     const isActive = selectedPatientIndex === originalIndex;
+                    const lockedStatuses = ['รอชำระเงิน', 'ชำระเงินแล้ว', 'ปิดการรักษา'];
+                    const canCancel =
+                      !lockedStatuses.includes(
+                        (patient.queueStatus || patient.STATUS1 || '').trim()
+                      );
                     return (
                       <ListItemButton
                         key={patient.queueId || originalIndex}
@@ -829,21 +922,49 @@ const ตรวจรักษา = () => {
                             }}>
                               {patient.PRENAME}{patient.NAME1} {patient.SURNAME}
                             </Typography>
-                            <Chip
-                              size="small"
-                              label={patient.queueStatus}
-                              color={getStatusColor(patient.queueStatus)}
-                              sx={{
-                                fontSize: '10px',
-                                height: 22,
-                                fontWeight: 700,
-                                borderRadius: '999px',
-                                backgroundColor: isActive ? '#ffffff' : '#f1f5f9',
-                                color: isActive ? '#0f172a' : '#0f172a',
-                                border: '1px solid rgba(15,23,42,0.12)',
-                                boxShadow: '0 4px 10px rgba(15,23,42,0.1)'
-                              }}
-                            />
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                              <Chip
+                                size="small"
+                                label={patient.queueStatus}
+                                color={getStatusColor(patient.queueStatus)}
+                                sx={{
+                                  fontSize: '10px',
+                                  height: 22,
+                                  fontWeight: 700,
+                                  borderRadius: '999px',
+                                  backgroundColor: isActive ? '#ffffff' : '#f1f5f9',
+                                  color: isActive ? '#0f172a' : '#0f172a',
+                                  border: '1px solid rgba(15,23,42,0.12)',
+                                  boxShadow: '0 4px 10px rgba(15,23,42,0.1)'
+                                }}
+                              />
+                              <Tooltip
+                                title={
+                                  canCancel
+                                    ? 'ยกเลิกคิวนี้'
+                                    : 'ไม่สามารถยกเลิกหลังรอ/ชำระเงินแล้ว'
+                                }
+                              >
+                                <span>
+                                  <IconButton
+                                    size="small"
+                                    color="error"
+                                    disabled={!canCancel}
+                                    onClick={(event) => handleCancelQueueRequest(patient, event)}
+                                    sx={{
+                                      backgroundColor: canCancel
+                                        ? 'rgba(239, 68, 68, 0.08)'
+                                        : 'rgba(148, 163, 184, 0.2)',
+                                      '&:hover': {
+                                        backgroundColor: 'rgba(239, 68, 68, 0.15)'
+                                      }
+                                    }}
+                                  >
+                                    <DeleteIcon fontSize="small" />
+                                  </IconButton>
+                                </span>
+                              </Tooltip>
+                            </Box>
                           </Box>
 
                             <Typography sx={{
@@ -1276,6 +1397,49 @@ const ตรวจรักษา = () => {
             }}
           >
             ✅ ยืนยันและไปหน้าชำระเงิน
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Cancel Queue Dialog */}
+      <Dialog
+        open={cancelDialog.open}
+        onClose={cancelDialog.loading ? undefined : handleCancelQueueClose}
+        aria-labelledby="cancel-queue-title"
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle id="cancel-queue-title">
+          🗑️ ยกเลิกคิวผู้ป่วย
+        </DialogTitle>
+        <DialogContent dividers>
+          {cancelDialog.patient ? (
+            <Box>
+              <Typography sx={{ mb: 1.5 }}>
+                ต้องการยกเลิกคิว {cancelDialog.patient.queueNumber} สำหรับ
+                {' '}
+                {cancelDialog.patient.PRENAME}{cancelDialog.patient.NAME1} {cancelDialog.patient.SURNAME} หรือไม่?
+              </Typography>
+              <Alert severity="warning">
+                การยกเลิกจะลบคิวและข้อมูลการรักษาที่ผูกกับคิวนี้
+              </Alert>
+            </Box>
+          ) : null}
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={handleCancelQueueClose}
+            disabled={cancelDialog.loading}
+          >
+            ปิด
+          </Button>
+          <Button
+            onClick={handleCancelQueueConfirm}
+            color="error"
+            variant="contained"
+            disabled={cancelDialog.loading}
+          >
+            {cancelDialog.loading ? 'กำลังยกเลิก...' : 'ยืนยันยกเลิกคิว'}
           </Button>
         </DialogActions>
       </Dialog>

@@ -300,6 +300,11 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
     try {
       setSaving(true);
 
+      const lockedStatuses = ['รอชำระเงิน', 'ชำระเงินแล้ว', 'ปิดการรักษา'];
+      const currentStatus =
+        (currentPatient?.queueStatus || currentPatient?.STATUS1 || '').trim();
+      const isLockedStatus = lockedStatuses.includes(currentStatus);
+
       // แปลงวันที่จาก พ.ศ. เป็น ค.ศ. สำหรับการส่ง API
       const christianDate = getChristianDate(vitals.RDATE);
 
@@ -336,7 +341,7 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
 
         // ข้อมูลพื้นฐาน
         EMP_CODE: 'DOC001',
-        STATUS1: 'ทำงานอยู่'
+        ...(isLockedStatus ? {} : { STATUS1: 'ทำงานอยู่' })
       };
 
       console.log('💾 Saving treatment data:', treatmentData);
@@ -357,7 +362,7 @@ const TodayPatientInformation = ({ currentPatient, onSaveSuccess }) => {
         alert('บันทึกข้อมูล Vital Signs สำเร็จ!');
 
         // ✅ อัพเดตสถานะคิวเป็น "กำลังตรวจ"
-        if (currentPatient.queueStatus === 'รอตรวจ') {
+        if (!isLockedStatus && currentPatient.queueStatus === 'รอตรวจ') {
           try {
             const QueueService = await import('../../services/queueService');
             await QueueService.default.updateQueueStatus(currentPatient.queueId, 'กำลังตรวจ');

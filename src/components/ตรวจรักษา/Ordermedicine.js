@@ -312,6 +312,11 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
         try {
             setSaving(true);
 
+            const lockedStatuses = ['รอชำระเงิน', 'ชำระเงินแล้ว', 'ปิดการรักษา'];
+            const currentStatus =
+                (currentPatient?.queueStatus || currentPatient?.STATUS1 || '').trim();
+            const isLockedStatus = lockedStatuses.includes(currentStatus);
+
             if (savedMedicines.length === 0) {
                 showSnackbar('กรุณาเพิ่มรายการยาอย่างน้อย 1 รายการ', 'error');
                 return;
@@ -330,7 +335,7 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
             const treatmentData = {
                 VNO: currentPatient.VNO,
                 HNNO: currentPatient.HNCODE,
-                STATUS1: 'กำลังตรวจ',
+                ...(isLockedStatus ? {} : { STATUS1: 'กำลังตรวจ' }),
                 drugs: drugs
             };
 
@@ -339,10 +344,12 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
             if (response.success) {
                 showSnackbar('บันทึกข้อมูลยาสำเร็จ!', 'success');
 
-                try {
-                    await QueueService.updateQueueStatus(currentPatient.queueId, 'กำลังตรวจ');
-                } catch (error) {
-                    console.warn('Could not update queue status:', error);
+                if (!isLockedStatus) {
+                    try {
+                        await QueueService.updateQueueStatus(currentPatient.queueId, 'กำลังตรวจ');
+                    } catch (error) {
+                        console.warn('Could not update queue status:', error);
+                    }
                 }
 
                 if (onSaveSuccess) {
