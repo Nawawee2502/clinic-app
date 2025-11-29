@@ -122,7 +122,7 @@ const PatientInfoHeader = ({ patient, treatmentData }) => {
             {/* ข้อมูลเพิ่มเติม: อาการ, ประวัติแพ้ยา, โรคประจำตัว, น้ำหนัก, Diagnosis */}
             <Grid container spacing={2} sx={{ mt: 1 }}>
                 {/* ข้อมูลด้านซ้าย - รวมทั้งหมดใน Box เดียว แสดงในบรรทัดเดียวกัน */}
-                <Grid item xs={12} md={8}>
+                    <Grid item xs={12} md={8}>
                     {(chiefComplaint || drugAllergy || disease || weight || dxCode) && (
                         <Box sx={{
                             p: 2,
@@ -135,8 +135,8 @@ const PatientInfoHeader = ({ patient, treatmentData }) => {
                                 {chiefComplaint && (
                                     <Grid item xs={12} sm={6} md={3}>
                                         <Typography variant="caption" sx={{ opacity: 0.8, mb: 0.5, fontWeight: 600, display: 'block', fontSize: '11px' }}>
-                                            💬 อาการเบื้องต้น:
-                                        </Typography>
+                                💬 อาการเบื้องต้น:
+                            </Typography>
                                         <Typography variant="body2" sx={{ lineHeight: 1.4, fontSize: '13px' }}>
                                             {chiefComplaint}
                                         </Typography>
@@ -201,11 +201,11 @@ const PatientInfoHeader = ({ patient, treatmentData }) => {
                                             {dxName && (
                                                 <Typography variant="body2" sx={{ lineHeight: 1.4, fontSize: '12px', opacity: 0.95 }}>
                                                     {dxName}
-                                                </Typography>
+                            </Typography>
                                             )}
-                                        </Box>
-                                    </Grid>
-                                )}
+                        </Box>
+                    </Grid>
+                )}
                             </Grid>
                         </Box>
                     )}

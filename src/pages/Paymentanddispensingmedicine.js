@@ -591,8 +591,8 @@ const Paymentanddispensingmedicine = () => {
               }
               
               return {
-                ...item,
-                editablePrice: parseFloat(item.AMT || 0),
+            ...item,
+            editablePrice: parseFloat(item.AMT || 0),
                 originalPrice: parseFloat(item.AMT || 0),
                 DRUG_UCS_CARD: drugUcsCard, // เก็บ UCS_CARD ของยาแต่ละตัว
                 UNIT_NAME: rawUnitName,

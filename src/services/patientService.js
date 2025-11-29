@@ -2,11 +2,12 @@
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
 
 class PatientService {
-    // ดึงข้อมูลผู้ป่วยทั้งหมด (จาก DB จริง)
-    static async getAllPatients() {
+    // ดึงข้อมูลผู้ป่วยทั้งหมด (จาก DB จริง) - รองรับ pagination
+    static async getAllPatients(page = 1, limit = 50) {
         try {
-            console.log('🔗 Calling API:', `${API_BASE_URL}/patients`);
-            const response = await fetch(`${API_BASE_URL}/patients`);
+            const url = `${API_BASE_URL}/patients?page=${page}&limit=${limit}`;
+            console.log('🔗 Calling API:', url);
+            const response = await fetch(url);
 
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
@@ -304,26 +305,85 @@ class PatientService {
         }
     }
 
+    // Helper function for fetch with timeout and retry
+    static async fetchWithTimeout(url, options = {}, timeout = 20000, retries = 2) {
+        let lastError = null;
+        
+        for (let attempt = 0; attempt <= retries; attempt++) {
+            const controller = new AbortController();
+            let timeoutId = null;
+
+            try {
+                timeoutId = setTimeout(() => {
+                    controller.abort();
+                }, timeout);
+
+                const response = await fetch(url, {
+                    ...options,
+                    signal: controller.signal
+                });
+
+                if (timeoutId) {
+                    clearTimeout(timeoutId);
+                }
+
+                return response;
+            } catch (error) {
+                if (timeoutId) {
+                    clearTimeout(timeoutId);
+                }
+
+                lastError = error;
+
+                // ถ้าเป็น AbortError (timeout) และยังมี retry อยู่ ให้ retry
+                if (error.name === 'AbortError' && attempt < retries) {
+                    // Wait before retry (exponential backoff)
+                    await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+                    continue;
+                }
+
+                // ถ้าเป็น error อื่นๆ หรือหมด retry แล้ว ให้ throw
+                if (attempt === retries) {
+                    throw error;
+                }
+
+                // Wait before retry (exponential backoff)
+                await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+            }
+        }
+
+        // Fallback: throw last error if somehow we got here
+        throw lastError || new Error('Request failed after retries');
+    }
+
     // อัพเดทข้อมูลผู้ป่วย
     static async updatePatient(hn, patientData) {
         try {
             console.log('🔗 Calling API:', `${API_BASE_URL}/patients/${hn}`);
-            const response = await fetch(`${API_BASE_URL}/patients/${hn}`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
+            const response = await this.fetchWithTimeout(
+                `${API_BASE_URL}/patients/${hn}`,
+                {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(patientData)
                 },
-                body: JSON.stringify(patientData)
-            });
+                20000, // 20 second timeout
+                2 // 2 retries
+            );
 
             if (!response.ok) {
-                const errorData = await response.json();
+                const errorData = await response.json().catch(() => ({ message: `HTTP error! status: ${response.status}` }));
                 throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
             }
 
             return await response.json();
         } catch (error) {
             console.error('Error updating patient:', error);
+            if (error.name === 'AbortError') {
+                throw new Error('การเชื่อมต่อหมดเวลา กรุณาลองใหม่อีกครั้ง');
+            }
             throw error;
         }
     }

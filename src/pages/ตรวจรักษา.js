@@ -118,10 +118,15 @@ const ตรวจรักษา = () => {
           STATUS: p.STATUS
         })));
 
-        // กรองเฉพาะคนไข้ที่ยังไม่ชำระเงินหรือปิดการรักษา
+        // กรองเฉพาะคนไข้ที่ยังไม่ชำระเงิน/ปิดการรักษา และไม่ใช่คิวยกเลิก
         const activePatients = response.data.filter(patient => {
           const treatmentStatus = (patient.TREATMENT_STATUS || patient.STATUS1 || '').trim();
-          return treatmentStatus !== 'ชำระเงินแล้ว' && treatmentStatus !== 'ปิดการรักษา';
+          const queueStatus = (patient.STATUS || patient.queueStatus || '').trim();
+          return (
+            treatmentStatus !== 'ชำระเงินแล้ว' &&
+            treatmentStatus !== 'ปิดการรักษา' &&
+            queueStatus !== 'ยกเลิกคิว'
+          );
         });
 
         // Debug: ตรวจสอบ queueStatus หลังจากกรอง

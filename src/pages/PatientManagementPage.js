@@ -54,6 +54,57 @@ import TreatmentService from '../services/treatmentService';
 // API Base URL
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
 
+// Helper function for fetch with timeout and retry
+const fetchWithTimeout = async (url, options = {}, timeout = 10000, retries = 2) => {
+    let lastError = null;
+    
+    for (let attempt = 0; attempt <= retries; attempt++) {
+        const controller = new AbortController();
+        let timeoutId = null;
+
+        try {
+            timeoutId = setTimeout(() => {
+                controller.abort();
+            }, timeout);
+
+            const response = await fetch(url, {
+                ...options,
+                signal: controller.signal
+            });
+
+            if (timeoutId) {
+                clearTimeout(timeoutId);
+            }
+
+            return response;
+        } catch (error) {
+            if (timeoutId) {
+                clearTimeout(timeoutId);
+            }
+
+            lastError = error;
+
+            // ถ้าเป็น AbortError (timeout) และยังมี retry อยู่ ให้ retry
+            if (error.name === 'AbortError' && attempt < retries) {
+                // Wait before retry (exponential backoff)
+                await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+                continue;
+            }
+
+            // ถ้าเป็น error อื่นๆ หรือหมด retry แล้ว ให้ throw
+            if (attempt === retries) {
+                throw error;
+            }
+
+            // Wait before retry (exponential backoff)
+            await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+        }
+    }
+
+    // Fallback: throw last error if somehow we got here
+    throw lastError || new Error('Request failed after retries');
+};
+
 // Helper function outside component
 const getAvatarColor = (sex) => {
     return sex === 'หญิง' ? '#EC7B99' : '#4A9EFF';
@@ -200,20 +251,60 @@ const PatientDetailPanel = React.memo(({
     const [selectedCurrentAmpher, setSelectedCurrentAmpher] = React.useState(null);
     const [selectedCurrentTumbol, setSelectedCurrentTumbol] = React.useState(null);
 
-    // Load provinces
+    // Load provinces with caching to prevent multiple simultaneous requests
+    const provincesCache = React.useRef({ data: null, loading: false, timestamp: 0 });
+    const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache
+
     const loadProvinces = React.useCallback(async () => {
+        // Check cache first
+        const now = Date.now();
+        if (provincesCache.current.data && 
+            (now - provincesCache.current.timestamp) < CACHE_DURATION) {
+            setCardProvinces(provincesCache.current.data);
+            setCurrentProvinces(provincesCache.current.data);
+            return provincesCache.current.data;
+        }
+
+        // If already loading, wait for it
+        if (provincesCache.current.loading) {
+            // Wait up to 10 seconds for the ongoing request
+            let waitCount = 0;
+            while (provincesCache.current.loading && waitCount < 20) {
+                await new Promise(resolve => setTimeout(resolve, 500));
+                waitCount++;
+            }
+            if (provincesCache.current.data) {
+                setCardProvinces(provincesCache.current.data);
+                setCurrentProvinces(provincesCache.current.data);
+                return provincesCache.current.data;
+            }
+        }
+
         try {
-            const response = await fetch(`${API_BASE_URL}/provinces`);
+            provincesCache.current.loading = true;
+            const response = await fetchWithTimeout(`${API_BASE_URL}/provinces`, {}, 15000, 1);
             const result = await response.json();
-            if (result.success) {
+            if (result.success && result.data) {
+                provincesCache.current.data = result.data;
+                provincesCache.current.timestamp = now;
                 setCardProvinces(result.data);
                 setCurrentProvinces(result.data);
                 return result.data;
             }
-            return null;
+            return [];
         } catch (error) {
             console.error('Error loading provinces:', error);
-            return null;
+            // Return cached data if available, otherwise empty array
+            if (provincesCache.current.data) {
+                setCardProvinces(provincesCache.current.data);
+                setCurrentProvinces(provincesCache.current.data);
+                return provincesCache.current.data;
+            }
+            setCardProvinces([]);
+            setCurrentProvinces([]);
+            return [];
+        } finally {
+            provincesCache.current.loading = false;
         }
     }, []);
 
@@ -225,13 +316,14 @@ const PatientDetailPanel = React.memo(({
             return;
         }
         try {
-            const response = await fetch(`${API_BASE_URL}/amphers/province/${provinceCode}`);
+            const response = await fetchWithTimeout(`${API_BASE_URL}/amphers/province/${provinceCode}`, {}, 10000, 1);
             const result = await response.json();
             if (result.success) {
                 setCardAmphers(result.data);
             }
         } catch (error) {
             console.error('Error loading card amphers:', error);
+            setCardAmphers([]);
         }
     }, []);
 
@@ -242,13 +334,14 @@ const PatientDetailPanel = React.memo(({
             return;
         }
         try {
-            const response = await fetch(`${API_BASE_URL}/tumbols/ampher/${ampherCode}`);
+            const response = await fetchWithTimeout(`${API_BASE_URL}/tumbols/ampher/${ampherCode}`, {}, 10000, 1);
             const result = await response.json();
             if (result.success) {
                 setCardTumbols(result.data);
             }
         } catch (error) {
             console.error('Error loading card tumbols:', error);
+            setCardTumbols([]);
         }
     }, []);
 
@@ -260,13 +353,14 @@ const PatientDetailPanel = React.memo(({
             return;
         }
         try {
-            const response = await fetch(`${API_BASE_URL}/amphers/province/${provinceCode}`);
+            const response = await fetchWithTimeout(`${API_BASE_URL}/amphers/province/${provinceCode}`, {}, 10000, 1);
             const result = await response.json();
             if (result.success) {
                 setCurrentAmphers(result.data);
             }
         } catch (error) {
             console.error('Error loading current amphers:', error);
+            setCurrentAmphers([]);
         }
     }, []);
 
@@ -277,13 +371,14 @@ const PatientDetailPanel = React.memo(({
             return;
         }
         try {
-            const response = await fetch(`${API_BASE_URL}/tumbols/ampher/${ampherCode}`);
+            const response = await fetchWithTimeout(`${API_BASE_URL}/tumbols/ampher/${ampherCode}`, {}, 10000, 1);
             const result = await response.json();
             if (result.success) {
                 setCurrentTumbols(result.data);
             }
         } catch (error) {
             console.error('Error loading current tumbols:', error);
+            setCurrentTumbols([]);
         }
     }, []);
 
@@ -309,7 +404,7 @@ const PatientDetailPanel = React.memo(({
                         const cardAmpherCode = editFormData.CARD_AMPHER_CODE || selectedPatient.CARD_AMPHER_CODE;
                         if (cardAmpherCode) {
                             try {
-                                const amphersRes = await fetch(`${API_BASE_URL}/amphers/province/${cardProvinceCode}`);
+                                const amphersRes = await fetchWithTimeout(`${API_BASE_URL}/amphers/province/${cardProvinceCode}`, {}, 10000, 1);
                                 const amphersResult = await amphersRes.json();
                                 if (amphersResult.success && amphersResult.data) {
                                     const cardAmpher = amphersResult.data.find(a => a.AMPHER_CODE === cardAmpherCode);
@@ -320,7 +415,7 @@ const PatientDetailPanel = React.memo(({
                                         const cardTumbolCode = editFormData.CARD_TUMBOL_CODE || selectedPatient.CARD_TUMBOL_CODE;
                                         if (cardTumbolCode) {
                                             try {
-                                                const tumbolsRes = await fetch(`${API_BASE_URL}/tumbols/ampher/${cardAmpherCode}`);
+                                                const tumbolsRes = await fetchWithTimeout(`${API_BASE_URL}/tumbols/ampher/${cardAmpherCode}`, {}, 10000, 1);
                                                 const tumbolsResult = await tumbolsRes.json();
                                                 if (tumbolsResult.success && tumbolsResult.data) {
                                                     const cardTumbol = tumbolsResult.data.find(t => t.TUMBOL_CODE === cardTumbolCode);
@@ -352,7 +447,7 @@ const PatientDetailPanel = React.memo(({
                         const currentAmpherCode = editFormData.AMPHER_CODE || selectedPatient.AMPHER_CODE;
                         if (currentAmpherCode) {
                             try {
-                                const amphersRes = await fetch(`${API_BASE_URL}/amphers/province/${currentProvinceCode}`);
+                                const amphersRes = await fetchWithTimeout(`${API_BASE_URL}/amphers/province/${currentProvinceCode}`, {}, 10000, 1);
                                 const amphersResult = await amphersRes.json();
                                 if (amphersResult.success && amphersResult.data) {
                                     const currentAmpher = amphersResult.data.find(a => a.AMPHER_CODE === currentAmpherCode);
@@ -363,7 +458,7 @@ const PatientDetailPanel = React.memo(({
                                         const currentTumbolCode = editFormData.TUMBOL_CODE || selectedPatient.TUMBOL_CODE;
                                         if (currentTumbolCode) {
                                             try {
-                                                const tumbolsRes = await fetch(`${API_BASE_URL}/tumbols/ampher/${currentAmpherCode}`);
+                                                const tumbolsRes = await fetchWithTimeout(`${API_BASE_URL}/tumbols/ampher/${currentAmpherCode}`, {}, 10000, 1);
                                                 const tumbolsResult = await tumbolsRes.json();
                                                 if (tumbolsResult.success && tumbolsResult.data) {
                                                     const currentTumbol = tumbolsResult.data.find(t => t.TUMBOL_CODE === currentTumbolCode);
@@ -1524,8 +1619,16 @@ const PatientManagement = () => {
     const [filteredPatients, setFilteredPatients] = useState([]);
     const [selectedPatient, setSelectedPatient] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
+    const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [patientPage, setPatientPage] = useState(1);
+    const [patientPagination, setPatientPagination] = useState({
+        page: 1,
+        limit: 50,
+        total: 0,
+        totalPages: 0
+    });
     const [isEditing, setIsEditing] = useState(false);
     const [editFormData, setEditFormData] = useState({});
     const [historySearch, setHistorySearch] = useState('');
@@ -1813,13 +1916,52 @@ const PatientManagement = () => {
         });
     }, [patientHistory, getTreatmentSummary]);
 
+    // เมื่อ patients เปลี่ยน ให้อัพเดท filteredPatients (ถ้าไม่มี search)
     useEffect(() => {
-        if (searchTerm) {
-            handleSearch();
-        } else {
+        if (!searchTerm.trim()) {
             setFilteredPatients(patients);
         }
-    }, [searchTerm, patients]);
+        // ถ้ามี search term ไม่ต้องทำอะไร เพราะ handleSearch จะจัดการเอง
+    }, [patients]);
+
+    // Debounce search term
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearchTerm(searchTerm);
+        }, 500); // 500ms delay
+
+        return () => clearTimeout(timer);
+    }, [searchTerm]);
+
+    // Auto search when debounced term changes
+    useEffect(() => {
+        if (debouncedSearchTerm.trim()) {
+            const performSearch = async () => {
+                try {
+                    setLoading(true);
+                    const response = await PatientService.searchPatients(debouncedSearchTerm.trim());
+                    if (response.success) {
+                        setFilteredPatients(response.data);
+                        setPatientPagination({
+                            page: 1,
+                            limit: response.data.length,
+                            total: response.data.length,
+                            totalPages: 1
+                        });
+                    }
+                } catch (err) {
+                    setError('เกิดข้อผิดพลาดในการค้นหา');
+                } finally {
+                    setLoading(false);
+                }
+            };
+            performSearch();
+        } else if (searchTerm === '') {
+            // ถ้า search term เป็นค่าว่าง ให้ reset
+            setFilteredPatients(patients);
+            setPatientPage(1);
+        }
+    }, [debouncedSearchTerm, searchTerm, patients]);
 
     useEffect(() => {
         if (activeTab === 'history') {
@@ -1898,13 +2040,19 @@ const PatientManagement = () => {
         }
     };
 
-    const loadPatients = useCallback(async () => {
+    const loadPatients = useCallback(async (page = 1, limit = 50) => {
         try {
             setLoading(true);
-            const response = await PatientService.getAllPatients();
+            const response = await PatientService.getAllPatients(page, limit);
             if (response.success) {
                 setPatients(response.data);
                 setFilteredPatients(response.data);
+                
+                // อัพเดท pagination info
+                if (response.pagination) {
+                    setPatientPagination(response.pagination);
+                }
+                
                 return response.data;
             }
             return [];
@@ -1917,27 +2065,40 @@ const PatientManagement = () => {
     }, []);
 
     useEffect(() => {
-        loadPatients();
-    }, [loadPatients]);
+        if (!searchTerm) {
+            loadPatients(patientPage, patientPagination.limit);
+        }
+    }, [patientPage]);
 
-    const handleSearch = async () => {
-        if (!searchTerm.trim()) {
+    const handleSearch = useCallback(async (term = null) => {
+        const searchValue = term || debouncedSearchTerm || searchTerm;
+        
+        if (!searchValue || !searchValue.trim()) {
+            // ถ้าไม่มี search term ให้ reset ไปหน้าแรก
+            setPatientPage(1);
             setFilteredPatients(patients);
             return;
         }
 
         try {
             setLoading(true);
-            const response = await PatientService.searchPatients(searchTerm);
+            const response = await PatientService.searchPatients(searchValue.trim());
             if (response.success) {
                 setFilteredPatients(response.data);
+                // เมื่อ search ไม่ใช้ pagination
+                setPatientPagination({
+                    page: 1,
+                    limit: response.data.length,
+                    total: response.data.length,
+                    totalPages: 1
+                });
             }
         } catch (err) {
             setError('เกิดข้อผิดพลาดในการค้นหา');
         } finally {
             setLoading(false);
         }
-    };
+    }, [debouncedSearchTerm, searchTerm, patients]);
 
     const handlePatientSelect = useCallback((patient) => {
         setSelectedPatient(patient);
@@ -1965,6 +2126,7 @@ const PatientManagement = () => {
 
         try {
             setLoading(true);
+            setError('');
             const response = await PatientService.updatePatient(selectedPatient.HNCODE, editFormData);
 
             if (response.success) {
@@ -1982,9 +2144,19 @@ const PatientManagement = () => {
 
                 setIsEditing(false);
                 setError('');
+            } else {
+                setError(response.message || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล');
             }
         } catch (err) {
-            setError('เกิดข้อผิดพลาดในการบันทึกข้อมูล');
+            console.error('Error saving patient:', err);
+            const errorMessage = err.message || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล';
+            if (errorMessage.includes('หมดเวลา') || errorMessage.includes('timeout') || errorMessage.includes('TIMED_OUT')) {
+                setError('การเชื่อมต่อหมดเวลา กรุณาลองใหม่อีกครั้ง');
+            } else if (errorMessage.includes('Failed to fetch') || errorMessage.includes('network')) {
+                setError('ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต');
+            } else {
+                setError(errorMessage);
+            }
         } finally {
             setLoading(false);
         }
@@ -2081,7 +2253,7 @@ const PatientManagement = () => {
 
                                     <Tooltip title="รีเฟรช">
                                         <IconButton
-                                            onClick={loadPatients}
+                                            onClick={() => loadPatients(patientPage, patientPagination.limit)}
                                             size="small"
                                             disabled={loading}
                                             sx={{
@@ -2096,29 +2268,55 @@ const PatientManagement = () => {
                                 </Box>
 
                                 {/* Search */}
-                                <TextField
-                                    placeholder="ค้นหาผู้ป่วย..."
-                                    value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                    fullWidth
-                                    size="small"
-                                    InputProps={{
-                                        startAdornment: (
-                                            <InputAdornment position="start">
-                                                <Search sx={{ color: '#64748b', fontSize: 20 }} />
-                                            </InputAdornment>
-                                        )
-                                    }}
-                                    sx={{
-                                        '& .MuiOutlinedInput-root': {
-                                            borderRadius: 3,
-                                            backgroundColor: '#f8fafc',
-                                            '&:hover': {
-                                                backgroundColor: '#f1f5f9'
+                                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                                    <TextField
+                                        placeholder="ค้นหาชื่อ, นามสกุล, HN, หรือเลขบัตรประชาชน..."
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                        fullWidth
+                                        size="small"
+                                        InputProps={{
+                                            startAdornment: (
+                                                <InputAdornment position="start">
+                                                    <Search sx={{ color: '#64748b', fontSize: 20 }} />
+                                                </InputAdornment>
+                                            ),
+                                            endAdornment: searchTerm && (
+                                                <InputAdornment position="end">
+                                                    <IconButton
+                                                        size="small"
+                                                        onClick={() => {
+                                                            setSearchTerm('');
+                                                            setPatientPage(1);
+                                                        }}
+                                                        sx={{
+                                                            color: '#dc2626',
+                                                            '&:hover': {
+                                                                backgroundColor: '#fee2e2'
+                                                            }
+                                                        }}
+                                                    >
+                                                        <CancelOutlined fontSize="small" />
+                                                    </IconButton>
+                                                </InputAdornment>
+                                            )
+                                        }}
+                                        sx={{
+                                            flex: 1,
+                                            '& .MuiOutlinedInput-root': {
+                                                borderRadius: 2,
+                                                backgroundColor: '#f8fafc',
+                                                '&:hover': {
+                                                    backgroundColor: '#f1f5f9'
+                                                },
+                                                '&.Mui-focused': {
+                                                    backgroundColor: '#ffffff',
+                                                    boxShadow: '0 0 0 3px rgba(74, 158, 255, 0.1)'
+                                                }
                                             }
-                                        }
-                                    }}
-                                />
+                                        }}
+                                    />
+                                </Box>
                             </Box>
 
                             {/* Error Alert */}
@@ -2154,14 +2352,229 @@ const PatientManagement = () => {
                                         </Typography>
                                     </Box>
                                 ) : (
-                                    filteredPatients.map((patient) => (
-                                        <PatientCard 
-                                            key={patient.HNCODE} 
-                                            patient={patient} 
-                                            isSelected={selectedPatient?.HNCODE === patient.HNCODE}
-                                            onSelect={handlePatientSelect}
-                                        />
-                                    ))
+                                    <>
+                                        {filteredPatients.map((patient) => (
+                                            <PatientCard 
+                                                key={patient.HNCODE} 
+                                                patient={patient} 
+                                                isSelected={selectedPatient?.HNCODE === patient.HNCODE}
+                                                onSelect={handlePatientSelect}
+                                            />
+                                        ))}
+                                        
+                                        {/* Pagination Controls - แสดงเฉพาะเมื่อไม่มีการ search */}
+                                        {!searchTerm && patientPagination.totalPages > 1 && (
+                                            <Paper
+                                                elevation={0}
+                                                sx={{
+                                                    mt: 2,
+                                                    p: 2,
+                                                    backgroundColor: '#f8fafc',
+                                                    border: '1px solid #e2e8f0',
+                                                    borderRadius: 3
+                                                }}
+                                            >
+                                                <Box
+                                                    sx={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'space-between',
+                                                        flexWrap: 'wrap',
+                                                        gap: 2
+                                                    }}
+                                                >
+                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                        <Typography 
+                                                            variant="body2" 
+                                                            sx={{ 
+                                                                color: '#64748b',
+                                                                fontWeight: 500
+                                                            }}
+                                                        >
+                                                            แสดง
+                                                        </Typography>
+                                                        <Chip
+                                                            label={`${((patientPagination.page - 1) * patientPagination.limit) + 1}-${Math.min(patientPagination.page * patientPagination.limit, patientPagination.total)}`}
+                                                            size="small"
+                                                            sx={{
+                                                                backgroundColor: '#e3f2fd',
+                                                                color: '#1e40af',
+                                                                fontWeight: 600,
+                                                                height: 24
+                                                            }}
+                                                        />
+                                                        <Typography 
+                                                            variant="body2" 
+                                                            sx={{ 
+                                                                color: '#64748b',
+                                                                fontWeight: 500
+                                                            }}
+                                                        >
+                                                            จากทั้งหมด
+                                                        </Typography>
+                                                        <Chip
+                                                            label={patientPagination.total.toLocaleString()}
+                                                            size="small"
+                                                            sx={{
+                                                                backgroundColor: '#4A9EFF',
+                                                                color: '#ffffff',
+                                                                fontWeight: 600,
+                                                                height: 24
+                                                            }}
+                                                        />
+                                                        <Typography 
+                                                            variant="body2" 
+                                                            sx={{ 
+                                                                color: '#64748b',
+                                                                fontWeight: 500
+                                                            }}
+                                                        >
+                                                            รายการ
+                                                        </Typography>
+                                                    </Box>
+
+                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                        <IconButton
+                                                            size="small"
+                                                            onClick={() => setPatientPage(1)}
+                                                            disabled={patientPagination.page <= 1 || loading}
+                                                            sx={{
+                                                                backgroundColor: patientPagination.page <= 1 ? 'transparent' : '#f1f5f9',
+                                                                color: patientPagination.page <= 1 ? '#cbd5e1' : '#4A9EFF',
+                                                                '&:hover': {
+                                                                    backgroundColor: patientPagination.page <= 1 ? 'transparent' : '#e2e8f0'
+                                                                },
+                                                                '&:disabled': {
+                                                                    backgroundColor: 'transparent',
+                                                                    color: '#cbd5e1'
+                                                                }
+                                                            }}
+                                                        >
+                                                            <KeyboardArrowLeft />
+                                                            <KeyboardArrowLeft sx={{ ml: -1.5 }} />
+                                                        </IconButton>
+                                                        
+                                                        <IconButton
+                                                            size="small"
+                                                            onClick={() => {
+                                                                const newPage = patientPagination.page - 1;
+                                                                setPatientPage(newPage);
+                                                            }}
+                                                            disabled={patientPagination.page <= 1 || loading}
+                                                            sx={{
+                                                                backgroundColor: patientPagination.page <= 1 ? 'transparent' : '#f1f5f9',
+                                                                color: patientPagination.page <= 1 ? '#cbd5e1' : '#4A9EFF',
+                                                                '&:hover': {
+                                                                    backgroundColor: patientPagination.page <= 1 ? 'transparent' : '#e2e8f0'
+                                                                },
+                                                                '&:disabled': {
+                                                                    backgroundColor: 'transparent',
+                                                                    color: '#cbd5e1'
+                                                                }
+                                                            }}
+                                                        >
+                                                            <KeyboardArrowLeft />
+                                                        </IconButton>
+
+                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mx: 1 }}>
+                                                            <TextField
+                                                                size="small"
+                                                                value={patientPagination.page}
+                                                                onChange={(e) => {
+                                                                    const page = parseInt(e.target.value);
+                                                                    if (page >= 1 && page <= patientPagination.totalPages) {
+                                                                        setPatientPage(page);
+                                                                    }
+                                                                }}
+                                                                inputProps={{
+                                                                    style: {
+                                                                        textAlign: 'center',
+                                                                        padding: '4px 8px',
+                                                                        width: '50px',
+                                                                        fontWeight: 600
+                                                                    },
+                                                                    min: 1,
+                                                                    max: patientPagination.totalPages
+                                                                }}
+                                                                sx={{
+                                                                    '& .MuiOutlinedInput-root': {
+                                                                        borderRadius: 2,
+                                                                        backgroundColor: '#ffffff',
+                                                                        '& fieldset': {
+                                                                            borderColor: '#e2e8f0'
+                                                                        },
+                                                                        '&:hover fieldset': {
+                                                                            borderColor: '#4A9EFF'
+                                                                        },
+                                                                        '&.Mui-focused fieldset': {
+                                                                            borderColor: '#4A9EFF',
+                                                                            borderWidth: 2
+                                                                        }
+                                                                    }
+                                                                }}
+                                                            />
+                                                            <Typography variant="body2" sx={{ color: '#64748b', mx: 0.5 }}>
+                                                                /
+                                                            </Typography>
+                                                            <Typography 
+                                                                variant="body2" 
+                                                                sx={{ 
+                                                                    color: '#1e293b',
+                                                                    fontWeight: 600,
+                                                                    minWidth: '30px',
+                                                                    textAlign: 'center'
+                                                                }}
+                                                            >
+                                                                {patientPagination.totalPages}
+                                                            </Typography>
+                                                        </Box>
+
+                                                        <IconButton
+                                                            size="small"
+                                                            onClick={() => {
+                                                                const newPage = patientPagination.page + 1;
+                                                                setPatientPage(newPage);
+                                                            }}
+                                                            disabled={patientPagination.page >= patientPagination.totalPages || loading}
+                                                            sx={{
+                                                                backgroundColor: patientPagination.page >= patientPagination.totalPages ? 'transparent' : '#f1f5f9',
+                                                                color: patientPagination.page >= patientPagination.totalPages ? '#cbd5e1' : '#4A9EFF',
+                                                                '&:hover': {
+                                                                    backgroundColor: patientPagination.page >= patientPagination.totalPages ? 'transparent' : '#e2e8f0'
+                                                                },
+                                                                '&:disabled': {
+                                                                    backgroundColor: 'transparent',
+                                                                    color: '#cbd5e1'
+                                                                }
+                                                            }}
+                                                        >
+                                                            <KeyboardArrowRight />
+                                                        </IconButton>
+
+                                                        <IconButton
+                                                            size="small"
+                                                            onClick={() => setPatientPage(patientPagination.totalPages)}
+                                                            disabled={patientPagination.page >= patientPagination.totalPages || loading}
+                                                            sx={{
+                                                                backgroundColor: patientPagination.page >= patientPagination.totalPages ? 'transparent' : '#f1f5f9',
+                                                                color: patientPagination.page >= patientPagination.totalPages ? '#cbd5e1' : '#4A9EFF',
+                                                                '&:hover': {
+                                                                    backgroundColor: patientPagination.page >= patientPagination.totalPages ? 'transparent' : '#e2e8f0'
+                                                                },
+                                                                '&:disabled': {
+                                                                    backgroundColor: 'transparent',
+                                                                    color: '#cbd5e1'
+                                                                }
+                                                            }}
+                                                        >
+                                                            <KeyboardArrowRight />
+                                                            <KeyboardArrowRight sx={{ ml: -1.5 }} />
+                                                        </IconButton>
+                                                    </Box>
+                                                </Box>
+                                            </Paper>
+                                        )}
+                                    </>
                                 )}
                             </Box>
                         </Box>
@@ -2435,7 +2848,7 @@ const PatientManagement = () => {
                                                 startIcon={<KeyboardArrowLeft />}
                                                 onClick={() => handleHistoryPageChange(historyPagination.page - 1)}
                                                 disabled={historyPagination.page <= 1 || historyLoading}
-                                                sx={{ borderRadius: 2 }}
+                                                sx={{ borderRadius: 2 }}ก
                                             >
                                                 ก่อนหน้า
                                             </Button>

@@ -643,7 +643,7 @@ const ตรวจวินิจฉัย = ({ currentPatient, onSaveSuccess })
       </Box>
 
       {/* Vitals Cards (ขยับลงมาอยู่ใต้แพ้ยา/โรคประจำตัว) */}
-      <Grid container spacing={2} sx={{ mb: 3 }}>
+          <Grid container spacing={2} sx={{ mb: 3 }}>
             {vitalsData.map((item, index) => (
               <Grid item xs={12} sm={6} key={index}>
                 <Card sx={{ p: 2, bgcolor: "#E9F2FF", height: 140, boxShadow: 'none' }}>

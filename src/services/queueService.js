@@ -129,7 +129,7 @@ class QueueService {
     // ลบคิว
     static async removeQueue(queueId) {
         try {
-            console.log('🔗 Calling API:', `${API_BASE_URL}/queue/${queueId}`);
+            console.log('🔗 Calling API (delete queue):', `${API_BASE_URL}/queue/${queueId}`);
             const response = await fetch(`${API_BASE_URL}/queue/${queueId}`, {
                 method: 'DELETE'
             });
