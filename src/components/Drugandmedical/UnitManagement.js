@@ -11,6 +11,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import CloseIcon from '@mui/icons-material/Close';
 import UnitService from '../../services/unitService';
+import Swal from "sweetalert2";
 
 const UnitManagement = () => {
     // States
@@ -124,7 +125,12 @@ const UnitManagement = () => {
 
     const handleSave = async () => {
         if (!formData.UNIT_NAME) {
-            showAlert('กรุณากรอกชื่อหน่วยนับ', 'error');
+            Swal.fire({
+                icon: 'error',
+                title: 'กรุณากรอกข้อมูลให้ครบถ้วน',
+                text: 'กรุณากรอกชื่อหน่วยนับ',
+                confirmButtonText: 'ตกลง'
+            });
             return;
         }
 

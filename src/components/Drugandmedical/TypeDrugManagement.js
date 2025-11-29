@@ -11,6 +11,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import CloseIcon from '@mui/icons-material/Close';
 import TypeDrugService from '../../services/typeDrugService';
+import Swal from "sweetalert2";
 
 const TypeDrugManagement = () => {
     // States
@@ -124,7 +125,12 @@ const TypeDrugManagement = () => {
 
     const handleSave = async () => {
         if (!formData.TYPE_DRUG_NAME) {
-            showAlert('กรุณากรอกชื่อประเภทยา', 'error');
+            Swal.fire({
+                icon: 'error',
+                title: 'กรุณากรอกข้อมูลให้ครบถ้วน',
+                text: 'กรุณากรอกชื่อประเภทยา',
+                confirmButtonText: 'ตกลง'
+            });
             return;
         }
 

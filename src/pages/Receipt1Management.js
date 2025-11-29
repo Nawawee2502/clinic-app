@@ -23,6 +23,7 @@ import Receipt1Service from "../services/receipt1Service";
 import SupplierService from "../services/supplierService";
 import DrugService from "../services/drugService";
 import BookBankService from "../services/bookBankService";
+import Swal from "sweetalert2";
 
 const Receipt1Management = () => {
     // Helper functions สำหรับจัดการปี พ.ศ.
@@ -754,8 +755,12 @@ const Receipt1Management = () => {
         const errors = [...headerErrors, ...detailErrors];
 
         if (errors.length > 0) {
-            console.log('❌ Validation failed:', errors[0]);
-            showAlert(errors[0], 'error');
+            Swal.fire({
+                icon: 'error',
+                title: 'กรุณากรอกข้อมูลให้ครบถ้วน',
+                text: errors[0],
+                confirmButtonText: 'ตกลง'
+            });
             return;
         }
 

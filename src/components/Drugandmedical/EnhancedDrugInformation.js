@@ -14,6 +14,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import PrintIcon from '@mui/icons-material/Print';
 import UnitService from '../../services/unitService';
 import TypeDrugService from '../../services/typeDrugService';
+import Swal from "sweetalert2";
 
 const EnhancedDrugInformation = () => {
     // States
@@ -195,7 +196,12 @@ const EnhancedDrugInformation = () => {
 
     const handleSave = async () => {
         if (!formData.GENERIC_NAME) {
-            showAlert('กรุณากรอกชื่อยา', 'error');
+            Swal.fire({
+                icon: 'error',
+                title: 'กรุณากรอกข้อมูลให้ครบถ้วน',
+                text: 'กรุณากรอกชื่อยา',
+                confirmButtonText: 'ตกลง'
+            });
             return;
         }
 

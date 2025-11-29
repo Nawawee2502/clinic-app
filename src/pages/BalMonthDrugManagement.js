@@ -20,6 +20,7 @@ import dayjs from 'dayjs';
 
 import BalMonthDrugService from "../services/balMonthDrugService";
 import DrugService from "../services/drugService";
+import Swal from "sweetalert2";
 
 const BalMonthDrugManagement = () => {
     // Helper functions สำหรับจัดการปี พ.ศ.
@@ -362,16 +363,24 @@ const BalMonthDrugManagement = () => {
         if (Object.keys(validationErrors).length > 0) {
             setFormErrors(validationErrors);
             const firstError = Object.values(validationErrors)[0];
-            console.log('❌ Validation failed:', firstError);
-            showAlert(firstError, 'error');
+            Swal.fire({
+                icon: 'error',
+                title: 'กรุณากรอกข้อมูลให้ครบถ้วน',
+                text: firstError,
+                confirmButtonText: 'ตกลง'
+            });
             return;
         }
 
         const errors = BalMonthDrugService.validateBalanceData(formData, !!editingItem);
 
         if (errors.length > 0) {
-            console.log('❌ Validation failed:', errors[0]);
-            showAlert(errors[0], 'error');
+            Swal.fire({
+                icon: 'error',
+                title: 'กรุณากรอกข้อมูลให้ครบถ้วน',
+                text: errors[0],
+                confirmButtonText: 'ตกลง'
+            });
             return;
         }
 

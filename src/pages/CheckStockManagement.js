@@ -17,6 +17,7 @@ import PrintIcon from '@mui/icons-material/Print';
 import CheckStockService from "../services/checkStockService";
 import DrugService from "../services/drugService";
 import BalDrugService from "../services/balDrugService";
+import Swal from "sweetalert2";
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
@@ -619,8 +620,12 @@ const CheckStockManagement = () => {
         const errors = [...headerErrors, ...detailErrors];
 
         if (errors.length > 0) {
-            console.log('❌ Validation failed:', errors[0]);
-            showAlert(errors[0], 'error');
+            Swal.fire({
+                icon: 'error',
+                title: 'กรุณากรอกข้อมูลให้ครบถ้วน',
+                text: errors[0],
+                confirmButtonText: 'ตกลง'
+            });
             return;
         }
 

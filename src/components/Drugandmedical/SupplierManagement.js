@@ -11,6 +11,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import CloseIcon from '@mui/icons-material/Close';
 import SupplierService from '../../services/supplierService';
+import Swal from "sweetalert2";
 
 const SupplierManagement = () => {
     const [currentView, setCurrentView] = useState("list");
@@ -122,11 +123,14 @@ const SupplierManagement = () => {
 
         // Validate
         const errors = SupplierService.validateSupplierData(formData, !!editingItem);
-        console.log('🔍 Validation errors:', errors);
 
         if (errors.length > 0) {
-            console.log('❌ Validation failed:', errors[0]);
-            showAlert(errors[0], 'error');
+            Swal.fire({
+                icon: 'error',
+                title: 'กรุณากรอกข้อมูลให้ครบถ้วน',
+                text: errors[0],
+                confirmButtonText: 'ตกลง'
+            });
             return;
         }
 

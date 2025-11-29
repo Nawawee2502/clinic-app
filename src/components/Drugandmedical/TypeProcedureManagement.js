@@ -11,6 +11,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import CloseIcon from '@mui/icons-material/Close';
 import TypeProcedureService from '../../services/typeProcedureService';
+import Swal from "sweetalert2";
 
 const TypeProcedureManagement = () => {
     // States
@@ -124,7 +125,12 @@ const TypeProcedureManagement = () => {
 
     const handleSave = async () => {
         if (!formData.TYPE_PROCEDURE_NAME) {
-            showAlert('กรุณากรอกชื่อประเภทหัตถการ', 'error');
+            Swal.fire({
+                icon: 'error',
+                title: 'กรุณากรอกข้อมูลให้ครบถ้วน',
+                text: 'กรุณากรอกชื่อประเภทหัตถการ',
+                confirmButtonText: 'ตกลง'
+            });
             return;
         }
 

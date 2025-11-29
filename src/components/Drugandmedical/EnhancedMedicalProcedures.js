@@ -12,6 +12,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import CloseIcon from '@mui/icons-material/Close';
 import TypeProcedureService from '../../services/typeProcedureService';
+import Swal from "sweetalert2";
 
 const EnhancedMedicalProcedures = () => {
     // States
@@ -137,7 +138,12 @@ const EnhancedMedicalProcedures = () => {
 
     const handleSave = async () => {
         if (!formData.MED_PRO_NAME_THAI) {
-            showAlert('กรุณากรอกชื่อหัตถการภาษาไทย', 'error');
+            Swal.fire({
+                icon: 'error',
+                title: 'กรุณากรอกข้อมูลให้ครบถ้วน',
+                text: 'กรุณากรอกชื่อหัตถการภาษาไทย',
+                confirmButtonText: 'ตกลง'
+            });
             return;
         }
 
