@@ -236,48 +236,48 @@ class PatientService {
                 const finalStatus = queueItem.TREATMENT_STATUS || queueItem.STATUS || 'รอตรวจ';
                 
                 return {
-                    // ข้อมูลคิว
-                    queueNumber: queueItem.QUEUE_NUMBER,
-                    queueTime: queueItem.QUEUE_TIME,
+                // ข้อมูลคิว
+                queueNumber: queueItem.QUEUE_NUMBER,
+                queueTime: queueItem.QUEUE_TIME,
                     queueStatus: finalStatus, // ใช้ STATUS1 จาก TREATMENT1 เป็นหลัก
                     STATUS: queueItem.STATUS || 'รอตรวจ', // เก็บ STATUS จาก DAILY_QUEUE ไว้ด้วย
-                    queueType: queueItem.TYPE,
-                    queueId: queueItem.QUEUE_ID,
-                    queueDate: queueItem.QUEUE_DATE,
+                queueType: queueItem.TYPE,
+                queueId: queueItem.QUEUE_ID,
+                queueDate: queueItem.QUEUE_DATE,
 
-                    // ข้อมูลผู้ป่วย
-                    HNCODE: queueItem.HNCODE,
-                    PRENAME: queueItem.PRENAME,
-                    NAME1: queueItem.NAME1,
-                    SURNAME: queueItem.SURNAME,
-                    AGE: queueItem.AGE,
-                    SEX: queueItem.SEX,
-                    TEL1: queueItem.TEL1,
+                // ข้อมูลผู้ป่วย
+                HNCODE: queueItem.HNCODE,
+                PRENAME: queueItem.PRENAME,
+                NAME1: queueItem.NAME1,
+                SURNAME: queueItem.SURNAME,
+                AGE: queueItem.AGE,
+                SEX: queueItem.SEX,
+                TEL1: queueItem.TEL1,
 
-                    // ข้อมูล VN ถ้ามี
-                    VNO: queueItem.VNO,
-                    TREATMENT_STATUS: queueItem.TREATMENT_STATUS,
+                // ข้อมูล VN ถ้ามี
+                VNO: queueItem.VNO,
+                TREATMENT_STATUS: queueItem.TREATMENT_STATUS,
                     STATUS1: queueItem.TREATMENT_STATUS, // เก็บ STATUS1 ไว้ด้วย
 
-                    // อาการเบื้องต้น
-                    SYMPTOM: queueItem.CHIEF_COMPLAINT,
+                // อาการเบื้องต้น
+                SYMPTOM: queueItem.CHIEF_COMPLAINT,
 
-                    // Avatar placeholder
-                    avatar: this.generateAvatarUrl(queueItem.SEX, queueItem.NAME1),
+                // Avatar placeholder
+                avatar: this.generateAvatarUrl(queueItem.SEX, queueItem.NAME1),
 
-                    // ✅ เพิ่มข้อมูลบัตร
-                    SOCIAL_CARD: queueItem.SOCIAL_CARD,
-                    UCS_CARD: queueItem.UCS_CARD,
+                // ✅ เพิ่มข้อมูลบัตร
+                SOCIAL_CARD: queueItem.SOCIAL_CARD,
+                UCS_CARD: queueItem.UCS_CARD,
 
-                    // ข้อมูลสำหรับ Vital Signs (ยังไม่มี จะได้จาก Treatment)
-                    WEIGHT1: null,
-                    HIGHT1: null,
-                    BT1: null,
-                    BP1: null,
-                    BP2: null,
-                    RR1: null,
-                    PR1: null,
-                    SPO2: null
+                // ข้อมูลสำหรับ Vital Signs (ยังไม่มี จะได้จาก Treatment)
+                WEIGHT1: null,
+                HIGHT1: null,
+                BT1: null,
+                BP1: null,
+                BP2: null,
+                RR1: null,
+                PR1: null,
+                SPO2: null
                 };
             });
 

@@ -32,14 +32,15 @@ const PaymentSummaryCard = ({
         const labTotal = editablePrices.labs.reduce((sum, item) => sum + item.editablePrice, 0);
         const procedureTotal = editablePrices.procedures.reduce((sum, item) => sum + item.editablePrice, 0);
         
-        // ✅ สำหรับผู้ป่วยบัตรทอง: คำนวณเฉพาะยาที่ UCS_CARD = 'N'
+        // ✅ สำหรับผู้ป่วยบัตรทอง: คำนวณยาที่ UCS_CARD = 'N' หรือยาที่แก้ราคาแล้ว (editablePrice > 0)
         const isGoldCard = patient?.UCS_CARD === 'Y' || patient?.treatment?.UCS_CARD === 'Y';
         
         let drugTotal = 0;
         if (isGoldCard) {
-            // คำนวณเฉพาะยาที่ UCS_CARD = 'N'
+            // คำนวณยาที่ UCS_CARD = 'N' หรือยาที่แก้ราคาแล้ว (editablePrice > 0)
             drugTotal = editablePrices.drugs.reduce((sum, item) => {
-                if (item.DRUG_UCS_CARD === 'N') {
+                // ถ้าเป็นยาที่ต้องจ่าย (UCS_CARD = 'N') หรือแก้ราคาแล้ว (editablePrice > 0) ให้นับ
+                if (item.DRUG_UCS_CARD === 'N' || (item.DRUG_UCS_CARD === 'Y' && item.editablePrice > 0)) {
                     return sum + item.editablePrice;
                 }
                 return sum;
@@ -127,11 +128,15 @@ const PaymentSummaryCard = ({
                         <Typography variant="body2">ค่ายา:</Typography>
                         <Typography variant="body2" fontWeight="bold">
                             {(() => {
-                                // ✅ สำหรับผู้ป่วยบัตรทอง: คำนวณเฉพาะยาที่ UCS_CARD = 'N'
+                                // ✅ สำหรับผู้ป่วยบัตรทอง: คำนวณยาที่ UCS_CARD = 'N' หรือยาที่แก้ราคาแล้ว (editablePrice > 0)
                                 const isGoldCard = patient?.UCS_CARD === 'Y' || patient?.treatment?.UCS_CARD === 'Y';
                                 if (isGoldCard) {
                                     return editablePrices.drugs.reduce((sum, item) => {
-                                        return sum + (item.DRUG_UCS_CARD === 'N' ? item.editablePrice : 0);
+                                        // ถ้าเป็นยาที่ต้องจ่าย (UCS_CARD = 'N') หรือแก้ราคาแล้ว (editablePrice > 0) ให้นับ
+                                        if (item.DRUG_UCS_CARD === 'N' || (item.DRUG_UCS_CARD === 'Y' && item.editablePrice > 0)) {
+                                            return sum + item.editablePrice;
+                                        }
+                                        return sum;
                                     }, 0).toFixed(2);
                                 } else {
                                     return editablePrices.drugs.reduce((sum, item) => sum + item.editablePrice, 0).toFixed(2);
@@ -207,20 +212,20 @@ const PaymentSummaryCard = ({
                             <Select
                                 value={paymentData.paymentMethod}
                                 onChange={(e) => onPaymentDataChange({ ...paymentData, paymentMethod: e.target.value })}
-                                disabled
                                 sx={{
                                     borderRadius: '10px',
                                     bgcolor: 'white',
                                 }}
                             >
                                 <MenuItem value="เงินสด">เงินสด</MenuItem>
+                                <MenuItem value="เงินโอน">เงินโอน</MenuItem>
                             </Select>
                         </FormControl>
 
                         {/* ฟิลด์เพิ่มเติมตามวิธีชำระ */}
-                        {paymentData.paymentMethod === 'เงินสด' && (
+                        {(paymentData.paymentMethod === 'เงินสด' || paymentData.paymentMethod === 'เงินโอน') && (
                             <TextField
-                                label="จำนวนเงินที่รับ"
+                                label={paymentData.paymentMethod === 'เงินสด' ? 'จำนวนเงินที่รับ' : 'จำนวนเงินที่โอน'}
                                 fullWidth
                                 margin="normal"
                                 type="number"

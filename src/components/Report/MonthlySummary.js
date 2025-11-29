@@ -266,10 +266,10 @@ const MonthlySummary = () => {
       } else {
         // Fallback: ใช้ข้อมูลเดิมจาก INCOME1
         const incomeResponse = await Income1Service.getAllIncome1(1, 500);
-        if (incomeResponse.success) {
-          setIncomeRecords(Array.isArray(incomeResponse.data) ? incomeResponse.data : []);
-        } else {
-          throw new Error(incomeResponse.message || "โหลดข้อมูลรายรับไม่สำเร็จ");
+      if (incomeResponse.success) {
+        setIncomeRecords(Array.isArray(incomeResponse.data) ? incomeResponse.data : []);
+      } else {
+        throw new Error(incomeResponse.message || "โหลดข้อมูลรายรับไม่สำเร็จ");
         }
       }
       
@@ -970,26 +970,26 @@ const MonthlySummary = () => {
                             </Box>
                           ) : (
                             // แสดงรายละเอียดรายการ (กรณีไม่ได้ group)
-                            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}>
-                              <Box sx={{ maxWidth: "75%" }}>
-                                <Typography variant="body2" fontWeight="medium" noWrap>
-                                  {row.income.name || "-"}
-                                </Typography>
-                                <Typography variant="caption" color="text.secondary" noWrap>
-                                  {row.income.refno || "-"} • {row.income.type || "-"}
-                                </Typography>
-                                <Typography variant="caption" color="text.secondary" noWrap>
-                                  {formatThaiDateShort(row.income.date)}
-                                </Typography>
-                              </Box>
-                              <IconButton
-                                size="small"
-                                onClick={() => loadIncomeDetail(row.income.refno)}
-                                sx={{ border: "1px solid #2563eb", borderRadius: "7px", color: "#2563eb" }}
-                              >
-                                <VisibilityIcon fontSize="small" />
-                              </IconButton>
+                          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}>
+                            <Box sx={{ maxWidth: "75%" }}>
+                              <Typography variant="body2" fontWeight="medium" noWrap>
+                                {row.income.name || "-"}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary" noWrap>
+                                {row.income.refno || "-"} • {row.income.type || "-"}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary" noWrap>
+                                {formatThaiDateShort(row.income.date)}
+                              </Typography>
                             </Box>
+                            <IconButton
+                              size="small"
+                              onClick={() => loadIncomeDetail(row.income.refno)}
+                              sx={{ border: "1px solid #2563eb", borderRadius: "7px", color: "#2563eb" }}
+                            >
+                              <VisibilityIcon fontSize="small" />
+                            </IconButton>
+                          </Box>
                           )
                         ) : (
                           "-"

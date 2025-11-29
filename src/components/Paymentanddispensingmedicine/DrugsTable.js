@@ -112,6 +112,7 @@ const DrugsTable = ({
                             <TableRow>
                                 <TableCell sx={{ fontWeight: 'bold' }}>ลำดับ</TableCell>
                                 <TableCell sx={{ fontWeight: 'bold' }}>ชื่อยา/รายละเอียด</TableCell>
+                                <TableCell sx={{ fontWeight: 'bold' }}>ประเภท</TableCell>
                                 <TableCell align="center" sx={{ fontWeight: 'bold' }}>จำนวน</TableCell>
                                 <TableCell align="right" sx={{ fontWeight: 'bold' }}>ราคา/หน่วย</TableCell>
                                 <TableCell align="right" sx={{ fontWeight: 'bold' }}>ราคารวม</TableCell>
@@ -140,7 +141,8 @@ const DrugsTable = ({
                                         <TableCell>
                                             <Box>
                                                 <Typography variant="body1" fontWeight="bold" sx={{ color: '#2B69AC' }}>
-                                                    {drug.GENERIC_NAME || drug.TRADE_NAME || drug.DRUG_CODE}
+                                                    {drug.GENERIC_NAME || drug.DRUG_CODE}
+                                                    {drug.TRADE_NAME ? ` - ${drug.TRADE_NAME}` : ''}
                                                 </Typography>
                                                 {(drug.NOTE1 || drug.TIME1) && (
                                                     <Typography variant="caption" color="text.secondary">
@@ -151,6 +153,11 @@ const DrugsTable = ({
                                                 )}
                                             </Box>
                                         </TableCell>
+                                        <TableCell>
+                                            <Typography variant="body2" color="text.secondary">
+                                                {drug.TYPE_DRUG_NAME || '-'}
+                                            </Typography>
+                                        </TableCell>
                                         <TableCell align="center">
                                             <Box sx={{
                                                 bgcolor: '#E3F2FD',
@@ -160,7 +167,8 @@ const DrugsTable = ({
                                                 borderRadius: 2,
                                                 fontWeight: 'bold'
                                             }}>
-                                                {drug.QTY || 0} {drug.UNIT_CODE || drug.UNIT_NAME || ''}
+                                                {drug.QTY || 0}{' '}
+                                                {drug.DISPLAY_UNIT_NAME || drug.UNIT_NAME || drug.UNIT_CODE || ''}
                                             </Box>
                                         </TableCell>
                                         <TableCell align="right">

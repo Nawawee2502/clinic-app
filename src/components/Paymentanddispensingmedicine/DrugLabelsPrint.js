@@ -79,7 +79,7 @@ const DrugLabelsPrint = ({ patient, drugs }) => {
         <div class="labels-container">
           ${drugs.map(drug => {
             const qty = drug.QTY || 1;
-            const unit = drug.UNIT_CODE || "เม็ด";
+            const unit = drug.DISPLAY_UNIT_NAME || drug.UNIT_NAME || drug.UNIT_CODE || "เม็ด";
             const name = drug.GENERIC_NAME || drug.DRUG_CODE || "ยา";
             const expire = drug.EXPIRE_DATE || "...............";
 

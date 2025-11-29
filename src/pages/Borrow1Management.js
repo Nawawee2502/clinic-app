@@ -572,15 +572,21 @@ const Borrow1Management = () => {
         }
         setSelectedLot(value);
         if (value) {
-            const unitPrice = parseFloat(value.UNIT_PRICE) || 0;
+            const rawUnitPrice = value.UNIT_PRICE;
+            const unitPrice = rawUnitPrice !== null && rawUnitPrice !== undefined
+                ? parseFloat(rawUnitPrice)
+                : NaN;
             const currentQty = parseFloat(modalData.QTY) || 0;
-            const amount = calculateAmount(currentQty, unitPrice);
+            const amount = calculateAmount(
+                currentQty,
+                Number.isNaN(unitPrice) ? 0 : unitPrice
+            );
 
             setModalData(prev => ({
                 ...prev,
                 LOT_NO: value.LOT_NO,
                 EXPIRE_DATE: Borrow1Service.formatDateForInput(value.EXPIRE_DATE),
-                UNIT_COST: unitPrice ? unitPrice.toFixed(2) : '',
+                UNIT_COST: Number.isNaN(unitPrice) ? '' : unitPrice.toFixed(2),
                 AMT: amount
             }));
         } else {

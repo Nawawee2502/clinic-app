@@ -2565,7 +2565,7 @@ const PatientManagement = () => {
                         <Typography variant="h6" sx={{ fontWeight: 600, color: '#1e293b' }}>
                             สรุปการรักษา
                         </Typography>
-                        {summaryRecord && (
+                    {summaryRecord && (
                             <Typography variant="body2" color="text.secondary">
                                 VN: {summaryRecord?.VNO || summaryRecord?.VN || '-'}
                             </Typography>
@@ -2581,10 +2581,10 @@ const PatientManagement = () => {
                                     <Grid item xs={12} sm={6}>
                                         <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>
                                             วันที่รับบริการ
-                                        </Typography>
+                            </Typography>
                                         <Typography variant="body1" sx={{ fontWeight: 500, mt: 0.5 }}>
                                             {formatHistoryDate(summaryRecord)}
-                                        </Typography>
+                            </Typography>
                                     </Grid>
                                     <Grid item xs={12} sm={6}>
                                         <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>
@@ -2599,10 +2599,10 @@ const PatientManagement = () => {
                                             ชื่อ-นามสกุล
                                         </Typography>
                                         <Typography variant="body1" sx={{ fontWeight: 500, mt: 0.5 }}>
-                                            {[summaryRecord?.PRENAME, summaryRecord?.NAME1, summaryRecord?.SURNAME]
-                                                .filter(Boolean)
-                                                .join(' ')}
-                                        </Typography>
+                                {[summaryRecord?.PRENAME, summaryRecord?.NAME1, summaryRecord?.SURNAME]
+                                    .filter(Boolean)
+                                    .join(' ')}
+                            </Typography>
                                     </Grid>
                                     <Grid item xs={12} sm={6}>
                                         <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>
@@ -2680,18 +2680,18 @@ const PatientManagement = () => {
                                         สรุปการรักษา
                                     </Typography>
                                     <Paper sx={{ p: 2, backgroundColor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 2 }}>
-                                        <Typography
-                                            variant="body1"
-                                            sx={{
-                                                whiteSpace: 'pre-wrap',
+                                <Typography
+                                    variant="body1"
+                                    sx={{
+                                        whiteSpace: 'pre-wrap',
                                                 lineHeight: 1.8,
-                                                color: '#0f172a'
-                                            }}
-                                        >
-                                            {summaryRecord.TREATMENT1_TEXT}
-                                        </Typography>
+                                        color: '#0f172a'
+                                    }}
+                                >
+                                    {summaryRecord.TREATMENT1_TEXT}
+                                </Typography>
                                     </Paper>
-                                </Box>
+                            </Box>
                             )}
 
                             {/* รายการยา */}

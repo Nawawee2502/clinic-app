@@ -14,11 +14,27 @@ import PaymentIcon from '@mui/icons-material/Payment';
 // Import TreatmentService
 import TreatmentService from "../../services/treatmentService";
 
-const PatientInfoHeader = ({ patient }) => {
+const PatientInfoHeader = ({ patient, treatmentData }) => {
     if (!patient) return null;
 
     // ดึงข้อมูลสิทธิ์การรักษา
     const patientRight = TreatmentService.getPatientRight(patient);
+
+    // ดึงข้อมูลเพิ่มเติมจาก treatmentData
+    const patientInfo = treatmentData?.patient || {};
+    const treatment = treatmentData?.treatment || {};
+    const diagnosis = treatmentData?.diagnosis || {};
+
+    // รวมข้อมูลผู้ป่วย
+    const drugAllergy = patient.DRUG_ALLERGY || patientInfo.DRUG_ALLERGY || '';
+    const disease = patient.DISEASE1 || patientInfo.DISEASE1 || '';
+    const weight = treatment.WEIGHT1 || patient.WEIGHT1 || null;
+    const dxCode = treatment.DXCODE || '';
+    const dxName = treatment.DXNAME_THAI || '';
+    const chiefComplaint = diagnosis.CHIEF_COMPLAINT || patient.SYMPTOM || treatment.SYMPTOM || '';
+    const presentIll = diagnosis.PRESENT_ILL || '';
+    const physicalExam = diagnosis.PHYSICAL_EXAM || '';
+    const plan = diagnosis.PLAN1 || '';
 
     // เลือก icon ตามประเภทสิทธิ์
     const getRightIcon = (code) => {
@@ -103,29 +119,100 @@ const PatientInfoHeader = ({ patient }) => {
                 </Grid>
             </Grid>
 
-            {/* อาการ และ สิทธิ์การรักษา */}
+            {/* ข้อมูลเพิ่มเติม: อาการ, ประวัติแพ้ยา, โรคประจำตัว, น้ำหนัก, Diagnosis */}
             <Grid container spacing={2} sx={{ mt: 1 }}>
-                {/* อาการเบื้องต้น */}
-                {patient.SYMPTOM && (
-                    <Grid item xs={12} md={8}>
+                {/* ข้อมูลด้านซ้าย - รวมทั้งหมดใน Box เดียว แสดงในบรรทัดเดียวกัน */}
+                <Grid item xs={12} md={8}>
+                    {(chiefComplaint || drugAllergy || disease || weight || dxCode) && (
                         <Box sx={{
                             p: 2,
                             bgcolor: 'rgba(255,255,255,0.1)',
                             borderRadius: 2,
                             border: '1px solid rgba(255,255,255,0.2)'
                         }}>
-                            <Typography variant="body2" sx={{ opacity: 0.8, mb: 1, fontWeight: 600 }}>
-                                💬 อาการเบื้องต้น:
-                            </Typography>
-                            <Typography variant="body1" sx={{ lineHeight: 1.6 }}>
-                                {patient.SYMPTOM}
-                            </Typography>
+                            <Grid container spacing={2} alignItems="flex-start">
+                                {/* อาการเบื้องต้น */}
+                                {chiefComplaint && (
+                                    <Grid item xs={12} sm={6} md={3}>
+                                        <Typography variant="caption" sx={{ opacity: 0.8, mb: 0.5, fontWeight: 600, display: 'block', fontSize: '11px' }}>
+                                            💬 อาการเบื้องต้น:
+                                        </Typography>
+                                        <Typography variant="body2" sx={{ lineHeight: 1.4, fontSize: '13px' }}>
+                                            {chiefComplaint}
+                                        </Typography>
+                                    </Grid>
+                                )}
+
+                                {/* ประวัติแพ้ยา */}
+                                <Grid item xs={12} sm={6} md={chiefComplaint ? 3 : 4}>
+                                    <Typography variant="caption" sx={{ opacity: 0.8, fontWeight: 600, display: 'block', mb: 0.5, fontSize: '11px' }}>
+                                        ⚠️ ประวัติแพ้ยา:
+                                    </Typography>
+                                    <Typography variant="body2" sx={{ lineHeight: 1.4, fontSize: '13px' }}>
+                                        {drugAllergy || 'ไม่มี'}
+                                    </Typography>
+                                </Grid>
+
+                                {/* โรคประจำตัว */}
+                                {disease && (
+                                    <Grid item xs={12} sm={6} md={chiefComplaint ? 3 : 4}>
+                                        <Typography variant="caption" sx={{ opacity: 0.8, fontWeight: 600, display: 'block', mb: 0.5, fontSize: '11px' }}>
+                                            🏥 โรคประจำตัว:
+                                        </Typography>
+                                        <Typography variant="body2" sx={{ lineHeight: 1.4, fontSize: '13px' }}>
+                                            {disease}
+                                        </Typography>
+                                    </Grid>
+                                )}
+
+                                {/* น้ำหนัก */}
+                                {weight && (
+                                    <Grid item xs={12} sm={6} md={chiefComplaint ? 3 : 4}>
+                                        <Typography variant="caption" sx={{ opacity: 0.8, fontWeight: 600, display: 'block', mb: 0.5, fontSize: '11px' }}>
+                                            ⚖️ น้ำหนัก:
+                                        </Typography>
+                                        <Typography variant="body2" sx={{ lineHeight: 1.4, fontWeight: 600, fontSize: '13px' }}>
+                                            {weight} กก.
+                                        </Typography>
+                                    </Grid>
+                                )}
+
+                                {/* Diagnosis */}
+                                {dxCode && (
+                                    <Grid item xs={12} sm={6} md={chiefComplaint ? 3 : 4}>
+                                        <Typography variant="caption" sx={{ opacity: 0.8, fontWeight: 600, display: 'block', mb: 0.5, fontSize: '11px' }}>
+                                            🩺 Diagnosis:
+                                        </Typography>
+                                        <Box sx={{ display: 'flex', gap: 0.8, alignItems: 'center', flexWrap: 'wrap' }}>
+                                            <Chip
+                                                label={dxCode}
+                                                size="small"
+                                                sx={{
+                                                    bgcolor: 'rgba(255,255,255,0.25)',
+                                                    color: 'white',
+                                                    fontWeight: 700,
+                                                    fontSize: '11px',
+                                                    height: 22,
+                                                    '& .MuiChip-label': {
+                                                        px: 1
+                                                    }
+                                                }}
+                                            />
+                                            {dxName && (
+                                                <Typography variant="body2" sx={{ lineHeight: 1.4, fontSize: '12px', opacity: 0.95 }}>
+                                                    {dxName}
+                                                </Typography>
+                                            )}
+                                        </Box>
+                                    </Grid>
+                                )}
+                            </Grid>
                         </Box>
-                    </Grid>
-                )}
+                    )}
+                </Grid>
 
                 {/* สิทธิ์การรักษา */}
-                <Grid item xs={12} md={patient.SYMPTOM ? 4 : 12}>
+                <Grid item xs={12} md={4}>
                     <Box sx={{ position: 'relative', zIndex: 1, textAlign: 'center', width: '100%' }}>
                         <Typography
                             variant="caption"

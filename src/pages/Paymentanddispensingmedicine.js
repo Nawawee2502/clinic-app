@@ -537,13 +537,45 @@ const Paymentanddispensingmedicine = () => {
           }));
         }
 
-        // ดึงข้อมูล Drugs พร้อม UCS_CARD
+        // ดึงข้อมูล Drugs พร้อม UCS_CARD และชื่อหน่วย (UNIT_NAME)
         let drugsArray = [];
         if (response.data.drugs && response.data.drugs.length > 0) {
+          // map สำหรับชื่อหน่วยสวยๆ
+          const unitNameMap = {
+            TAB: 'เม็ด',
+            CAP: 'แคปซูล',
+            BOT: 'ขวด',
+            AMP: 'แอมพูล',
+            VIAL: 'ไวออล',
+            TUBE: 'หลอด',
+            SACHET: 'ซอง',
+            BOX: 'กล่อง',
+            SPRAY: 'สเปรย์',
+            DROP: 'หยด',
+            ML: 'มิลลิลิตร',
+            G: 'กรัม',
+            PACK: 'แพ็ค',
+            TIMES: 'ครั้ง'
+          };
+
           // ดึงข้อมูล UCS_CARD ของยาแต่ละตัว
           drugsArray = await Promise.all(
             response.data.drugs.map(async (item) => {
               let drugUcsCard = item.UCS_CARD || 'N';
+              const rawUnitCode = item.UNIT_CODE || '';
+              const rawUnitName =
+                item.UNIT_NAME ||
+                item.UNIT_NAME1 ||
+                item.unitName ||
+                '';
+
+              // แปลงชื่อหน่วยสำหรับแสดงผล: ถ้าเป็นรหัส เช่น TAB ให้แสดงชื่อไทย
+              let displayUnitName = rawUnitName;
+              if (!displayUnitName) {
+                displayUnitName = unitNameMap[rawUnitCode] || rawUnitCode;
+              } else if (displayUnitName === rawUnitCode && unitNameMap[rawUnitCode]) {
+                displayUnitName = unitNameMap[rawUnitCode];
+              }
               
               // ถ้ายังไม่มี UCS_CARD ให้ดึงจาก DrugService
               if (!drugUcsCard || drugUcsCard === 'N') {
@@ -562,7 +594,9 @@ const Paymentanddispensingmedicine = () => {
                 ...item,
                 editablePrice: parseFloat(item.AMT || 0),
                 originalPrice: parseFloat(item.AMT || 0),
-                DRUG_UCS_CARD: drugUcsCard // เก็บ UCS_CARD ของยาแต่ละตัว
+                DRUG_UCS_CARD: drugUcsCard, // เก็บ UCS_CARD ของยาแต่ละตัว
+                UNIT_NAME: rawUnitName,
+                DISPLAY_UNIT_NAME: displayUnitName
               };
             })
           );
@@ -676,7 +710,7 @@ const Paymentanddispensingmedicine = () => {
     const labTotal = editablePrices.labs.reduce((sum, item) => sum + item.editablePrice, 0);
     const procedureTotal = editablePrices.procedures.reduce((sum, item) => sum + item.editablePrice, 0);
     
-    // ✅ สำหรับผู้ป่วยบัตรทอง: คำนวณเฉพาะยาที่ UCS_CARD = 'N'
+    // ✅ สำหรับผู้ป่วยบัตรทอง: คำนวณยาที่ UCS_CARD = 'N' หรือยาที่แก้ราคาแล้ว (editablePrice > 0)
     const currentPatient = patients[selectedPatientIndex];
     const isGoldCard = currentPatient?.UCS_CARD === 'Y' || 
                       treatmentData?.treatment?.UCS_CARD === 'Y' ||
@@ -684,9 +718,10 @@ const Paymentanddispensingmedicine = () => {
     
     let drugTotal = 0;
     if (isGoldCard) {
-      // คำนวณเฉพาะยาที่ UCS_CARD = 'N'
+      // คำนวณยาที่ UCS_CARD = 'N' หรือยาที่แก้ราคาแล้ว (editablePrice > 0)
       drugTotal = editablePrices.drugs.reduce((sum, item) => {
-        if (item.DRUG_UCS_CARD === 'N') {
+        // ถ้าเป็นยาที่ต้องจ่าย (UCS_CARD = 'N') หรือแก้ราคาแล้ว (editablePrice > 0) ให้นับ
+        if (item.DRUG_UCS_CARD === 'N' || (item.DRUG_UCS_CARD === 'Y' && item.editablePrice > 0)) {
           return sum + item.editablePrice;
         }
         return sum;
@@ -754,7 +789,7 @@ const Paymentanddispensingmedicine = () => {
       ...editablePrices.drugs.map(item => ({
         name: item.GENERIC_NAME || item.DRUG_CODE || "ยา",
         quantity: item.QTY || 1,
-        unit: item.UNIT_CODE || "เม็ด",
+        unit: item.DISPLAY_UNIT_NAME || item.UNIT_NAME || item.UNIT_CODE || "เม็ด",
         price: item.editablePrice || 0
       }))
     ];
@@ -1098,7 +1133,7 @@ const Paymentanddispensingmedicine = () => {
                     {/* Patient Info Header */}
                     {currentPatient && (
                       <Box sx={{ mb: 3 }}>
-                        <PatientInfoHeader patient={currentPatient} />
+                        <PatientInfoHeader patient={currentPatient} treatmentData={treatmentData} />
                       </Box>
                     )}
 
@@ -1143,7 +1178,6 @@ const Paymentanddispensingmedicine = () => {
                           <Grid item xs={12} lg={4}>
                             <Box sx={{ position: 'sticky', top: 20 }}>
                               <PaymentSummaryCard
-                                key={`payment-summary-${JSON.stringify(editablePrices)}-${JSON.stringify(paymentData)}`}
                                 editablePrices={editablePrices}
                                 paymentData={paymentData}
                                 onPaymentDataChange={setPaymentData}
@@ -1238,7 +1272,10 @@ const Paymentanddispensingmedicine = () => {
                                 {editablePrices.drugs.map((drug, index) => (
                                   <TableRow key={`drug-${index}`}>
                                     <TableCell>{drug.GENERIC_NAME || drug.DRUG_CODE}</TableCell>
-                                    <TableCell align="center">{drug.QTY || 0} {drug.UNIT_CODE || ''}</TableCell>
+                                    <TableCell align="center">
+                                      {drug.QTY || 0}{' '}
+                                      {drug.DISPLAY_UNIT_NAME || drug.UNIT_NAME || drug.UNIT_CODE || ''}
+                                    </TableCell>
                                     <TableCell align="right">{drug.editablePrice.toFixed(2)}</TableCell>
                                   </TableRow>
                                 ))}
@@ -1336,7 +1373,9 @@ const Paymentanddispensingmedicine = () => {
                                 <Typography variant="h6" sx={{ color: '#4a90e2', mb: 1 }}>
                                   {drug.GENERIC_NAME || drug.DRUG_CODE}
                                 </Typography>
-                                <Typography variant="body2">จำนวน: {drug.QTY} {drug.UNIT_CODE}</Typography>
+                                <Typography variant="body2">
+                                  จำนวน: {drug.QTY} {drug.UNIT_NAME || drug.UNIT_CODE}
+                                </Typography>
                                 <Typography variant="body2">วิธีใช้: ครั้งละ {drug.DOSAGE || 1} วันละ {drug.FREQUENCY || 3} ครั้ง</Typography>
                                 <Typography variant="body2">ผู้ป่วย: {currentPatient.PRENAME}{currentPatient.NAME1} {currentPatient.SURNAME}</Typography>
                               </Box>

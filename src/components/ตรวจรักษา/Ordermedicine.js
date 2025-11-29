@@ -345,10 +345,10 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
                 showSnackbar('บันทึกข้อมูลยาสำเร็จ!', 'success');
 
                 if (!isLockedStatus) {
-                    try {
-                        await QueueService.updateQueueStatus(currentPatient.queueId, 'กำลังตรวจ');
-                    } catch (error) {
-                        console.warn('Could not update queue status:', error);
+                try {
+                    await QueueService.updateQueueStatus(currentPatient.queueId, 'กำลังตรวจ');
+                } catch (error) {
+                    console.warn('Could not update queue status:', error);
                     }
                 }
 

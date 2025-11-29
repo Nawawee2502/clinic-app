@@ -571,8 +571,79 @@ const ตรวจวินิจฉัย = ({ currentPatient, onSaveSuccess })
 
           <Divider sx={{ pt: 2 }} />
 
-          {/* Vitals Cards */}
-          <Grid container spacing={2} sx={{ mb: 3 }}>
+      {/* Allergy & Chronic Disease Info (อยู่เหนือ V/S) */}
+      <Box
+        sx={{
+          mt: 2,
+          mb: 2,
+          p: 1.5,
+          borderRadius: 2,
+          bgcolor: '#f9fafb',
+          border: '1px solid #e2e8f0'
+        }}
+      >
+        <Typography
+          variant="subtitle2"
+          sx={{ fontWeight: 700, fontSize: '0.85rem', mb: 0.75, color: '#0f172a' }}
+        >
+          ข้อมูลสำคัญก่อนตรวจ
+        </Typography>
+
+        <Grid container spacing={1}>
+          <Grid item xs={12}>
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+              <Typography
+                variant="caption"
+                sx={{ fontWeight: 700, fontSize: '0.8rem', color: '#b91c1c' }}
+              >
+                ⚠️ แพ้ยา:
+              </Typography>
+              <Typography
+                variant="body2"
+                sx={{
+                  fontSize: '0.9rem',
+                  px: 1,
+                  py: 0.25,
+                  borderRadius: 1,
+                  bgcolor: currentPatient.DRUG_ALLERGY ? '#fee2e2' : '#e5e7eb',
+                  color: currentPatient.DRUG_ALLERGY ? '#b91c1c' : '#4b5563',
+                  fontWeight: currentPatient.DRUG_ALLERGY ? 600 : 400
+                }}
+              >
+                {currentPatient.DRUG_ALLERGY || 'ไม่มี'}
+              </Typography>
+            </Box>
+          </Grid>
+
+          <Grid item xs={12}>
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+              <Typography
+                variant="caption"
+                sx={{ fontWeight: 700, fontSize: '0.8rem', color: '#0f766e' }}
+              >
+                🏥 โรคประจำตัว:
+              </Typography>
+              <Typography
+                variant="body2"
+                sx={{
+                  fontSize: '0.9rem',
+                  px: 1,
+                  py: 0.25,
+                  borderRadius: 1,
+                  bgcolor: currentPatient.DISEASE1 ? '#ccfbf1' : '#e5e7eb',
+                  color: currentPatient.DISEASE1 ? '#115e59' : '#4b5563',
+                  fontWeight: currentPatient.DISEASE1 ? 600 : 400
+                }}
+              >
+                {currentPatient.DISEASE1 || 'ไม่มี'}
+              </Typography>
+            </Box>
+          </Grid>
+        </Grid>
+      </Box>
+
+      {/* Vitals Cards (ขยับลงมาอยู่ใต้แพ้ยา/โรคประจำตัว) */}
+      <Grid container spacing={2} sx={{ mb: 3 }}>
             {vitalsData.map((item, index) => (
               <Grid item xs={12} sm={6} key={index}>
                 <Card sx={{ p: 2, bgcolor: "#E9F2FF", height: 140, boxShadow: 'none' }}>

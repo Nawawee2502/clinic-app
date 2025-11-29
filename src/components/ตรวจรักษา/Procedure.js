@@ -946,7 +946,7 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
                 <Grid item xs={12} sx={{ textAlign: "right" }}>
                   <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
                     {editingMedicineIndex >= 0 && (
-                    <Button
+                      <Button
                       disabled={!hasProcedures}
                         variant="outlined"
                         onClick={() => {

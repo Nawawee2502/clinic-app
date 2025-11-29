@@ -238,7 +238,7 @@ const ตรวจรักษา = () => {
               : p
           );
           setPatients(updatedPatients);
-          
+
           // รีโหลดข้อมูลเพื่อให้แน่ใจว่าสถานะถูกต้อง
           setTimeout(() => {
             loadTodayPatients();
@@ -840,7 +840,7 @@ const ตรวจรักษา = () => {
                     p: 3,
                     textAlign: 'center',
                     bgcolor: 'rgba(241,245,249,0.8)',
-                    borderRadius: '16px',
+                        borderRadius: '16px',
                     margin: 1,
                     border: '1px dashed rgba(148,163,184,0.6)'
                   }}>
@@ -919,9 +919,9 @@ const ตรวจรักษา = () => {
                               whiteSpace: 'nowrap',
                               overflow: 'hidden',
                               textOverflow: 'ellipsis'
-                            }}>
+                              }}>
                               {patient.PRENAME}{patient.NAME1} {patient.SURNAME}
-                            </Typography>
+                              </Typography>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                               <Chip
                                 size="small"
@@ -968,13 +968,13 @@ const ตรวจรักษา = () => {
                           </Box>
 
                             <Typography sx={{
-                              fontSize: '13px',
+                                fontSize: '13px',
                               color: isActive ? 'rgba(255,255,255,0.95)' : '#334155',
                               fontWeight: 600,
                               mb: 0.2
-                            }}>
+                              }}>
                               HN: {patient.HNCODE || '-'} {patient.VNO && `• VN: ${patient.VNO}`}
-                            </Typography>
+                              </Typography>
 
                             <Box sx={{
                               display: 'flex',
@@ -983,13 +983,13 @@ const ตรวจรักษา = () => {
                               fontSize: '12px',
                               color: isActive ? 'rgba(255,255,255,0.85)' : '#64748b',
                               mb: patient.SYMPTOM ? 0.3 : 0
-                            }}>
+                              }}>
                               <span>📅 {formatQueueDate(patient.queueDate)}</span>
                               <span>•</span>
                               <span>⏰ {patient.queueTime || '-'}</span>
                             </Box>
 
-                            {patient.SYMPTOM && (
+                              {patient.SYMPTOM && (
                               <Box sx={{
                                 backgroundColor: isActive ? 'rgba(255,255,255,0.15)' : '#f1f5f9',
                                 borderRadius: '10px',
@@ -1000,13 +1000,13 @@ const ตรวจรักษา = () => {
                                 alignItems: 'center',
                                 gap: 0.4,
                                 border: isActive ? '1px solid rgba(255,255,255,0.3)' : '1px solid rgba(148,163,184,0.4)'
-                              }}>
+                                }}>
                                 <span role="img" aria-label="chat">💬</span>
                                 <span>{patient.SYMPTOM}</span>
                               </Box>
-                            )}
-                          </Box>
-                        </Box>
+                              )}
+                            </Box>
+                    </Box>
                       </ListItemButton>
                     );
                   })
