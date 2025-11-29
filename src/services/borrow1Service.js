@@ -216,8 +216,14 @@ class Borrow1Service {
                 errors.push(`รายการที่ ${index + 1}: กรุณาระบุจำนวนที่ถูกต้อง`);
             }
 
-            if (!detail.UNIT_COST || parseFloat(detail.UNIT_COST) <= 0) {
-                errors.push(`รายการที่ ${index + 1}: กรุณาระบุราคาต่อหน่วยที่ถูกต้อง`);
+            // อนุญาตให้ UNIT_COST เป็น 0 ได้
+            const unitCost = parseFloat(detail.UNIT_COST);
+            if (detail.UNIT_COST === null || detail.UNIT_COST === undefined || detail.UNIT_COST === '') {
+                errors.push(`รายการที่ ${index + 1}: กรุณาระบุราคาต่อหน่วย`);
+            } else if (isNaN(unitCost)) {
+                errors.push(`รายการที่ ${index + 1}: ราคาต่อหน่วยต้องเป็นตัวเลข`);
+            } else if (unitCost < 0) {
+                errors.push(`รายการที่ ${index + 1}: ราคาต่อหน่วยต้องไม่ติดลบ`);
             }
         });
 

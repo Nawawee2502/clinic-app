@@ -405,11 +405,14 @@ const Borrow1Management = () => {
         }
 
         const unitCost = parseFloat(data.UNIT_COST);
-        if (data.UNIT_COST === '' || data.UNIT_COST === null) {
+        if (data.UNIT_COST === '' || data.UNIT_COST === null || data.UNIT_COST === undefined) {
             errors.UNIT_COST = 'กรุณาระบุราคา/หน่วย';
-        } else if (isNaN(unitCost) || unitCost < 0) {
+        } else if (isNaN(unitCost)) {
+            errors.UNIT_COST = 'ราคา/หน่วยต้องเป็นตัวเลข';
+        } else if (unitCost < 0) {
             errors.UNIT_COST = 'ราคา/หน่วยต้องไม่ติดลบ';
         }
+        // อนุญาตให้ unitCost เป็น 0 ได้
 
         return errors;
     };
@@ -573,6 +576,7 @@ const Borrow1Management = () => {
         setSelectedLot(value);
         if (value) {
             const rawUnitPrice = value.UNIT_PRICE;
+            // อนุญาตให้ UNIT_PRICE เป็น 0 ได้
             const unitPrice = rawUnitPrice !== null && rawUnitPrice !== undefined
                 ? parseFloat(rawUnitPrice)
                 : NaN;
@@ -586,7 +590,8 @@ const Borrow1Management = () => {
                 ...prev,
                 LOT_NO: value.LOT_NO,
                 EXPIRE_DATE: Borrow1Service.formatDateForInput(value.EXPIRE_DATE),
-                UNIT_COST: Number.isNaN(unitPrice) ? '' : unitPrice.toFixed(2),
+                // อนุญาตให้แสดง '0.00' เมื่อราคาเป็น 0
+                UNIT_COST: Number.isNaN(unitPrice) ? '' : (unitPrice === 0 ? '0.00' : unitPrice.toFixed(2)),
                 AMT: amount
             }));
         } else {
