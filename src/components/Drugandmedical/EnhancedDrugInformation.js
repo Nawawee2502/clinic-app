@@ -195,7 +195,8 @@ const EnhancedDrugInformation = () => {
     };
 
     const handleSave = async () => {
-        if (!formData.GENERIC_NAME) {
+        // Validate ชื่อยา
+        if (!formData.GENERIC_NAME || (typeof formData.GENERIC_NAME === 'string' && formData.GENERIC_NAME.trim() === '')) {
             Swal.fire({
                 icon: 'error',
                 title: 'กรุณากรอกข้อมูลให้ครบถ้วน',
@@ -205,6 +206,36 @@ const EnhancedDrugInformation = () => {
             return;
         }
 
+        // Validate ข้อบ่งใช้
+        const indication1Value = formData.Indication1;
+        if (indication1Value === null || indication1Value === undefined || indication1Value === '' || (typeof indication1Value === 'string' && indication1Value.trim() === '')) {
+            Swal.fire({
+                icon: 'error',
+                title: 'กรุณากรอกข้อมูลให้ครบถ้วน',
+                text: 'กรุณากรอกข้อบ่งใช้ / สรรพคุณ',
+                confirmButtonText: 'ตกลง'
+            });
+            return;
+        }
+
+        // Validate วิธีรับประทาน - ตรวจสอบ eat1 (ไม่ใช่ Dose1)
+        const eat1Value = formData.eat1;
+        
+        // ตรวจสอบทุกกรณีที่เป็นไปได้
+        if (!eat1Value || 
+            eat1Value === null || 
+            eat1Value === undefined || 
+            eat1Value === '' || 
+            (typeof eat1Value === 'string' && eat1Value.trim() === '') ||
+            (typeof eat1Value === 'string' && eat1Value.trim().length === 0)) {
+            Swal.fire({
+                icon: 'error',
+                title: 'กรุณากรอกข้อมูลให้ครบถ้วน',
+                text: 'กรุณากรอกวิธีรับประทาน',
+                confirmButtonText: 'ตกลง'
+            });
+            return;
+        }
         setLoading(true);
         
         try {
@@ -225,8 +256,14 @@ const EnhancedDrugInformation = () => {
                 });
 
                 if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.message || 'เพิ่มข้อมูลยาไม่สำเร็จ');
+                    const errorData = await response.json().catch(() => ({ message: 'เกิดข้อผิดพลาดในการเพิ่มข้อมูลยา' }));
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'เกิดข้อผิดพลาด',
+                        text: errorData.message || 'เกิดข้อผิดพลาดในการเพิ่มข้อมูลยา',
+                        confirmButtonText: 'ตกลง'
+                    });
+                    return;
                 }
 
                 showAlert('เพิ่มข้อมูลยาสำเร็จ', 'success');
@@ -241,8 +278,14 @@ const EnhancedDrugInformation = () => {
                 });
 
                 if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.message || 'แก้ไขข้อมูลยาไม่สำเร็จ');
+                    const errorData = await response.json().catch(() => ({ message: 'เกิดข้อผิดพลาดในการแก้ไขข้อมูลยา' }));
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'เกิดข้อผิดพลาด',
+                        text: errorData.message || 'เกิดข้อผิดพลาดในการแก้ไขข้อมูลยา',
+                        confirmButtonText: 'ตกลง'
+                    });
+                    return;
                 }
 
                 showAlert('แก้ไขข้อมูลยาสำเร็จ', 'success');
@@ -253,8 +296,12 @@ const EnhancedDrugInformation = () => {
             resetForm();
             setCurrentView("list");
         } catch (error) {
-            console.error('Error saving drug:', error);
-            showAlert(error.message || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล', 'error');
+            Swal.fire({
+                icon: 'error',
+                title: 'เกิดข้อผิดพลาด',
+                text: error.message || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล',
+                confirmButtonText: 'ตกลง'
+            });
         }
         
         setLoading(false);

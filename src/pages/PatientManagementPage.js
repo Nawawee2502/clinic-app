@@ -1662,19 +1662,38 @@ const PatientManagement = () => {
         setHistoryError('');
     }, []);
 
-    // Helper function to get current month date range
+    // Helper function to get current month date range (ใช้เวลาไทย)
     const getCurrentMonthDateRange = useCallback(() => {
+        // ✅ ใช้เวลาไทย (Asia/Bangkok timezone)
         const now = new Date();
-        const year = now.getFullYear();
-        const month = now.getMonth();
+        const thailandDateStr = new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'Asia/Bangkok',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit'
+        }).format(now);
         
-        // First day of current month
-        const firstDay = new Date(year, month, 1);
-        const dateFrom = firstDay.toISOString().split('T')[0];
+        // thailandDateStr จะเป็นรูปแบบ YYYY-MM-DD
+        const [year, month, day] = thailandDateStr.split('-').map(Number);
         
-        // Last day of current month
-        const lastDay = new Date(year, month + 1, 0);
-        const dateTo = lastDay.toISOString().split('T')[0];
+        // First day of current month (เวลาไทย)
+        const dateFrom = `${year}-${String(month).padStart(2, '0')}-01`;
+        
+        // Last day of current month (เวลาไทย) - สร้าง Date object ใน timezone ไทย
+        // ใช้วิธีสร้าง Date object สำหรับวันแรกของเดือนถัดไป แล้วลบ 1 วัน
+        const nextMonth = month === 12 ? 1 : month + 1;
+        const nextYear = month === 12 ? year + 1 : year;
+        const firstDayNextMonth = new Date(`${nextYear}-${String(nextMonth).padStart(2, '0')}-01T00:00:00+07:00`);
+        const lastDay = new Date(firstDayNextMonth);
+        lastDay.setDate(lastDay.getDate() - 1);
+        
+        // Format เป็น YYYY-MM-DD จากเวลาไทย
+        const dateTo = new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'Asia/Bangkok',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit'
+        }).format(lastDay);
         
         return { dateFrom, dateTo };
     }, []);

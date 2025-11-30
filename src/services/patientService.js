@@ -194,8 +194,12 @@ class PatientService {
                 SOCIAL_CARD: queueItem.SOCIAL_CARD,
                 UCS_CARD: queueItem.UCS_CARD,
 
+                // ✅ เพิ่มข้อมูลประวัติแพ้ยาและโรคประจำตัว
+                DRUG_ALLERGY: queueItem.DRUG_ALLERGY || null,
+                DISEASE1: queueItem.DISEASE1 || null,
+
                 // ข้อมูลสำหรับ Vital Signs (ยังไม่มี จะได้จาก Treatment)
-                WEIGHT1: null,
+                WEIGHT1: queueItem.WEIGHT1 || null,
                 HIGHT1: null,
                 BT1: null,
                 BP1: null,
@@ -270,8 +274,12 @@ class PatientService {
                 SOCIAL_CARD: queueItem.SOCIAL_CARD,
                 UCS_CARD: queueItem.UCS_CARD,
 
+                // ✅ เพิ่มข้อมูลประวัติแพ้ยาและโรคประจำตัว
+                DRUG_ALLERGY: queueItem.DRUG_ALLERGY || null,
+                DISEASE1: queueItem.DISEASE1 || null,
+
                 // ข้อมูลสำหรับ Vital Signs (ยังไม่มี จะได้จาก Treatment)
-                WEIGHT1: null,
+                WEIGHT1: queueItem.WEIGHT1 || null,
                 HIGHT1: null,
                 BT1: null,
                 BP1: null,
