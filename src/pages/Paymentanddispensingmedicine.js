@@ -30,11 +30,11 @@ import DrugService from "../services/drugService";
 import Swal from "sweetalert2";
 
 // Import Utilities
-import { 
-  getCurrentDateForDB, 
-  getCurrentTimeForDB, 
-  getCurrentDateForDisplay, 
-  getCurrentTimeForDisplay 
+import {
+  getCurrentDateForDB,
+  getCurrentTimeForDB,
+  getCurrentDateForDisplay,
+  getCurrentTimeForDisplay
 } from "../utils/dateTimeUtils";
 
 // Import Components
@@ -83,6 +83,36 @@ const Paymentanddispensingmedicine = () => {
   // โหลดข้อมูลผู้ป่วย
   useEffect(() => {
     loadCompletedPatients();
+
+    // เพิ่ม Google Fonts Sarabun สำหรับฉลากยา preview
+    const link = document.createElement('link');
+    link.href = 'https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600&display=swap';
+    link.rel = 'stylesheet';
+    document.head.appendChild(link);
+
+    // Listen สำหรับ event เมื่อมีการเพิ่มคิวหรือเปลี่ยนสถานะ
+    const handleQueueAdded = (event) => {
+      console.log('🔄 Queue added event received, refreshing payment queue...');
+      loadCompletedPatients(false); // ไม่แสดง loading spinner
+    };
+
+    const handleQueueStatusChanged = (event) => {
+      console.log('🔄 Queue status changed event received, refreshing payment queue...');
+      loadCompletedPatients(false); // ไม่แสดง loading spinner
+    };
+
+    window.addEventListener('queueAdded', handleQueueAdded);
+    window.addEventListener('queueStatusChanged', handleQueueStatusChanged);
+
+    return () => {
+      // Cleanup: ลบ link tag เมื่อ component unmount (optional)
+      const existingLink = document.querySelector(`link[href="${link.href}"]`);
+      if (existingLink) {
+        document.head.removeChild(existingLink);
+      }
+      window.removeEventListener('queueAdded', handleQueueAdded);
+      window.removeEventListener('queueStatusChanged', handleQueueStatusChanged);
+    };
   }, []);
 
   // โหลดข้อมูลการรักษาเมื่อเปลี่ยนผู้ป่วย
@@ -108,7 +138,7 @@ const Paymentanddispensingmedicine = () => {
       const discount = parseFloat(paymentData.discount || 0);
       // ✅ คำนวณยอดชำระสุทธิโดยใช้ส่วนลดจาก paymentData โดยตรง (ไม่ใช่จาก treatmentData)
       const netAmount = Math.max(0, totalAmount - discount);
-      
+
       // ✅ Validation: ใช้ netAmount ที่คำนวณจาก paymentData.discount โดยตรง
       if (!paymentData.receivedAmount || parseFloat(paymentData.receivedAmount) < netAmount) {
         setSnackbar({
@@ -219,10 +249,12 @@ const Paymentanddispensingmedicine = () => {
     }
   };
 
-  const loadCompletedPatients = async () => {
+  const loadCompletedPatients = async (showLoading = true) => {
     try {
-      setLoading(true);
-      setError(null);
+      if (showLoading) {
+        setLoading(true);
+        setError(null);
+      }
 
       // ✅ ใช้ getAllPatientsFromQueue แทน getTodayPatientsFromQueue เพื่อไม่ล็อควันที่
       const response = await PatientService.getAllPatientsFromQueue();
@@ -268,7 +300,7 @@ const Paymentanddispensingmedicine = () => {
               return dateA - dateB; // วันที่ก่อนขึ้นก่อน
             }
           }
-          
+
           // ถ้าวันที่เท่ากัน ให้เรียงตาม QUEUE_TIME (เวลาก่อนขึ้นก่อน)
           if (a.QUEUE_TIME && b.QUEUE_TIME) {
             const timeA = new Date(a.QUEUE_TIME).getTime();
@@ -277,7 +309,7 @@ const Paymentanddispensingmedicine = () => {
               return timeA - timeB; // เวลาก่อนขึ้นก่อน
             }
           }
-          
+
           // ถ้าไม่มี QUEUE_TIME หรือเวลาเท่ากัน ให้เรียงตาม QUEUE_NUMBER (คิวน้อยกว่าขึ้นก่อน)
           const queueNumA = parseInt(a.QUEUE_NUMBER || a.queueNumber || a.QUEUE_ID || 999999);
           const queueNumB = parseInt(b.QUEUE_NUMBER || b.queueNumber || b.QUEUE_ID || 999999);
@@ -296,13 +328,22 @@ const Paymentanddispensingmedicine = () => {
 
 
       } else {
-        setError('ไม่สามารถโหลดข้อมูลผู้ป่วยได้: ' + response.message);
+        if (showLoading) {
+          setError('ไม่สามารถโหลดข้อมูลผู้ป่วยได้: ' + response.message);
+        }
       }
     } catch (err) {
       console.error('Error loading patients:', err);
-      setError('เกิดข้อผิดพลาดในการโหลดข้อมูล: ' + err.message);
+      if (showLoading) {
+        setError('เกิดข้อผิดพลาดในการโหลดข้อมูล: ' + err.message);
+      } else {
+        // ถ้าเป็น auto-refresh แล้ว error ให้ log เฉยๆ
+        console.warn('Auto-refresh failed, keeping existing data');
+      }
     } finally {
-      setLoading(false);
+      if (showLoading) {
+        setLoading(false);
+      }
     }
   };
 
@@ -320,18 +361,18 @@ const Paymentanddispensingmedicine = () => {
       }
 
       // ✅ เช็ค UCS_CARD: ถ้าเป็น 'Y' ไม่ต้องชำระเงิน, ถ้าเป็น 'N' ต้องชำระเงินก่อน
-      const ucsCard = currentPatient?.UCS_CARD || 
-                      currentPatient?.PATIENT_UCS_CARD ||
-                      treatmentData?.treatment?.UCS_CARD || 
-                      treatmentData?.patient?.UCS_CARD || 
-                      'N';
+      const ucsCard = currentPatient?.UCS_CARD ||
+        currentPatient?.PATIENT_UCS_CARD ||
+        treatmentData?.treatment?.UCS_CARD ||
+        treatmentData?.patient?.UCS_CARD ||
+        'N';
       const paymentStatus = currentPatient.PAYMENT_STATUS || 'รอชำระ';
-      
+
       // ✅ ตรวจสอบว่ามียาที่ต้องจ่ายหรือไม่ (ยาที่ UCS_CARD = 'N')
       const payableDrugs = editablePrices.drugs.filter(drug => drug.DRUG_UCS_CARD === 'N' && drug.editablePrice > 0);
       const payableAmount = payableDrugs.reduce((sum, drug) => sum + drug.editablePrice, 0);
       const hasPayableDrugs = payableAmount > 0;
-      
+
       console.log('🔍 Close Case Check:', {
         HNCODE: currentPatient.HNCODE,
         UCS_CARD: ucsCard,
@@ -340,7 +381,7 @@ const Paymentanddispensingmedicine = () => {
         payableAmount,
         payableDrugsCount: payableDrugs.length
       });
-      
+
       // ✅ ถ้าเป็นบัตรทอง แต่มียาที่ต้องจ่าย (UCS_CARD = 'N') ต้องชำระเงินก่อน
       if (ucsCard === 'Y' && hasPayableDrugs && paymentStatus !== 'ชำระเงินแล้ว') {
         await Swal.fire({
@@ -354,7 +395,7 @@ const Paymentanddispensingmedicine = () => {
         });
         return;
       }
-      
+
       // ✅ ถ้า UCS_CARD เป็น 'N' ต้องชำระเงินก่อน (paymentStatus === 'ชำระเงินแล้ว')
       if (ucsCard !== 'Y' && paymentStatus !== 'ชำระเงินแล้ว') {
         // ถ้ายังไม่ชำระเงิน ให้ขึ้น swal เตือน
@@ -367,7 +408,7 @@ const Paymentanddispensingmedicine = () => {
         });
         return;
       }
-      
+
       // ✅ ถ้าเป็นบัตรทอง (UCS_CARD = 'Y') และไม่มียาที่ต้องจ่าย แสดงข้อความยืนยัน
       if (ucsCard === 'Y' && !hasPayableDrugs) {
         const confirmResult = await Swal.fire({
@@ -380,7 +421,7 @@ const Paymentanddispensingmedicine = () => {
           confirmButtonColor: '#5698E0',
           cancelButtonColor: '#64748b'
         });
-        
+
         if (!confirmResult.isConfirmed) {
           return; // ถ้ายกเลิก ไม่ต้องทำอะไร
         }
@@ -435,7 +476,7 @@ const Paymentanddispensingmedicine = () => {
 
       // รีเฟรชข้อมูล
       setTimeout(() => {
-        loadCompletedPatients();
+        loadCompletedPatients(true); // true = แสดง loading spinner
       }, 1000);
 
     } catch (error) {
@@ -558,10 +599,12 @@ const Paymentanddispensingmedicine = () => {
             TIMES: 'ครั้ง'
           };
 
-          // ดึงข้อมูล UCS_CARD ของยาแต่ละตัว
+          // ดึงข้อมูล UCS_CARD และ Indication1 ของยาแต่ละตัว
           drugsArray = await Promise.all(
             response.data.drugs.map(async (item) => {
               let drugUcsCard = item.UCS_CARD || 'N';
+              // ✅ ดึง Indication1 จาก NOTE1 (ที่บันทึกไว้) หรือจาก Indication1 field
+              let indication1 = item.NOTE1 || item.Indication1 || '';
               const rawUnitCode = item.UNIT_CODE || '';
               const rawUnitName =
                 item.UNIT_NAME ||
@@ -576,25 +619,34 @@ const Paymentanddispensingmedicine = () => {
               } else if (displayUnitName === rawUnitCode && unitNameMap[rawUnitCode]) {
                 displayUnitName = unitNameMap[rawUnitCode];
               }
-              
-              // ถ้ายังไม่มี UCS_CARD ให้ดึงจาก DrugService
-              if (!drugUcsCard || drugUcsCard === 'N') {
+
+              // ดึงข้อมูลเพิ่มเติมจาก DrugService ถ้ายังไม่มี UCS_CARD หรือ Indication1
+              if (!drugUcsCard || drugUcsCard === 'N' || !indication1) {
                 try {
                   const drugResponse = await DrugService.getDrugByCode(item.DRUG_CODE);
                   if (drugResponse.success && drugResponse.data) {
-                    drugUcsCard = drugResponse.data.UCS_CARD || 'N';
+                    if (!drugUcsCard || drugUcsCard === 'N') {
+                      drugUcsCard = drugResponse.data.UCS_CARD || 'N';
+                    }
+                    // ✅ ถ้ายังไม่มี Indication1 ใน NOTE1 ให้ดึงจาก DrugService
+                    if (!indication1) {
+                      indication1 = drugResponse.data.Indication1 || '';
+                    }
                   }
                 } catch (error) {
-                  console.warn(`Could not fetch UCS_CARD for drug ${item.DRUG_CODE}:`, error);
-                  drugUcsCard = 'N';
+                  console.warn(`Could not fetch drug details for ${item.DRUG_CODE}:`, error);
+                  if (!drugUcsCard || drugUcsCard === 'N') {
+                    drugUcsCard = 'N';
+                  }
                 }
               }
-              
+
               return {
-            ...item,
-            editablePrice: parseFloat(item.AMT || 0),
+                ...item,
+                editablePrice: parseFloat(item.AMT || 0),
                 originalPrice: parseFloat(item.AMT || 0),
                 DRUG_UCS_CARD: drugUcsCard, // เก็บ UCS_CARD ของยาแต่ละตัว
+                Indication1: indication1, // เก็บ Indication1 สำหรับแสดงในฉลากยา
                 UNIT_NAME: rawUnitName,
                 DISPLAY_UNIT_NAME: displayUnitName
               };
@@ -604,9 +656,9 @@ const Paymentanddispensingmedicine = () => {
 
         // ✅ เช็คบัตรทอง (UCS_CARD) จาก patient หรือ treatment
         const currentPatient = patients[selectedPatientIndex];
-        const isGoldCard = currentPatient?.UCS_CARD === 'Y' || 
-                          response.data.treatment?.UCS_CARD === 'Y' ||
-                          response.data.patient?.UCS_CARD === 'Y';
+        const isGoldCard = currentPatient?.UCS_CARD === 'Y' ||
+          response.data.treatment?.UCS_CARD === 'Y' ||
+          response.data.patient?.UCS_CARD === 'Y';
 
         // ✅ ถ้าผู้ป่วยเป็นบัตรทอง ให้ตั้งราคาเริ่มต้นเป็น 0 (แต่ยังแก้ไขได้)
         // แต่ถ้ายามี UCS_CARD = 'N' ให้เก็บราคาไว้
@@ -709,13 +761,13 @@ const Paymentanddispensingmedicine = () => {
   const calculateTotalFromEditablePrices = () => {
     const labTotal = editablePrices.labs.reduce((sum, item) => sum + item.editablePrice, 0);
     const procedureTotal = editablePrices.procedures.reduce((sum, item) => sum + item.editablePrice, 0);
-    
+
     // ✅ สำหรับผู้ป่วยบัตรทอง: คำนวณยาที่ UCS_CARD = 'N' หรือยาที่แก้ราคาแล้ว (editablePrice > 0)
     const currentPatient = patients[selectedPatientIndex];
-    const isGoldCard = currentPatient?.UCS_CARD === 'Y' || 
-                      treatmentData?.treatment?.UCS_CARD === 'Y' ||
-                      treatmentData?.patient?.UCS_CARD === 'Y';
-    
+    const isGoldCard = currentPatient?.UCS_CARD === 'Y' ||
+      treatmentData?.treatment?.UCS_CARD === 'Y' ||
+      treatmentData?.patient?.UCS_CARD === 'Y';
+
     let drugTotal = 0;
     if (isGoldCard) {
       // คำนวณยาที่ UCS_CARD = 'N' หรือยาที่แก้ราคาแล้ว (editablePrice > 0)
@@ -738,9 +790,9 @@ const Paymentanddispensingmedicine = () => {
     const totalCost = calculateTotalFromEditablePrices();
     // ✅ ดึงส่วนลดจาก treatmentData หรือ currentPatient หรือ paymentData
     const discount = parseFloat(
-      treatmentData?.treatment?.DISCOUNT_AMOUNT || 
-      currentPatient?.paymentData?.discount || 
-      paymentData.discount || 
+      treatmentData?.treatment?.DISCOUNT_AMOUNT ||
+      currentPatient?.paymentData?.discount ||
+      paymentData.discount ||
       0
     );
     return Math.max(0, totalCost - discount);
@@ -815,7 +867,7 @@ const Paymentanddispensingmedicine = () => {
     return (
       <Container maxWidth={false} sx={{ mt: 2 }}>
         <Alert severity="error" action={
-          <Button color="inherit" size="small" onClick={loadCompletedPatients}>
+          <Button color="inherit" size="small" onClick={() => loadCompletedPatients(true)}>
             ลองใหม่
           </Button>
         }>
@@ -849,7 +901,7 @@ const Paymentanddispensingmedicine = () => {
             onPatientSelect={handlePatientSelect}
             onNextPatient={handleNextPatient}
             onPreviousPatient={handlePreviousPatient}
-            onRefresh={loadCompletedPatients}
+            onRefresh={() => loadCompletedPatients(true)}
           />
         </Grid>
 
@@ -1292,9 +1344,9 @@ const Paymentanddispensingmedicine = () => {
                             {(() => {
                               // ✅ ดึงส่วนลดจาก treatmentData หรือ paymentData หรือ currentPatient
                               const discount = parseFloat(
-                                treatmentData?.treatment?.DISCOUNT_AMOUNT || 
-                                currentPatient?.paymentData?.discount || 
-                                paymentData.discount || 
+                                treatmentData?.treatment?.DISCOUNT_AMOUNT ||
+                                currentPatient?.paymentData?.discount ||
+                                paymentData.discount ||
                                 0
                               );
                               return discount > 0 ? (
@@ -1326,9 +1378,9 @@ const Paymentanddispensingmedicine = () => {
                               ...paymentData,
                               // ✅ ส่งส่วนลดจาก treatmentData หรือ currentPatient ถ้ามี
                               discount: parseFloat(
-                                treatmentData?.treatment?.DISCOUNT_AMOUNT || 
-                                currentPatient?.paymentData?.discount || 
-                                paymentData.discount || 
+                                treatmentData?.treatment?.DISCOUNT_AMOUNT ||
+                                currentPatient?.paymentData?.discount ||
+                                paymentData.discount ||
                                 0
                               )
                             }}
@@ -1368,16 +1420,22 @@ const Paymentanddispensingmedicine = () => {
                                 margin: '10px auto',
                                 boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
                                 borderRadius: '8px',
-                                p: 2
+                                p: 2,
+                                fontFamily: "'Sarabun', sans-serif"
                               }}>
-                                <Typography variant="h6" sx={{ color: '#4a90e2', mb: 1 }}>
+                                <Typography variant="h6" sx={{ color: '#4a90e2', mb: 1, fontFamily: "'Sarabun', sans-serif" }}>
                                   {drug.GENERIC_NAME || drug.DRUG_CODE}
                                 </Typography>
-                                <Typography variant="body2">
-                                  จำนวน: {drug.QTY} {drug.UNIT_NAME || drug.UNIT_CODE}
+                                <Typography variant="body2" sx={{ fontFamily: "'Sarabun', sans-serif" }}>
+                                  จำนวน: {drug.QTY} {drug.DISPLAY_UNIT_NAME || drug.UNIT_NAME || drug.UNIT_CODE}
                                 </Typography>
-                                <Typography variant="body2">วิธีใช้: ครั้งละ {drug.DOSAGE || 1} วันละ {drug.FREQUENCY || 3} ครั้ง</Typography>
-                                <Typography variant="body2">ผู้ป่วย: {currentPatient.PRENAME}{currentPatient.NAME1} {currentPatient.SURNAME}</Typography>
+                                <Typography variant="body2" sx={{ fontFamily: "'Sarabun', sans-serif" }}>วิธีใช้: ครั้งละ {drug.DOSAGE || 1} วันละ {drug.FREQUENCY || 3} ครั้ง</Typography>
+                                <Typography variant="body2" sx={{ fontFamily: "'Sarabun', sans-serif" }}>ผู้ป่วย: {currentPatient.PRENAME}{currentPatient.NAME1} {currentPatient.SURNAME}</Typography>
+                                {drug.Indication1 && (
+                                  <Typography variant="body2" sx={{ mt: 1, fontFamily: "'Sarabun', sans-serif" }}>
+                                    ข้อบ่งใช้: {drug.Indication1}
+                                  </Typography>
+                                )}
                               </Box>
                             </Grid>
                           ))}

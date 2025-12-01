@@ -95,7 +95,8 @@ const DrugLabelsPrint = ({ patient, drugs }) => {
                 <div class="line-field"><span>HN</span> ${patient.HNCODE}</div>
                 <div class="line-field"><span>ชื่อยา</span> ${name}</div>
                 <div class="line-field"><span>จำนวน</span> ${qty} ${unit}</div>
-                <div class="line-field"><span>ข้อบ่งใช้</span> ${drug.TIME1 || drug.eat1 || drug.EAT1 || ''}</div>
+                <div class="line-field"><span>วิธีใช้</span> ${drug.TIME1 || drug.eat1 || drug.EAT1 || ''}</div>
+                ${drug.Indication1 ? `<div class="line-field"><span>ข้อบ่งใช้</span> ${drug.Indication1}</div>` : ''}
 
                 <div class="expiry">วันหมดอายุ (Exp.) ${expire}</div>
               </div>

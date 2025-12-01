@@ -2288,17 +2288,17 @@ const PatientManagement = () => {
 
                                 {/* Search */}
                                 <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                                    <TextField
+                                <TextField
                                         placeholder="ค้นหาชื่อ, นามสกุล, HN, หรือเลขบัตรประชาชน..."
-                                        value={searchTerm}
-                                        onChange={(e) => setSearchTerm(e.target.value)}
-                                        fullWidth
-                                        size="small"
-                                        InputProps={{
-                                            startAdornment: (
-                                                <InputAdornment position="start">
-                                                    <Search sx={{ color: '#64748b', fontSize: 20 }} />
-                                                </InputAdornment>
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    fullWidth
+                                    size="small"
+                                    InputProps={{
+                                        startAdornment: (
+                                            <InputAdornment position="start">
+                                                <Search sx={{ color: '#64748b', fontSize: 20 }} />
+                                            </InputAdornment>
                                             ),
                                             endAdornment: searchTerm && (
                                                 <InputAdornment position="end">
@@ -2318,23 +2318,23 @@ const PatientManagement = () => {
                                                         <CancelOutlined fontSize="small" />
                                                     </IconButton>
                                                 </InputAdornment>
-                                            )
-                                        }}
-                                        sx={{
+                                        )
+                                    }}
+                                    sx={{
                                             flex: 1,
-                                            '& .MuiOutlinedInput-root': {
+                                        '& .MuiOutlinedInput-root': {
                                                 borderRadius: 2,
-                                                backgroundColor: '#f8fafc',
-                                                '&:hover': {
-                                                    backgroundColor: '#f1f5f9'
+                                            backgroundColor: '#f8fafc',
+                                            '&:hover': {
+                                                backgroundColor: '#f1f5f9'
                                                 },
                                                 '&.Mui-focused': {
                                                     backgroundColor: '#ffffff',
                                                     boxShadow: '0 0 0 3px rgba(74, 158, 255, 0.1)'
-                                                }
                                             }
-                                        }}
-                                    />
+                                        }
+                                    }}
+                                />
                                 </Box>
                             </Box>
 
@@ -2373,12 +2373,12 @@ const PatientManagement = () => {
                                 ) : (
                                     <>
                                         {filteredPatients.map((patient) => (
-                                            <PatientCard 
-                                                key={patient.HNCODE} 
-                                                patient={patient} 
-                                                isSelected={selectedPatient?.HNCODE === patient.HNCODE}
-                                                onSelect={handlePatientSelect}
-                                            />
+                                        <PatientCard 
+                                            key={patient.HNCODE} 
+                                            patient={patient} 
+                                            isSelected={selectedPatient?.HNCODE === patient.HNCODE}
+                                            onSelect={handlePatientSelect}
+                                        />
                                         ))}
                                         
                                         {/* Pagination Controls - แสดงเฉพาะเมื่อไม่มีการ search */}

@@ -371,11 +371,11 @@ class PatientService {
             const response = await this.fetchWithTimeout(
                 `${API_BASE_URL}/patients/${hn}`,
                 {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(patientData)
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(patientData)
                 },
                 20000, // 20 second timeout
                 2 // 2 retries

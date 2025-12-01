@@ -29,6 +29,7 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
         quantity: '',
         unit: '', // ✅ เก็บ UNIT_CODE สำหรับบันทึก
         unitName: '', // ✅ เก็บ UNIT_NAME สำหรับแสดงผล
+        indication1: '', // ✅ เพิ่มข้อบ่งใช้
         time: '',
         unitPrice: 0
     });
@@ -82,16 +83,36 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
             const response = await TreatmentService.getTreatmentByVNO(currentPatient.VNO);
 
             if (response.success && response.data?.drugs) {
-                const medicines = response.data.drugs.map((drug, index) => ({
-                    id: index + 1,
-                    drugName: drug.GENERIC_NAME,
-                    drugCode: drug.DRUG_CODE,
-                    quantity: drug.QTY,
-                    unit: drug.UNIT_CODE || 'TAB', // ✅ เก็บ UNIT_CODE สำหรับบันทึก
-                    unitName: drug.UNIT_NAME || getUnitName(drug.UNIT_CODE || 'TAB'), // ✅ เก็บ UNIT_NAME สำหรับแสดงผล
-                    time: drug.TIME1 || '',
-                    unitPrice: drug.UNIT_PRICE || 0
-                }));
+                const medicines = await Promise.all(
+                    response.data.drugs.map(async (drug, index) => {
+                        // ดึง Indication1 จาก NOTE1 (ถ้ามี) หรือจาก DrugService
+                        let indication1 = drug.NOTE1 || '';
+                        
+                        // ถ้าไม่มีใน NOTE1 ให้ดึงจาก DrugService
+                        if (!indication1) {
+                            try {
+                                const drugResponse = await DrugService.getDrugByCode(drug.DRUG_CODE);
+                                if (drugResponse.success && drugResponse.data) {
+                                    indication1 = drugResponse.data.Indication1 || '';
+                                }
+                            } catch (error) {
+                                console.warn(`Could not fetch Indication1 for drug ${drug.DRUG_CODE}:`, error);
+                            }
+                        }
+
+                        return {
+                            id: index + 1,
+                            drugName: drug.GENERIC_NAME,
+                            drugCode: drug.DRUG_CODE,
+                            quantity: drug.QTY,
+                            unit: drug.UNIT_CODE || 'TAB', // ✅ เก็บ UNIT_CODE สำหรับบันทึก
+                            unitName: drug.UNIT_NAME || getUnitName(drug.UNIT_CODE || 'TAB'), // ✅ เก็บ UNIT_NAME สำหรับแสดงผล
+                            indication1: indication1, // ✅ โหลด Indication1 จาก NOTE1 หรือ DrugService
+                            time: drug.TIME1 || '',
+                            unitPrice: drug.UNIT_PRICE || 0
+                        };
+                    })
+                );
                 setSavedMedicines(medicines);
             }
         } catch (error) {
@@ -186,6 +207,7 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
             // ✅ สร้าง default regimen จาก drug data หรือ default values
             const defaultQuantity = newValue.Dose1 || '1';
             const defaultTime = newValue.eat1 || newValue.Comment1 || 'วันละ 3 ครั้งหลังอาหาร'; // ✅ ใช้ eat1 ก่อน ถ้าไม่มีใช้ Comment1
+            const defaultIndication1 = newValue.Indication1 || ''; // ✅ ดึง Indication1 จากยา
 
             setMedicineData(prev => ({
                 ...prev,
@@ -194,8 +216,9 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
                 unit: newValue.UNIT_CODE || 'TAB', // ✅ เก็บ UNIT_CODE สำหรับบันทึก
                 unitName: newValue.UNIT_NAME || getUnitName(newValue.UNIT_CODE || 'TAB'), // ✅ เก็บ UNIT_NAME สำหรับแสดงผล
                 unitPrice: newValue.UNIT_PRICE || 0,
-                // ✅ เซ็ต default regimen - ถ้าเปลี่ยนยาใหม่ ให้อัพเดท quantity และ time เสมอ
+                // ✅ เซ็ต default regimen - ถ้าเปลี่ยนยาใหม่ ให้อัพเดท quantity, time และ indication1 เสมอ
                 quantity: defaultQuantity, // ✅ อัพเดทเป็นของยาตัวใหม่เสมอ
+                indication1: defaultIndication1, // ✅ อัพเดท Indication1 ของยาตัวใหม่
                 time: defaultTime // ✅ อัพเดทเป็น eat1 ของยาตัวใหม่เสมอ
             }));
         } else {
@@ -207,6 +230,7 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
                 unitName: '',
                 unitPrice: 0,
                 quantity: '',
+                indication1: '',
                 time: ''
             }));
         }
@@ -242,6 +266,7 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
             quantity: parseFloat(medicineData.quantity),
             unit: medicineData.unit, // ✅ บันทึก UNIT_CODE
             unitName: medicineData.unitName || getUnitName(medicineData.unit), // ✅ เก็บ UNIT_NAME สำหรับแสดงผล
+            indication1: medicineData.indication1.trim() || '', // ✅ บันทึก Indication1
             time: medicineData.time.trim() || 'วันละ 1 ครั้ง',
             unitPrice: parseFloat(medicineData.unitPrice) || 0
         };
@@ -267,6 +292,7 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
             quantity: '',
             unit: '',
             unitName: '',
+            indication1: '',
             time: '',
             unitPrice: 0
         });
@@ -280,6 +306,7 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
             quantity: medicine.quantity.toString(),
             unit: medicine.unit, // ✅ เก็บ UNIT_CODE สำหรับบันทึก
             unitName: medicine.unitName || getUnitName(medicine.unit), // ✅ เก็บ UNIT_NAME สำหรับแสดงผล
+            indication1: medicine.indication1 || '', // ✅ โหลด Indication1
             time: medicine.time,
             unitPrice: medicine.unitPrice || 0
         });
@@ -328,7 +355,7 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
                 UNIT_CODE: medicine.unit || 'TAB',
                 UNIT_PRICE: parseFloat(medicine.unitPrice) || 0,
                 AMT: (parseFloat(medicine.quantity) || 1) * (parseFloat(medicine.unitPrice) || 0),
-                NOTE1: '',
+                NOTE1: medicine.indication1 || '', // ✅ เก็บ Indication1 ใน NOTE1
                 TIME1: medicine.time || 'วันละ 1 ครั้ง'
             }));
 
@@ -380,10 +407,77 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
         }
     };
 
-    // เปิด Completion Confirmation Dialog - เรียกไปยัง parent component
-    const handleCompleteRequest = () => {
+    // เปิด Completion Confirmation Dialog - บันทึกยาก่อน แล้วค่อยเปลี่ยนสถานะ
+    const handleCompleteRequest = async () => {
+        // ✅ บันทึกยาก่อน (ถ้ามีรายการยา)
+        if (savedMedicines.length > 0) {
+            try {
+                setSaving(true);
+
+                const lockedStatuses = ['รอชำระเงิน', 'ชำระเงินแล้ว', 'ปิดการรักษา'];
+                const currentStatus =
+                    (currentPatient?.queueStatus || currentPatient?.STATUS1 || '').trim();
+                const isLockedStatus = lockedStatuses.includes(currentStatus);
+
+                const drugs = savedMedicines.map(medicine => ({
+                    DRUG_CODE: medicine.drugCode,
+                    QTY: parseFloat(medicine.quantity) || 1,
+                    UNIT_CODE: medicine.unit || 'TAB',
+                    UNIT_PRICE: parseFloat(medicine.unitPrice) || 0,
+                    AMT: (parseFloat(medicine.quantity) || 1) * (parseFloat(medicine.unitPrice) || 0),
+                    NOTE1: medicine.indication1 || '', // ✅ เก็บ Indication1 ใน NOTE1
+                    TIME1: medicine.time || 'วันละ 1 ครั้ง'
+                }));
+
+                const treatmentData = {
+                    VNO: currentPatient.VNO,
+                    HNNO: currentPatient.HNCODE,
+                    ...(isLockedStatus ? {} : { STATUS1: 'กำลังตรวจ' }),
+                    drugs: drugs
+                };
+
+                const response = await TreatmentService.updateTreatment(currentPatient.VNO, treatmentData);
+
+                if (response.success) {
+                    showSnackbar('บันทึกข้อมูลยาสำเร็จ!', 'success');
+
+                    if (!isLockedStatus) {
+                        try {
+                            await QueueService.updateQueueStatus(currentPatient.queueId, 'กำลังตรวจ');
+                        } catch (error) {
+                            console.warn('Could not update queue status:', error);
+                        }
+                    }
+
+                    // ✅ หลังจากบันทึกยาสำเร็จแล้ว ให้เรียก onCompletePatient
         if (onCompletePatient) {
-            onCompletePatient('รอชำระเงิน');
+                        onCompletePatient('รอชำระเงิน');
+                    }
+                } else {
+                    const errorMessage = response.message || 'ไม่สามารถบันทึกข้อมูลได้';
+                    showSnackbar('ไม่สามารถบันทึกข้อมูลได้: ' + errorMessage, 'error');
+                }
+            } catch (error) {
+                console.error('Error saving medicine data:', error);
+                let errorMessage = 'เกิดข้อผิดพลาดในการบันทึกข้อมูล';
+                if (error.response?.status === 500) {
+                    errorMessage = 'เซิร์ฟเวอร์เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง';
+                } else if (error.response?.status === 400) {
+                    errorMessage = 'ข้อมูลที่ส่งไม่ถูกต้อง กรุณาตรวจสอบข้อมูลอีกครั้ง';
+                } else if (error.response?.data?.message) {
+                    errorMessage = error.response.data.message;
+                } else if (error.message) {
+                    errorMessage = error.message;
+                }
+                showSnackbar(errorMessage, 'error');
+            } finally {
+                setSaving(false);
+            }
+        } else {
+            // ✅ ถ้าไม่มีรายการยา ให้เรียก onCompletePatient โดยตรง
+            if (onCompletePatient) {
+                onCompletePatient('รอชำระเงิน');
+            }
         }
     };
 
@@ -683,6 +777,29 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
                                     />
                                 </Grid>
 
+                                {/* Indication1 - ข้อบ่งใช้ */}
+                                <Grid item xs={12}>
+                                    <Typography sx={{ fontWeight: '400', fontSize: '16px', mb: 1 }}>
+                                        ข้อบ่งใช้
+                                    </Typography>
+                                    <TextField
+                                        size="small"
+                                        fullWidth
+                                        multiline
+                                        rows={2}
+                                        placeholder="ดึงค่า default มาจาก Indication1 ของยา (สามารถแก้ไขได้)"
+                                        value={medicineData.indication1}
+                                        onChange={(e) => handleMedicineChange('indication1', e.target.value)}
+                                        sx={{
+                                            width: '100%',
+                                            '& .MuiOutlinedInput-root': {
+                                                borderRadius: '10px',
+                                                backgroundColor: medicineData.indication1 ? '#f0f8ff' : 'inherit'
+                                            },
+                                        }}
+                                    />
+                                </Grid>
+
                                 {/* Time */}
                                 <Grid item xs={12}>
                                     <Typography sx={{ fontWeight: '400', fontSize: '16px', mb: 1 }}>
@@ -771,6 +888,7 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
                                     <TableCell sx={{ fontWeight: 'bold' }}>รหัสยา</TableCell>
                                     <TableCell sx={{ fontWeight: 'bold' }}>จำนวน</TableCell>
                                     <TableCell sx={{ fontWeight: 'bold' }}>หน่วย</TableCell>
+                                    <TableCell sx={{ fontWeight: 'bold' }}>ข้อบ่งใช้</TableCell>
                                     <TableCell sx={{ fontWeight: 'bold' }}>วิธีรับประทาน</TableCell>
                                     <TableCell sx={{ fontWeight: 'bold', textAlign: 'center' }}>จัดการ</TableCell>
                                 </TableRow>
@@ -778,7 +896,7 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
                             <TableBody>
                                 {savedMedicines.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={7} sx={{ textAlign: 'center', py: 4 }}>
+                                        <TableCell colSpan={8} sx={{ textAlign: 'center', py: 4 }}>
                                             <Typography color="text.secondary">
                                                 ยังไม่มีรายการยา กรุณาเพิ่มรายการยาด้านบน
                                             </Typography>
@@ -818,6 +936,14 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
                                             </TableCell>
                                             <TableCell>{medicine.quantity}</TableCell>
                                             <TableCell>{medicine.unitName || getUnitName(medicine.unit)}</TableCell>
+                                            <TableCell>
+                                                <Typography variant="body2" sx={{ 
+                                                    fontStyle: medicine.indication1 ? 'normal' : 'italic',
+                                                    color: medicine.indication1 ? 'inherit' : 'text.secondary'
+                                                }}>
+                                                    {medicine.indication1 || '-'}
+                                                </Typography>
+                                            </TableCell>
                                             <TableCell>{medicine.time}</TableCell>
                                             <TableCell sx={{ textAlign: 'center' }}>
                                                 <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
@@ -857,57 +983,22 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
                 </CardContent>
             </Card>
 
-            {/* Action Buttons */}
-            <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end', mt: 2 }}>
-                <Button
-                    variant="contained"
-                    onClick={handleSave}
-                    disabled={saving || savedMedicines.length === 0}
-                    startIcon={saving ? <CircularProgress size={20} /> : <SaveIcon />}
-                    sx={{
-                        backgroundColor: "#5698E0",
-                        color: "#FFFFFF",
-                        fontSize: "1rem",
-                        width: '200px',
-                        height: '50px',
-                        fontWeight: 600,
-                        '&:hover': {
-                            backgroundColor: "#4285d1"
-                        },
-                        '&:disabled': {
-                            backgroundColor: "#e0e0e0"
-                        }
-                    }}
-                >
-                    {saving ? 'กำลังบันทึก...' : 'บันทึก'}
-                </Button>
-
-                {/* <Button
-                    variant="outlined"
-                    onClick={onSaveSuccess}
-                    disabled={!onSaveSuccess}
-                    sx={{
-                        color: "#5698E0",
-                        borderColor: "#5698E0",
-                        fontSize: "1rem",
-                        fontWeight: 600,
-                        width: '120px',
-                        height: '50px',
-                        '&:hover': {
-                            backgroundColor: "#f0f8ff"
-                        }
-                    }}
-                >
-                    ถัดไป →
-                </Button> */}
-
-                {/* Complete Treatment Button */}
+            {/* Action Button - เสร็จสิ้นการรักษา (รวมการบันทึกยาไว้ด้วย) */}
+            <Box sx={{ 
+                display: 'flex', 
+                gap: 2, 
+                justifyContent: 'flex-end', 
+                mt: 2,
+                alignItems: 'center'
+            }}>
+                {/* ปุ่มเสร็จสิ้นการรักษา - จะบันทึกยาก่อนอัตโนมัติ แล้วเปลี่ยนสถานะ */}
                 <Button
                     variant="contained"
                     onClick={handleCompleteRequest}
-                    startIcon={<CheckCircleIcon />}
+                    disabled={saving || savedMedicines.length === 0}
+                    startIcon={saving ? <CircularProgress size={20} /> : <CheckCircleIcon />}
                     sx={{
-                        minWidth: 200,
+                        minWidth: 250,
                         height: 50,
                         fontSize: '16px',
                         fontWeight: 700,
@@ -921,10 +1012,15 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
                             boxShadow: '0 6px 20px rgba(76, 175, 80, 0.4)',
                             transform: 'translateY(-1px)'
                         },
+                        '&:disabled': {
+                            background: '#e0e0e0',
+                            color: '#9e9e9e',
+                            boxShadow: 'none'
+                        },
                         transition: 'all 0.3s ease'
                     }}
                 >
-                    เสร็จสิ้นการรักษา
+                    {saving ? 'กำลังบันทึกยา...' : '✅ เสร็จสิ้นการรักษา'}
                 </Button>
             </Box>
 

@@ -122,7 +122,7 @@ const PatientInfoHeader = ({ patient, treatmentData }) => {
             {/* ข้อมูลเพิ่มเติม: อาการ, ประวัติแพ้ยา, โรคประจำตัว, น้ำหนัก, Diagnosis */}
             <Grid container spacing={2} sx={{ mt: 1 }}>
                 {/* ข้อมูลด้านซ้าย - รวมทั้งหมดใน Box เดียว แสดงในบรรทัดเดียวกัน */}
-                    <Grid item xs={12} md={8}>
+                <Grid item xs={12} md={10}>
                     {(chiefComplaint || drugAllergy || disease || weight || dxCode) && (
                         <Box sx={{
                             p: 2,
@@ -133,10 +133,10 @@ const PatientInfoHeader = ({ patient, treatmentData }) => {
                             <Grid container spacing={2} alignItems="flex-start">
                                 {/* อาการเบื้องต้น */}
                                 {chiefComplaint && (
-                                    <Grid item xs={12} sm={6} md={3}>
+                                    <Grid item xs={12} sm={6} md={2}>
                                         <Typography variant="caption" sx={{ opacity: 0.8, mb: 0.5, fontWeight: 600, display: 'block', fontSize: '11px' }}>
-                                💬 อาการเบื้องต้น:
-                            </Typography>
+                                            💬 อาการเบื้องต้น:
+                                        </Typography>
                                         <Typography variant="body2" sx={{ lineHeight: 1.4, fontSize: '13px' }}>
                                             {chiefComplaint}
                                         </Typography>
@@ -144,7 +144,7 @@ const PatientInfoHeader = ({ patient, treatmentData }) => {
                                 )}
 
                                 {/* ประวัติแพ้ยา */}
-                                <Grid item xs={12} sm={6} md={chiefComplaint ? 3 : 4}>
+                                <Grid item xs={12} sm={6} md={2}>
                                     <Typography variant="caption" sx={{ opacity: 0.8, fontWeight: 600, display: 'block', mb: 0.5, fontSize: '11px' }}>
                                         ⚠️ ประวัติแพ้ยา:
                                     </Typography>
@@ -154,36 +154,41 @@ const PatientInfoHeader = ({ patient, treatmentData }) => {
                                 </Grid>
 
                                 {/* โรคประจำตัว */}
-                                {disease && (
-                                    <Grid item xs={12} sm={6} md={chiefComplaint ? 3 : 4}>
-                                        <Typography variant="caption" sx={{ opacity: 0.8, fontWeight: 600, display: 'block', mb: 0.5, fontSize: '11px' }}>
-                                            🏥 โรคประจำตัว:
-                                        </Typography>
-                                        <Typography variant="body2" sx={{ lineHeight: 1.4, fontSize: '13px' }}>
-                                            {disease}
-                                        </Typography>
-                                    </Grid>
-                                )}
+                                <Grid item xs={12} sm={6} md={2}>
+                                    <Typography variant="caption" sx={{ opacity: 0.8, fontWeight: 600, display: 'block', mb: 0.5, fontSize: '11px' }}>
+                                        🏥 โรคประจำตัว:
+                                    </Typography>
+                                    <Typography variant="body2" sx={{ lineHeight: 1.4, fontSize: '13px' }}>
+                                        {disease || 'ไม่มี'}
+                                    </Typography>
+                                </Grid>
 
-                                {/* น้ำหนัก */}
-                                {weight && (
-                                    <Grid item xs={12} sm={6} md={chiefComplaint ? 3 : 4}>
-                                        <Typography variant="caption" sx={{ opacity: 0.8, fontWeight: 600, display: 'block', mb: 0.5, fontSize: '11px' }}>
-                                            ⚖️ น้ำหนัก:
-                                        </Typography>
-                                        <Typography variant="body2" sx={{ lineHeight: 1.4, fontWeight: 600, fontSize: '13px' }}>
-                                            {weight} กก.
-                                        </Typography>
-                                    </Grid>
-                                )}
+                                {/* น้ำหนัก + DXCODE - อยู่บรรทัดเดียวกัน */}
+                                <Grid item xs={12} sm={6} md={2}>
+                                    <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                                        {/* น้ำหนัก */}
+                                        {weight && (
+                                            <Box>
+                                                <Typography variant="caption" sx={{ opacity: 0.8, fontWeight: 600, display: 'block', mb: 0.5, fontSize: '11px' }}>
+                                                    ⚖️ น้ำหนัก:
+                                                </Typography>
+                                                <Typography variant="body2" sx={{ lineHeight: 1.4, fontWeight: 600, fontSize: '13px' }}>
+                                                    {weight} กก.
+                                                </Typography>
+                                            </Box>
+                                        )}
 
-                                {/* Diagnosis */}
-                                {dxCode && (
-                                    <Grid item xs={12} sm={6} md={chiefComplaint ? 3 : 4}>
+
+                                    </Box>
+                                </Grid>
+
+                                <Grid item xs={12} sm={6} md={4}>
+                                    {/* DXCODE - แสดงขวาสุด หลังน้ำหนัก (แสดงเสมอ) */}
+                                    <Box>
                                         <Typography variant="caption" sx={{ opacity: 0.8, fontWeight: 600, display: 'block', mb: 0.5, fontSize: '11px' }}>
-                                            🩺 Diagnosis:
+                                            🩺 DX:
                                         </Typography>
-                                        <Box sx={{ display: 'flex', gap: 0.8, alignItems: 'center', flexWrap: 'wrap' }}>
+                                        {dxCode ? (
                                             <Chip
                                                 label={dxCode}
                                                 size="small"
@@ -191,38 +196,37 @@ const PatientInfoHeader = ({ patient, treatmentData }) => {
                                                     bgcolor: 'rgba(255,255,255,0.25)',
                                                     color: 'white',
                                                     fontWeight: 700,
-                                                    fontSize: '11px',
-                                                    height: 22,
+                                                    fontSize: '13px',
+                                                    height: 26,
                                                     '& .MuiChip-label': {
-                                                        px: 1
+                                                        px: 1.5
                                                     }
                                                 }}
                                             />
-                                            {dxName && (
-                                                <Typography variant="body2" sx={{ lineHeight: 1.4, fontSize: '12px', opacity: 0.95 }}>
-                                                    {dxName}
-                            </Typography>
-                                            )}
-                        </Box>
-                    </Grid>
-                )}
+                                        ) : (
+                                            <Typography variant="body2" sx={{ lineHeight: 1.4, fontSize: '13px' }}>
+                                                ไม่มี
+                                            </Typography>
+                                        )}
+                                    </Box>
+                                </Grid>
                             </Grid>
                         </Box>
                     )}
                 </Grid>
 
-                {/* สิทธิ์การรักษา */}
-                <Grid item xs={12} md={4}>
+                {/* สิทธิ์การรักษา - เล็กลง */}
+                <Grid item xs={12} md={2}>
                     <Box sx={{ position: 'relative', zIndex: 1, textAlign: 'center', width: '100%' }}>
                         <Typography
                             variant="caption"
                             sx={{
                                 opacity: 0.95,
-                                mb: 1.5,
+                                mb: 1,
                                 display: 'block',
-                                fontSize: '0.75rem',
-                                fontWeight: 700,
-                                letterSpacing: 1,
+                                fontSize: '0.7rem',
+                                fontWeight: 600,
+                                letterSpacing: 0.5,
                                 textTransform: 'uppercase'
                             }}
                         >
@@ -232,22 +236,23 @@ const PatientInfoHeader = ({ patient, treatmentData }) => {
                         <Chip
                             icon={getRightIcon(patientRight.code)}
                             label={patientRight.name}
+                            size="small"
                             sx={{
                                 bgcolor: patientRight.bgColor,
                                 color: patientRight.color,
-                                fontWeight: 700,
-                                fontSize: '0.95rem',
-                                height: 42,
-                                px: 2,
-                                border: `2px solid ${patientRight.color}`,
-                                boxShadow: `0 4px 12px ${patientRight.color}44`,
+                                fontWeight: 600,
+                                fontSize: '0.8rem',
+                                height: 28,
+                                px: 1.5,
+                                border: `1.5px solid ${patientRight.color}`,
+                                boxShadow: `0 2px 8px ${patientRight.color}33`,
                                 '& .MuiChip-icon': {
                                     color: patientRight.color,
-                                    fontSize: 22
+                                    fontSize: 16
                                 },
                                 '&:hover': {
-                                    transform: 'translateY(-2px)',
-                                    boxShadow: `0 6px 16px ${patientRight.color}66`,
+                                    transform: 'translateY(-1px)',
+                                    boxShadow: `0 4px 12px ${patientRight.color}44`,
                                     bgcolor: patientRight.bgColor
                                 },
                                 transition: 'all 0.3s ease'

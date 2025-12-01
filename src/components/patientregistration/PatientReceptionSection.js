@@ -370,6 +370,15 @@ const PatientReceptionSection = ({
             // Refresh data
             onRefresh();
 
+            // Dispatch event เพื่อแจ้งหน้าอื่นๆ ว่ามีการเพิ่มคิว
+            window.dispatchEvent(new CustomEvent('queueAdded', {
+                detail: { 
+                    queueId: queueResponse.data.QUEUE_ID,
+                    queueNumber: queueResponse.data.QUEUE_NUMBER,
+                    hncode: selectedPatient.HNCODE
+                }
+            }));
+
         } catch (error) {
             console.error('Error creating queue with vitals:', error);
             showSnackbar('เกิดข้อผิดพลาด: ' + error.message, 'error');

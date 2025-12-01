@@ -97,16 +97,40 @@ const ตรวจรักษา = () => {
     loading: false
   });
 
-  // โหลดข้อมูลเมื่อ component mount
+  // โหลดข้อมูลเมื่อ component mount และ listen การเพิ่มคิว
   useEffect(() => {
     loadTodayPatients();
     loadQueueStats();
+
+    // Listen สำหรับ event เมื่อมีการเพิ่มคิวจากหน้าอื่น
+    const handleQueueAdded = (event) => {
+      console.log('🔄 Queue added event received, refreshing...');
+      loadTodayPatients(false); // ไม่แสดง loading spinner
+      loadQueueStats();
+    };
+
+    // Listen สำหรับ event เมื่อมีการเปลี่ยนสถานะคิว
+    const handleQueueStatusChanged = (event) => {
+      console.log('🔄 Queue status changed event received, refreshing...');
+      loadTodayPatients(false); // ไม่แสดง loading spinner
+      loadQueueStats();
+    };
+
+    window.addEventListener('queueAdded', handleQueueAdded);
+    window.addEventListener('queueStatusChanged', handleQueueStatusChanged);
+
+    return () => {
+      window.removeEventListener('queueAdded', handleQueueAdded);
+      window.removeEventListener('queueStatusChanged', handleQueueStatusChanged);
+    };
   }, []);
 
   // โหลดข้อมูลผู้ป่วยทั้งหมดจากคิว (ไม่กรองตามวันที่, ยกเว้นคนไข้ที่เสร็จสิ้นแล้ว)
-  const loadTodayPatients = async () => {
+  const loadTodayPatients = async (showLoading = true) => {
     try {
-      setLoading(true);
+      if (showLoading) {
+        setLoading(true);
+      }
       const response = await PatientService.getAllPatientsFromQueue();
 
       if (response.success) {
@@ -125,7 +149,8 @@ const ตรวจรักษา = () => {
           return (
             treatmentStatus !== 'ชำระเงินแล้ว' &&
             treatmentStatus !== 'ปิดการรักษา' &&
-            queueStatus !== 'ยกเลิกคิว'
+            queueStatus !== 'ยกเลิกคิว' &&
+            queueStatus !== 'เสร็จแล้ว'
           );
         });
 
@@ -148,10 +173,20 @@ const ตรวจรักษา = () => {
       }
     } catch (err) {
       console.error('Error loading all patients:', err);
-      setError('เกิดข้อผิดพลาดในการโหลดข้อมูล: ' + err.message);
-      setPatients([]);
+      if (showLoading) {
+        setError('เกิดข้อผิดพลาดในการโหลดข้อมูล: ' + err.message);
+      }
+      // ไม่ต้อง setPatients([]) ตอน auto-refresh เพื่อไม่ให้หายไป
+      if (!showLoading) {
+        // ถ้าเป็น auto-refresh แล้ว error ให้ log เฉยๆ
+        console.warn('Auto-refresh failed, keeping existing data');
+      } else {
+        setPatients([]);
+      }
     } finally {
-      setLoading(false);
+      if (showLoading) {
+        setLoading(false);
+      }
     }
   };
 
@@ -246,7 +281,7 @@ const ตรวจรักษา = () => {
 
           // รีโหลดข้อมูลเพื่อให้แน่ใจว่าสถานะถูกต้อง
           setTimeout(() => {
-            loadTodayPatients();
+            loadTodayPatients(false); // ไม่แสดง loading spinner
           }, 500);
         } else {
           const updatedPatients = [...patients];
@@ -261,9 +296,19 @@ const ตรวจรักษา = () => {
             message: 'อัพเดตสถานะสำเร็จ',
             severity: 'success'
           });
+
+          // รีโหลดข้อมูลเพื่อให้แน่ใจว่าสถานะถูกต้อง
+          setTimeout(() => {
+            loadTodayPatients(false); // ไม่แสดง loading spinner
+          }, 500);
         }
 
         loadQueueStats();
+        
+        // Dispatch event เพื่อแจ้งหน้าอื่นๆ
+        window.dispatchEvent(new CustomEvent('queueStatusChanged', {
+          detail: { queueId: targetPatient.queueId, newStatus }
+        }));
       } else {
         setSnackbar({
           open: true,
@@ -356,7 +401,17 @@ const ตรวจรักษา = () => {
       });
 
       handleCancelQueueClose();
-      loadQueueStats();
+      
+      // รีโหลดข้อมูลและสถิติคิว
+      setTimeout(() => {
+        loadTodayPatients(false); // ไม่แสดง loading spinner
+        loadQueueStats();
+        
+        // Dispatch event เพื่อแจ้งหน้าอื่นๆ
+        window.dispatchEvent(new CustomEvent('queueStatusChanged', {
+          detail: { queueId: cancelDialog.patient.queueId, action: 'cancelled' }
+        }));
+      }, 500);
     } catch (error) {
       console.error('Error cancelling queue:', error);
       setSnackbar({
@@ -385,7 +440,7 @@ const ตรวจรักษา = () => {
 
   // รีเฟรชข้อมูล
   const handleRefresh = () => {
-    loadTodayPatients();
+    loadTodayPatients(true); // true = แสดง loading spinner
     loadQueueStats();
   };
 

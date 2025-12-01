@@ -159,6 +159,15 @@ const WalkInPatientSystem = ({
                 // ✅ แสดง VN Number ที่ถูกต้อง
                 alert(`เพิ่มเข้าคิวสำเร็จ!\nหมายเลขคิว: ${response.data.QUEUE_NUMBER}\nVN Number: ${response.data.VNO}`);
 
+                // Dispatch event เพื่อแจ้งหน้าอื่นๆ ว่ามีการเพิ่มคิว
+                window.dispatchEvent(new CustomEvent('queueAdded', {
+                    detail: { 
+                        queueId: response.data.QUEUE_ID,
+                        queueNumber: response.data.QUEUE_NUMBER,
+                        hncode: selectedPatient.HNCODE
+                    }
+                }));
+
                 handleReset();
                 onClose();
             } else {
