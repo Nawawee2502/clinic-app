@@ -17,17 +17,21 @@ import PropTypes from 'prop-types';
 // Import Services
 import TreatmentService from "../../services/treatmentService";
 import DrugService from "../../services/drugService";
+import EmployeeService from "../../services/employeeService";
 
 const Procedure = ({ currentPatient, onSaveSuccess }) => {
   const [procedureData, setProcedureData] = useState({
     procedureName: '',
     procedureCode: '',
     note: '',
-    doctorName: ''
+    doctorName: '',
+    EMP_CODE: ''
   });
 
   const [savedProcedures, setSavedProcedures] = useState([]);
   const [procedureOptions, setProcedureOptions] = useState([]);
+  const [employeeList, setEmployeeList] = useState([]);
+  const [selectedEmployee, setSelectedEmployee] = useState(null);
   
   // Medicine states
   const [medicineData, setMedicineData] = useState({
@@ -72,12 +76,17 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
 
   // โหลดข้อมูลเมื่อ currentPatient เปลี่ยน
   useEffect(() => {
+    loadProcedureOptions();
+    loadDrugOptions();
+    loadEmployees();
+  }, []);
+
+  // โหลดข้อมูลหัตถการเมื่อ currentPatient หรือ employeeList เปลี่ยน
+  useEffect(() => {
     if (currentPatient?.VNO) {
       loadProcedureData();
     }
-    loadProcedureOptions();
-    loadDrugOptions();
-  }, [currentPatient]);
+  }, [currentPatient, employeeList]);
 
   const showSnackbar = (message, severity = 'success') => {
     setSnackbar({ open: true, message, severity });
@@ -91,13 +100,18 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
       if (response.success && response.data) {
         // Load procedures
         if (response.data.procedures) {
-          const procedures = response.data.procedures.map((procedure, index) => ({
-            id: index + 1,
-            procedureName: procedure.MED_PRO_NAME_THAI || procedure.PROCEDURE_NAME || 'ไม่ระบุชื่อ',
-            procedureCode: procedure.MEDICAL_PROCEDURE_CODE || procedure.PROCEDURE_CODE,
-            note: procedure.NOTE1 || '',
-            doctorName: procedure.DOCTOR_NAME || 'นพ.ผู้รักษา'
-          }));
+          const procedures = response.data.procedures.map((procedure, index) => {
+            // หา employee จาก employeeList
+            const employee = employeeList.find(e => e.EMP_CODE === procedure.EMP_CODE);
+            return {
+              id: index + 1,
+              procedureName: procedure.MED_PRO_NAME_THAI || procedure.PROCEDURE_NAME || 'ไม่ระบุชื่อ',
+              procedureCode: procedure.MEDICAL_PROCEDURE_CODE || procedure.PROCEDURE_CODE,
+              note: procedure.NOTE1 || '',
+              doctorName: employee ? employee.EMP_NAME : (procedure.DOCTOR_NAME || 'นพ.ผู้รักษา'),
+              EMP_CODE: procedure.EMP_CODE || ''
+            };
+          });
           setSavedProcedures(procedures);
         }
         
@@ -159,6 +173,18 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
         { PROCEDURE_CODE: 'PROC014', PROCEDURE_NAME: 'การตรวจตา', CATEGORY: 'Ophthalmology', UNIT_PRICE: 250 },
         { PROCEDURE_CODE: 'PROC015', PROCEDURE_NAME: 'การนวดหัวใจ', CATEGORY: 'Emergency', UNIT_PRICE: 1000 }
       ]);
+    }
+  };
+
+  const loadEmployees = async () => {
+    try {
+      // ✅ ดึงเฉพาะแพทย์ (เช่นเดียวกับระบบนัดหมาย)
+      const response = await EmployeeService.getAllEmployees('หมอ');
+      if (response.success && response.data) {
+        setEmployeeList(response.data);
+      }
+    } catch (error) {
+      console.error('Error loading employees:', error);
     }
   };
 
@@ -246,7 +272,8 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
       procedureName: procedureData.procedureName.trim(),
       procedureCode: finalProcedureCode,
       note: procedureData.note.trim(),
-      doctorName: procedureData.doctorName.trim() || 'นพ.ผู้รักษา'
+      doctorName: selectedEmployee ? selectedEmployee.EMP_NAME : (procedureData.doctorName.trim() || 'นพ.ผู้รักษา'),
+      EMP_CODE: procedureData.EMP_CODE || ''
     };
 
     if (editingIndex >= 0) {
@@ -268,19 +295,31 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
 
   const loadDrugOptions = async () => {
     try {
-      console.log('Loading drug options...');
+      console.log('Loading drug options (ยาฉีด only - TD002)...');
       setApiStatus('checking');
-      const response = await DrugService.getAllDrugs({ limit: 10000 });
+      // ✅ กรองเฉพาะยาที่มี Type1 = 'TD002' (ยาฉีด)
+      const response = await DrugService.getAllDrugs({ 
+        limit: 10000,
+        type: 'TD002'
+      });
 
       if (response.success && response.data) {
         console.log('Drug API available, loaded', response.data.length, 'drugs');
-        const formattedDrugs = response.data.map(drug => ({
+        // ✅ กรองเฉพาะยาที่มี Type1 = 'TD002' (ยาฉีด)
+        const injectionDrugs = response.data.filter(drug => 
+          drug.Type1 === 'TD002'
+        );
+        
+        console.log('Filtered injection drugs (TD002):', injectionDrugs.length);
+        
+        const formattedDrugs = injectionDrugs.map(drug => ({
           DRUG_CODE: drug.DRUG_CODE,
           GENERIC_NAME: drug.GENERIC_NAME,
           TRADE_NAME: drug.TRADE_NAME || '',
-          UNIT_CODE: drug.UNIT_CODE || 'TAB',
+          UNIT_CODE: drug.UNIT_CODE || 'AMP',
           UNIT_NAME: drug.UNIT_NAME || drug.UNIT_NAME1 || '',
           UNIT_PRICE: drug.UNIT_PRICE || 0,
+          Type1: drug.Type1 || '',
           Dose1: drug.Dose1 || '',
           Indication1: drug.Indication1 || '',
           Comment1: drug.Comment1 || '',
@@ -288,7 +327,7 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
         }));
         setDrugOptions(formattedDrugs);
         setApiStatus('connected');
-        console.log('Formatted drugs:', formattedDrugs.slice(0, 3));
+        console.log('Formatted injection drugs:', formattedDrugs.slice(0, 3));
         return;
       } else {
         throw new Error('Drug API not available');
@@ -473,18 +512,24 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
       procedureName: '',
       procedureCode: '',
       note: '',
-      doctorName: ''
+      doctorName: '',
+      EMP_CODE: ''
     });
+    setSelectedEmployee(null);
   };
 
   const handleEditProcedure = (index) => {
     const procedure = savedProcedures[index];
+    // หา employee จาก employeeList
+    const employee = employeeList.find(e => e.EMP_CODE === procedure.EMP_CODE);
     setProcedureData({
       procedureName: procedure.procedureName,
       procedureCode: procedure.procedureCode,
       note: procedure.note,
-      doctorName: procedure.doctorName
+      doctorName: procedure.doctorName,
+      EMP_CODE: procedure.EMP_CODE || ''
     });
+    setSelectedEmployee(employee || null);
     setEditingIndex(index);
     showSnackbar('เข้าสู่โหมดแก้ไข', 'info');
   };
@@ -527,6 +572,7 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
           PROCEDURE_NAME: procedure.procedureName,
           NOTE1: procedure.note,
           DOCTOR_NAME: procedure.doctorName,
+          EMP_CODE: procedure.EMP_CODE || '',
           PROCEDURE_DATE: new Date().toISOString().split('T')[0],
           QTY: 1,
           UNIT_CODE: 'ครั้ง',
@@ -754,17 +800,35 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
                   <Typography sx={{ fontWeight: '400', fontSize: '16px', mb: 1 }}>
                     แพทย์ผู้ทำ
                   </Typography>
-                  <TextField
-                    size="small"
-                    placeholder="ชื่อแพทย์ผู้ทำหัตถการ"
-                    value={procedureData.doctorName}
-                    onChange={(e) => handleProcedureChange('doctorName', e.target.value)}
-                    sx={{
-                      width: '100%',
-                      '& .MuiOutlinedInput-root': {
-                        borderRadius: '10px',
-                      },
+                  <Autocomplete
+                    fullWidth
+                    options={employeeList}
+                    getOptionLabel={(option) => option.EMP_NAME || `${option.EMP_CODE}`}
+                    value={selectedEmployee}
+                    onChange={(event, newValue) => {
+                      setSelectedEmployee(newValue);
+                      if (newValue) {
+                        setProcedureData(prev => ({
+                          ...prev,
+                          EMP_CODE: newValue.EMP_CODE,
+                          doctorName: newValue.EMP_NAME
+                        }));
+                      } else {
+                        setProcedureData(prev => ({
+                          ...prev,
+                          EMP_CODE: '',
+                          doctorName: ''
+                        }));
+                      }
                     }}
+                    size="small"
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        placeholder="เลือกแพทย์ผู้ทำหัตถการ"
+                        sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
+                      />
+                    )}
                   />
                 </Grid>
 

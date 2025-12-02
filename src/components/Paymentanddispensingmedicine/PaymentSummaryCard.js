@@ -26,6 +26,7 @@ const PaymentSummaryCard = ({
     onPayment,
     onCloseCase,
     patient,
+    ucsUsageInfo = { isExceeded: false }, // ✅ รับข้อมูลการใช้งานสิทธิ์บัตรทอง
     loading
 }) => {
     const calculateTotalFromEditablePrices = () => {
@@ -34,9 +35,10 @@ const PaymentSummaryCard = ({
         
         // ✅ สำหรับผู้ป่วยบัตรทอง: คำนวณยาที่ UCS_CARD = 'N' หรือยาที่แก้ราคาแล้ว (editablePrice > 0)
         const isGoldCard = patient?.UCS_CARD === 'Y' || patient?.treatment?.UCS_CARD === 'Y';
+        const isUcsExceeded = ucsUsageInfo?.isExceeded || false;
         
         let drugTotal = 0;
-        if (isGoldCard) {
+        if (isGoldCard && !isUcsExceeded) {
             // คำนวณยาที่ UCS_CARD = 'N' หรือยาที่แก้ราคาแล้ว (editablePrice > 0)
             drugTotal = editablePrices.drugs.reduce((sum, item) => {
                 // ถ้าเป็นยาที่ต้องจ่าย (UCS_CARD = 'N') หรือแก้ราคาแล้ว (editablePrice > 0) ให้นับ
@@ -46,11 +48,15 @@ const PaymentSummaryCard = ({
                 return sum;
             }, 0);
         } else {
-            // ผู้ป่วยไม่ใช่บัตรทอง คำนวณยาทั้งหมด
+            // ผู้ป่วยไม่ใช่บัตรทอง หรือใช้สิทธิ์บัตรทองเกิน 2 ครั้งแล้ว: คำนวณยาทั้งหมด
             drugTotal = editablePrices.drugs.reduce((sum, item) => sum + item.editablePrice, 0);
         }
 
-        return labTotal + procedureTotal + drugTotal;
+        // ✅ เพิ่มค่ารักษา (ถ้าไม่ใช่บัตรทอง หรือใช้สิทธิ์เกิน 2 ครั้ง)
+        // ✅ ใช้เช็ค undefined/null แทน || เพื่อให้ 0 ถูกยอมรับได้
+        const treatmentFee = (isGoldCard && !isUcsExceeded) ? 0 : (paymentData.treatmentFee !== undefined && paymentData.treatmentFee !== null ? parseFloat(paymentData.treatmentFee) : 100.00);
+
+        return labTotal + procedureTotal + drugTotal + treatmentFee;
     };
 
     const calculateTotal = () => {
@@ -144,6 +150,57 @@ const PaymentSummaryCard = ({
                             })()} บาท
                         </Typography>
                     </Box>
+
+                    {/* ✅ ค่ารักษา - แสดงและแก้ไขได้ */}
+                    {!isPaymentCompleted && (
+                        <TextField
+                            label="ค่ารักษา (บาท)"
+                            fullWidth
+                            margin="normal"
+                            type="number"
+                            value={paymentData.treatmentFee !== undefined && paymentData.treatmentFee !== null ? paymentData.treatmentFee : ''}
+                            onChange={(e) => {
+                                const value = e.target.value;
+                                // ✅ อนุญาตให้กรอก 0.00 ได้ - ถ้าค่าว่างให้เป็น undefined, ถ้าเป็น 0 ให้เป็น 0
+                                let treatmentFeeValue;
+                                if (value === '' || value === null || value === undefined) {
+                                    treatmentFeeValue = undefined; // ให้เป็น undefined เพื่อใช้ default
+                                } else {
+                                    const parsed = parseFloat(value);
+                                    treatmentFeeValue = isNaN(parsed) ? undefined : parsed; // ถ้า parse ไม่ได้ให้เป็น undefined
+                                }
+                                onPaymentDataChange({ ...paymentData, treatmentFee: treatmentFeeValue });
+                            }}
+                            size="small"
+                            inputProps={{ step: "0.01", min: "0" }}
+                            disabled={(patient?.UCS_CARD === 'Y' || patient?.treatment?.UCS_CARD === 'Y') && !ucsUsageInfo?.isExceeded}
+                            helperText={(patient?.UCS_CARD === 'Y' || patient?.treatment?.UCS_CARD === 'Y') && !ucsUsageInfo?.isExceeded 
+                                ? 'บัตรทอง: ค่ารักษา = 0.00' 
+                                : 'สามารถแก้ไขได้ (กรอก 0.00 ได้)'}
+                            sx={{
+                                '& .MuiOutlinedInput-root': {
+                                    borderRadius: '10px',
+                                    bgcolor: 'white'
+                                }
+                            }}
+                        />
+                    )}
+
+                    {/* ✅ แสดงค่ารักษาเมื่อชำระแล้ว หรือเมื่อกรอกค่ารักษา */}
+                    {(isPaymentCompleted || (paymentData.treatmentFee !== undefined && paymentData.treatmentFee !== null)) && (
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                            <Typography variant="body2">ค่ารักษา:</Typography>
+                            <Typography variant="body2" fontWeight="bold">
+                                {(() => {
+                                    const isGoldCard = patient?.UCS_CARD === 'Y' || patient?.treatment?.UCS_CARD === 'Y';
+                                    const isUcsExceeded = ucsUsageInfo?.isExceeded || false;
+                                    // ✅ ใช้เช็ค undefined/null แทน || เพื่อให้ 0 ถูกยอมรับได้
+                                    const treatmentFee = (isGoldCard && !isUcsExceeded) ? 0.00 : (paymentData.treatmentFee !== undefined && paymentData.treatmentFee !== null ? parseFloat(paymentData.treatmentFee) : 100.00);
+                                    return treatmentFee.toFixed(2);
+                                })()} บาท
+                            </Typography>
+                        </Box>
+                    )}
 
                     <Divider sx={{ my: 1 }} />
 

@@ -409,11 +409,19 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
 
     // เปิด Completion Confirmation Dialog - บันทึกยาก่อน แล้วค่อยเปลี่ยนสถานะ
     const handleCompleteRequest = async () => {
-        // ✅ บันทึกยาก่อน (ถ้ามีรายการยา)
-        if (savedMedicines.length > 0) {
-            try {
-                setSaving(true);
+        try {
+            setSaving(true);
 
+            // ✅ ตรวจสอบ VNO - ถ้าไม่มีให้สร้างใหม่
+            let vno = currentPatient?.VNO;
+            if (!vno || vno === 'null' || vno === null) {
+                // ถ้าไม่มี VNO ให้สร้างใหม่
+                vno = TreatmentService.generateVNO();
+                console.log('⚠️ VNO was null, generated new VNO:', vno);
+            }
+
+            // ✅ บันทึกยาก่อน (ถ้ามีรายการยา)
+            if (savedMedicines.length > 0) {
                 const lockedStatuses = ['รอชำระเงิน', 'ชำระเงินแล้ว', 'ปิดการรักษา'];
                 const currentStatus =
                     (currentPatient?.queueStatus || currentPatient?.STATUS1 || '').trim();
@@ -430,54 +438,47 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
                 }));
 
                 const treatmentData = {
-                    VNO: currentPatient.VNO,
+                    VNO: vno,
                     HNNO: currentPatient.HNCODE,
-                    ...(isLockedStatus ? {} : { STATUS1: 'กำลังตรวจ' }),
+                    QUEUE_ID: currentPatient.queueId,
+                    // ✅ ไม่ต้องตั้ง STATUS1 ที่นี่ เพราะจะเปลี่ยนเป็น "รอชำระเงิน" ในขั้นตอนถัดไป
                     drugs: drugs
                 };
 
-                const response = await TreatmentService.updateTreatment(currentPatient.VNO, treatmentData);
+                const response = await TreatmentService.updateTreatment(vno, treatmentData);
 
                 if (response.success) {
                     showSnackbar('บันทึกข้อมูลยาสำเร็จ!', 'success');
-
-                    if (!isLockedStatus) {
-                        try {
-                            await QueueService.updateQueueStatus(currentPatient.queueId, 'กำลังตรวจ');
-                        } catch (error) {
-                            console.warn('Could not update queue status:', error);
-                        }
-                    }
-
-                    // ✅ หลังจากบันทึกยาสำเร็จแล้ว ให้เรียก onCompletePatient
-        if (onCompletePatient) {
-                        onCompletePatient('รอชำระเงิน');
-                    }
+                    // ✅ ไม่ต้องอัพเดทสถานะเป็น "กำลังตรวจ" ที่นี่ เพราะจะอัพเดทเป็น "รอชำระเงิน" ในขั้นตอนถัดไป
                 } else {
                     const errorMessage = response.message || 'ไม่สามารถบันทึกข้อมูลได้';
                     showSnackbar('ไม่สามารถบันทึกข้อมูลได้: ' + errorMessage, 'error');
+                    setSaving(false);
+                    return;
                 }
-            } catch (error) {
-                console.error('Error saving medicine data:', error);
-                let errorMessage = 'เกิดข้อผิดพลาดในการบันทึกข้อมูล';
-                if (error.response?.status === 500) {
-                    errorMessage = 'เซิร์ฟเวอร์เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง';
-                } else if (error.response?.status === 400) {
-                    errorMessage = 'ข้อมูลที่ส่งไม่ถูกต้อง กรุณาตรวจสอบข้อมูลอีกครั้ง';
-                } else if (error.response?.data?.message) {
-                    errorMessage = error.response.data.message;
-                } else if (error.message) {
-                    errorMessage = error.message;
-                }
-                showSnackbar(errorMessage, 'error');
-            } finally {
-                setSaving(false);
             }
-        } else {
-            // ✅ ถ้าไม่มีรายการยา ให้เรียก onCompletePatient โดยตรง
+
+            // ✅ หลังจากบันทึกยาเสร็จ (หรือถ้าไม่มียา) ให้เรียก onCompletePatient เพื่อแสดง modal ยืนยัน
             if (onCompletePatient) {
                 onCompletePatient('รอชำระเงิน');
             }
+        } catch (error) {
+            console.error('Error completing treatment:', error);
+            let errorMessage = 'เกิดข้อผิดพลาดในการบันทึกข้อมูล';
+            if (error.response?.status === 500) {
+                errorMessage = 'เซิร์ฟเวอร์เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง';
+            } else if (error.response?.status === 400) {
+                errorMessage = 'ข้อมูลที่ส่งไม่ถูกต้อง กรุณาตรวจสอบข้อมูลอีกครั้ง';
+            } else if (error.response?.status === 404) {
+                errorMessage = 'ไม่พบข้อมูลการรักษา กรุณาลองใหม่อีกครั้ง';
+            } else if (error.response?.data?.message) {
+                errorMessage = error.response.data.message;
+            } else if (error.message) {
+                errorMessage = error.message;
+            }
+            showSnackbar(errorMessage, 'error');
+        } finally {
+            setSaving(false);
         }
     };
 
@@ -995,7 +996,7 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
                 <Button
                     variant="contained"
                     onClick={handleCompleteRequest}
-                    disabled={saving || savedMedicines.length === 0}
+                    disabled={saving}
                     startIcon={saving ? <CircularProgress size={20} /> : <CheckCircleIcon />}
                     sx={{
                         minWidth: 250,

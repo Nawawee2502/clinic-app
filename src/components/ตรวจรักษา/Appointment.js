@@ -37,8 +37,11 @@ import PersonIcon from '@mui/icons-material/Person';
 import RefreshIcon from '@mui/icons-material/Refresh';
 
 // Import Services
-import PatientService from "../../services/patientService";
+import AppointmentService from "../../services/appointmentService";
 import TreatmentService from "../../services/treatmentService";
+import EmployeeService from "../../services/employeeService";
+import Autocomplete from "@mui/material/Autocomplete";
+import AppointmentPrint from "../patientregistration/AppointmentPrint";
 
 const Appointment = ({ currentPatient }) => {
   const [loading, setLoading] = useState(false);
@@ -46,7 +49,9 @@ const Appointment = ({ currentPatient }) => {
   const [appointmentTime, setAppointmentTime] = useState('');
   const [reason, setReason] = useState('');
   const [notes, setNotes] = useState('');
-  const [doctorName, setDoctorName] = useState('');
+  const [selectedDoctor, setSelectedDoctor] = useState(null);
+  const [doctorList, setDoctorList] = useState([]);
+  const [loadingDoctors, setLoadingDoctors] = useState(false);
   const [existingAppointments, setExistingAppointments] = useState([]);
   const [snackbar, setSnackbar] = useState({
     open: false,
@@ -66,16 +71,37 @@ const Appointment = ({ currentPatient }) => {
     }
   }, [currentPatient]);
 
+  // Load doctor list from database
+  useEffect(() => {
+    loadDoctors();
+  }, []);
+
   const loadPatientAppointments = async () => {
     if (!currentPatient?.HNCODE) return;
 
     try {
-      const response = await PatientService.getPatientAppointments(currentPatient.HNCODE);
+      const response = await AppointmentService.getPatientAppointments(currentPatient.HNCODE);
       if (response.success) {
         setExistingAppointments(response.data);
       }
     } catch (error) {
       console.error('Error loading appointments:', error);
+    }
+  };
+
+  // ✅ ดึงรายการแพทย์จาก EMPLOYEE1 table
+  const loadDoctors = async () => {
+    try {
+      setLoadingDoctors(true);
+      const response = await EmployeeService.getAllEmployees('หมอ'); // ดึงเฉพาะหมอ
+      if (response.success && response.data) {
+        setDoctorList(response.data);
+      }
+    } catch (error) {
+      console.error('Error loading doctors:', error);
+      showSnackbar('ไม่สามารถโหลดรายการแพทย์ได้', 'warning');
+    } finally {
+      setLoadingDoctors(false);
     }
   };
 
@@ -116,12 +142,13 @@ const Appointment = ({ currentPatient }) => {
         SURNAME: currentPatient.SURNAME,
         PHONE: currentPatient.TEL1,
         REASON: reason,
-        DOCTOR_NAME: doctorName,
+        DOCTOR_CODE: selectedDoctor?.EMP_CODE || null,
+        DOCTOR_NAME: selectedDoctor?.EMP_NAME || null,
         NOTES: notes,
         status: 'ยืนยันแล้ว'
       };
 
-      const response = await PatientService.createAppointment(appointmentData);
+      const response = await AppointmentService.createAppointment(appointmentData);
 
       if (response.success) {
         showSnackbar(`สร้างนัดหมายสำเร็จ! VN Number: ${response.data.VN_NUMBER}`, 'success');
@@ -131,7 +158,7 @@ const Appointment = ({ currentPatient }) => {
         setAppointmentTime('');
         setReason('');
         setNotes('');
-        setDoctorName('');
+        setSelectedDoctor(null);
 
         // Reload appointments
         loadPatientAppointments();
@@ -149,7 +176,7 @@ const Appointment = ({ currentPatient }) => {
   const handleDeleteAppointment = async (appointmentId) => {
     if (window.confirm('คุณต้องการลบนัดหมายนี้หรือไม่?')) {
       try {
-        const response = await PatientService.deleteAppointment(appointmentId);
+        const response = await AppointmentService.deleteAppointment(appointmentId);
 
         if (response.success) {
           showSnackbar('ลบนัดหมายสำเร็จ', 'success');
@@ -274,6 +301,7 @@ const Appointment = ({ currentPatient }) => {
                         <TableCell>เวลา</TableCell>
                         <TableCell>เหตุผล</TableCell>
                         <TableCell>สถานะ</TableCell>
+                        <TableCell>พิมพ์</TableCell>
                         <TableCell>จัดการ</TableCell>
                       </TableRow>
                     </TableHead>
@@ -292,6 +320,12 @@ const Appointment = ({ currentPatient }) => {
                               label={appointment.status || 'รอนัด'}
                               color={appointment.status === 'ยืนยันแล้ว' ? 'success' : 'default'}
                               size="small"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <AppointmentPrint 
+                              appointment={appointment} 
+                              patient={currentPatient}
                             />
                           </TableCell>
                           <TableCell>
@@ -367,21 +401,30 @@ const Appointment = ({ currentPatient }) => {
                   <Typography sx={{ fontWeight: "400", fontSize: "16px", mb: 1 }}>
                     แพทย์ผู้รักษา
                   </Typography>
-                  <FormControl fullWidth>
-                    <Select
-                      value={doctorName}
-                      onChange={(e) => setDoctorName(e.target.value)}
-                      displayEmpty
-                      sx={{ borderRadius: "10px" }}
-                    >
-                      <MenuItem value="">เลือกแพทย์</MenuItem>
-                      <MenuItem value="นพ.สุดา รักษาดี">👩‍⚕️ นพ.สุดา รักษาดี</MenuItem>
-                      <MenuItem value="นพ.สมชาย ใจดี">👨‍⚕️ นพ.สมชาย ใจดี</MenuItem>
-                      <MenuItem value="นพ.สมหญิง รักษาดี">👩‍⚕️ นพ.สมหญิง รักษาดี</MenuItem>
-                      <MenuItem value="นพ.ประเสริฐ เก่งมาก">👨‍⚕️ นพ.ประเสริฐ เก่งมาก</MenuItem>
-                      <MenuItem value="นพ.วิชัย ช่วยคน">👨‍⚕️ นพ.วิชัย ช่วยคน</MenuItem>
-                    </Select>
-                  </FormControl>
+                  <Autocomplete
+                    fullWidth
+                    options={doctorList}
+                    getOptionLabel={(option) => option.EMP_NAME || ''}
+                    isOptionEqualToValue={(option, value) => option.EMP_CODE === value?.EMP_CODE}
+                    value={selectedDoctor}
+                    onChange={(event, newValue) => {
+                      setSelectedDoctor(newValue);
+                    }}
+                    loading={loadingDoctors}
+                    size="small"
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        placeholder="เลือกแพทย์"
+                        sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
+                      />
+                    )}
+                    renderOption={(props, option) => (
+                      <li {...props} key={option.EMP_CODE}>
+                        👨‍⚕️ {option.EMP_NAME} ({option.EMP_CODE})
+                      </li>
+                    )}
+                  />
                 </Grid>
               </Grid>
             </CardContent>
@@ -435,7 +478,7 @@ const Appointment = ({ currentPatient }) => {
                 setAppointmentTime('');
                 setReason('');
                 setNotes('');
-                setDoctorName('');
+                setSelectedDoctor(null);
               }}
             >
               ยกเลิก

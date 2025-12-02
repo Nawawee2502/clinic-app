@@ -24,6 +24,8 @@ import {
 import PatientService from "../../services/patientService";
 import QueueService from "../../services/queueService";
 import TreatmentService from "../../services/treatmentService";
+import AppointmentService from "../../services/appointmentService";
+import Swal from "sweetalert2";
 
 const PatientReceptionSection = ({
     onRefresh,
@@ -36,6 +38,8 @@ const PatientReceptionSection = ({
     const [selectedPatient, setSelectedPatient] = useState(null);
     const [patientLoading, setPatientLoading] = useState(false);
     const [vitalsLoading, setVitalsLoading] = useState(false);
+    const [todayAppointments, setTodayAppointments] = useState([]);
+    const [loadingAppointments, setLoadingAppointments] = useState(false);
 
     // Vitals State
     const [vitalsData, setVitalsData] = useState({
@@ -66,6 +70,29 @@ const PatientReceptionSection = ({
             showSnackbar(`✅ เลือกผู้ป่วย ${newlyRegisteredPatient.PRENAME}${newlyRegisteredPatient.NAME1} ${newlyRegisteredPatient.SURNAME} เรียบร้อยแล้ว กรุณากรอก Vital Signs`, 'success');
         }
     }, [newlyRegisteredPatient]);
+
+    // ✅ โหลดนัดหมายวันนี้
+    useEffect(() => {
+        loadTodayAppointments();
+    }, []);
+
+    const loadTodayAppointments = async () => {
+        try {
+            setLoadingAppointments(true);
+            const response = await AppointmentService.getTodayAppointments();
+            if (response.success) {
+                // กรองเฉพาะนัดที่ยังไม่ได้เข้าคิว (status = 'นัดไว้' หรือ 'ยืนยันแล้ว')
+                const activeAppointments = response.data.filter(apt => 
+                    apt.STATUS === 'นัดไว้' || apt.STATUS === 'ยืนยันแล้ว'
+                );
+                setTodayAppointments(activeAppointments);
+            }
+        } catch (error) {
+            console.error('Error loading today appointments:', error);
+        } finally {
+            setLoadingAppointments(false);
+        }
+    };
 
     // Search patients
     const handleSearchPatients = async (searchTerm) => {
@@ -296,6 +323,106 @@ const PatientReceptionSection = ({
                 }
             }
 
+            // ✅ Step 0.5: เช็คสิทธิ์บัตรทอง - ถ้าใช้เกิน 2 ครั้งในเดือนนี้ให้แจ้งเตือน
+            const ucsCard = selectedPatient?.UCS_CARD || 'N';
+            if (ucsCard === 'Y') {
+                const ucsUsageCheck = await TreatmentService.checkUCSUsageThisMonth(selectedPatient.HNCODE);
+                
+                if (ucsUsageCheck.success && ucsUsageCheck.data) {
+                    const { usageCount, maxUsage, isExceeded, remainingUsage } = ucsUsageCheck.data;
+                    
+                    if (isExceeded) {
+                        // ถ้าใช้เกิน 2 ครั้งแล้ว ให้แจ้งเตือนว่าต้องจ่ายเงิน
+                        const confirmResult = await Swal.fire({
+                            icon: 'warning',
+                            title: '⚠️ ใช้สิทธิ์บัตรทองเกินกำหนด',
+                            html: `
+                                <div style="text-align: left; padding: 10px;">
+                                    <p style="font-size: 16px; margin-bottom: 15px;">
+                                        ผู้ป่วย HN: <strong>${selectedPatient.HNCODE}</strong> 
+                                        (${selectedPatient.PRENAME}${selectedPatient.NAME1} ${selectedPatient.SURNAME})
+                                    </p>
+                                    <p style="font-size: 14px; color: #666; margin-bottom: 10px;">
+                                        <strong>📊 สถิติการใช้สิทธิ์บัตรทองในเดือนนี้:</strong>
+                                    </p>
+                                    <ul style="font-size: 14px; color: #666; margin-left: 20px;">
+                                        <li>ใช้แล้ว: <strong style="color: #f59e0b;">${usageCount} ครั้ง</strong></li>
+                                        <li>จำกัด: ${maxUsage} ครั้งต่อเดือน</li>
+                                    </ul>
+                                    <div style="background-color: #fee2e2; padding: 15px; border-radius: 8px; margin-top: 15px; border-left: 4px solid #ef4444;">
+                                        <p style="font-size: 15px; color: #991b1b; margin: 0; font-weight: 600;">
+                                            ⚠️ ใช้สิทธิ์เกินกำหนดแล้ว!<br/>
+                                            การรักษาครั้งนี้จะคิดเงินตามปกติ
+                                        </p>
+                                    </div>
+                                </div>
+                            `,
+                            showCancelButton: true,
+                            confirmButtonText: 'ดำเนินการต่อ (คิดเงินตามปกติ)',
+                            cancelButtonText: 'ยกเลิก',
+                            confirmButtonColor: '#f59e0b',
+                            cancelButtonColor: '#64748b',
+                            width: '600px'
+                        });
+
+                        if (!confirmResult.isConfirmed) {
+                            setLoading(false);
+                            return;
+                        }
+                    } else if (remainingUsage === 0) {
+                        // ถ้าใช้ครบ 2 ครั้งแล้ว แต่ยังไม่เกิน (ยังพอใช้ได้ 1 ครั้ง)
+                        await Swal.fire({
+                            icon: 'info',
+                            title: '💡 ใช้สิทธิ์บัตรทองครั้งสุดท้าย',
+                            html: `
+                                <div style="text-align: left; padding: 10px;">
+                                    <p style="font-size: 16px; margin-bottom: 15px;">
+                                        ผู้ป่วย HN: <strong>${selectedPatient.HNCODE}</strong>
+                                    </p>
+                                    <p style="font-size: 14px; color: #666; margin-bottom: 10px;">
+                                        <strong>📊 สถิติการใช้สิทธิ์บัตรทองในเดือนนี้:</strong>
+                                    </p>
+                                    <ul style="font-size: 14px; color: #666; margin-left: 20px;">
+                                        <li>ใช้แล้ว: ${usageCount} ครั้ง</li>
+                                        <li>จำกัด: ${maxUsage} ครั้งต่อเดือน</li>
+                                        <li>เหลือ: <strong style="color: #059669;">${remainingUsage} ครั้ง</strong></li>
+                                    </ul>
+                                    <div style="background-color: #dbeafe; padding: 15px; border-radius: 8px; margin-top: 15px; border-left: 4px solid #3b82f6;">
+                                        <p style="font-size: 14px; color: #1e40af; margin: 0;">
+                                            💡 นี่เป็นการใช้สิทธิ์ครั้งสุดท้ายในเดือนนี้<br/>
+                                            ครั้งถัดไปจะต้องจ่ายเงินตามปกติ
+                                        </p>
+                                    </div>
+                                </div>
+                            `,
+                            confirmButtonText: 'ตกลง',
+                            confirmButtonColor: '#3b82f6',
+                            width: '500px'
+                        });
+                    } else {
+                        // ยังใช้ไม่ครบ ให้แจ้งจำนวนที่เหลือ
+                        await Swal.fire({
+                            icon: 'info',
+                            title: '📊 สถิติการใช้สิทธิ์บัตรทอง',
+                            html: `
+                                <div style="text-align: left; padding: 10px;">
+                                    <p style="font-size: 14px; color: #666; margin-bottom: 10px;">
+                                        <strong>ผู้ป่วย HN:</strong> ${selectedPatient.HNCODE}
+                                    </p>
+                                    <ul style="font-size: 14px; color: #666; margin-left: 20px;">
+                                        <li>ใช้แล้ว: ${usageCount} ครั้ง</li>
+                                        <li>เหลือ: <strong style="color: #059669;">${remainingUsage} ครั้ง</strong></li>
+                                    </ul>
+                                </div>
+                            `,
+                            confirmButtonText: 'ตกลง',
+                            confirmButtonColor: '#3b82f6',
+                            width: '400px'
+                        });
+                    }
+                }
+            }
+
             // ✅ Step 1: สร้างคิวพร้อมข้อมูลบัตร
             const queueData = {
                 HNCODE: selectedPatient.HNCODE,
@@ -387,11 +514,143 @@ const PatientReceptionSection = ({
         }
     };
 
-    const bmiInfo = calculateBMI(vitalsData.WEIGHT1, vitalsData.HIGHT1);
+    // ✅ ฟังก์ชันเข้าคิวจากนัดหมาย
+    const handleCheckInAppointment = async (appointment) => {
+        try {
+            setLoading(true);
+            
+            // เรียก API check-in appointment
+            const response = await QueueService.checkInAppointment(appointment.APPOINTMENT_ID);
+            
+            if (response.success) {
+                showSnackbar(`✅ เข้าคิวสำเร็จ! คิวที่ ${response.data.QUEUE_NUMBER} | VN: ${response.data.VNO}`, 'success');
+                
+                // อัพเดทสถานะนัดหมาย
+                await AppointmentService.updateAppointmentStatus(appointment.APPOINTMENT_ID, 'เข้าพบแล้ว');
+                
+                // Refresh data
+                loadTodayAppointments();
+                onRefresh();
+                
+                // Dispatch event เพื่อแจ้งหน้าอื่นๆ ว่ามีการเพิ่มคิว
+                window.dispatchEvent(new CustomEvent('queueAdded', {
+                    detail: { 
+                        queueId: response.data.QUEUE_ID,
+                        queueNumber: response.data.QUEUE_NUMBER,
+                        hncode: appointment.HNCODE
+                    }
+                }));
+            } else {
+                showSnackbar('ไม่สามารถเข้าคิวได้: ' + response.message, 'error');
+            }
+        } catch (error) {
+            console.error('Error checking in appointment:', error);
+            showSnackbar('เกิดข้อผิดพลาด: ' + error.message, 'error');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // ฟังก์ชันแปลงวันที่
+    const formatThaiDate = (dateString) => {
+        if (!dateString) return '-';
+        try {
+            const date = new Date(dateString);
+            if (isNaN(date.getTime())) return '-';
+            const buddhistYear = date.getFullYear() + 543;
+            const monthNames = [
+                'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+                'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
+            ];
+            const day = date.getDate();
+            const month = monthNames[date.getMonth()];
+            if (!day || !month || !buddhistYear) return '-';
+            return `${day} ${month} ${buddhistYear}`;
+        } catch (error) {
+            return '-';
+        }
+    };
+
+    const bmiInfo = calculateBMI(vitalsData.WEIGHT1, vitalsData.HIGH1);
 
     return (
         <Card>
             <CardContent>
+                {/* Today's Appointments Section */}
+                {todayAppointments.length > 0 && (
+                    <Card sx={{ mb: 3, bgcolor: '#fff3cd', border: '2px solid #ffc107' }}>
+                        <CardContent>
+                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                                <Typography variant="h6" sx={{ color: '#856404', fontWeight: 'bold' }}>
+                                    📅 นัดหมายวันนี้ ({todayAppointments.length} รายการ)
+                                </Typography>
+                                {loadingAppointments && <CircularProgress size={20} />}
+                            </Box>
+                            <Grid container spacing={2}>
+                                {todayAppointments.map((appointment) => (
+                                    <Grid item xs={12} sm={6} md={4} key={appointment.APPOINTMENT_ID}>
+                                        <Card 
+                                            sx={{ 
+                                                bgcolor: 'white',
+                                                border: '1px solid #ffc107',
+                                                '&:hover': { boxShadow: 3 }
+                                            }}
+                                        >
+                                            <CardContent>
+                                                <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 1 }}>
+                                                    <Avatar sx={{ bgcolor: '#ffc107', width: 40, height: 40 }}>
+                                                        {appointment.NAME1?.charAt(0) || 'P'}
+                                                    </Avatar>
+                                                    <Box sx={{ flex: 1 }}>
+                                                        <Typography variant="subtitle2" fontWeight="bold">
+                                                            {appointment.PRENAME}{appointment.NAME1} {appointment.SURNAME}
+                                                        </Typography>
+                                                        <Typography variant="caption" color="text.secondary">
+                                                            HN: {appointment.HNCODE}
+                                                        </Typography>
+                                                    </Box>
+                                                </Box>
+                                                
+                                                <Box sx={{ mt: 1, mb: 1.5 }}>
+                                                    <Typography variant="body2" sx={{ mb: 0.5 }}>
+                                                        ⏰ <strong>เวลา:</strong> {appointment.APPOINTMENT_TIME || '-'}
+                                                    </Typography>
+                                                    {appointment.DOCTOR_NAME && (
+                                                        <Typography variant="body2" sx={{ mb: 0.5 }}>
+                                                            👨‍⚕️ <strong>แพทย์:</strong> {appointment.DOCTOR_NAME}
+                                                        </Typography>
+                                                    )}
+                                                    {appointment.REASON && (
+                                                        <Typography variant="body2" sx={{ mb: 0.5 }}>
+                                                            💊 <strong>เหตุผล:</strong> {appointment.REASON}
+                                                        </Typography>
+                                                    )}
+                                                </Box>
+                                                
+                                                <Button
+                                                    variant="contained"
+                                                    size="small"
+                                                    fullWidth
+                                                    onClick={() => handleCheckInAppointment(appointment)}
+                                                    disabled={loading}
+                                                    startIcon={loading ? <CircularProgress size={16} /> : <CheckIcon />}
+                                                    sx={{
+                                                        bgcolor: '#28a745',
+                                                        '&:hover': { bgcolor: '#218838' },
+                                                        borderRadius: '8px'
+                                                    }}
+                                                >
+                                                    เข้าคิวแทน
+                                                </Button>
+                                            </CardContent>
+                                        </Card>
+                                    </Grid>
+                                ))}
+                            </Grid>
+                        </CardContent>
+                    </Card>
+                )}
+
                 {/* Search Section */}
                 <Card sx={{ mb: 3, bgcolor: '#f8f9fa' }}>
                     <CardContent>

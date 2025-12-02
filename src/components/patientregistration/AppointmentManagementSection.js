@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
     Card,
     CardContent,
@@ -40,7 +40,10 @@ import {
 
 // Import Services
 import PatientService from "../../services/patientService";
+import AppointmentService from "../../services/appointmentService";
 import TreatmentService from "../../services/treatmentService";
+import EmployeeService from "../../services/employeeService";
+import AppointmentPrint from "./AppointmentPrint";
 
 const AppointmentManagementSection = ({ appointments, setAppointments, onRefresh, showSnackbar }) => {
     const [openDialog, setOpenDialog] = useState(false);
@@ -55,6 +58,9 @@ const AppointmentManagementSection = ({ appointments, setAppointments, onRefresh
         doctorName: '',
         notes: ''
     });
+    const [doctorList, setDoctorList] = useState([]);
+    const [selectedDoctor, setSelectedDoctor] = useState(null);
+    const [loadingDoctors, setLoadingDoctors] = useState(false);
 
     // ฟังก์ชันสร้าง VN Number
     const generateVNNumber = (date = new Date()) => {
@@ -63,19 +69,77 @@ const AppointmentManagementSection = ({ appointments, setAppointments, onRefresh
 
     // แปลงวันที่เป็น พ.ศ.
     const formatThaiDate = (dateString) => {
-        const date = new Date(dateString);
-        const buddhistYear = date.getFullYear() + 543;
-        const monthNames = [
-            'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
-            'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
-        ];
+        if (!dateString) return '-';
+        
+        try {
+            const date = new Date(dateString);
+            
+            // ตรวจสอบว่าวันที่ถูกต้องหรือไม่
+            if (isNaN(date.getTime())) {
+                console.warn('Invalid date string:', dateString);
+                return '-';
+            }
+            
+            const buddhistYear = date.getFullYear() + 543;
+            const monthNames = [
+                'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+                'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
+            ];
 
-        return `${date.getDate()} ${monthNames[date.getMonth()]} ${buddhistYear}`;
+            const day = date.getDate();
+            const month = monthNames[date.getMonth()];
+            
+            if (!day || !month || !buddhistYear) {
+                return '-';
+            }
+
+            return `${day} ${month} ${buddhistYear}`;
+        } catch (error) {
+            console.error('Error formatting Thai date:', error, dateString);
+            return '-';
+        }
     };
 
     const getTodayDate = () => {
         const today = new Date();
         return today.toISOString().split('T')[0];
+    };
+
+    // ✅ โหลดรายการแพทย์จาก database
+    useEffect(() => {
+        loadDoctors();
+    }, []);
+
+    // ✅ เมื่อ doctorList โหลดเสร็จ และกำลังแก้ไขนัดหมาย ให้หาแพทย์
+    useEffect(() => {
+        if (doctorList.length > 0 && editingAppointment && editingAppointment.DOCTOR_CODE) {
+            const doctor = doctorList.find(d => d.EMP_CODE === editingAppointment.DOCTOR_CODE);
+            if (doctor) {
+                setSelectedDoctor(doctor);
+            }
+        }
+    }, [doctorList, editingAppointment]);
+
+    const loadDoctors = async () => {
+        try {
+            setLoadingDoctors(true);
+            const response = await EmployeeService.getAllEmployees('หมอ'); // ดึงเฉพาะหมอ
+            if (response.success && response.data) {
+                setDoctorList(response.data);
+                
+                // ถ้ากำลังแก้ไขนัดหมาย ให้หาแพทย์จาก doctorList
+                if (editingAppointment && editingAppointment.DOCTOR_CODE) {
+                    const doctor = response.data.find(d => d.EMP_CODE === editingAppointment.DOCTOR_CODE);
+                    if (doctor) {
+                        setSelectedDoctor(doctor);
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Error loading doctors:', error);
+        } finally {
+            setLoadingDoctors(false);
+        }
     };
 
     // ค้นหาผู้ป่วยสำหรับ Autocomplete
@@ -131,10 +195,14 @@ const AppointmentManagementSection = ({ appointments, setAppointments, onRefresh
                 doctorName: appointment.DOCTOR_NAME || '',
                 notes: appointment.NOTES || ''
             });
+            
+            // Reset selectedDoctor (จะถูก set อีกครั้งเมื่อ doctorList โหลดเสร็จผ่าน useEffect)
+            setSelectedDoctor(null);
         } else {
             setEditingAppointment(null);
             setSelectedPatient(null);
             setPatientOptions([]);
+            setSelectedDoctor(null);
             setFormData({
                 appointmentDate: getTodayDate(),
                 appointmentTime: '',
@@ -170,8 +238,13 @@ const AppointmentManagementSection = ({ appointments, setAppointments, onRefresh
 
             if (editingAppointment) {
                 // แก้ไขนัดหมาย
-                const response = await PatientService.updateAppointment(editingAppointment.APPOINTMENT_ID, {
-                    ...formData,
+                const response = await AppointmentService.updateAppointment(editingAppointment.APPOINTMENT_ID, {
+                    APPOINTMENT_DATE: formData.appointmentDate,
+                    APPOINTMENT_TIME: formData.appointmentTime,
+                    REASON: formData.reason,
+                    DOCTOR_CODE: selectedDoctor?.EMP_CODE || null,
+                    DOCTOR_NAME: selectedDoctor?.EMP_NAME || null,
+                    NOTES: formData.notes,
                     HNCODE: patientData.HNCODE
                 });
 
@@ -203,12 +276,13 @@ const AppointmentManagementSection = ({ appointments, setAppointments, onRefresh
                     SURNAME: patientData.SURNAME,
                     PHONE: patientData.TEL1,
                     REASON: formData.reason,
-                    DOCTOR_NAME: formData.doctorName,
+                    DOCTOR_CODE: selectedDoctor?.EMP_CODE || null,
+                    DOCTOR_NAME: selectedDoctor?.EMP_NAME || null,
                     NOTES: formData.notes,
                     status: 'รอนัด'
                 };
 
-                const response = await PatientService.createAppointment(appointmentData);
+                const response = await AppointmentService.createAppointment(appointmentData);
 
                 if (response.success) {
                     const newAppointment = {
@@ -235,7 +309,7 @@ const AppointmentManagementSection = ({ appointments, setAppointments, onRefresh
     const handleDeleteAppointment = async (appointmentId) => {
         if (window.confirm('คุณต้องการลบนัดหมายนี้หรือไม่?')) {
             try {
-                const response = await PatientService.deleteAppointment(appointmentId);
+                const response = await AppointmentService.deleteAppointment(appointmentId);
 
                 if (response.success) {
                     setAppointments(prev => prev.filter(apt => apt.APPOINTMENT_ID !== appointmentId));
@@ -253,7 +327,7 @@ const AppointmentManagementSection = ({ appointments, setAppointments, onRefresh
 
     const handleStatusChange = async (appointmentId, newStatus) => {
         try {
-            const response = await PatientService.updateAppointmentStatus(appointmentId, newStatus);
+            const response = await AppointmentService.updateAppointmentStatus(appointmentId, newStatus);
 
             if (response.success) {
                 setAppointments(prev => prev.map(apt =>
@@ -404,6 +478,7 @@ const AppointmentManagementSection = ({ appointments, setAppointments, onRefresh
                                 <TableCell sx={{ fontWeight: 'bold', fontSize: '16px' }}>เหตุผล</TableCell>
                                 <TableCell sx={{ fontWeight: 'bold', fontSize: '16px' }}>แพทย์</TableCell>
                                 <TableCell sx={{ fontWeight: 'bold', fontSize: '16px' }}>สถานะ</TableCell>
+                                <TableCell sx={{ fontWeight: 'bold', fontSize: '16px' }}>พิมพ์</TableCell>
                                 <TableCell sx={{ fontWeight: 'bold', fontSize: '16px' }}>จัดการ</TableCell>
                             </TableRow>
                         </TableHead>
@@ -465,6 +540,19 @@ const AppointmentManagementSection = ({ appointments, setAppointments, onRefresh
                                         </FormControl>
                                     </TableCell>
                                     <TableCell>
+                                        <AppointmentPrint 
+                                            appointment={appointment} 
+                                            patient={{
+                                                HNCODE: appointment.HNCODE,
+                                                PRENAME: appointment.PRENAME,
+                                                NAME1: appointment.NAME1,
+                                                SURNAME: appointment.SURNAME,
+                                                AGE: appointment.AGE,
+                                                TEL1: appointment.PHONE
+                                            }}
+                                        />
+                                    </TableCell>
+                                    <TableCell>
                                         <Box sx={{ display: 'flex', gap: 0.5 }}>
                                             <IconButton
                                                 color="primary"
@@ -495,7 +583,7 @@ const AppointmentManagementSection = ({ appointments, setAppointments, onRefresh
                             ))}
                             {appointments.length === 0 && (
                                 <TableRow>
-                                    <TableCell colSpan={9} sx={{ textAlign: 'center', py: 6 }}>
+                                    <TableCell colSpan={10} sx={{ textAlign: 'center', py: 6 }}>
                                         <Typography color="text.secondary" variant="h6">
                                             ไม่มีข้อมูลนัดหมาย
                                         </Typography>
@@ -648,21 +736,33 @@ const AppointmentManagementSection = ({ appointments, setAppointments, onRefresh
 
                         {/* แพทย์ผู้รักษา */}
                         <Grid item xs={12} md={6}>
-                            <FormControl fullWidth>
-                                <InputLabel>แพทย์ผู้รักษา</InputLabel>
-                                <Select
-                                    name="doctorName"
-                                    value={formData.doctorName}
-                                    onChange={handleInputChange}
-                                    label="แพทย์ผู้รักษา"
-                                >
-                                    <MenuItem value="นพ.สุดา รักษาดี">👩‍⚕️ นพ.สุดา รักษาดี</MenuItem>
-                                    <MenuItem value="นพ.สมชาย ใจดี">👨‍⚕️ นพ.สมชาย ใจดี</MenuItem>
-                                    <MenuItem value="นพ.สมหญิง รักษาดี">👩‍⚕️ นพ.สมหญิง รักษาดี</MenuItem>
-                                    <MenuItem value="นพ.ประเสริฐ เก่งมาก">👨‍⚕️ นพ.ประเสริฐ เก่งมาก</MenuItem>
-                                    <MenuItem value="นพ.วิชัย ช่วยคน">👨‍⚕️ นพ.วิชัย ช่วยคน</MenuItem>
-                                </Select>
-                            </FormControl>
+                            <Typography sx={{ mb: 1, fontSize: '14px', fontWeight: 500 }}>
+                                แพทย์ผู้รักษา
+                            </Typography>
+                            <Autocomplete
+                                fullWidth
+                                options={doctorList}
+                                getOptionLabel={(option) => option.EMP_NAME || ''}
+                                isOptionEqualToValue={(option, value) => option.EMP_CODE === value?.EMP_CODE}
+                                value={selectedDoctor}
+                                onChange={(event, newValue) => {
+                                    setSelectedDoctor(newValue);
+                                }}
+                                loading={loadingDoctors}
+                                size="small"
+                                renderInput={(params) => (
+                                    <TextField
+                                        {...params}
+                                        placeholder="เลือกแพทย์"
+                                        variant="outlined"
+                                    />
+                                )}
+                                renderOption={(props, option) => (
+                                    <li {...props} key={option.EMP_CODE}>
+                                        👨‍⚕️ {option.EMP_NAME} ({option.EMP_CODE})
+                                    </li>
+                                )}
+                            />
                         </Grid>
 
                         {/* หมายเหตุ */}

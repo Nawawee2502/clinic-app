@@ -753,6 +753,33 @@ class PatientService {
             throw error;
         }
     }
+
+    // ✅ ดึงนัดหมายของผู้ป่วยตาม HNCODE
+    static async getPatientAppointments(hncode, params = {}) {
+        try {
+            const { page = 1, limit = 50, status } = params;
+            const queryParams = new URLSearchParams({
+                page: page.toString(),
+                limit: limit.toString()
+            });
+            if (status) {
+                queryParams.append('status', status);
+            }
+
+            console.log('🔗 Calling API:', `${API_BASE_URL}/appointments/patient/${hncode}?${queryParams}`);
+            const response = await fetch(`${API_BASE_URL}/appointments/patient/${hncode}?${queryParams}`);
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('Error fetching patient appointments:', error);
+            throw error;
+        }
+    }
 }
 
 export default PatientService;

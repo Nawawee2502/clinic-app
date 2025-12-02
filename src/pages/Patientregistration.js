@@ -25,6 +25,7 @@ import HealthHistoryTab from '../components/patientregistration/HealthHistoryTab
 // Import Services
 import PatientService from "../services/patientService";
 import QueueService from "../services/queueService";
+import AppointmentService from "../services/appointmentService";
 
 const PatientRegistration = () => {
   const [mainView, setMainView] = useState('reception');
@@ -136,7 +137,7 @@ const PatientRegistration = () => {
   // Load today's appointments
   const loadTodayAppointments = async () => {
     try {
-      const response = await PatientService.getTodayAppointments();
+      const response = await AppointmentService.getTodayAppointments();
 
       if (response.success) {
         setAppointments(response.data);

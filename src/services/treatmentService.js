@@ -1069,6 +1069,7 @@ class TreatmentService {
 
         return {
             TOTAL_AMOUNT: totalAmount,
+            TREATMENT_FEE: parseFloat(paymentInfo.treatmentFee || 100.00), // ✅ บันทึกค่ารักษาแยก
             DISCOUNT_AMOUNT: discount,
             NET_AMOUNT: netAmount,
             PAYMENT_STATUS: 'ชำระเงินแล้ว',
@@ -1397,6 +1398,38 @@ class TreatmentService {
         } catch (error) {
             console.error('Error canceling treatment:', error);
             throw error;
+        }
+    }
+
+    // ✅ เช็คจำนวนครั้งที่ใช้สิทธิ์บัตรทองในเดือนนี้
+    static async checkUCSUsageThisMonth(hncode) {
+        try {
+            if (!hncode) {
+                return {
+                    success: false,
+                    message: 'กรุณาระบุ HNCODE'
+                };
+            }
+
+            const response = await fetch(`${API_BASE_URL}/treatments/check/ucs-usage/${hncode}`);
+            
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('Error checking UCS usage:', error);
+            return {
+                success: false,
+                message: 'เกิดข้อผิดพลาดในการเช็คจำนวนครั้งที่ใช้สิทธิ์บัตรทอง',
+                error: error.message,
+                data: {
+                    usageCount: 0,
+                    isExceeded: false
+                }
+            };
         }
     }
 }

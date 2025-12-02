@@ -233,23 +233,27 @@ const ตรวจรักษา = () => {
     if (!targetPatient) return;
 
     try {
+      // ✅ ถ้าเป็น "รอชำระเงิน" ให้แน่ใจว่าสถานะจะเป็น "รอชำระเงิน" เสมอ
+      const finalStatus = newStatus === 'รอชำระเงิน' ? 'รอชำระเงิน' : newStatus;
+      
       // ใช้ API ใหม่ที่ปลอดภัยกว่า
-      const response = await QueueService.updateQueueStatusSafe(targetPatient.queueId, newStatus);
+      const response = await QueueService.updateQueueStatusSafe(targetPatient.queueId, finalStatus);
 
       if (response.success) {
-        console.log(`✅ Queue status updated safely to: ${newStatus}`);
+        console.log(`✅ Queue status updated safely to: ${finalStatus}`);
 
         // ถ้าเปลี่ยนเป็น "รอชำระเงิน" ให้อัปเดต STATUS1 และ PAYMENT_STATUS ใน treatment
         // หมายเหตุ: updateQueueStatusSafe จะอัพเดต STATUS ใน DAILY_QUEUE และ STATUS1 ใน TREATMENT1 แล้ว
         // แต่เราต้องอัพเดต PAYMENT_STATUS เพิ่มเติม
-        if (newStatus === 'รอชำระเงิน') {
-          // อัปเดต PAYMENT_STATUS ใน treatment (STATUS1 ถูกอัพเดตโดย updateQueueStatusSafe แล้ว)
+        if (finalStatus === 'รอชำระเงิน') {
+          // อัปเดต PAYMENT_STATUS และ STATUS1 ใน treatment เพื่อให้แน่ใจว่าสถานะถูกต้อง
           if (targetPatient.VNO) {
             try {
               await TreatmentService.updateTreatment(targetPatient.VNO, {
+                STATUS1: 'รอชำระเงิน',
                 PAYMENT_STATUS: 'รอชำระ'
               });
-              console.log(`✅ Treatment PAYMENT_STATUS updated to รอชำระ`);
+              console.log(`✅ Treatment STATUS1 and PAYMENT_STATUS updated to รอชำระเงิน`);
             } catch (treatmentError) {
               console.error('Error updating treatment PAYMENT_STATUS:', treatmentError);
               // ไม่ throw error เพื่อให้ queue status ยังอัปเดตได้
@@ -271,10 +275,10 @@ const ตรวจรักษา = () => {
             });
           }, 2000);
 
-          // อัพเดต queueStatus ใน state
+          // ✅ อัพเดต queueStatus ใน state ให้แน่ใจว่าเป็น "รอชำระเงิน" เสมอ
           const updatedPatients = patients.map(p =>
             p.queueId === targetPatient.queueId
-              ? { ...p, queueStatus: newStatus, STATUS: newStatus }
+              ? { ...p, queueStatus: 'รอชำระเงิน', STATUS: 'รอชำระเงิน' }
               : p
           );
           setPatients(updatedPatients);
@@ -307,7 +311,7 @@ const ตรวจรักษา = () => {
         
         // Dispatch event เพื่อแจ้งหน้าอื่นๆ
         window.dispatchEvent(new CustomEvent('queueStatusChanged', {
-          detail: { queueId: targetPatient.queueId, newStatus }
+          detail: { queueId: targetPatient.queueId, newStatus: finalStatus }
         }));
       } else {
         setSnackbar({

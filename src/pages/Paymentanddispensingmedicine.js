@@ -71,6 +71,7 @@ const Paymentanddispensingmedicine = () => {
     paymentMethod: 'เงินสด',
     receivedAmount: '',
     discount: 0,
+    treatmentFee: undefined, // ✅ ไม่ force default, จะตั้งค่าเมื่อโหลดข้อมูลผู้ป่วย
     remarks: ''
   });
 
@@ -78,6 +79,14 @@ const Paymentanddispensingmedicine = () => {
     open: false,
     message: '',
     severity: 'success'
+  });
+
+  // State สำหรับเก็บข้อมูลการใช้งานสิทธิ์บัตรทอง
+  const [ucsUsageInfo, setUcsUsageInfo] = useState({
+    isExceeded: false,
+    usageCount: 0,
+    maxUsage: 2,
+    remainingUsage: 2
   });
 
   // โหลดข้อมูลผู้ป่วย
@@ -167,6 +176,7 @@ const Paymentanddispensingmedicine = () => {
 
           // ข้อมูลการชำระเงิน
           TOTAL_AMOUNT: totalAmount,
+          TREATMENT_FEE: (paymentData.treatmentFee !== undefined && paymentData.treatmentFee !== null ? parseFloat(paymentData.treatmentFee) : 100.00), // ✅ บันทึกค่ารักษาแยก (รองรับ 0)
           DISCOUNT_AMOUNT: discount,
           NET_AMOUNT: netAmount,
           PAYMENT_STATUS: 'ชำระเงินแล้ว', // เปลี่ยนเฉพาะตัวนี้
@@ -234,6 +244,7 @@ const Paymentanddispensingmedicine = () => {
         paymentMethod: 'เงินสด',
         receivedAmount: '',
         discount: 0,
+        treatmentFee: undefined, // ✅ ไม่ force เป็น 100, ให้ใช้ค่า default จาก loadTreatmentData
         remarks: ''
       });
 
@@ -368,49 +379,127 @@ const Paymentanddispensingmedicine = () => {
         'N';
       const paymentStatus = currentPatient.PAYMENT_STATUS || 'รอชำระ';
 
+      // ✅ เช็คว่าใช้สิทธิ์บัตรทองเกิน 2 ครั้งหรือไม่
+      let isUcsExceeded = ucsUsageInfo.isExceeded;
+      if (ucsCard === 'Y' && currentPatient?.HNCODE) {
+        const ucsUsageCheck = await TreatmentService.checkUCSUsageThisMonth(currentPatient.HNCODE);
+        if (ucsUsageCheck.success && ucsUsageCheck.data) {
+          isUcsExceeded = ucsUsageCheck.data.isExceeded;
+        }
+      }
+
+      // ✅ คำนวณยอดที่ต้องชำระ (ถ้าใช้สิทธิ์เกิน 2 ครั้ง ให้คิดเงินทั้งหมด, ถ้ายังไม่เกินให้คิดเฉพาะยาที่ต้องจ่าย)
+      const totalAmount = calculateTotalFromEditablePrices();
+      const hasPayableAmount = totalAmount > 0;
+
       // ✅ ตรวจสอบว่ามียาที่ต้องจ่ายหรือไม่ (ยาที่ UCS_CARD = 'N')
       const payableDrugs = editablePrices.drugs.filter(drug => drug.DRUG_UCS_CARD === 'N' && drug.editablePrice > 0);
-      const payableAmount = payableDrugs.reduce((sum, drug) => sum + drug.editablePrice, 0);
-      const hasPayableDrugs = payableAmount > 0;
+      const payableDrugAmount = payableDrugs.reduce((sum, drug) => sum + drug.editablePrice, 0);
+      const hasPayableDrugs = payableDrugAmount > 0;
 
       console.log('🔍 Close Case Check:', {
         HNCODE: currentPatient.HNCODE,
         UCS_CARD: ucsCard,
         PAYMENT_STATUS: paymentStatus,
+        isUcsExceeded: isUcsExceeded,
+        hasPayableAmount: hasPayableAmount,
+        totalAmount: totalAmount,
         hasPayableDrugs,
-        payableAmount,
+        payableDrugAmount,
         payableDrugsCount: payableDrugs.length
       });
 
-      // ✅ ถ้าเป็นบัตรทอง แต่มียาที่ต้องจ่าย (UCS_CARD = 'N') ต้องชำระเงินก่อน
-      if (ucsCard === 'Y' && hasPayableDrugs && paymentStatus !== 'ชำระเงินแล้ว') {
-        await Swal.fire({
-          icon: 'warning',
-          title: 'ยังไม่สามารถปิดการรักษาได้',
-          html: `ผู้ป่วยรายนี้เป็นบัตรทอง แต่มียาที่ต้องจ่ายเงิน<br/>
-                 <strong>จำนวน ${payableDrugs.length} รายการ</strong> รวมเป็นเงิน <strong>฿${payableAmount.toFixed(2)}</strong><br/>
-                 กรุณาชำระเงินก่อนปิดการรักษา`,
-          confirmButtonText: 'ตกลง',
-          confirmButtonColor: '#5698E0'
-        });
-        return;
+      // ✅ ถ้าเป็นบัตรทอง แต่ใช้สิทธิ์เกิน 2 ครั้ง หรือมียาที่ต้องจ่าย (UCS_CARD = 'N') ต้องชำระเงินก่อน
+      if (ucsCard === 'Y' && (isUcsExceeded || hasPayableDrugs) && paymentStatus !== 'ชำระเงินแล้ว') {
+        // ✅ ถ้ายอดรวมเป็น 0 ให้แสดง modal ยืนยันให้ปิดได้
+        if (totalAmount === 0 || totalAmount < 0.01) {
+          const reasonText = isUcsExceeded 
+            ? `ผู้ป่วยรายนี้ใช้สิทธิ์บัตรทองเกิน 2 ครั้งในเดือนนี้<br/>`
+            : `ผู้ป่วยรายนี้เป็นบัตรทอง แต่มียาที่ต้องจ่ายเงิน<br/>`;
+          
+          const confirmResult = await Swal.fire({
+            icon: 'warning',
+            title: 'ยืนยันการปิดการรักษา',
+            html: `
+              ${reasonText}
+              <p>ยอดรวม: ฿${totalAmount.toFixed(2)}</p>
+              <p>ผู้ป่วยรายนี้ยังไม่ได้ทำการชำระเงิน</p>
+              <p>ต้องการปิดการรักษาแม้ว่ายังไม่มีการชำระเงินหรือไม่?</p>
+            `,
+            showCancelButton: true,
+            confirmButtonText: 'ยืนยันปิดการรักษา',
+            cancelButtonText: 'ยกเลิก',
+            confirmButtonColor: '#5698E0',
+            cancelButtonColor: '#64748b'
+          });
+
+          if (!confirmResult.isConfirmed) {
+            return; // ถ้ายกเลิก ไม่ต้องทำอะไร
+          }
+          // ถ้ายืนยันแล้ว ให้ดำเนินการปิดการรักษาต่อ (ไม่ return)
+        } else {
+          // ถ้ายอดรวมมากกว่า 0 ต้องชำระเงินก่อน
+          const reasonText = isUcsExceeded 
+            ? `ผู้ป่วยรายนี้ใช้สิทธิ์บัตรทองเกิน 2 ครั้งในเดือนนี้<br/>`
+            : `ผู้ป่วยรายนี้เป็นบัตรทอง แต่มียาที่ต้องจ่ายเงิน<br/>`;
+          const amountText = isUcsExceeded 
+            ? `<strong>ยอดรวม ฿${totalAmount.toFixed(2)}</strong><br/>`
+            : `<strong>จำนวน ${payableDrugs.length} รายการ</strong> รวมเป็นเงิน <strong>฿${payableDrugAmount.toFixed(2)}</strong><br/>`;
+
+          await Swal.fire({
+            icon: 'warning',
+            title: 'ยังไม่สามารถปิดการรักษาได้',
+            html: `${reasonText}${amountText}กรุณาชำระเงินก่อนปิดการรักษา`,
+            confirmButtonText: 'ตกลง',
+            confirmButtonColor: '#5698E0'
+          });
+          return;
+        }
       }
 
-      // ✅ ถ้า UCS_CARD เป็น 'N' ต้องชำระเงินก่อน (paymentStatus === 'ชำระเงินแล้ว')
-      if (ucsCard !== 'Y' && paymentStatus !== 'ชำระเงินแล้ว') {
-        // ถ้ายังไม่ชำระเงิน ให้ขึ้น swal เตือน
-        await Swal.fire({
-          icon: 'warning',
-          title: 'ยังไม่สามารถปิดการรักษาได้',
-          text: 'กรุณาชำระเงินก่อนปิดการรักษา',
-          confirmButtonText: 'ตกลง',
-          confirmButtonColor: '#5698E0'
-        });
-        return;
+      // ✅ ถ้า UCS_CARD เป็น 'N' หรือใช้สิทธิ์บัตรทองเกิน 2 ครั้ง และยังไม่ชำระเงิน
+      if ((ucsCard !== 'Y' || isUcsExceeded) && paymentStatus !== 'ชำระเงินแล้ว') {
+        // ✅ เช็คว่ายอดรวมเป็น 0 หรือไม่ (ถ้าเป็น 0 ให้สามารถปิดได้ แต่ต้องยืนยัน)
+        if (totalAmount === 0 || totalAmount < 0.01) {
+          // ถ้ายอดรวมเป็น 0 หรือน้อยมาก ให้แสดง modal ยืนยันให้ปิดได้
+          const confirmResult = await Swal.fire({
+            icon: 'warning',
+            title: 'ยืนยันการปิดการรักษา',
+            html: `
+              <p>ผู้ป่วยรายนี้ยังไม่ได้ทำการชำระเงิน</p>
+              <p><strong>ยอดรวม: ฿${totalAmount.toFixed(2)}</strong></p>
+              <p>ต้องการปิดการรักษาแม้ว่ายังไม่มีการชำระเงินหรือไม่?</p>
+            `,
+            showCancelButton: true,
+            confirmButtonText: 'ยืนยันปิดการรักษา',
+            cancelButtonText: 'ยกเลิก',
+            confirmButtonColor: '#5698E0',
+            cancelButtonColor: '#64748b'
+          });
+
+          if (!confirmResult.isConfirmed) {
+            return; // ถ้ายกเลิก ไม่ต้องทำอะไร
+          }
+          // ถ้ายืนยันแล้ว ให้ดำเนินการปิดการรักษาต่อ (ไม่ return)
+        } else {
+          // ถ้ายอดรวมไม่เป็น 0 ต้องชำระเงินก่อน
+          await Swal.fire({
+            icon: 'warning',
+            title: 'ยังไม่สามารถปิดการรักษาได้',
+            html: `
+              <p>ผู้ป่วยรายนี้ยังไม่ได้ทำการชำระเงิน</p>
+              <p><strong>ยอดรวม: ฿${totalAmount.toFixed(2)}</strong></p>
+              <p>กรุณาชำระเงินก่อนปิดการรักษา</p>
+            `,
+            confirmButtonText: 'ตกลง',
+            confirmButtonColor: '#5698E0'
+          });
+          return;
+        }
       }
 
-      // ✅ ถ้าเป็นบัตรทอง (UCS_CARD = 'Y') และไม่มียาที่ต้องจ่าย แสดงข้อความยืนยัน
-      if (ucsCard === 'Y' && !hasPayableDrugs) {
+      // ✅ ถ้าเป็นบัตรทอง (UCS_CARD = 'Y') ไม่ได้ใช้สิทธิ์เกิน 2 ครั้ง และไม่มียาที่ต้องจ่าย แสดงข้อความยืนยัน
+      if (ucsCard === 'Y' && !isUcsExceeded && !hasPayableDrugs) {
         const confirmResult = await Swal.fire({
           icon: 'info',
           title: 'ยืนยันการปิดการรักษา',
@@ -660,9 +749,47 @@ const Paymentanddispensingmedicine = () => {
           response.data.treatment?.UCS_CARD === 'Y' ||
           response.data.patient?.UCS_CARD === 'Y';
 
-        // ✅ ถ้าผู้ป่วยเป็นบัตรทอง ให้ตั้งราคาเริ่มต้นเป็น 0 (แต่ยังแก้ไขได้)
-        // แต่ถ้ายามี UCS_CARD = 'N' ให้เก็บราคาไว้
-        if (isGoldCard) {
+        // ✅ เช็คจำนวนครั้งที่ใช้สิทธิ์บัตรทองในเดือนนี้
+        let ucsUsageExceeded = false;
+        if (isGoldCard && currentPatient?.HNCODE) {
+          const ucsUsageCheck = await TreatmentService.checkUCSUsageThisMonth(currentPatient.HNCODE);
+          
+          if (ucsUsageCheck.success && ucsUsageCheck.data) {
+            const { usageCount, maxUsage, isExceeded, remainingUsage } = ucsUsageCheck.data;
+            
+            // บันทึกข้อมูลการใช้งานสิทธิ์
+            setUcsUsageInfo({
+              isExceeded: isExceeded,
+              usageCount: usageCount,
+              maxUsage: maxUsage,
+              remainingUsage: remainingUsage
+            });
+
+            ucsUsageExceeded = isExceeded;
+
+            // แจ้งเตือนถ้าใช้เกิน 2 ครั้ง
+            if (isExceeded) {
+              setSnackbar({
+                open: true,
+                message: `⚠️ ผู้ป่วยใช้สิทธิ์บัตรทองเกิน 2 ครั้งในเดือนนี้ (ใช้แล้ว ${usageCount} ครั้ง) - จะคิดเงินตามปกติ`,
+                severity: 'warning'
+              });
+            }
+          }
+        } else {
+          // ถ้าไม่ใช่บัตรทอง ให้รีเซ็ตข้อมูล
+          setUcsUsageInfo({
+            isExceeded: false,
+            usageCount: 0,
+            maxUsage: 2,
+            remainingUsage: 2
+          });
+        }
+
+        // ✅ ถ้าผู้ป่วยเป็นบัตรทองและยังใช้สิทธิ์ไม่เกิน 2 ครั้ง ให้ตั้งราคาเริ่มต้นเป็น 0
+        // แต่ถ้าใช้เกิน 2 ครั้งแล้ว ให้คิดเงินตามปกติ (ไม่ตั้งราคาเป็น 0)
+        // และถ้ายามี UCS_CARD = 'N' ให้เก็บราคาไว้เสมอ
+        if (isGoldCard && !ucsUsageExceeded) {
           labsArray = labsArray.map(item => ({
             ...item,
             editablePrice: 0, // ตั้งราคาเริ่มต้นเป็น 0
@@ -680,6 +807,7 @@ const Paymentanddispensingmedicine = () => {
             originalPrice: item.originalPrice
           }));
         }
+        // ถ้า isGoldCard แต่ ucsUsageExceeded = true ไม่ต้องตั้งราคาเป็น 0 (ให้คิดเงินตามปกติ)
 
         // เซ็ตราคาที่แก้ไขได้
         setEditablePrices({
@@ -690,12 +818,29 @@ const Paymentanddispensingmedicine = () => {
 
         // ✅ ดึงส่วนลดจาก treatmentData มาใส่ใน paymentData ถ้ามี
         const discountFromTreatment = parseFloat(response.data.treatment?.DISCOUNT_AMOUNT || 0);
-        if (discountFromTreatment > 0) {
-          setPaymentData(prev => ({
+        
+        // ✅ ตั้งค่ารักษา: ถ้าเป็นบัตรทองและยังใช้สิทธิ์ไม่เกิน 2 ครั้ง ให้เป็น 0, ถ้าไม่ใช่ให้เป็น 100.00
+        // ✅ แต่ไม่ override ถ้า user แก้ไขค่าไว้แล้ว (รวมถึง 0)
+        setPaymentData(prev => {
+          let treatmentFee;
+          if (isGoldCard && !ucsUsageExceeded) {
+            treatmentFee = 0.00;
+          } else {
+            // ถ้า user แก้ไขค่าไว้แล้ว (รวมถึง 0) ให้เก็บไว้, ถ้าไม่ใช่ให้ใช้ 100.00
+            // ✅ ต้องเช็คว่า prev.treatmentFee เป็น 0 ได้ (0 !== undefined && 0 !== null)
+            if (prev.treatmentFee !== undefined && prev.treatmentFee !== null) {
+              treatmentFee = prev.treatmentFee; // เก็บค่าที่ user แก้ไขไว้ (รวมถึง 0)
+            } else {
+              treatmentFee = 100.00; // ถ้ายังไม่มีค่า ให้ใช้ default
+            }
+          }
+          
+          return {
             ...prev,
-            discount: discountFromTreatment
-          }));
-        }
+            discount: discountFromTreatment,
+            treatmentFee: treatmentFee
+          };
+        });
 
         console.log('💰 Payment - Final editable prices:', {
           labs: labsArray,
@@ -768,9 +913,12 @@ const Paymentanddispensingmedicine = () => {
       treatmentData?.treatment?.UCS_CARD === 'Y' ||
       treatmentData?.patient?.UCS_CARD === 'Y';
 
+    // ✅ เช็คว่าใช้สิทธิ์บัตรทองเกิน 2 ครั้งหรือไม่
+    const isUcsExceeded = ucsUsageInfo.isExceeded;
+
     let drugTotal = 0;
-    if (isGoldCard) {
-      // คำนวณยาที่ UCS_CARD = 'N' หรือยาที่แก้ราคาแล้ว (editablePrice > 0)
+    if (isGoldCard && !isUcsExceeded) {
+      // ถ้าเป็นบัตรทองและยังใช้สิทธิ์ไม่เกิน 2 ครั้ง: คำนวณยาที่ UCS_CARD = 'N' หรือยาที่แก้ราคาแล้ว (editablePrice > 0)
       drugTotal = editablePrices.drugs.reduce((sum, item) => {
         // ถ้าเป็นยาที่ต้องจ่าย (UCS_CARD = 'N') หรือแก้ราคาแล้ว (editablePrice > 0) ให้นับ
         if (item.DRUG_UCS_CARD === 'N' || (item.DRUG_UCS_CARD === 'Y' && item.editablePrice > 0)) {
@@ -779,11 +927,15 @@ const Paymentanddispensingmedicine = () => {
         return sum;
       }, 0);
     } else {
-      // ผู้ป่วยไม่ใช่บัตรทอง คำนวณยาทั้งหมด
+      // ผู้ป่วยไม่ใช่บัตรทอง หรือใช้สิทธิ์บัตรทองเกิน 2 ครั้งแล้ว: คำนวณยาทั้งหมด
       drugTotal = editablePrices.drugs.reduce((sum, item) => sum + item.editablePrice, 0);
     }
 
-    return labTotal + procedureTotal + drugTotal;
+    // ✅ เพิ่มค่ารักษา (ถ้าไม่ใช่บัตรทอง หรือใช้สิทธิ์เกิน 2 ครั้ง)
+    // ✅ ใช้ ?? แทน || เพื่อให้ 0 ถูกยอมรับได้
+    const treatmentFee = (isGoldCard && !isUcsExceeded) ? 0 : (paymentData.treatmentFee !== undefined && paymentData.treatmentFee !== null ? parseFloat(paymentData.treatmentFee) : 100.00);
+
+    return labTotal + procedureTotal + drugTotal + treatmentFee;
   };
 
   const calculateTotal = () => {
@@ -806,6 +958,7 @@ const Paymentanddispensingmedicine = () => {
       paymentMethod: 'เงินสด',
       receivedAmount: '',
       discount: 0,
+      treatmentFee: undefined, // ✅ ไม่ force default, จะตั้งค่าเมื่อโหลดข้อมูลผู้ป่วย
       remarks: ''
     });
     setEditingItem({ type: null, index: null });
@@ -1236,6 +1389,7 @@ const Paymentanddispensingmedicine = () => {
                                 onPayment={handlePayment}
                                 onCloseCase={handleCloseCase} // เพิ่ม prop ใหม่
                                 patient={currentPatient} // เพิ่ม prop ใหม่
+                                ucsUsageInfo={ucsUsageInfo} // ✅ ส่งข้อมูลการใช้งานสิทธิ์บัตรทอง
                                 loading={false}
                               />
                             </Box>
@@ -1337,6 +1491,26 @@ const Paymentanddispensingmedicine = () => {
 
                           {/* Total */}
                           <Box sx={{ borderTop: '2px solid #ddd', pt: 2 }}>
+                            {/* ✅ แสดงค่ารักษาแยก */}
+                            {(() => {
+                              const currentPatient = patients[selectedPatientIndex];
+                              const isGoldCard = currentPatient?.UCS_CARD === 'Y' ||
+                                treatmentData?.treatment?.UCS_CARD === 'Y' ||
+                                treatmentData?.patient?.UCS_CARD === 'Y';
+                              const isUcsExceeded = ucsUsageInfo.isExceeded;
+                              const treatmentFee = (isGoldCard && !isUcsExceeded) ? 0.00 : parseFloat(paymentData.treatmentFee || 100.00);
+                              
+                              if (treatmentFee > 0) {
+                                return (
+                                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                                    <Typography>ค่ารักษา:</Typography>
+                                    <Typography>{treatmentFee.toFixed(2)} บาท</Typography>
+                                  </Box>
+                                );
+                              }
+                              return null;
+                            })()}
+                            
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                               <Typography>รวมค่ารักษา:</Typography>
                               <Typography>{calculateTotalFromEditablePrices().toFixed(2)} บาท</Typography>
