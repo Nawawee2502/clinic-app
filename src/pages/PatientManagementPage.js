@@ -28,7 +28,8 @@ import {
     DialogTitle,
     DialogContent,
     DialogContentText,
-    DialogActions
+    DialogActions,
+    Divider
 } from '@mui/material';
 import {
     Search,
@@ -46,8 +47,18 @@ import {
     KeyboardArrowLeft,
     KeyboardArrowRight,
     CancelOutlined,
-    Medication
+    Medication,
+    MonitorHeart,
+    Thermostat,
+    Scale,
+    Height,
+    Favorite,
+    Air,
+    WaterDrop,
+    Notes,
+    CheckCircle
 } from '@mui/icons-material';
+// import CheckCircle from '@mui/icons-material/CheckCircle';
 import PatientService from '../services/patientService';
 import TreatmentService from '../services/treatmentService';
 
@@ -57,7 +68,7 @@ const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api
 // Helper function for fetch with timeout and retry
 const fetchWithTimeout = async (url, options = {}, timeout = 10000, retries = 2) => {
     let lastError = null;
-    
+
     for (let attempt = 0; attempt <= retries; attempt++) {
         const controller = new AbortController();
         let timeoutId = null;
@@ -224,16 +235,16 @@ const PatientCard = React.memo(({ patient, isSelected, onSelect }) => (
 ));
 
 // PatientDetailPanel component OUTSIDE main component
-const PatientDetailPanel = React.memo(({ 
-    selectedPatient, 
-    isEditing, 
-    editFormData, 
+const PatientDetailPanel = React.memo(({
+    selectedPatient,
+    isEditing,
+    editFormData,
     loading,
-    onEdit, 
-    onCancelEdit, 
-    onSave, 
-    onDelete, 
-    onFormChange 
+    onEdit,
+    onCancelEdit,
+    onSave,
+    onDelete,
+    onFormChange
 }) => {
     // Address states for CARD (ที่อยู่ตามบัตร)
     const [cardProvinces, setCardProvinces] = React.useState([]);
@@ -258,7 +269,7 @@ const PatientDetailPanel = React.memo(({
     const loadProvinces = React.useCallback(async () => {
         // Check cache first
         const now = Date.now();
-        if (provincesCache.current.data && 
+        if (provincesCache.current.data &&
             (now - provincesCache.current.timestamp) < CACHE_DURATION) {
             setCardProvinces(provincesCache.current.data);
             setCurrentProvinces(provincesCache.current.data);
@@ -388,11 +399,11 @@ const PatientDetailPanel = React.memo(({
             const initializeAddressData = async () => {
                 // Load provinces first
                 const provincesData = await loadProvinces();
-                
+
                 if (!provincesData || provincesData.length === 0) {
                     return;
                 }
-                
+
                 // Initialize CARD address
                 if (editFormData.CARD_PROVINCE_CODE || selectedPatient.CARD_PROVINCE_CODE) {
                     const cardProvinceCode = editFormData.CARD_PROVINCE_CODE || selectedPatient.CARD_PROVINCE_CODE;
@@ -400,7 +411,7 @@ const PatientDetailPanel = React.memo(({
                     if (cardProvince) {
                         setSelectedCardProvince(cardProvince);
                         await loadCardAmphersByProvince(cardProvinceCode);
-                        
+
                         const cardAmpherCode = editFormData.CARD_AMPHER_CODE || selectedPatient.CARD_AMPHER_CODE;
                         if (cardAmpherCode) {
                             try {
@@ -411,7 +422,7 @@ const PatientDetailPanel = React.memo(({
                                     if (cardAmpher) {
                                         setSelectedCardAmpher(cardAmpher);
                                         await loadCardTumbolsByAmpher(cardAmpherCode);
-                                        
+
                                         const cardTumbolCode = editFormData.CARD_TUMBOL_CODE || selectedPatient.CARD_TUMBOL_CODE;
                                         if (cardTumbolCode) {
                                             try {
@@ -443,7 +454,7 @@ const PatientDetailPanel = React.memo(({
                     if (currentProvince) {
                         setSelectedCurrentProvince(currentProvince);
                         await loadCurrentAmphersByProvince(currentProvinceCode);
-                        
+
                         const currentAmpherCode = editFormData.AMPHER_CODE || selectedPatient.AMPHER_CODE;
                         if (currentAmpherCode) {
                             try {
@@ -454,7 +465,7 @@ const PatientDetailPanel = React.memo(({
                                     if (currentAmpher) {
                                         setSelectedCurrentAmpher(currentAmpher);
                                         await loadCurrentTumbolsByAmpher(currentAmpherCode);
-                                        
+
                                         const currentTumbolCode = editFormData.TUMBOL_CODE || selectedPatient.TUMBOL_CODE;
                                         if (currentTumbolCode) {
                                             try {
@@ -479,7 +490,7 @@ const PatientDetailPanel = React.memo(({
                     }
                 }
             };
-            
+
             initializeAddressData();
         } else {
             // Reset states when not editing
@@ -500,18 +511,18 @@ const PatientDetailPanel = React.memo(({
     const handleCardProvinceChange = React.useCallback((event) => {
         const provinceCode = event.target.value;
         const province = cardProvinces.find(p => p.PROVINCE_CODE === provinceCode);
-        
+
         setSelectedCardProvince(province || null);
         setSelectedCardAmpher(null);
         setSelectedCardTumbol(null);
         setCardAmphers([]);
         setCardTumbols([]);
-        
+
         onFormChange('CARD_PROVINCE_CODE', provinceCode || '');
         onFormChange('CARD_AMPHER_CODE', '');
         onFormChange('CARD_TUMBOL_CODE', '');
         onFormChange('CARD_ZIPCODE', '');
-        
+
         if (provinceCode) {
             loadCardAmphersByProvince(provinceCode);
         }
@@ -521,15 +532,15 @@ const PatientDetailPanel = React.memo(({
     const handleCardAmpherChange = React.useCallback((event) => {
         const ampherCode = event.target.value;
         const ampher = cardAmphers.find(a => a.AMPHER_CODE === ampherCode);
-        
+
         setSelectedCardAmpher(ampher || null);
         setSelectedCardTumbol(null);
         setCardTumbols([]);
-        
+
         onFormChange('CARD_AMPHER_CODE', ampherCode || '');
         onFormChange('CARD_TUMBOL_CODE', '');
         onFormChange('CARD_ZIPCODE', '');
-        
+
         if (ampherCode) {
             loadCardTumbolsByAmpher(ampherCode);
         }
@@ -539,11 +550,11 @@ const PatientDetailPanel = React.memo(({
     const handleCardTumbolChange = React.useCallback((event) => {
         const tumbolCode = event.target.value;
         const tumbol = cardTumbols.find(t => t.TUMBOL_CODE === tumbolCode);
-        
+
         setSelectedCardTumbol(tumbol || null);
-        
+
         const zipcode = tumbol ? (tumbol.zipcode || tumbol.ZIPCODE || '') : '';
-        
+
         onFormChange('CARD_TUMBOL_CODE', tumbolCode || '');
         onFormChange('CARD_ZIPCODE', zipcode);
     }, [cardTumbols, onFormChange]);
@@ -552,18 +563,18 @@ const PatientDetailPanel = React.memo(({
     const handleCurrentProvinceChange = React.useCallback((event) => {
         const provinceCode = event.target.value;
         const province = currentProvinces.find(p => p.PROVINCE_CODE === provinceCode);
-        
+
         setSelectedCurrentProvince(province || null);
         setSelectedCurrentAmpher(null);
         setSelectedCurrentTumbol(null);
         setCurrentAmphers([]);
         setCurrentTumbols([]);
-        
+
         onFormChange('PROVINCE_CODE', provinceCode || '');
         onFormChange('AMPHER_CODE', '');
         onFormChange('TUMBOL_CODE', '');
         onFormChange('ZIPCODE', '');
-        
+
         if (provinceCode) {
             loadCurrentAmphersByProvince(provinceCode);
         }
@@ -573,15 +584,15 @@ const PatientDetailPanel = React.memo(({
     const handleCurrentAmpherChange = React.useCallback((event) => {
         const ampherCode = event.target.value;
         const ampher = currentAmphers.find(a => a.AMPHER_CODE === ampherCode);
-        
+
         setSelectedCurrentAmpher(ampher || null);
         setSelectedCurrentTumbol(null);
         setCurrentTumbols([]);
-        
+
         onFormChange('AMPHER_CODE', ampherCode || '');
         onFormChange('TUMBOL_CODE', '');
         onFormChange('ZIPCODE', '');
-        
+
         if (ampherCode) {
             loadCurrentTumbolsByAmpher(ampherCode);
         }
@@ -591,21 +602,21 @@ const PatientDetailPanel = React.memo(({
     const handleCurrentTumbolChange = React.useCallback((event) => {
         const tumbolCode = event.target.value;
         const tumbol = currentTumbols.find(t => t.TUMBOL_CODE === tumbolCode);
-        
+
         setSelectedCurrentTumbol(tumbol || null);
-        
+
         const zipcode = tumbol ? (tumbol.zipcode || tumbol.ZIPCODE || '') : '';
-        
+
         onFormChange('TUMBOL_CODE', tumbolCode || '');
         onFormChange('ZIPCODE', zipcode);
     }, [currentTumbols, onFormChange]);
     if (!selectedPatient) {
         return (
-            <Box 
-                sx={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'center', 
+            <Box
+                sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
                     height: '100%',
                     color: '#64748b'
                 }}
@@ -802,7 +813,7 @@ const PatientDetailPanel = React.memo(({
                             </Typography>
                         </Box>
                     </Box>
-                    
+
                     <Box sx={{ display: 'flex', gap: 1 }}>
                         {!isEditing ? (
                             <>
@@ -839,7 +850,7 @@ const PatientDetailPanel = React.memo(({
                                     startIcon={<Save />}
                                     onClick={onSave}
                                     disabled={loading}
-                                    sx={{ 
+                                    sx={{
                                         borderRadius: 2,
                                         backgroundColor: '#4A9EFF'
                                     }}
@@ -935,9 +946,9 @@ const PatientDetailPanel = React.memo(({
                                                 )
                                             ) : (
                                                 <Typography variant="body1" fontWeight={500} sx={{ color: '#1f2937', flex: 1 }}>
-                                                    {transformDisplay 
+                                                    {transformDisplay
                                                         ? transformDisplay(selectedPatient[field])
-                                                        : (type === 'date' && selectedPatient[field] 
+                                                        : (type === 'date' && selectedPatient[field]
                                                             ? formatDateDisplay(selectedPatient[field])
                                                             : (selectedPatient[field] || 'ไม่มีข้อมูล'))}
                                                 </Typography>
@@ -998,16 +1009,16 @@ const PatientDetailPanel = React.memo(({
                                                     }}
                                                 />
                                             ) : (
-                                                <Typography 
-                                                    variant="body1" 
-                                                    fontWeight={500} 
-                                                    sx={{ 
-                                                        color: '#1f2937', 
+                                                <Typography
+                                                    variant="body1"
+                                                    fontWeight={500}
+                                                    sx={{
+                                                        color: '#1f2937',
                                                         flex: 1,
                                                         whiteSpace: multiline ? 'pre-wrap' : 'normal'
                                                     }}
                                                 >
-                                                    {transformDisplay 
+                                                    {transformDisplay
                                                         ? transformDisplay(selectedPatient[field])
                                                         : (selectedPatient[field] || 'ไม่มีข้อมูล')}
                                                 </Typography>
@@ -1107,9 +1118,9 @@ const PatientDetailPanel = React.memo(({
 
                     <Grid item xs={12}>
                         <Paper sx={{ p: 3, borderRadius: 3, border: '1px solid #e2e8f0' }}>
-                            <Typography 
-                                variant="h6" 
-                                fontWeight={600} 
+                            <Typography
+                                variant="h6"
+                                fontWeight={600}
                                 sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}
                             >
                                 <Home sx={{ color: '#4A9EFF' }} />
@@ -1328,9 +1339,9 @@ const PatientDetailPanel = React.memo(({
 
                     <Grid item xs={12}>
                         <Paper sx={{ p: 3, borderRadius: 3, border: '1px solid #e2e8f0' }}>
-                            <Typography 
-                                variant="h6" 
-                                fontWeight={600} 
+                            <Typography
+                                variant="h6"
+                                fontWeight={600}
                                 sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}
                             >
                                 <LocationOn sx={{ color: '#4A9EFF' }} />
@@ -1652,6 +1663,7 @@ const PatientManagement = () => {
     const [summaryRecord, setSummaryRecord] = useState(null);
     const [summaryDrugs, setSummaryDrugs] = useState([]);
     const [summaryLoading, setSummaryLoading] = useState(false);
+    const [summaryVitals, setSummaryVitals] = useState(null);
 
     const handleTabChange = useCallback((event, newValue) => {
         setActiveTab(newValue);
@@ -1672,13 +1684,13 @@ const PatientManagement = () => {
             month: '2-digit',
             day: '2-digit'
         }).format(now);
-        
+
         // thailandDateStr จะเป็นรูปแบบ YYYY-MM-DD
         const [year, month, day] = thailandDateStr.split('-').map(Number);
-        
+
         // First day of current month (เวลาไทย)
         const dateFrom = `${year}-${String(month).padStart(2, '0')}-01`;
-        
+
         // Last day of current month (เวลาไทย) - สร้าง Date object ใน timezone ไทย
         // ใช้วิธีสร้าง Date object สำหรับวันแรกของเดือนถัดไป แล้วลบ 1 วัน
         const nextMonth = month === 12 ? 1 : month + 1;
@@ -1686,7 +1698,7 @@ const PatientManagement = () => {
         const firstDayNextMonth = new Date(`${nextYear}-${String(nextMonth).padStart(2, '0')}-01T00:00:00+07:00`);
         const lastDay = new Date(firstDayNextMonth);
         lastDay.setDate(lastDay.getDate() - 1);
-        
+
         // Format เป็น YYYY-MM-DD จากเวลาไทย
         const dateTo = new Intl.DateTimeFormat('en-CA', {
             timeZone: 'Asia/Bangkok',
@@ -1694,7 +1706,7 @@ const PatientManagement = () => {
             month: '2-digit',
             day: '2-digit'
         }).format(lastDay);
-        
+
         return { dateFrom, dateTo };
     }, []);
 
@@ -1729,7 +1741,7 @@ const PatientManagement = () => {
                         if (response.data.length > 0) {
                             allData = [...allData, ...response.data];
                             currentPage++;
-                            
+
                             // ตรวจสอบว่ามีข้อมูลเพิ่มเติมหรือไม่
                             if (response.pagination) {
                                 hasMore = currentPage <= response.pagination.totalPages;
@@ -1797,7 +1809,7 @@ const PatientManagement = () => {
 
                 if (response.success) {
                     historyData = Array.isArray(response.data) ? response.data : [];
-                    
+
                     // Sort by date (newest first)
                     historyData.sort((a, b) => {
                         const dateA = new Date(a?.RDATE || a?.TRDATE || a?.created_at || 0);
@@ -1806,7 +1818,7 @@ const PatientManagement = () => {
                     });
 
                     setPatientHistory(historyData);
-                    
+
                     // Update pagination จาก API
                     if (response.pagination) {
                         setHistoryPagination(response.pagination);
@@ -1893,30 +1905,45 @@ const PatientManagement = () => {
     const handleViewSummary = useCallback(async (record) => {
         const treatment1 = getTreatmentSummary(record);
         const vno = record?.VNO || record?.VN;
-        
+
         setSummaryRecord({
             ...record,
             TREATMENT1_TEXT: treatment1
         });
         setSummaryDialogOpen(true);
         setSummaryDrugs([]);
-        
-        // ดึงข้อมูลยาพร้อม DXCODE และ DXNAME_THAI ถ้ามี VNO
+        setSummaryVitals(null);
+
+        // ดึงข้อมูลยาพร้อม DXCODE, DXNAME_THAI และ Vital Signs ถ้ามี VNO
         if (vno) {
             try {
                 setSummaryLoading(true);
                 const response = await TreatmentService.getTreatmentByVNO(vno);
-                
+
                 if (response.success && response.data) {
                     const drugs = response.data.drugs || [];
                     setSummaryDrugs(drugs);
-                    
-                    // อัพเดท DXCODE จาก treatment
+
+                    // อัพเดท DXCODE และ Vital Signs จาก treatment
                     if (response.data.treatment) {
+                        const treatment = response.data.treatment;
                         setSummaryRecord(prev => ({
                             ...prev,
-                            DXCODE: response.data.treatment.DXCODE || prev?.DXCODE
+                            DXCODE: treatment.DXCODE || prev?.DXCODE
                         }));
+
+                        // ดึง Vital Signs
+                        const vitals = {
+                            BP1: treatment.BP1,
+                            BP2: treatment.BP2,
+                            PR1: treatment.PR1,
+                            BT1: treatment.BT1,
+                            WEIGHT1: treatment.WEIGHT1,
+                            HIGHT1: treatment.HIGHT1,
+                            RR1: treatment.RR1,
+                            SPO2: treatment.SPO2
+                        };
+                        setSummaryVitals(vitals);
                     }
                 }
             } catch (error) {
@@ -1998,7 +2025,7 @@ const PatientManagement = () => {
         try {
             setActionLoading(true);
             const vno = selectedRecord?.VNO || selectedRecord?.VN;
-            
+
             if (!vno) {
                 setHistoryError('ไม่พบ VN สำหรับลบข้อมูล');
                 setDeleteDialogOpen(false);
@@ -2010,7 +2037,7 @@ const PatientManagement = () => {
             if (response.success) {
                 setDeleteDialogOpen(false);
                 setSelectedRecord(null);
-                
+
                 // Refresh ข้อมูล
                 await fetchPatientHistory(historyPage, historySearch);
                 setHistoryError('');
@@ -2032,7 +2059,7 @@ const PatientManagement = () => {
         try {
             setActionLoading(true);
             const vno = selectedRecord?.VNO || selectedRecord?.VN;
-            
+
             if (!vno) {
                 setHistoryError('ไม่พบ VN สำหรับยกเลิก');
                 setCancelDialogOpen(false);
@@ -2044,7 +2071,7 @@ const PatientManagement = () => {
             if (response.success) {
                 setCancelDialogOpen(false);
                 setSelectedRecord(null);
-                
+
                 // Refresh ข้อมูล
                 await fetchPatientHistory(historyPage, historySearch);
                 setHistoryError('');
@@ -2066,12 +2093,12 @@ const PatientManagement = () => {
             if (response.success) {
                 setPatients(response.data);
                 setFilteredPatients(response.data);
-                
+
                 // อัพเดท pagination info
                 if (response.pagination) {
                     setPatientPagination(response.pagination);
                 }
-                
+
                 return response.data;
             }
             return [];
@@ -2091,7 +2118,7 @@ const PatientManagement = () => {
 
     const handleSearch = useCallback(async (term = null) => {
         const searchValue = term || debouncedSearchTerm || searchTerm;
-        
+
         if (!searchValue || !searchValue.trim()) {
             // ถ้าไม่มี search term ให้ reset ไปหน้าแรก
             setPatientPage(1);
@@ -2193,7 +2220,7 @@ const PatientManagement = () => {
         try {
             setLoading(true);
             const response = await PatientService.deletePatient(selectedPatient.HNCODE);
-            
+
             if (response.success) {
                 await loadPatients();
                 setSelectedPatient(null);
@@ -2288,17 +2315,17 @@ const PatientManagement = () => {
 
                                 {/* Search */}
                                 <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                                <TextField
+                                    <TextField
                                         placeholder="ค้นหาชื่อ, นามสกุล, HN, หรือเลขบัตรประชาชน..."
-                                    value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                    fullWidth
-                                    size="small"
-                                    InputProps={{
-                                        startAdornment: (
-                                            <InputAdornment position="start">
-                                                <Search sx={{ color: '#64748b', fontSize: 20 }} />
-                                            </InputAdornment>
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                        fullWidth
+                                        size="small"
+                                        InputProps={{
+                                            startAdornment: (
+                                                <InputAdornment position="start">
+                                                    <Search sx={{ color: '#64748b', fontSize: 20 }} />
+                                                </InputAdornment>
                                             ),
                                             endAdornment: searchTerm && (
                                                 <InputAdornment position="end">
@@ -2318,23 +2345,23 @@ const PatientManagement = () => {
                                                         <CancelOutlined fontSize="small" />
                                                     </IconButton>
                                                 </InputAdornment>
-                                        )
-                                    }}
-                                    sx={{
+                                            )
+                                        }}
+                                        sx={{
                                             flex: 1,
-                                        '& .MuiOutlinedInput-root': {
+                                            '& .MuiOutlinedInput-root': {
                                                 borderRadius: 2,
-                                            backgroundColor: '#f8fafc',
-                                            '&:hover': {
-                                                backgroundColor: '#f1f5f9'
+                                                backgroundColor: '#f8fafc',
+                                                '&:hover': {
+                                                    backgroundColor: '#f1f5f9'
                                                 },
                                                 '&.Mui-focused': {
                                                     backgroundColor: '#ffffff',
                                                     boxShadow: '0 0 0 3px rgba(74, 158, 255, 0.1)'
+                                                }
                                             }
-                                        }
-                                    }}
-                                />
+                                        }}
+                                    />
                                 </Box>
                             </Box>
 
@@ -2373,14 +2400,14 @@ const PatientManagement = () => {
                                 ) : (
                                     <>
                                         {filteredPatients.map((patient) => (
-                                        <PatientCard 
-                                            key={patient.HNCODE} 
-                                            patient={patient} 
-                                            isSelected={selectedPatient?.HNCODE === patient.HNCODE}
-                                            onSelect={handlePatientSelect}
-                                        />
+                                            <PatientCard
+                                                key={patient.HNCODE}
+                                                patient={patient}
+                                                isSelected={selectedPatient?.HNCODE === patient.HNCODE}
+                                                onSelect={handlePatientSelect}
+                                            />
                                         ))}
-                                        
+
                                         {/* Pagination Controls - แสดงเฉพาะเมื่อไม่มีการ search */}
                                         {!searchTerm && patientPagination.totalPages > 1 && (
                                             <Paper
@@ -2403,9 +2430,9 @@ const PatientManagement = () => {
                                                     }}
                                                 >
                                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                        <Typography 
-                                                            variant="body2" 
-                                                            sx={{ 
+                                                        <Typography
+                                                            variant="body2"
+                                                            sx={{
                                                                 color: '#64748b',
                                                                 fontWeight: 500
                                                             }}
@@ -2422,9 +2449,9 @@ const PatientManagement = () => {
                                                                 height: 24
                                                             }}
                                                         />
-                                                        <Typography 
-                                                            variant="body2" 
-                                                            sx={{ 
+                                                        <Typography
+                                                            variant="body2"
+                                                            sx={{
                                                                 color: '#64748b',
                                                                 fontWeight: 500
                                                             }}
@@ -2441,9 +2468,9 @@ const PatientManagement = () => {
                                                                 height: 24
                                                             }}
                                                         />
-                                                        <Typography 
-                                                            variant="body2" 
-                                                            sx={{ 
+                                                        <Typography
+                                                            variant="body2"
+                                                            sx={{
                                                                 color: '#64748b',
                                                                 fontWeight: 500
                                                             }}
@@ -2472,7 +2499,7 @@ const PatientManagement = () => {
                                                             <KeyboardArrowLeft />
                                                             <KeyboardArrowLeft sx={{ ml: -1.5 }} />
                                                         </IconButton>
-                                                        
+
                                                         <IconButton
                                                             size="small"
                                                             onClick={() => {
@@ -2535,9 +2562,9 @@ const PatientManagement = () => {
                                                             <Typography variant="body2" sx={{ color: '#64748b', mx: 0.5 }}>
                                                                 /
                                                             </Typography>
-                                                            <Typography 
-                                                                variant="body2" 
-                                                                sx={{ 
+                                                            <Typography
+                                                                variant="body2"
+                                                                sx={{
                                                                     color: '#1e293b',
                                                                     fontWeight: 600,
                                                                     minWidth: '30px',
@@ -2600,7 +2627,7 @@ const PatientManagement = () => {
 
                         {/* Right Panel - Patient Details */}
                         <Box sx={{ flex: 1, backgroundColor: '#ffffff' }}>
-                            <PatientDetailPanel 
+                            <PatientDetailPanel
                                 selectedPatient={selectedPatient}
                                 isEditing={isEditing}
                                 editFormData={editFormData}
@@ -2655,7 +2682,7 @@ const PatientManagement = () => {
                                         fullWidth
                                         sx={{ height: '100%', minHeight: 40, borderRadius: 2 }}
                                     >
-                                        รีเซ็ต 
+                                        รีเซ็ต
                                     </Button>
                                 </Grid>
                             </Grid>
@@ -2695,7 +2722,7 @@ const PatientManagement = () => {
                                         )}
                                     </Typography>
                                     <Typography variant="body2" color="text.secondary">
-                                        {isSearchingHistory 
+                                        {isSearchingHistory
                                             ? `ทั้งหมด ${historyPagination.total || filteredHistoryRecords.length} รายการ`
                                             : `เดือนนี้ ${historyPagination.total || filteredHistoryRecords.length} รายการ`
                                         }
@@ -2740,7 +2767,7 @@ const PatientManagement = () => {
                                                     const treatment1 = getTreatmentSummary(record);
                                                     const status = record?.STATUS1 || 'ทำงานอยู่';
                                                     const isCanceled = status === 'ยกเลิก';
-                                                    
+
                                                     return (
                                                         <TableRow key={rowKey} hover>
                                                             <TableCell sx={{ whiteSpace: 'nowrap' }}>
@@ -2857,7 +2884,7 @@ const PatientManagement = () => {
                                         }}
                                     >
                                         <Typography variant="body2" color="text.secondary">
-                                            หน้า {historyPagination.page} จาก {historyPagination.totalPages} 
+                                            หน้า {historyPagination.page} จาก {historyPagination.totalPages}
                                             {' '}(ทั้งหมด {historyPagination.total} รายการ)
                                         </Typography>
                                         <Box sx={{ display: 'flex', gap: 1 }}>
@@ -2867,7 +2894,7 @@ const PatientManagement = () => {
                                                 startIcon={<KeyboardArrowLeft />}
                                                 onClick={() => handleHistoryPageChange(historyPagination.page - 1)}
                                                 disabled={historyPagination.page <= 1 || historyLoading}
-                                                sx={{ borderRadius: 2 }}ก
+                                                sx={{ borderRadius: 2 }} ก
                                             >
                                                 ก่อนหน้า
                                             </Button>
@@ -2984,257 +3011,318 @@ const PatientManagement = () => {
                 onClose={() => {
                     setSummaryDialogOpen(false);
                     setSummaryDrugs([]);
+                    setSummaryVitals(null);
                 }}
-                maxWidth="md"
+                maxWidth="lg"
                 fullWidth
+                PaperProps={{
+                    sx: {
+                        borderRadius: 3,
+                        backgroundColor: '#F8FAFC',
+                        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
+                    }
+                }}
             >
-                <DialogTitle sx={{ 
-                    backgroundColor: '#f8fafc', 
-                    borderBottom: '1px solid #e2e8f0',
-                    pb: 2
+                <DialogTitle sx={{
+                    backgroundColor: '#fff',
+                    borderBottom: '1px solid #E2E8F0',
+                    py: 2,
+                    px: 3
                 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <Typography variant="h6" sx={{ fontWeight: 600, color: '#1e293b' }}>
-                            สรุปการรักษา
-                        </Typography>
-                    {summaryRecord && (
-                            <Typography variant="body2" color="text.secondary">
-                                VN: {summaryRecord?.VNO || summaryRecord?.VN || '-'}
-                            </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                            <Box sx={{
+                                width: 48, height: 48, borderRadius: '12px',
+                                backgroundColor: '#EFF6FF', color: '#3B82F6',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                flexShrink: 0
+                            }}>
+                                <LocalHospital fontSize="medium" />
+                            </Box>
+                            <Box>
+                                <Typography variant="h6" sx={{ fontWeight: 700, color: '#0F172A', lineHeight: 1.2 }}>
+                                    สรุปการรักษา
+                                </Typography>
+                                <Typography variant="caption" sx={{ color: '#64748B' }}>
+                                    Medical Treatment Summary
+                                </Typography>
+                            </Box>
+                        </Box>
+
+                        {summaryRecord && (
+                            <Chip
+                                label={`VN: ${summaryRecord?.VNO || summaryRecord?.VN || '-'}`}
+                                size="small"
+                                sx={{
+                                    borderRadius: 2,
+                                    fontWeight: 600,
+                                    bgcolor: '#F1F5F9',
+                                    color: '#64748B',
+                                    border: '1px solid #E2E8F0'
+                                }}
+                            />
                         )}
                     </Box>
                 </DialogTitle>
-                <DialogContent dividers sx={{ p: 3 }}>
+
+                <DialogContent sx={{ p: 3, backgroundColor: '#F8FAFC' }}>
                     {summaryRecord && (
-                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                            {/* ข้อมูลผู้ป่วย */}
-                            <Paper sx={{ p: 2, backgroundColor: '#f8fafc', borderRadius: 2 }}>
-                                <Grid container spacing={2}>
-                                    <Grid item xs={12} sm={6}>
-                                        <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>
-                                            วันที่รับบริการ
-                            </Typography>
-                                        <Typography variant="body1" sx={{ fontWeight: 500, mt: 0.5 }}>
-                                            {formatHistoryDate(summaryRecord)}
-                            </Typography>
-                                    </Grid>
-                                    <Grid item xs={12} sm={6}>
-                                        <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>
-                                            HN
-                                        </Typography>
-                                        <Typography variant="body1" sx={{ fontWeight: 500, mt: 0.5 }}>
-                                            {summaryRecord?.HNNO || summaryRecord?.HNCODE || '-'}
-                                        </Typography>
-                                    </Grid>
-                                    <Grid item xs={12} sm={6}>
-                                        <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>
-                                            ชื่อ-นามสกุล
-                                        </Typography>
-                                        <Typography variant="body1" sx={{ fontWeight: 500, mt: 0.5 }}>
-                                {[summaryRecord?.PRENAME, summaryRecord?.NAME1, summaryRecord?.SURNAME]
-                                    .filter(Boolean)
-                                    .join(' ')}
-                            </Typography>
-                                    </Grid>
-                                    <Grid item xs={12} sm={6}>
-                                        <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>
-                                            สถานะ
-                                        </Typography>
-                                        <Box sx={{ mt: 0.5 }}>
+                        <Box>
+                            {summaryLoading ? (
+                                <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+                                    <CircularProgress size={40} thickness={4} sx={{ color: '#3B82F6' }} />
+                                </Box>
+                            ) : (
+                                <Grid container spacing={3}>
+
+                                    {/* --- ZONE 1: Patient Information --- */}
+                                    <Grid item xs={12}>
+                                        <Paper elevation={0} sx={{
+                                            p: 3,
+                                            borderRadius: 3,
+                                            border: '1px solid #E2E8F0',
+                                            bgcolor: '#FFFFFF',
+                                            display: 'flex',
+                                            flexDirection: { xs: 'column', sm: 'row' },
+                                            justifyContent: 'space-between',
+                                            alignItems: { xs: 'flex-start', sm: 'center' },
+                                            gap: 2,
+                                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)'
+                                        }}>
+                                            <Box>
+                                                <Typography variant="caption" sx={{ color: '#64748B', fontWeight: 600, letterSpacing: 0.5 }}>
+                                                    ข้อมูลผู้ป่วย (PATIENT INFO)
+                                                </Typography>
+                                                <Typography variant="h5" sx={{ fontWeight: 700, color: '#1E293B', mt: 0.5 }}>
+                                                    {[summaryRecord?.PRENAME, summaryRecord?.NAME1, summaryRecord?.SURNAME]
+                                                        .filter(Boolean)
+                                                        .join(' ')}
+                                                </Typography>
+                                                <Box sx={{ display: 'flex', gap: 3, mt: 1.5, flexWrap: 'wrap' }}>
+                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                        <Typography variant="body2" sx={{ fontWeight: 600, color: '#94A3B8' }}>HN:</Typography>
+                                                        <Typography variant="body2" sx={{ fontWeight: 600, color: '#334155' }}>
+                                                            {summaryRecord?.HNNO || summaryRecord?.HNCODE || '-'}
+                                                        </Typography>
+                                                    </Box>
+                                                    <Box sx={{ width: 1, height: 20, bgcolor: '#E2E8F0', display: { xs: 'none', sm: 'block' } }} />
+                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                        <Typography variant="body2" sx={{ fontWeight: 600, color: '#94A3B8' }}>วันที่:</Typography>
+                                                        <Typography variant="body2" sx={{ fontWeight: 600, color: '#334155' }}>
+                                                            {formatHistoryDate(summaryRecord)}
+                                                        </Typography>
+                                                    </Box>
+                                                </Box>
+                                            </Box>
                                             <Chip
-                                                label={summaryRecord?.STATUS1 || 'ทำงานอยู่'}
-                                                size="small"
+                                                label={summaryRecord?.STATUS1 || 'สถานะปกติ'}
                                                 sx={{
-                                                    backgroundColor: summaryRecord?.STATUS1 === 'ยกเลิก' 
-                                                        ? '#fee2e2' 
-                                                        : summaryRecord?.STATUS1 === 'ปิดแล้ว' || summaryRecord?.STATUS1 === 'ชำระเงินแล้ว'
-                                                        ? '#dcfce7' 
-                                                        : '#dbeafe',
-                                                    color: summaryRecord?.STATUS1 === 'ยกเลิก' 
-                                                        ? '#991b1b' 
-                                                        : summaryRecord?.STATUS1 === 'ปิดแล้ว' || summaryRecord?.STATUS1 === 'ชำระเงินแล้ว'
-                                                        ? '#166534' 
-                                                        : '#1e40af',
-                                                    fontWeight: 500,
-                                                    fontSize: '11px'
+                                                    borderRadius: '8px',
+                                                    backgroundColor: '#DCFCE7',
+                                                    color: '#166534',
+                                                    fontWeight: 700,
+                                                    height: 32,
+                                                    px: 1
                                                 }}
                                             />
-                                        </Box>
+                                        </Paper>
                                     </Grid>
-                                </Grid>
-                            </Paper>
 
-                            {/* DX */}
-                            {summaryRecord?.DXCODE && (
-                                <Box>
-                                    <Typography variant="subtitle2" sx={{ 
-                                        fontWeight: 600, 
-                                        color: '#1e293b',
-                                        mb: 1.5,
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: 1
-                                    }}>
-                                        <LocalHospital sx={{ fontSize: 18, color: '#4A9EFF' }} />
-                                        DX
-                                    </Typography>
-                                    <Paper sx={{ p: 2, backgroundColor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 2 }}>
-                                        <Chip
-                                            label={summaryRecord.DXCODE}
-                                            size="medium"
-                                            sx={{
-                                                backgroundColor: '#e3f2fd',
-                                                color: '#1e40af',
-                                                fontWeight: 600,
-                                                fontSize: '14px',
-                                                height: '32px',
-                                                '& .MuiChip-label': {
-                                                    px: 2
-                                                }
-                                            }}
-                                        />
-                                    </Paper>
-                                </Box>
-                            )}
+                                    {/* --- ZONE 2: Vital Signs --- */}
+                                    {summaryVitals && (
+                                        <Grid item xs={12}>
+                                            <Typography variant="subtitle2" sx={{ mb: 1.5, color: '#64748B', fontWeight: 700, ml: 0.5, mt: 1 }}>
+                                                สัญญาณชีพ (VITAL SIGNS)
+                                            </Typography>
+                                            <Grid container spacing={2}>
+                                                {/* BP */}
+                                                <Grid item xs={6} sm={4} md={2}>
+                                                    <Paper sx={{ p: 2, borderRadius: 3, border: '1px solid #E2E8F0', bgcolor: '#fff', height: '100%', minHeight: 100 }}>
+                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                                                            <MonitorHeart sx={{ fontSize: 18, color: '#EF4444' }} />
+                                                            <Typography variant="caption" sx={{ fontWeight: 700, color: '#64748B' }}>ความดัน (BP)</Typography>
+                                                        </Box>
+                                                        <Typography variant="h6" sx={{ fontWeight: 700, color: '#0F172A' }}>
+                                                            {summaryVitals.BP1 && summaryVitals.BP2 ? `${summaryVitals.BP1}/${summaryVitals.BP2}` : summaryVitals.BP1 || '-'}
+                                                        </Typography>
+                                                        <Typography variant="caption" sx={{ color: '#94A3B8' }}>mmHg</Typography>
+                                                    </Paper>
+                                                </Grid>
+                                                {/* Pulse */}
+                                                <Grid item xs={6} sm={4} md={2}>
+                                                    <Paper sx={{ p: 2, borderRadius: 3, border: '1px solid #E2E8F0', bgcolor: '#fff', height: '100%', minHeight: 100 }}>
+                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                                                            <Favorite sx={{ fontSize: 18, color: '#F43F5E' }} />
+                                                            <Typography variant="caption" sx={{ fontWeight: 700, color: '#64748B' }}>ชีพจร (Pulse)</Typography>
+                                                        </Box>
+                                                        <Typography variant="h6" sx={{ fontWeight: 700, color: '#0F172A' }}>
+                                                            {summaryVitals.PR1 || '-'}
+                                                        </Typography>
+                                                        <Typography variant="caption" sx={{ color: '#94A3B8' }}>ครั้ง/นาที</Typography>
+                                                    </Paper>
+                                                </Grid>
+                                                {/* Temp */}
+                                                <Grid item xs={6} sm={4} md={2}>
+                                                    <Paper sx={{ p: 2, borderRadius: 3, border: '1px solid #E2E8F0', bgcolor: '#fff', height: '100%', minHeight: 100 }}>
+                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                                                            <Thermostat sx={{ fontSize: 18, color: '#F59E0B' }} />
+                                                            <Typography variant="caption" sx={{ fontWeight: 700, color: '#64748B' }}>อุณหภูมิ (Temp)</Typography>
+                                                        </Box>
+                                                        <Typography variant="h6" sx={{ fontWeight: 700, color: '#0F172A' }}>
+                                                            {summaryVitals.BT1 || '-'}
+                                                        </Typography>
+                                                        <Typography variant="caption" sx={{ color: '#94A3B8' }}>°C</Typography>
+                                                    </Paper>
+                                                </Grid>
+                                                {/* SpO2 */}
+                                                <Grid item xs={6} sm={4} md={2}>
+                                                    <Paper sx={{ p: 2, borderRadius: 3, border: '1px solid #E2E8F0', bgcolor: '#fff', height: '100%', minHeight: 100 }}>
+                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                                                            <Air sx={{ fontSize: 18, color: '#3B82F6' }} />
+                                                            <Typography variant="caption" sx={{ fontWeight: 700, color: '#64748B' }}>ออกซิเจน (SpO2)</Typography>
+                                                        </Box>
+                                                        <Typography variant="h6" sx={{ fontWeight: 700, color: '#0F172A' }}>
+                                                            {summaryVitals.SPO2 || '-'}
+                                                        </Typography>
+                                                        <Typography variant="caption" sx={{ color: '#94A3B8' }}>%</Typography>
+                                                    </Paper>
+                                                </Grid>
+                                                {/* Body Stats */}
+                                                <Grid item xs={12} sm={8} md={4}>
+                                                    <Paper sx={{ p: 2, borderRadius: 3, border: '1px solid #E2E8F0', bgcolor: '#fff', height: '100%', minHeight: 100, display: 'flex', alignItems: 'center', justifyContent: 'space-around' }}>
+                                                        <Box>
+                                                            <Typography variant="caption" sx={{ display: 'block', color: '#64748B', fontWeight: 600 }}>น้ำหนัก</Typography>
+                                                            <Typography variant="h6" sx={{ fontWeight: 700, color: '#0F172A', display: 'inline' }}>{summaryVitals.WEIGHT1 || '-'}</Typography>
+                                                            <Typography variant="caption" sx={{ color: '#94A3B8', ml: 0.5 }}>กก.</Typography>
+                                                        </Box>
+                                                        <Divider orientation="vertical" flexItem sx={{ height: 40, alignSelf: 'center' }} />
+                                                        <Box>
+                                                            <Typography variant="caption" sx={{ display: 'block', color: '#64748B', fontWeight: 600 }}>ส่วนสูง</Typography>
+                                                            <Typography variant="h6" sx={{ fontWeight: 700, color: '#0F172A', display: 'inline' }}>{summaryVitals.HIGHT1 || '-'}</Typography>
+                                                            <Typography variant="caption" sx={{ color: '#94A3B8', ml: 0.5 }}>ซม.</Typography>
+                                                        </Box>
+                                                    </Paper>
+                                                </Grid>
+                                            </Grid>
+                                        </Grid>
+                                    )}
 
-                            {/* สรุปการรักษา */}
-                            {summaryRecord.TREATMENT1_TEXT && (
-                                <Box>
-                                    <Typography variant="subtitle2" sx={{ 
-                                        fontWeight: 600, 
-                                        color: '#1e293b',
-                                        mb: 1.5,
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: 1
-                                    }}>
-                                        <LocalHospital sx={{ fontSize: 18, color: '#4A9EFF' }} />
-                                        สรุปการรักษา
-                                    </Typography>
-                                    <Paper sx={{ p: 2, backgroundColor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 2 }}>
-                                <Typography
-                                    variant="body1"
-                                    sx={{
-                                        whiteSpace: 'pre-wrap',
-                                                lineHeight: 1.8,
-                                        color: '#0f172a'
-                                    }}
-                                >
-                                    {summaryRecord.TREATMENT1_TEXT}
-                                </Typography>
-                                    </Paper>
-                            </Box>
-                            )}
-
-                            {/* รายการยา */}
-                            <Box>
-                                <Typography variant="subtitle2" sx={{ 
-                                    fontWeight: 600, 
-                                    color: '#1e293b',
-                                    mb: 1.5,
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: 1
-                                }}>
-                                    <Medication sx={{ fontSize: 18, color: '#4A9EFF' }} />
-                                    รายการยาที่สั่ง
-                                </Typography>
-                                
-                                {summaryLoading ? (
-                                    <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-                                        <CircularProgress size={40} sx={{ color: '#4A9EFF' }} />
-                                    </Box>
-                                ) : summaryDrugs.length === 0 ? (
-                                    <Paper sx={{ p: 3, backgroundColor: '#f8fafc', borderRadius: 2, textAlign: 'center' }}>
-                                        <Medication sx={{ fontSize: 40, color: '#cbd5e1', mb: 1 }} />
-                                        <Typography variant="body2" color="text.secondary">
-                                            ไม่มียาที่สั่งในครั้งนี้
+                                    {/* --- ZONE 3: Diagnosis & Treatment --- */}
+                                    <Grid item xs={12}>
+                                        <Typography variant="subtitle2" sx={{ mb: 1.5, color: '#64748B', fontWeight: 700, ml: 0.5, mt: 4 }}>
+                                            การวินิจฉัยและการรักษา
                                         </Typography>
-                                    </Paper>
-                                ) : (
-                                    <TableContainer component={Paper} sx={{ border: '1px solid #e2e8f0' }}>
-                                        <Table size="small">
-                                            <TableHead>
-                                                <TableRow sx={{ backgroundColor: '#f8fafc' }}>
-                                                    <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }}>ลำดับ</TableCell>
-                                                    <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }}>รหัสยา</TableCell>
-                                                    <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }}>ชื่อยา</TableCell>
-                                                    <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }} align="right">จำนวน</TableCell>
-                                                    <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }}>หน่วย</TableCell>
-                                                    <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }} align="right">ราคาต่อหน่วย</TableCell>
-                                                    <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }} align="right">รวม</TableCell>
-                                                    <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }}>วิธีใช้</TableCell>
-                                                </TableRow>
-                                            </TableHead>
-                                            <TableBody>
-                                                {summaryDrugs.map((drug, index) => (
-                                                    <TableRow key={index} hover>
-                                                        <TableCell>{index + 1}</TableCell>
-                                                        <TableCell sx={{ fontWeight: 500, fontSize: '0.75rem' }}>
-                                                            {drug.DRUG_CODE || '-'}
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <Typography variant="body2" sx={{ fontWeight: 500, fontSize: '0.75rem' }}>
-                                                                {drug.GENERIC_NAME || drug.TRADE_NAME || 'ยาไม่ระบุ'}
-                                                            </Typography>
-                                                            {drug.TRADE_NAME && drug.GENERIC_NAME && (
-                                                                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                                                                    ({drug.TRADE_NAME})
-                                                                </Typography>
-                                                            )}
-                                                        </TableCell>
-                                                        <TableCell align="right" sx={{ fontSize: '0.75rem' }}>{drug.QTY || 0}</TableCell>
-                                                        <TableCell sx={{ fontSize: '0.75rem' }}>{drug.UNIT_NAME || drug.UNIT_CODE || '-'}</TableCell>
-                                                        <TableCell align="right" sx={{ fontSize: '0.75rem' }}>
-                                                            {parseFloat(drug.UNIT_PRICE || 0).toLocaleString('th-TH', {
-                                                                minimumFractionDigits: 2,
-                                                                maximumFractionDigits: 2
-                                                            })}
-                                                        </TableCell>
-                                                        <TableCell align="right" sx={{ fontWeight: 500, fontSize: '0.75rem' }}>
-                                                            {parseFloat(drug.AMT || 0).toLocaleString('th-TH', {
-                                                                minimumFractionDigits: 2,
-                                                                maximumFractionDigits: 2
-                                                            })}
-                                                        </TableCell>
-                                                        <TableCell sx={{ fontSize: '0.75rem' }}>
-                                                            {drug.eat1 || drug.NOTE1 || drug.TIME1 || '-'}
-                                                        </TableCell>
-                                                    </TableRow>
-                                                ))}
-                                                <TableRow sx={{ backgroundColor: '#f8fafc' }}>
-                                                    <TableCell colSpan={6} align="right" sx={{ fontWeight: 600, fontSize: '0.875rem' }}>
-                                                        รวมทั้งสิ้น:
-                                                    </TableCell>
-                                                    <TableCell align="right" sx={{ fontWeight: 600, fontSize: '0.875rem', color: '#1e40af' }}>
-                                                        {summaryDrugs
-                                                            .reduce((sum, drug) => sum + parseFloat(drug.AMT || 0), 0)
-                                                            .toLocaleString('th-TH', {
-                                                                minimumFractionDigits: 2,
-                                                                maximumFractionDigits: 2
-                                                            })}
-                                                        {' '}บาท
-                                                    </TableCell>
-                                                    <TableCell></TableCell>
-                                                </TableRow>
-                                            </TableBody>
-                                        </Table>
-                                    </TableContainer>
-                                )}
-                            </Box>
+                                        <Grid container spacing={2}>
+                                            <Grid item xs={12} md={4}>
+                                                <Paper sx={{
+                                                    p: 3,
+                                                    borderRadius: 3,
+                                                    border: '1px solid #DBEAFE',
+                                                    bgcolor: '#EFF6FF',
+                                                    height: '100%',
+                                                    display: 'flex',
+                                                    flexDirection: 'column',
+                                                    // justifyContent: 'center'
+                                                }}>
+                                                    <Typography variant="caption" sx={{ fontWeight: 700, color: '#3B82F6', mb: 1, letterSpacing: 1 }}>
+                                                        DX
+                                                    </Typography>
+                                                    <Typography variant="h3" sx={{ fontWeight: 800, color: '#1E40AF', mb: 0.5 }}>
+                                                        {summaryRecord?.DXCODE || '-'}
+                                                    </Typography>
+                                                </Paper>
+                                            </Grid>
+                                            <Grid item xs={12} md={8}>
+                                                <Paper sx={{ p: 3, borderRadius: 3, border: '1px solid #E2E8F0', bgcolor: '#fff', height: '100%' }}>
+                                                    <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#0F172A', mb: 2 }}>
+                                                        บันทึกการรักษา
+                                                    </Typography>
+                                                    <Box sx={{ p: 2, bgcolor: '#F8FAFC', borderRadius: 2, border: '1px dashed #CBD5E1' }}>
+                                                        <Typography variant="body1" sx={{ color: '#334155', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
+                                                            {summaryRecord.TREATMENT1_TEXT || 'ไม่มีบันทึกการรักษา'}
+                                                        </Typography>
+                                                    </Box>
+                                                </Paper>
+                                            </Grid>
+                                        </Grid>
+                                    </Grid>
+
+                                    {/* --- ZONE 4: Prescriptions --- */}
+                                    <Grid item xs={12}>
+                                        <Typography variant="subtitle2" sx={{ mb: 1.5, color: '#64748B', fontWeight: 700, ml: 0.5, mt: 6 }}>
+                                            รายการยาเวชภัณฑ์
+                                        </Typography>
+                                        <Paper sx={{ borderRadius: 3, border: '1px solid #E2E8F0', overflow: 'hidden', bgcolor: '#fff' }}>
+                                            {summaryDrugs.length === 0 ? (
+                                                <Box sx={{ p: 4, textAlign: 'center' }}>
+                                                    <Typography variant="body2" color="text.secondary">ไม่มีรายการยา (No Prescriptions)</Typography>
+                                                </Box>
+                                            ) : (
+                                                <>
+                                                    <TableContainer>
+                                                        <Table size="small">
+                                                            <TableHead>
+                                                                <TableRow sx={{ bgcolor: '#F8FAFC' }}>
+                                                                    <TableCell sx={{ color: '#64748B', fontWeight: 600, py: 2, width: '50px' }}>ลำดับ</TableCell>
+                                                                    <TableCell sx={{ color: '#64748B', fontWeight: 600 }}>ชื่อยา</TableCell>
+                                                                    <TableCell align="right" sx={{ color: '#64748B', fontWeight: 600, width: '100px' }}>จำนวน</TableCell>
+                                                                    <TableCell sx={{ color: '#64748B', fontWeight: 600 }}>วิธีการใช้</TableCell>
+                                                                </TableRow>
+                                                            </TableHead>
+                                                            <TableBody>
+                                                                {summaryDrugs.map((drug, index) => (
+                                                                    <TableRow key={index} hover sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
+                                                                        <TableCell sx={{ color: '#94A3B8' }}>{index + 1}</TableCell>
+                                                                        <TableCell>
+                                                                            <Typography variant="body2" sx={{ fontWeight: 600, color: '#334155' }}>
+                                                                                {drug.GENERIC_NAME || drug.TRADE_NAME}
+                                                                            </Typography>
+                                                                            <Typography variant="caption" sx={{ color: '#94A3B8' }}>
+                                                                                {drug.DRUG_CODE}
+                                                                            </Typography>
+                                                                        </TableCell>
+                                                                        <TableCell align="right" sx={{ color: '#334155' }}>
+                                                                            {drug.QTY} {drug.UNIT_NAME}
+                                                                        </TableCell>
+                                                                        <TableCell sx={{ color: '#475569', maxWidth: 200 }}>
+                                                                            {drug.eat1 || drug.NOTE1 || drug.TIME1 || '-'}
+                                                                        </TableCell>
+                                                                    </TableRow>
+                                                                ))}
+                                                            </TableBody>
+                                                        </Table>
+                                                    </TableContainer>
+                                                </>
+                                            )}
+                                        </Paper>
+                                    </Grid>
+
+                                </Grid>
+                            )}
                         </Box>
                     )}
                 </DialogContent>
-                <DialogActions sx={{ p: 2, borderTop: '1px solid #e2e8f0', backgroundColor: '#f8fafc' }}>
-                    <Button 
+                <DialogActions sx={{ p: 3, bgcolor: '#F8FAFC', borderTop: '1px solid #F1F5F9' }}>
+                    <Button
                         onClick={() => {
                             setSummaryDialogOpen(false);
                             setSummaryDrugs([]);
-                        }} 
-                        variant="contained"
-                        sx={{ borderRadius: 2 }}
+                            setSummaryVitals(null);
+                        }}
+                        variant="outlined"
+                        sx={{
+                            borderRadius: 2,
+                            textTransform: 'none',
+                            fontWeight: 600,
+                            color: '#64748B',
+                            borderColor: '#CBD5E1',
+                            '&:hover': {
+                                borderColor: '#94A3B8',
+                                bgcolor: '#F1F5F9'
+                            }
+                        }}
                     >
-                        ปิด
+                        ปิดหน้าต่าง
                     </Button>
                 </DialogActions>
             </Dialog>
