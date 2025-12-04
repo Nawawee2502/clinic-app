@@ -1636,7 +1636,7 @@ const PatientManagement = () => {
     const [patientPage, setPatientPage] = useState(1);
     const [patientPagination, setPatientPagination] = useState({
         page: 1,
-        limit: 50,
+        limit: 10,
         total: 0,
         totalPages: 0
     });
@@ -1844,6 +1844,31 @@ const PatientManagement = () => {
         }
     }, [historyLimit, getCurrentMonthDateRange]);
 
+    // Load patients function - ต้องประกาศก่อน useEffect ที่ใช้มัน
+    const loadPatients = useCallback(async (page = 1, limit = 10) => {
+        try {
+            setLoading(true);
+            const response = await PatientService.getAllPatients(page, limit);
+            if (response.success) {
+                setPatients(response.data);
+                setFilteredPatients(response.data);
+
+                // อัพเดท pagination info
+                if (response.pagination) {
+                    setPatientPagination(response.pagination);
+                }
+
+                return response.data;
+            }
+            return [];
+        } catch (err) {
+            setError('ไม่สามารถโหลดข้อมูลผู้ป่วยได้');
+            return [];
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
     // เมื่อมีการค้นหา ให้ fetch ข้อมูลใหม่
     const handleHistorySearch = useCallback(() => {
         setHistoryPage(1);
@@ -1994,6 +2019,10 @@ const PatientManagement = () => {
                             total: response.data.length,
                             totalPages: 1
                         });
+                        // Reset selected patient when searching
+                        setSelectedPatient(null);
+                        setEditFormData({});
+                        setIsEditing(false);
                     }
                 } catch (err) {
                     setError('เกิดข้อผิดพลาดในการค้นหา');
@@ -2002,12 +2031,15 @@ const PatientManagement = () => {
                 }
             };
             performSearch();
-        } else if (searchTerm === '') {
-            // ถ้า search term เป็นค่าว่าง ให้ reset
-            setFilteredPatients(patients);
+        } else if (debouncedSearchTerm === '' && searchTerm === '') {
+            // ถ้า search term เป็นค่าว่าง ให้ reset และโหลดข้อมูลใหม่
             setPatientPage(1);
+            setSelectedPatient(null);
+            setEditFormData({});
+            setIsEditing(false);
+            loadPatients(1, patientPagination.limit);
         }
-    }, [debouncedSearchTerm, searchTerm, patients]);
+    }, [debouncedSearchTerm, searchTerm, loadPatients, patientPagination.limit]);
 
     useEffect(() => {
         if (activeTab === 'history') {
@@ -2086,35 +2118,12 @@ const PatientManagement = () => {
         }
     };
 
-    const loadPatients = useCallback(async (page = 1, limit = 50) => {
-        try {
-            setLoading(true);
-            const response = await PatientService.getAllPatients(page, limit);
-            if (response.success) {
-                setPatients(response.data);
-                setFilteredPatients(response.data);
-
-                // อัพเดท pagination info
-                if (response.pagination) {
-                    setPatientPagination(response.pagination);
-                }
-
-                return response.data;
-            }
-            return [];
-        } catch (err) {
-            setError('ไม่สามารถโหลดข้อมูลผู้ป่วยได้');
-            return [];
-        } finally {
-            setLoading(false);
-        }
-    }, []);
-
+    // Load patients only when manage tab is active (lazy loading for faster initial load)
     useEffect(() => {
-        if (!searchTerm) {
+        if (activeTab === 'manage' && !searchTerm) {
             loadPatients(patientPage, patientPagination.limit);
         }
-    }, [patientPage]);
+    }, [activeTab, patientPage, searchTerm, loadPatients, patientPagination.limit]);
 
     const handleSearch = useCallback(async (term = null) => {
         const searchValue = term || debouncedSearchTerm || searchTerm;
@@ -2333,7 +2342,13 @@ const PatientManagement = () => {
                                                         size="small"
                                                         onClick={() => {
                                                             setSearchTerm('');
+                                                            setDebouncedSearchTerm('');
                                                             setPatientPage(1);
+                                                            setSelectedPatient(null);
+                                                            setEditFormData({});
+                                                            setIsEditing(false);
+                                                            // โหลดข้อมูลใหม่
+                                                            loadPatients(1, patientPagination.limit);
                                                         }}
                                                         sx={{
                                                             color: '#dc2626',
