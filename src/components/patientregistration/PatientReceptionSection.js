@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
     Card,
     CardContent,
@@ -40,6 +40,9 @@ const PatientReceptionSection = ({
     const [vitalsLoading, setVitalsLoading] = useState(false);
     const [todayAppointments, setTodayAppointments] = useState([]);
     const [loadingAppointments, setLoadingAppointments] = useState(false);
+    
+    // ✅ เพิ่ม useRef เพื่อป้องกันการเรียก function ซ้ำ
+    const isProcessingRef = useRef(false);
 
     // Vitals State
     const [vitalsData, setVitalsData] = useState({
@@ -282,15 +285,23 @@ const PatientReceptionSection = ({
 
     // บันทึก Vital Signs และสร้างคิว + Treatment record
     const handleSaveVitalsAndCreateQueue = async () => {
+        // ✅ ป้องกันการเรียกซ้ำทันที
+        if (isProcessingRef.current || loading) {
+            console.log('⚠️ Already processing, ignoring duplicate call');
+            return;
+        }
+
         if (!selectedPatient) {
             showSnackbar('กรุณาเลือกผู้ป่วยก่อน', 'error');
             return;
         }
 
+        // ✅ ตั้งค่า flag เพื่อป้องกันการเรียกซ้ำ
+        isProcessingRef.current = true;
         setLoading(true);
 
         try {
-            // ✅ Step 0: ตรวจสอบว่า HN นี้มีอยู่ในคิวแล้วหรือยัง
+            // ✅ Step 0: ตรวจสอบว่า HN นี้มีอยู่ในคิวแล้วหรือยัง (ตรวจสอบใน database โดยตรง)
             console.log('🔍 Checking if patient already in queue:', selectedPatient.HNCODE);
             const allQueueResponse = await PatientService.getAllPatientsFromQueue();
             
@@ -315,6 +326,7 @@ const PatientReceptionSection = ({
                                 'error'
                             );
                             setLoading(false);
+                            isProcessingRef.current = false;
                             return;
                         }
                     }
@@ -367,6 +379,7 @@ const PatientReceptionSection = ({
 
                         if (!confirmResult.isConfirmed) {
                             setLoading(false);
+                            isProcessingRef.current = false;
                             return;
                         }
                     } else if (remainingUsage === 0) {
@@ -423,7 +436,28 @@ const PatientReceptionSection = ({
                 }
             }
 
-            // ✅ Step 1: สร้างคิวพร้อมข้อมูลบัตร
+            // ✅ Step 1: ตรวจสอบอีกครั้งก่อนสร้างคิว (ป้องกัน race condition)
+            const doubleCheckResponse = await PatientService.getAllPatientsFromQueue();
+            if (doubleCheckResponse.success) {
+                const existingActiveQueues = doubleCheckResponse.data.filter(patient => {
+                    if (patient.HNCODE !== selectedPatient.HNCODE) return false;
+                    const status1 = patient.TREATMENT_STATUS || patient.STATUS1 || patient.queueStatus || '';
+                    const blockedStatuses = ['รอตรวจ', 'กำลังตรวจ', 'ทำงานอยู่', 'รอชำระเงิน', 'ชำระเงินแล้ว'];
+                    return blockedStatuses.includes(status1);
+                });
+
+                if (existingActiveQueues.length > 0) {
+                    showSnackbar(
+                        `⚠️ ผู้ป่วย HN: ${selectedPatient.HNCODE} มีอยู่ในคิวแล้ว (คิวที่ ${existingActiveQueues[0].queueNumber || existingActiveQueues[0].QUEUE_NUMBER}) ไม่สามารถเพิ่มได้`,
+                        'error'
+                    );
+                    setLoading(false);
+                    isProcessingRef.current = false;
+                    return;
+                }
+            }
+
+            // ✅ Step 2: สร้างคิวพร้อมข้อมูลบัตร
             const queueData = {
                 HNCODE: selectedPatient.HNCODE,
                 CHIEF_COMPLAINT: vitalsData.SYMPTOM || 'รับบริการทั่วไป',
@@ -442,7 +476,7 @@ const PatientReceptionSection = ({
 
             console.log('✅ Queue created:', queueResponse.data);
 
-            // Step 2: สร้าง Treatment record พร้อม Vital Signs
+            // Step 3: สร้าง Treatment record พร้อม Vital Signs
             const vnNumber = TreatmentService.generateVNO();
 
             const treatmentData = {
@@ -511,6 +545,10 @@ const PatientReceptionSection = ({
             showSnackbar('เกิดข้อผิดพลาด: ' + error.message, 'error');
         } finally {
             setLoading(false);
+            // ✅ Reset flag หลังเสร็จสิ้น (รอ 1 วินาทีเพื่อป้องกันการเรียกซ้ำ)
+            setTimeout(() => {
+                isProcessingRef.current = false;
+            }, 1000);
         }
     };
 
@@ -965,8 +1003,16 @@ const PatientReceptionSection = ({
                                     <Button
                                         variant="contained"
                                         size="large"
-                                        onClick={handleSaveVitalsAndCreateQueue}
-                                        disabled={loading}
+                                        onClick={(e) => {
+                                            // ✅ ป้องกันการกดซ้ำทันที
+                                            if (loading || isProcessingRef.current) {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                return;
+                                            }
+                                            handleSaveVitalsAndCreateQueue();
+                                        }}
+                                        disabled={loading || isProcessingRef.current}
                                         startIcon={loading ? <CircularProgress size={20} /> : <QueueIcon />}
                                         sx={{
                                             borderRadius: '10px',
@@ -975,7 +1021,8 @@ const PatientReceptionSection = ({
                                             fontSize: '18px',
                                             fontWeight: 'bold',
                                             bgcolor: '#4caf50',
-                                            '&:hover': { bgcolor: '#45a049' }
+                                            '&:hover': { bgcolor: '#45a049' },
+                                            '&:disabled': { bgcolor: '#a5d6a7', color: '#fff' }
                                         }}
                                     >
                                         {loading ? 'กำลังบันทึก...' : 'บันทึก Vital Signs และสร้างคิว'}
