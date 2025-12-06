@@ -457,17 +457,20 @@ const PatientReceptionSection = ({
                 }
             }
 
-            // ✅ Step 2: สร้างคิวพร้อมข้อมูลบัตร
+            // ✅ Step 2: สร้างคิวพร้อมข้อมูลบัตร (เพิ่ม REQUEST_ID เพื่อป้องกันการเรียกซ้ำ)
+            const requestId = `${selectedPatient.HNCODE}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
             const queueData = {
                 HNCODE: selectedPatient.HNCODE,
                 CHIEF_COMPLAINT: vitalsData.SYMPTOM || 'รับบริการทั่วไป',
                 CREATED_BY: 'RECEPTION_SYSTEM',
+                REQUEST_ID: requestId, // ✅ เพิ่ม REQUEST_ID เพื่อป้องกันการเรียกซ้ำ
                 // ✅ เพิ่มข้อมูลบัตรที่นี่
                 SOCIAL_CARD: selectedPatient.SOCIAL_CARD,
                 UCS_CARD: selectedPatient.UCS_CARD
             };
 
             console.log('🏥 Creating queue with card info:', queueData);
+            console.log('🔑 Request ID:', requestId);
             const queueResponse = await QueueService.createWalkInQueue(queueData);
 
             if (!queueResponse.success) {
@@ -528,17 +531,38 @@ const PatientReceptionSection = ({
             setSelectedPatient(null);
             setPatientOptions([]);
 
-            // Refresh data
-            onRefresh();
+            // ✅ เก็บข้อมูลไว้ก่อน reset เพื่อใช้ใน event
+            const createdQueueData = {
+                queueId: queueResponse.data.QUEUE_ID,
+                queueNumber: queueResponse.data.QUEUE_NUMBER,
+                hncode: selectedPatient.HNCODE
+            };
 
-            // Dispatch event เพื่อแจ้งหน้าอื่นๆ ว่ามีการเพิ่มคิว
-            window.dispatchEvent(new CustomEvent('queueAdded', {
-                detail: { 
-                    queueId: queueResponse.data.QUEUE_ID,
-                    queueNumber: queueResponse.data.QUEUE_NUMBER,
-                    hncode: selectedPatient.HNCODE
-                }
-            }));
+            // Step 4: Reset forms ก่อน refresh
+            setVitalsData({
+                WEIGHT1: '',
+                HIGH1: '',
+                BT1: '',
+                BP1: '',
+                BP2: '',
+                RR1: '',
+                PR1: '',
+                SPO2: '',
+                SYMPTOM: ''
+            });
+            setSelectedPatient(null);
+            setPatientOptions([]);
+
+            // ✅ Delay refresh และ dispatch event เพื่อป้องกันการสร้างซ้ำ
+            setTimeout(() => {
+                // Refresh data
+                onRefresh();
+
+                // Dispatch event เพื่อแจ้งหน้าอื่นๆ ว่ามีการเพิ่มคิว
+                window.dispatchEvent(new CustomEvent('queueAdded', {
+                    detail: createdQueueData
+                }));
+            }, 500);
 
         } catch (error) {
             console.error('Error creating queue with vitals:', error);

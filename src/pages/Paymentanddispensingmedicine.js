@@ -280,12 +280,37 @@ const Paymentanddispensingmedicine = () => {
                 const treatmentResponse = await TreatmentService.getTreatmentByVNO(patient.VNO);
                 if (treatmentResponse.success && treatmentResponse.data.treatment) {
                   patient.STATUS1 = treatmentResponse.data.treatment.STATUS1;
-                  patient.PAYMENT_STATUS = treatmentResponse.data.treatment.PAYMENT_STATUS; // เพิ่มบรรทัดนี้
+                  patient.PAYMENT_STATUS = treatmentResponse.data.treatment.PAYMENT_STATUS;
+                  // ✅ ดึง UCS_CARD จาก treatment หรือ patient
+                  patient.UCS_CARD = treatmentResponse.data.treatment.UCS_CARD || 
+                                     treatmentResponse.data.patient?.UCS_CARD || 
+                                     patient.UCS_CARD || 
+                                     patient.PATIENT_UCS_CARD || 
+                                     'N';
+                  patient.SOCIAL_CARD = treatmentResponse.data.treatment.SOCIAL_CARD || 
+                                       treatmentResponse.data.patient?.SOCIAL_CARD || 
+                                       patient.SOCIAL_CARD || 
+                                       patient.PATIENT_SOCIAL_CARD || 
+                                       'N';
                 }
+              }
+              // ✅ ถ้าไม่มี VNO ให้ใช้ UCS_CARD จาก patient object โดยตรง
+              if (!patient.UCS_CARD) {
+                patient.UCS_CARD = patient.PATIENT_UCS_CARD || 'N';
+              }
+              if (!patient.SOCIAL_CARD) {
+                patient.SOCIAL_CARD = patient.PATIENT_SOCIAL_CARD || 'N';
               }
               return patient;
             } catch (error) {
               console.warn(`Failed to get treatment status for VNO ${patient.VNO}:`, error);
+              // ✅ ถ้า error ก็ใช้ UCS_CARD จาก patient object
+              if (!patient.UCS_CARD) {
+                patient.UCS_CARD = patient.PATIENT_UCS_CARD || 'N';
+              }
+              if (!patient.SOCIAL_CARD) {
+                patient.SOCIAL_CARD = patient.PATIENT_SOCIAL_CARD || 'N';
+              }
               return patient;
             }
           })
@@ -730,10 +755,13 @@ const Paymentanddispensingmedicine = () => {
                 }
               }
 
+              // ✅ ใช้ราคาจากฐานข้อมูล (AMT) ถ้ามี แทน editablePrice
+              const savedPrice = parseFloat(item.AMT || 0);
+
               return {
                 ...item,
-                editablePrice: parseFloat(item.AMT || 0),
-                originalPrice: parseFloat(item.AMT || 0),
+                editablePrice: savedPrice, // ✅ ใช้ราคาจากฐานข้อมูล
+                originalPrice: savedPrice,
                 DRUG_UCS_CARD: drugUcsCard, // เก็บ UCS_CARD ของยาแต่ละตัว
                 Indication1: indication1, // เก็บ Indication1 สำหรับแสดงในฉลากยา
                 UNIT_NAME: rawUnitName,
@@ -879,23 +907,88 @@ const Paymentanddispensingmedicine = () => {
     };
   };
 
-  const handleSavePrice = (type, index, newPrice) => {
+  const handleSavePrice = async (type, index, newPrice) => {
     const price = parseFloat(newPrice) || 0;
+    const currentPatient = patients[selectedPatientIndex];
+    
+    if (!currentPatient || !currentPatient.VNO) {
+      setSnackbar({
+        open: true,
+        message: 'ไม่พบข้อมูลผู้ป่วย',
+        severity: 'error'
+      });
+      return;
+    }
 
-    setEditablePrices(prev => ({
-      ...prev,
-      [type]: prev[type].map((item, i) =>
+    // อัปเดต state ก่อน
+    const updatedPrices = {
+      ...editablePrices,
+      [type]: editablePrices[type].map((item, i) =>
         i === index ? { ...item, editablePrice: price } : item
       )
-    }));
+    };
 
+    setEditablePrices(updatedPrices);
     setEditingItem({ type: null, index: null });
 
-    setSnackbar({
-      open: true,
-      message: 'บันทึกราคาใหม่เรียบร้อย',
-      severity: 'success'
-    });
+    // ✅ บันทึกราคาลงฐานข้อมูลทันที
+    try {
+      const item = editablePrices[type][index];
+      
+      if (type === 'drugs' && item.DRUG_CODE) {
+        // อัปเดตราคายาใน TREATMENT1_DRUG
+        const response = await TreatmentService.updateTreatment(currentPatient.VNO, {
+          drugs: updatedPrices.drugs.map(d => ({
+            DRUG_CODE: d.DRUG_CODE,
+            QTY: d.QTY || 1,
+            UNIT_CODE: d.UNIT_CODE,
+            UNIT_PRICE: d.UNIT_PRICE || (d.editablePrice / (d.QTY || 1)),
+            AMT: d.editablePrice, // ✅ ใช้ editablePrice ที่แก้ไขแล้ว
+            NOTE1: d.NOTE1 || '',
+            TIME1: d.TIME1 || ''
+          }))
+        });
+
+        if (!response.success) {
+          throw new Error(response.message || 'ไม่สามารถบันทึกราคาได้');
+        }
+      } else if (type === 'labs' && item.LABCODE) {
+        // อัปเดตราคา Lab (ถ้ามี API สำหรับอัปเดต)
+        // เนื่องจาก Lab อาจมาจาก INVESTIGATION_NOTES อาจต้องอัปเดตผ่าน treatment
+        console.log('Lab price update - may need custom implementation');
+      } else if (type === 'procedures' && item.MEDICAL_PROCEDURE_CODE) {
+        // อัปเดตราคาหัตถการ
+        const response = await TreatmentService.updateTreatment(currentPatient.VNO, {
+          procedures: updatedPrices.procedures.map(p => ({
+            MEDICAL_PROCEDURE_CODE: p.MEDICAL_PROCEDURE_CODE || p.PROCEDURE_CODE,
+            PROCEDURE_NAME: p.MED_PRO_NAME_THAI || p.PROCEDURE_NAME,
+            QTY: p.QTY || 1,
+            UNIT_CODE: p.UNIT_CODE || 'TIMES',
+            UNIT_PRICE: p.UNIT_PRICE || p.editablePrice,
+            AMT: p.editablePrice // ✅ ใช้ editablePrice ที่แก้ไขแล้ว
+          }))
+        });
+
+        if (!response.success) {
+          throw new Error(response.message || 'ไม่สามารถบันทึกราคาได้');
+        }
+      }
+
+      setSnackbar({
+        open: true,
+        message: '✅ บันทึกราคาใหม่เรียบร้อยแล้ว',
+        severity: 'success'
+      });
+    } catch (error) {
+      console.error('Error saving price:', error);
+      // Revert price change on error
+      setEditablePrices(editablePrices);
+      setSnackbar({
+        open: true,
+        message: 'เกิดข้อผิดพลาดในการบันทึกราคา: ' + error.message,
+        severity: 'error'
+      });
+    }
   };
 
   const handleCancelEdit = () => {
