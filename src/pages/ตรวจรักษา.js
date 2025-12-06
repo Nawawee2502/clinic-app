@@ -923,9 +923,11 @@ const ตรวจรักษา = () => {
                       !lockedStatuses.includes(
                         (patient.queueStatus || patient.STATUS1 || '').trim()
                       );
+                    // ✅ ใช้ key ที่ unique: queueId + originalIndex + VNO (ถ้ามี)
+                    const uniqueKey = `${patient.queueId || patient.QUEUE_ID || 'queue'}-${originalIndex}-${patient.VNO || 'no-vno'}`;
                     return (
                       <ListItemButton
-                        key={patient.queueId || originalIndex}
+                        key={uniqueKey}
                         selected={isActive}
                         onClick={() => handlePatientSelect(originalIndex)}
                         sx={{
