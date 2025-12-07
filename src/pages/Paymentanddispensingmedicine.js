@@ -586,10 +586,23 @@ const Paymentanddispensingmedicine = () => {
 
     try {
       setLoadingTreatment(true);
+      console.log('🔍 Loading treatment data for VNO:', vno);
       const response = await TreatmentService.getTreatmentByVNO(vno);
+
+      console.log('📥 Treatment response:', {
+        success: response.success,
+        hasData: !!response.data,
+        drugsCount: response.data?.drugs?.length || 0,
+        proceduresCount: response.data?.procedures?.length || 0,
+        labTestsCount: response.data?.labTests?.length || 0,
+        radioTestsCount: response.data?.radiologicalTests?.length || 0
+      });
 
       if (response.success) {
         setTreatmentData(response.data);
+        
+        console.log('💊 Drugs data:', response.data?.drugs);
+        console.log('🔧 Procedures data:', response.data?.procedures);
 
         // สร้าง Labs และ Procedures arrays จากข้อมูลที่ได้
         let labsArray = [];
@@ -659,17 +672,60 @@ const Paymentanddispensingmedicine = () => {
         }
 
         // ดึงข้อมูล Procedures
+        console.log('🔍 Checking procedures:', {
+          hasProcedures: !!response.data.procedures,
+          proceduresLength: response.data.procedures?.length || 0,
+          proceduresData: response.data.procedures
+        });
+        
         if (response.data.procedures && response.data.procedures.length > 0) {
-          proceduresArray = response.data.procedures.map(item => ({
+          // ✅ Deduplicate procedures โดยใช้ MEDICAL_PROCEDURE_CODE หรือ PROCEDURE_CODE
+          const seenProcedures = new Map();
+          const uniqueProcedures = [];
+          
+          response.data.procedures.forEach(item => {
+            const procedureCode = item.MEDICAL_PROCEDURE_CODE || item.PROCEDURE_CODE;
+            const procedureName = item.MED_PRO_NAME_THAI || item.PROCEDURE_NAME;
+            const key = procedureCode || procedureName;
+            
+            // ถ้ายังไม่เคยเห็น procedure นี้ ให้เพิ่มเข้าไป
+            if (key && !seenProcedures.has(key)) {
+              seenProcedures.set(key, true);
+              uniqueProcedures.push(item);
+            }
+          });
+          
+          proceduresArray = uniqueProcedures.map(item => ({
             ...item,
-            editablePrice: parseFloat(item.AMT || 200),
-            originalPrice: parseFloat(item.AMT || 200)
+            editablePrice: parseFloat(item.AMT || item.UNIT_PRICE || 200),
+            originalPrice: parseFloat(item.AMT || item.UNIT_PRICE || 200)
           }));
+          console.log('✅ Mapped procedures array (deduplicated):', proceduresArray);
+        } else {
+          console.warn('⚠️ No procedures found in response.data.procedures');
         }
 
         // ดึงข้อมูล Drugs พร้อม UCS_CARD และชื่อหน่วย (UNIT_NAME)
         let drugsArray = [];
+        console.log('🔍 Checking drugs:', {
+          hasDrugs: !!response.data.drugs,
+          drugsLength: response.data.drugs?.length || 0,
+          drugsData: response.data.drugs
+        });
+        
         if (response.data.drugs && response.data.drugs.length > 0) {
+          // ✅ Deduplicate drugs โดยใช้ DRUG_CODE
+          const seenDrugs = new Map();
+          const uniqueDrugs = [];
+          
+          response.data.drugs.forEach(item => {
+            const drugCode = item.DRUG_CODE;
+            if (drugCode && !seenDrugs.has(drugCode)) {
+              seenDrugs.set(drugCode, true);
+              uniqueDrugs.push(item);
+            }
+          });
+          
           // map สำหรับชื่อหน่วยสวยๆ
           const unitNameMap = {
             TAB: 'เม็ด',
@@ -688,9 +744,9 @@ const Paymentanddispensingmedicine = () => {
             TIMES: 'ครั้ง'
           };
 
-          // ดึงข้อมูล UCS_CARD และ Indication1 ของยาแต่ละตัว
+          // ดึงข้อมูล UCS_CARD และ Indication1 ของยาแต่ละตัว (เฉพาะยาที่ไม่ซ้ำ)
           drugsArray = await Promise.all(
-            response.data.drugs.map(async (item) => {
+            uniqueDrugs.map(async (item) => {
               let drugUcsCard = item.UCS_CARD || 'N';
               // ✅ ดึง Indication1 จาก NOTE1 (ที่บันทึกไว้) หรือจาก Indication1 field
               let indication1 = item.NOTE1 || item.Indication1 || '';
@@ -810,11 +866,21 @@ const Paymentanddispensingmedicine = () => {
         // ถ้า isGoldCard แต่ ucsUsageExceeded = true ไม่ต้องตั้งราคาเป็น 0 (ให้คิดเงินตามปกติ)
 
         // เซ็ตราคาที่แก้ไขได้
+        console.log('💰 Setting editable prices:', {
+          labsCount: labsArray.length,
+          proceduresCount: proceduresArray.length,
+          drugsCount: drugsArray.length,
+          procedures: proceduresArray,
+          drugs: drugsArray
+        });
+        
         setEditablePrices({
           labs: labsArray,
           procedures: proceduresArray,
           drugs: drugsArray
         });
+        
+        console.log('✅ Editable prices set successfully');
 
         // ✅ ดึงส่วนลดจาก treatmentData มาใส่ใน paymentData ถ้ามี
         const discountFromTreatment = parseFloat(response.data.treatment?.DISCOUNT_AMOUNT || 0);

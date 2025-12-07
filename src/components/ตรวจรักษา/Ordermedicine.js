@@ -83,8 +83,22 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
             const response = await TreatmentService.getTreatmentByVNO(currentPatient.VNO);
 
             if (response.success && response.data?.drugs) {
+                // ✅ Deduplicate medicines โดยใช้ DRUG_CODE
+                const seenDrugs = new Map();
+                const uniqueDrugs = [];
+                
+                // กรอง duplicate ก่อน
+                response.data.drugs.forEach(drug => {
+                    const drugCode = drug.DRUG_CODE;
+                    if (drugCode && !seenDrugs.has(drugCode)) {
+                        seenDrugs.set(drugCode, true);
+                        uniqueDrugs.push(drug);
+                    }
+                });
+                
+                // โหลดข้อมูลเพิ่มเติมสำหรับยาที่ไม่ซ้ำ
                 const medicines = await Promise.all(
-                    response.data.drugs.map(async (drug, index) => {
+                    uniqueDrugs.map(async (drug, index) => {
                         // ดึง Indication1 จาก NOTE1 (ถ้ามี) หรือจาก DrugService
                         let indication1 = drug.NOTE1 || '';
                         
@@ -346,6 +360,7 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
 
             if (savedMedicines.length === 0) {
                 showSnackbar('กรุณาเพิ่มรายการยาอย่างน้อย 1 รายการ', 'error');
+                setSaving(false);
                 return;
             }
 
@@ -366,9 +381,17 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
                 drugs: drugs
             };
 
-            const response = await TreatmentService.updateTreatment(currentPatient.VNO, treatmentData);
+            console.log('💾 Saving medicine data:', {
+                VNO: treatmentData.VNO,
+                drugsCount: drugs.length,
+                drugs: drugs
+            });
 
-            if (response.success) {
+            const response = await TreatmentService.updateTreatment(currentPatient.VNO, treatmentData);
+            
+            console.log('📥 Response from API:', response);
+
+            if (response && response.success) {
                 showSnackbar('บันทึกข้อมูลยาสำเร็จ!', 'success');
 
                 if (!isLockedStatus) {
@@ -383,7 +406,7 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
                     setTimeout(() => onSaveSuccess(), 1500);
                 }
             } else {
-                const errorMessage = response.message || 'ไม่สามารถบันทึกข้อมูลได้';
+                const errorMessage = (response && response.message) || 'ไม่สามารถบันทึกข้อมูลได้';
                 showSnackbar('ไม่สามารถบันทึกข้อมูลได้: ' + errorMessage, 'error');
             }
         } catch (error) {
@@ -447,11 +470,11 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
 
                 const response = await TreatmentService.updateTreatment(vno, treatmentData);
 
-                if (response.success) {
+                if (response && response.success) {
                     showSnackbar('บันทึกข้อมูลยาสำเร็จ!', 'success');
                     // ✅ ไม่ต้องอัพเดทสถานะเป็น "กำลังตรวจ" ที่นี่ เพราะจะอัพเดทเป็น "รอชำระเงิน" ในขั้นตอนถัดไป
                 } else {
-                    const errorMessage = response.message || 'ไม่สามารถบันทึกข้อมูลได้';
+                    const errorMessage = (response && response.message) || 'ไม่สามารถบันทึกข้อมูลได้';
                     showSnackbar('ไม่สามารถบันทึกข้อมูลได้: ' + errorMessage, 'error');
                     setSaving(false);
                     return;

@@ -18,6 +18,7 @@ import PropTypes from 'prop-types';
 import TreatmentService from "../../services/treatmentService";
 import DrugService from "../../services/drugService";
 import EmployeeService from "../../services/employeeService";
+import MedicalProcedureService from "../../services/medicalProcesureService";
 
 const Procedure = ({ currentPatient, onSaveSuccess }) => {
   const [procedureData, setProcedureData] = useState({
@@ -32,7 +33,7 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
   const [procedureOptions, setProcedureOptions] = useState([]);
   const [employeeList, setEmployeeList] = useState([]);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
-  
+
   // Medicine states
   const [medicineData, setMedicineData] = useState({
     drugName: '',
@@ -46,7 +47,7 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
   const [drugOptions, setDrugOptions] = useState([]);
   const [editingMedicineIndex, setEditingMedicineIndex] = useState(-1);
   const [apiStatus, setApiStatus] = useState('checking');
-  
+
   const [unitOptions] = useState([
     { code: 'TAB', name: 'เม็ด' },
     { code: 'CAP', name: 'แคปซูล' },
@@ -62,7 +63,7 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
     { code: 'G', name: 'กรัม' },
     { code: 'PACK', name: 'แพ็ค' }
   ]);
-  
+
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: '',
@@ -100,33 +101,68 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
       if (response.success && response.data) {
         // Load procedures
         if (response.data.procedures) {
-          const procedures = response.data.procedures.map((procedure, index) => {
-            // หา employee จาก employeeList
-            const employee = employeeList.find(e => e.EMP_CODE === procedure.EMP_CODE);
-            return {
-              id: index + 1,
-              procedureName: procedure.MED_PRO_NAME_THAI || procedure.PROCEDURE_NAME || 'ไม่ระบุชื่อ',
-              procedureCode: procedure.MEDICAL_PROCEDURE_CODE || procedure.PROCEDURE_CODE,
-              note: procedure.NOTE1 || '',
-              doctorName: employee ? employee.EMP_NAME : (procedure.DOCTOR_NAME || 'นพ.ผู้รักษา'),
-              EMP_CODE: procedure.EMP_CODE || ''
-            };
+          // ✅ Deduplicate procedures โดยใช้ procedureCode หรือ procedureName
+          const seenProcedures = new Map();
+          const uniqueProcedures = [];
+          
+          response.data.procedures.forEach((procedure, index) => {
+            const procedureCode = procedure.MEDICAL_PROCEDURE_CODE || procedure.PROCEDURE_CODE;
+            const procedureName = procedure.MED_PRO_NAME_THAI || procedure.PROCEDURE_NAME || 'ไม่ระบุชื่อ';
+            const key = procedureCode || procedureName;
+            
+            // ถ้ายังไม่เคยเห็น procedure นี้ ให้เพิ่มเข้าไป
+            if (!seenProcedures.has(key)) {
+              seenProcedures.set(key, true);
+              
+              // หา employee จาก employeeList
+              const employee = employeeList.find(e => e.EMP_CODE === procedure.EMP_CODE);
+              // ✅ เก็บ UNIT_PRICE และ AMT จาก database
+              const unitPrice = parseFloat(procedure.UNIT_PRICE || 0);
+              const qty = parseFloat(procedure.QTY || 1);
+              const amt = parseFloat(procedure.AMT || 0);
+              
+              uniqueProcedures.push({
+                id: uniqueProcedures.length + 1,
+                procedureName: procedureName,
+                procedureCode: procedureCode,
+                note: procedure.NOTE1 || '',
+                doctorName: employee ? employee.EMP_NAME : (procedure.DOCTOR_NAME || 'นพ.ผู้รักษา'),
+                EMP_CODE: procedure.EMP_CODE || '',
+                unitPrice: unitPrice, // ✅ เก็บราคาไว้
+                amt: amt // ✅ เก็บยอดรวมไว้
+              });
+            }
           });
-          setSavedProcedures(procedures);
+          
+          setSavedProcedures(uniqueProcedures);
         }
-        
+
         // Load medicines
         if (response.data.drugs) {
-          const medicines = response.data.drugs.map((drug, index) => ({
-            id: index + 1,
-            drugName: drug.GENERIC_NAME,
-            drugCode: drug.DRUG_CODE,
-            quantity: drug.QTY,
-            unit: drug.UNIT_CODE || 'TAB',
-            unitName: drug.UNIT_NAME || getUnitName(drug.UNIT_CODE || 'TAB'),
-            unitPrice: drug.UNIT_PRICE || 0
-          }));
-          setSavedMedicines(medicines);
+          // ✅ Deduplicate medicines โดยใช้ DRUG_CODE
+          const seenDrugs = new Map();
+          const uniqueMedicines = [];
+          
+          response.data.drugs.forEach((drug, index) => {
+            const drugCode = drug.DRUG_CODE;
+            
+            // ถ้ายังไม่เคยเห็นยาตัวนี้ ให้เพิ่มเข้าไป
+            if (drugCode && !seenDrugs.has(drugCode)) {
+              seenDrugs.set(drugCode, true);
+              
+              uniqueMedicines.push({
+                id: uniqueMedicines.length + 1,
+                drugName: drug.GENERIC_NAME,
+                drugCode: drugCode,
+                quantity: drug.QTY,
+                unit: drug.UNIT_CODE || 'TAB',
+                unitName: drug.UNIT_NAME || getUnitName(drug.UNIT_CODE || 'TAB'),
+                unitPrice: drug.UNIT_PRICE || 0
+              });
+            }
+          });
+          
+          setSavedMedicines(uniqueMedicines);
         }
       }
     } catch (error) {
@@ -139,19 +175,30 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
 
   const loadProcedureOptions = async () => {
     try {
-      // โหลดรายการหัตถการจาก API
-      const response = await fetch('/api/medical-procedures?limit=100');
-      if (response.ok) {
-        const data = await response.json();
-        const formattedOptions = data.data.map(item => ({
-          PROCEDURE_CODE: item.MEDICAL_PROCEDURE_CODE,
-          PROCEDURE_NAME: item.MED_PRO_NAME_THAI,
-          CATEGORY: item.MED_PRO_TYPE || 'ทั่วไป',
-          UNIT_PRICE: item.UNIT_PRICE || 0
-        }));
-        setProcedureOptions(formattedOptions);
+      // ✅ ใช้ MedicalProcedureService
+      const response = await MedicalProcedureService.getAllProcedures({ limit: 10000 });
+
+      if (response.success && response.data) {
+        // ✅ Deduplicate options based on PROCEDURE_CODE
+        const uniqueProcedures = [];
+        const seenCodes = new Set();
+
+        response.data.forEach(item => {
+          const code = item.MEDICAL_PROCEDURE_CODE;
+          if (code && !seenCodes.has(code)) {
+            seenCodes.add(code);
+            uniqueProcedures.push({
+              PROCEDURE_CODE: code,
+              PROCEDURE_NAME: item.MED_PRO_NAME_THAI,
+              CATEGORY: item.MED_PRO_TYPE || 'ทั่วไป',
+              UNIT_PRICE: item.UNIT_PRICE || 0
+            });
+          }
+        });
+
+        setProcedureOptions(uniqueProcedures);
       } else {
-        throw new Error('API not available');
+        throw new Error('Invalid response format');
       }
     } catch (error) {
       console.error('Error loading procedure options:', error);
@@ -254,6 +301,7 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
 
     // ถ้าไม่มี procedureCode ให้สร้างรหัสชั่วคราว
     let finalProcedureCode = procedureData.procedureCode;
+    const finalProcedureName = procedureData.procedureName.trim();
 
     if (!finalProcedureCode || finalProcedureCode.trim() === '') {
       const timestamp = Date.now().toString().slice(-6);
@@ -261,19 +309,43 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
 
       // เพิ่มรหัสนี้เข้าไปในตาราง TABLE_MEDICAL_PROCEDURES
       try {
-        await addCustomProcedureToDatabase(finalProcedureCode, procedureData.procedureName.trim());
+        await addCustomProcedureToDatabase(finalProcedureCode, finalProcedureName);
       } catch (error) {
         console.warn('Could not add custom procedure to database:', error);
       }
     }
 
+    // ✅ เช็ค duplicate procedure (ถ้าไม่ใช่โหมดแก้ไข)
+    if (editingIndex < 0) {
+      const isDuplicate = savedProcedures.some(proc => 
+        (proc.procedureCode && proc.procedureCode === finalProcedureCode) ||
+        (!proc.procedureCode && proc.procedureName === finalProcedureName)
+      );
+      
+      if (isDuplicate) {
+        showSnackbar('หัตถการนี้ถูกเพิ่มไปแล้ว กรุณาเลือกหัตถการอื่น', 'warning');
+        return;
+      }
+    }
+
+    // ✅ ดึงราคาจาก procedureOptions
+    const procedureOption = procedureOptions.find(
+      opt => opt.PROCEDURE_CODE === finalProcedureCode ||
+        opt.PROCEDURE_NAME === finalProcedureName
+    );
+    const unitPrice = parseFloat(procedureOption?.UNIT_PRICE || 0);
+    const qty = 1;
+    const amt = unitPrice * qty;
+
     const newProcedure = {
       id: editingIndex >= 0 ? savedProcedures[editingIndex].id : Date.now(),
-      procedureName: procedureData.procedureName.trim(),
+      procedureName: finalProcedureName,
       procedureCode: finalProcedureCode,
       note: procedureData.note.trim(),
       doctorName: selectedEmployee ? selectedEmployee.EMP_NAME : (procedureData.doctorName.trim() || 'นพ.ผู้รักษา'),
-      EMP_CODE: procedureData.EMP_CODE || ''
+      EMP_CODE: procedureData.EMP_CODE || '',
+      unitPrice: unitPrice, // ✅ เก็บราคาไว้
+      amt: amt // ✅ เก็บยอดรวมไว้
     };
 
     if (editingIndex >= 0) {
@@ -298,7 +370,7 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
       console.log('Loading drug options (ยาฉีด only - TD002)...');
       setApiStatus('checking');
       // ✅ กรองเฉพาะยาที่มี Type1 = 'TD002' (ยาฉีด)
-      const response = await DrugService.getAllDrugs({ 
+      const response = await DrugService.getAllDrugs({
         limit: 10000,
         type: 'TD002'
       });
@@ -306,12 +378,12 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
       if (response.success && response.data) {
         console.log('Drug API available, loaded', response.data.length, 'drugs');
         // ✅ กรองเฉพาะยาที่มี Type1 = 'TD002' (ยาฉีด)
-        const injectionDrugs = response.data.filter(drug => 
+        const injectionDrugs = response.data.filter(drug =>
           drug.Type1 === 'TD002'
         );
-        
+
         console.log('Filtered injection drugs (TD002):', injectionDrugs.length);
-        
+
         const formattedDrugs = injectionDrugs.map(drug => ({
           DRUG_CODE: drug.DRUG_CODE,
           GENERIC_NAME: drug.GENERIC_NAME,
@@ -341,11 +413,11 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
   };
 
   const getAvailableDrugs = () => {
-    const drugsWithName = drugOptions.filter(drug => 
-      (drug.GENERIC_NAME && drug.GENERIC_NAME.trim() !== '') || 
+    const drugsWithName = drugOptions.filter(drug =>
+      (drug.GENERIC_NAME && drug.GENERIC_NAME.trim() !== '') ||
       (drug.TRADE_NAME && drug.TRADE_NAME.trim() !== '')
     );
-    
+
     if (editingMedicineIndex >= 0) {
       const currentEditingDrugCode = savedMedicines[editingMedicineIndex]?.drugCode;
       return drugsWithName.filter(drug =>
@@ -548,6 +620,7 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
 
       if (savedProcedures.length === 0 && savedMedicines.length === 0) {
         showSnackbar('กรุณาเพิ่มรายการหัตถการหรือยาอย่างน้อย 1 รายการ', 'error');
+        setSaving(false);
         return;
       }
 
@@ -566,31 +639,54 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
           finalCode = `PROC_${timestamp}`;
         }
 
+        // ✅ ดึงราคาจาก procedure.unitPrice (ที่โหลดมาจาก database) หรือจาก procedureOptions
+        let unitPrice = parseFloat(procedure.unitPrice);
+        if (isNaN(unitPrice) || unitPrice === 0) {
+          // ถ้าไม่มีราคาใน procedure ให้หาจาก procedureOptions
+          const procedureOption = procedureOptions.find(
+            opt => opt.PROCEDURE_CODE === finalCode ||
+              opt.PROCEDURE_NAME === procedure.procedureName
+          );
+          unitPrice = parseFloat(procedureOption?.UNIT_PRICE || 0);
+          if (isNaN(unitPrice)) unitPrice = 0;
+        }
+
+        const qty = 1;
+        const amt = unitPrice * qty;
+
         return {
           MEDICAL_PROCEDURE_CODE: finalCode,
           PROCEDURE_CODE: finalCode,
           PROCEDURE_NAME: procedure.procedureName,
-          NOTE1: procedure.note,
-          DOCTOR_NAME: procedure.doctorName,
+          NOTE1: procedure.note || '',
+          DOCTOR_NAME: procedure.doctorName || 'นพ.ผู้รักษา',
           EMP_CODE: procedure.EMP_CODE || '',
           PROCEDURE_DATE: new Date().toISOString().split('T')[0],
-          QTY: 1,
-          UNIT_CODE: 'ครั้ง',
-          UNIT_PRICE: 0,
-          AMT: 0
+          QTY: qty,
+          UNIT_CODE: 'ครั้ง', // ✅ ใช้ 'ครั้ง' ให้ตรงกับ database
+          UNIT_PRICE: unitPrice, // ✅ ส่งเป็นตัวเลขเสมอ
+          AMT: amt // ✅ ส่งเป็นตัวเลขเสมอ
         };
       });
 
       // เตรียมข้อมูลยาในรูปแบบที่ API ต้องการ
-      const drugs = savedMedicines.map(medicine => ({
-        DRUG_CODE: medicine.drugCode,
-        QTY: parseFloat(medicine.quantity) || 1,
-        UNIT_CODE: medicine.unit || 'TAB',
-        UNIT_PRICE: parseFloat(medicine.unitPrice) || 0,
-        AMT: (parseFloat(medicine.quantity) || 1) * (parseFloat(medicine.unitPrice) || 0),
-        NOTE1: '',
-        TIME1: '' // ไม่ใช้วิธีรับประทาน แต่ต้องส่งไปเพื่อให้ backend ไม่ error
-      }));
+      const drugs = savedMedicines.map(medicine => {
+        const qty = parseFloat(medicine.quantity);
+        const unitPrice = parseFloat(medicine.unitPrice);
+        const validQty = (isNaN(qty) || qty <= 0) ? 1 : qty;
+        const validUnitPrice = isNaN(unitPrice) ? 0 : unitPrice;
+        const amt = validQty * validUnitPrice;
+
+        return {
+          DRUG_CODE: medicine.drugCode,
+          QTY: validQty, // ✅ ส่งเป็นตัวเลขเสมอ
+          UNIT_CODE: medicine.unit || 'TAB',
+          UNIT_PRICE: validUnitPrice, // ✅ ส่งเป็นตัวเลขเสมอ
+          AMT: amt, // ✅ ส่งเป็นตัวเลขเสมอ
+          NOTE1: '',
+          TIME1: '' // ไม่ใช้วิธีรับประทาน แต่ต้องส่งไปเพื่อให้ backend ไม่ error
+        };
+      });
 
       const treatmentData = {
         VNO: currentPatient.VNO,
@@ -600,17 +696,26 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
         drugs: drugs  // ส่งข้อมูลยาไปด้วย
       };
 
-      console.log('💾 Saving procedure data:', treatmentData);
+      console.log('💾 Saving procedure data:', {
+        VNO: treatmentData.VNO,
+        proceduresCount: procedures.length,
+        drugsCount: drugs.length,
+        procedures: procedures,
+        drugs: drugs
+      });
 
       const response = await TreatmentService.updateTreatment(currentPatient.VNO, treatmentData);
 
-      if (response.success) {
+      console.log('📥 Response from API:', response);
+
+      if (response && response.success) {
         showSnackbar('บันทึกข้อมูลหัตถการสำเร็จ!', 'success');
         if (onSaveSuccess) {
           setTimeout(() => onSaveSuccess(), 1500);
         }
       } else {
-        showSnackbar('ไม่สามารถบันทึกข้อมูลได้: ' + response.message, 'error');
+        const errorMessage = (response && response.message) || 'ไม่สามารถบันทึกข้อมูลได้';
+        showSnackbar('ไม่สามารถบันทึกข้อมูลได้: ' + errorMessage, 'error');
       }
     } catch (error) {
       console.error('Error saving procedure data:', error);
@@ -748,6 +853,8 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
                     renderInput={(params) => (
                       <TextField
                         {...params}
+                        id="procedure-name"
+                        name="procedureName"
                         size="small"
                         placeholder="พิมพ์ชื่อหัตถการ หรือเลือกจากรายการ"
                         sx={{
@@ -766,18 +873,28 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
                         }}
                       />
                     )}
-                    renderOption={(props, option) => (
-                      <Box component="li" {...props}>
-                        <Box>
-                          <Typography variant="body2" fontWeight={600}>
-                            {option.PROCEDURE_NAME}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            {option.CATEGORY} | รหัส: {option.PROCEDURE_CODE}
-                          </Typography>
+                    getOptionKey={(option) => {
+                      if (typeof option === 'string') return option;
+                      return option.PROCEDURE_CODE || option.PROCEDURE_NAME || String(option);
+                    }}
+                    renderOption={(props, option) => {
+                      const { key, ...otherProps } = props;
+                      const optionKey = typeof option === 'string' ? option : (option.PROCEDURE_CODE || option.PROCEDURE_NAME || key);
+                      return (
+                        <Box component="li" key={optionKey} {...otherProps}>
+                          <Box>
+                            <Typography variant="body2" fontWeight={600}>
+                              {typeof option === 'string' ? option : option.PROCEDURE_NAME}
+                            </Typography>
+                            {typeof option !== 'string' && (
+                              <Typography variant="caption" color="text.secondary">
+                                {option.CATEGORY} | รหัส: {option.PROCEDURE_CODE}
+                              </Typography>
+                            )}
+                          </Box>
                         </Box>
-                      </Box>
-                    )}
+                      );
+                    }}
                     noOptionsText={
                       <Box sx={{ p: 2, textAlign: 'center' }}>
                         <AutoFixHighIcon color="primary" sx={{ fontSize: 32, mb: 1 }} />
@@ -838,6 +955,8 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
                     หมายเหตุ
                   </Typography>
                   <TextField
+                    id="procedure-note"
+                    name="procedureNote"
                     size="small"
                     placeholder="หมายเหตุเพิ่มเติม"
                     value={procedureData.note}
@@ -916,21 +1035,27 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
                       const drugCode = option.DRUG_CODE || '';
                       return `${genericName}-${tradeName}-${drugCode}`;
                     }}
+                    getOptionKey={(option) => option.DRUG_CODE || `${option.GENERIC_NAME}-${option.TRADE_NAME}`}
                     isOptionEqualToValue={(option, value) => {
                       return option.DRUG_CODE === value.DRUG_CODE;
                     }}
                     filterOptions={(options, { inputValue }) => {
-                      const drugsWithName = options.filter(option => 
-                        (option.GENERIC_NAME && option.GENERIC_NAME.trim() !== '') || 
+                      const drugsWithName = options.filter(option =>
+                        (option.GENERIC_NAME && option.GENERIC_NAME.trim() !== '') ||
                         (option.TRADE_NAME && option.TRADE_NAME.trim() !== '')
                       );
-                      
+
+                      // ✅ ลบ duplicate โดยใช้ DRUG_CODE
+                      const uniqueDrugs = drugsWithName.filter((drug, index, self) =>
+                        index === self.findIndex(d => d.DRUG_CODE === drug.DRUG_CODE)
+                      );
+
                       if (!inputValue || inputValue.trim() === '') {
-                        return drugsWithName;
+                        return uniqueDrugs;
                       }
-                      
+
                       const searchTerm = inputValue.toLowerCase().trim();
-                      return drugsWithName.filter(option =>
+                      return uniqueDrugs.filter(option =>
                         (option.GENERIC_NAME || '').toLowerCase().includes(searchTerm) ||
                         (option.TRADE_NAME || '').toLowerCase().includes(searchTerm) ||
                         (option.DRUG_CODE || '').toLowerCase().includes(searchTerm)
@@ -943,6 +1068,8 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
                     renderInput={(params) => (
                       <TextField
                         {...params}
+                        id="medicine-drug-name"
+                        name="medicineDrugName"
                         size="small"
                         placeholder="ชื่อยา"
                         sx={{
@@ -970,6 +1097,8 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
                     จำนวน *
                   </Typography>
                   <TextField
+                    id="medicine-quantity"
+                    name="medicineQuantity"
                     disabled={!hasProcedures}
                     size="small"
                     type="number"
@@ -992,6 +1121,8 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
                     หน่วยนับ *
                   </Typography>
                   <TextField
+                    id="medicine-unit"
+                    name="medicineUnit"
                     disabled
                     size="small"
                     value={medicineData.unitName || (medicineData.unit ? getUnitName(medicineData.unit) : '')}
@@ -1011,7 +1142,7 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
                   <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
                     {editingMedicineIndex >= 0 && (
                       <Button
-                      disabled={!hasProcedures}
+                        disabled={!hasProcedures}
                         variant="outlined"
                         onClick={() => {
                           resetMedicineForm();

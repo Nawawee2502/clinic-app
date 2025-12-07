@@ -1,8 +1,8 @@
 // services/treatmentService.js - แก้ไขเพื่อรองรับ Freestyle Procedures
-import { 
-    getCurrentDateForDB, 
-    getCurrentTimeForDB, 
-    getCurrentDateForDisplay, 
+import {
+    getCurrentDateForDB,
+    getCurrentTimeForDB,
+    getCurrentDateForDisplay,
     getCurrentTimeForDisplay,
     formatThaiDate,
     formatThaiDateShort,
@@ -40,40 +40,57 @@ class TreatmentService {
         return code && (code.startsWith('CUSTOM_') || code.includes('_') || code.startsWith('PROC_'));
     }
 
-    // ✅ เพิ่มหัตถการใหม่เข้าไปในฐานข้อมูล
+    // ✅ เพิ่มหัตถการใหม่เข้าไปในฐานข้อมูล - เพิ่ม timeout
     static async addCustomProcedure(procedureCode, procedureName) {
         try {
-            const response = await fetch(`${API_BASE_URL}/treatments/procedures/custom`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    MEDICAL_PROCEDURE_CODE: procedureCode,
-                    MED_PRO_NAME_THAI: procedureName,
-                    MED_PRO_NAME_ENG: procedureName,
-                    MED_PRO_TYPE: 'Custom',
-                    UNIT_PRICE: 0
-                })
-            });
+            // ✅ เพิ่ม timeout เพื่อป้องกันการค้าง
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 seconds timeout
 
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+            try {
+                const response = await fetch(`${API_BASE_URL}/treatments/procedures/custom`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        MEDICAL_PROCEDURE_CODE: procedureCode,
+                        MED_PRO_NAME_THAI: procedureName,
+                        MED_PRO_NAME_ENG: procedureName,
+                        MED_PRO_TYPE: 'Custom',
+                        UNIT_PRICE: 0
+                    }),
+                    signal: controller.signal
+                });
+
+                clearTimeout(timeoutId);
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({ message: `HTTP error! status: ${response.status}` }));
+                    throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+                }
+
+                return await response.json();
+            } catch (error) {
+                clearTimeout(timeoutId);
+                if (error.name === 'AbortError') {
+                    throw new Error('Request timeout - การเพิ่มหัตถการใช้เวลานานเกินไป');
+                }
+                throw error;
             }
-
-            return await response.json();
         } catch (error) {
             console.error('Error adding custom procedure:', error);
             throw error;
         }
     }
 
-    // ✅ ตรวจสอบและเตรียมข้อมูลหัตถการก่อนบันทึก
+    // ✅ ตรวจสอบและเตรียมข้อมูลหัตถการก่อนบันทึก - ปรับปรุงให้เร็วขึ้น (ไม่เรียก API)
     static async prepareProceduresData(procedures) {
-        const preparedProcedures = [];
+        // ✅ ไม่ต้องเรียก API เพิ่มหัตถการ เพราะ backend จะจัดการเองผ่าน ensureProcedureExists
+        // ทำให้เร็วขึ้นมาก
+        console.log('🔧 prepareProceduresData - Input:', JSON.stringify(procedures, null, 2));
 
-        for (const proc of procedures) {
+        const prepared = procedures.map(proc => {
             let procedureCode = proc.procedureCode || proc.PROCEDURE_CODE || proc.MEDICAL_PROCEDURE_CODE;
             const procedureName = proc.procedureName || proc.PROCEDURE_NAME || 'หัตถการที่ไม่ระบุชื่อ';
 
@@ -81,32 +98,27 @@ class TreatmentService {
             if (!procedureCode || procedureCode.trim() === '' || procedureCode.startsWith('CUSTOM_')) {
                 const timestamp = Date.now().toString().slice(-6);
                 procedureCode = `PROC_${timestamp}`;
-
-                // เพิ่มหัตถการใหม่เข้าฐานข้อมูล
-                try {
-                    await this.addCustomProcedure(procedureCode, procedureName);
-                    console.log(`✅ Added custom procedure: ${procedureCode} - ${procedureName}`);
-                } catch (error) {
-                    console.warn(`⚠️ Could not add custom procedure: ${procedureCode}`, error);
-                    // ใช้รหัสเดิมหากไม่สามารถเพิ่มได้
-                }
             }
 
-            preparedProcedures.push({
+            const result = {
                 PROCEDURE_CODE: procedureCode,
                 MEDICAL_PROCEDURE_CODE: procedureCode,
                 PROCEDURE_NAME: procedureName,
                 NOTE1: proc.note || proc.NOTE1 || '',
                 DOCTOR_NAME: proc.doctorName || proc.DOCTOR_NAME || 'นพ.ผู้รักษา',
-                PROCEDURE_DATE: proc.procedureDate || new Date().toISOString().split('T')[0],
+                PROCEDURE_DATE: proc.procedureDate || proc.PROCEDURE_DATE || new Date().toISOString().split('T')[0],
                 QTY: proc.qty || proc.QTY || 1,
                 UNIT_CODE: proc.unitCode || proc.UNIT_CODE || 'ครั้ง',
                 UNIT_PRICE: proc.unitPrice || proc.UNIT_PRICE || 0,
                 AMT: proc.amt || proc.AMT || 0
-            });
-        }
+            };
 
-        return preparedProcedures;
+            console.log('🔧 prepareProceduresData - Prepared item:', JSON.stringify(result, null, 2));
+            return result;
+        });
+
+        console.log('🔧 prepareProceduresData - Output:', JSON.stringify(prepared, null, 2));
+        return prepared;
     }
 
     // ✅ แปลงวันที่เป็นรูปแบบไทย - แก้ไขให้แสดง พ.ศ.
@@ -194,10 +206,25 @@ class TreatmentService {
     // สร้างการรักษาใหม่
     static async createTreatment(treatmentData) {
         try {
+            console.log('📤 TreatmentService.createTreatment - Original data:', {
+                drugsCount: treatmentData.drugs?.length || 0,
+                proceduresCount: treatmentData.procedures?.length || 0,
+                drugs: treatmentData.drugs,
+                procedures: treatmentData.procedures
+            });
+
             // ✅ เตรียมข้อมูลหัตถการก่อน
             if (treatmentData.procedures && Array.isArray(treatmentData.procedures)) {
                 treatmentData.procedures = await this.prepareProceduresData(treatmentData.procedures);
+                console.log('✅ Prepared procedures:', treatmentData.procedures);
             }
+
+            console.log('📤 TreatmentService.createTreatment - Sending data:', {
+                drugsCount: treatmentData.drugs?.length || 0,
+                proceduresCount: treatmentData.procedures?.length || 0,
+                drugs: treatmentData.drugs,
+                procedures: treatmentData.procedures
+            });
 
             const response = await fetch(`${API_BASE_URL}/treatments`, {
                 method: 'POST',
@@ -330,41 +357,6 @@ class TreatmentService {
     // ✅ อัพเดทข้อมูลการรักษา - แก้ไขเพื่อรองรับ freestyle procedures
     static async updateTreatment(vno, treatmentData) {
         try {
-            // ✅ เตรียมข้อมูลหัตถการก่อนส่ง
-            if (treatmentData.procedures && Array.isArray(treatmentData.procedures)) {
-                console.log('📋 Preparing procedures data before sending to API...');
-                treatmentData.procedures = await this.prepareProceduresData(treatmentData.procedures);
-                console.log('✅ Procedures prepared:', treatmentData.procedures);
-            }
-
-            // Format the data to ensure no undefined values
-            const formattedData = this.formatTreatmentData(treatmentData);
-
-            console.log('📤 Sending formatted treatment data:', formattedData);
-
-            const response = await fetch(`${API_BASE_URL}/treatments/${vno}`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(formattedData)
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-            }
-
-            return await response.json();
-        } catch (error) {
-            console.error('Error updating treatment:', error);
-            throw error;
-        }
-    }
-
-    // อัพเดทสถานะการรักษา
-    static async updateTreatment(vno, treatmentData) {
-        try {
             console.log('🔄 TreatmentService: Updating treatment', vno, 'with data:', treatmentData);
 
             // ✅ เตรียมข้อมูลหัตถการก่อนส่ง
@@ -377,24 +369,46 @@ class TreatmentService {
             // Format the data to ensure no undefined values
             const formattedData = this.formatTreatmentData(treatmentData);
 
-            console.log('📤 Sending formatted treatment data:', formattedData);
-
-            const response = await fetch(`${API_BASE_URL}/treatments/${vno}`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(formattedData)
+            console.log('📤 Sending formatted treatment data:', {
+                ...formattedData,
+                proceduresCount: formattedData.procedures?.length || 0,
+                drugsCount: formattedData.drugs?.length || 0,
+                hasProcedures: formattedData.hasOwnProperty('procedures'),
+                hasDrugs: formattedData.hasOwnProperty('drugs'),
+                procedures: formattedData.procedures,
+                drugs: formattedData.drugs
             });
 
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-            }
+            // ✅ เพิ่ม timeout เป็น 120 วินาที (2 นาที) เพื่อรองรับการบันทึกที่อาจใช้เวลานาน
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 120000); // 120 seconds timeout
 
-            const result = await response.json();
-            console.log('✅ TreatmentService: Treatment updated successfully:', result);
-            return result;
+            try {
+                const response = await fetch(`${API_BASE_URL}/treatments/${vno}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(formattedData),
+                    signal: controller.signal
+                });
+
+                clearTimeout(timeoutId);
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({ message: `HTTP error! status: ${response.status}` }));
+                    throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                return result;
+            } catch (error) {
+                clearTimeout(timeoutId);
+                if (error.name === 'AbortError') {
+                    throw new Error('Request timeout - การบันทึกใช้เวลานานเกินไป');
+                }
+                throw error;
+            }
 
         } catch (error) {
             console.error('❌ TreatmentService: Error updating treatment:', error);
@@ -552,11 +566,11 @@ class TreatmentService {
                 PLAN1: toNull(data.diagnosis.PLAN1?.trim())
             } : null,
 
-            // Arrays for related data
-            drugs: Array.isArray(data.drugs) ? data.drugs : [],
-            procedures: Array.isArray(data.procedures) ? data.procedures : [],
-            labTests: Array.isArray(data.labTests) ? data.labTests : [],
-            radioTests: Array.isArray(data.radioTests) ? data.radioTests : []
+            // Arrays for related data - ✅ ส่งเฉพาะเมื่อมีการส่งมาใน data
+            ...(data.hasOwnProperty('drugs') ? { drugs: Array.isArray(data.drugs) ? data.drugs : [] } : {}),
+            ...(data.hasOwnProperty('procedures') ? { procedures: Array.isArray(data.procedures) ? data.procedures : [] } : {}),
+            ...(data.hasOwnProperty('labTests') ? { labTests: Array.isArray(data.labTests) ? data.labTests : [] } : {}),
+            ...(data.hasOwnProperty('radioTests') ? { radioTests: Array.isArray(data.radioTests) ? data.radioTests : [] } : {})
         };
 
         if (!hasStatusField) {
@@ -608,7 +622,7 @@ class TreatmentService {
             // ✅ แก้ไขช่วงความดันปกติ: 90-140 (ตัวบน) / 60-100 (ตัวล่าง)
             const bp1Normal = vitals.BP1 >= 90 && vitals.BP1 <= 140;
             const bp2Normal = vitals.BP2 >= 60 && vitals.BP2 <= 100;
-            
+
             if (!bp1Normal || !bp2Normal) {
                 if (vitals.BP1 > 140 || vitals.BP2 > 100) {
                     warnings.push(`ความดันโลหิตสูง: ${vitals.BP1}/${vitals.BP2} mmHg (ปกติ: 90-140/60-100)`);
@@ -1412,7 +1426,7 @@ class TreatmentService {
             }
 
             const response = await fetch(`${API_BASE_URL}/treatments/check/ucs-usage/${hncode}`);
-            
+
             if (!response.ok) {
                 const errorData = await response.json();
                 throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
