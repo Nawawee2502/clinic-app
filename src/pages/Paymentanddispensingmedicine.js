@@ -744,12 +744,14 @@ const Paymentanddispensingmedicine = () => {
             TIMES: 'ครั้ง'
           };
 
-          // ดึงข้อมูล UCS_CARD และ Indication1 ของยาแต่ละตัว (เฉพาะยาที่ไม่ซ้ำ)
+          // ดึงข้อมูล UCS_CARD, Indication1, GENERIC_NAME และ TRADE_NAME ของยาแต่ละตัว (เฉพาะยาที่ไม่ซ้ำ)
           drugsArray = await Promise.all(
             uniqueDrugs.map(async (item) => {
               let drugUcsCard = item.UCS_CARD || 'N';
               // ✅ ดึง Indication1 จาก NOTE1 (ที่บันทึกไว้) หรือจาก Indication1 field
               let indication1 = item.NOTE1 || item.Indication1 || '';
+              let genericName = item.GENERIC_NAME || '';
+              let tradeName = item.TRADE_NAME || '';
               const rawUnitCode = item.UNIT_CODE || '';
               const rawUnitName =
                 item.UNIT_NAME ||
@@ -765,17 +767,36 @@ const Paymentanddispensingmedicine = () => {
                 displayUnitName = unitNameMap[rawUnitCode];
               }
 
-              // ดึงข้อมูลเพิ่มเติมจาก DrugService ถ้ายังไม่มี UCS_CARD หรือ Indication1
-              if (!drugUcsCard || drugUcsCard === 'N' || !indication1) {
+              // ✅ ดึงข้อมูลเพิ่มเติมจาก DrugService เพื่อให้ได้ข้อมูลที่ถูกต้อง
+              // เช็คว่าข้อมูลปัจจุบันดูเหมือนจะมีปัญหา (เช่น GENERIC_NAME เป็น "ยา D0054" แทนชื่อยาจริง)
+              const needsUpdate = 
+                !drugUcsCard || 
+                drugUcsCard === 'N' || 
+                !indication1 || 
+                !genericName || 
+                !tradeName ||
+                genericName.toLowerCase().startsWith('ยา ') ||
+                tradeName.toLowerCase().startsWith('ยา ');
+              
+              if (needsUpdate) {
                 try {
                   const drugResponse = await DrugService.getDrugByCode(item.DRUG_CODE);
                   if (drugResponse.success && drugResponse.data) {
+                    // อัปเดต UCS_CARD ถ้ายังไม่มี
                     if (!drugUcsCard || drugUcsCard === 'N') {
                       drugUcsCard = drugResponse.data.UCS_CARD || 'N';
                     }
-                    // ✅ ถ้ายังไม่มี Indication1 ใน NOTE1 ให้ดึงจาก DrugService
+                    // ✅ อัปเดต Indication1 ถ้ายังไม่มี
                     if (!indication1) {
                       indication1 = drugResponse.data.Indication1 || '';
+                    }
+                    // ✅ อัปเดต GENERIC_NAME ถ้ายังไม่มีหรือดูเหมือนมีปัญหา
+                    if (!genericName || genericName.toLowerCase().startsWith('ยา ')) {
+                      genericName = drugResponse.data.GENERIC_NAME || genericName || '';
+                    }
+                    // ✅ อัปเดต TRADE_NAME ถ้ายังไม่มีหรือดูเหมือนมีปัญหา
+                    if (!tradeName || tradeName.toLowerCase().startsWith('ยา ')) {
+                      tradeName = drugResponse.data.TRADE_NAME || tradeName || '';
                     }
                   }
                 } catch (error) {
@@ -788,6 +809,8 @@ const Paymentanddispensingmedicine = () => {
 
               return {
                 ...item,
+                GENERIC_NAME: genericName || item.GENERIC_NAME || '', // ✅ ใช้ GENERIC_NAME ที่ถูกต้อง
+                TRADE_NAME: tradeName || item.TRADE_NAME || '', // ✅ ใช้ TRADE_NAME ที่ถูกต้อง
                 editablePrice: parseFloat(item.AMT || 0),
                 originalPrice: parseFloat(item.AMT || 0),
                 DRUG_UCS_CARD: drugUcsCard, // เก็บ UCS_CARD ของยาแต่ละตัว

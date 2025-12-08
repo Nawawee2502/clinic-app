@@ -141,8 +141,11 @@ const DrugsTable = ({
                                         <TableCell>
                                             <Box>
                                                 <Typography variant="body1" fontWeight="bold" sx={{ color: '#2B69AC' }}>
-                                                    {drug.GENERIC_NAME || drug.DRUG_CODE}
-                                                    {drug.TRADE_NAME ? ` - ${drug.TRADE_NAME}` : ''}
+                                                    {[
+                                                        drug.GENERIC_NAME,
+                                                        drug.TRADE_NAME,
+                                                        drug.DRUG_CODE
+                                                    ].filter(Boolean).join(' / ') || drug.DRUG_CODE || '-'}
                                                 </Typography>
                                                 {(drug.NOTE1 || drug.TIME1) && (
                                                     <Typography variant="caption" color="text.secondary">
