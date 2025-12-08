@@ -596,25 +596,44 @@ export default function MedicalHistory({ currentPatient, onSaveSuccess }) {
                 </Grid>
 
                 {/* หัตถการ (ถ้ามี) */}
-                {displayTreatmentData?.procedures?.length > 0 && (
-                  <Card sx={{ p: 2, mb: 2, bgcolor: '#f3e5f5', border: '1px solid #e1bee7' }}>
-                    <Typography variant="h6" fontWeight="700" sx={{ mb: 1, color: '#7b1fa2' }}>
-                      หัตถการที่ทำ
-                    </Typography>
-                    <Box sx={{ pl: 1 }}>
-                      {displayTreatmentData.procedures.map((procedure, idx) => (
-                        <Typography key={idx} variant="body2" sx={{ mb: 0.5, fontSize: '0.875rem' }}>
-                          • {procedure.MED_PRO_NAME_THAI || procedure.MED_PRO_NAME_ENG}
-                          {procedure.QTY && procedure.UNIT_NAME && (
-                            <Typography variant="caption" color="text.secondary">
-                              {' '}({procedure.QTY} {procedure.UNIT_NAME})
-                            </Typography>
-                          )}
-                        </Typography>
-                      ))}
-                    </Box>
-                  </Card>
-                )}
+                {(() => {
+                  // ✅ Deduplicate procedures โดยใช้ MEDICAL_PROCEDURE_CODE หรือ PROCEDURE_CODE หรือชื่อ
+                  const procedures = displayTreatmentData?.procedures || [];
+                  const seenProcedures = new Map();
+                  const uniqueProcedures = [];
+                  
+                  procedures.forEach(procedure => {
+                    const procedureCode = procedure.MEDICAL_PROCEDURE_CODE || procedure.PROCEDURE_CODE;
+                    const procedureName = procedure.MED_PRO_NAME_THAI || procedure.MED_PRO_NAME_ENG || procedure.PROCEDURE_NAME;
+                    const key = procedureCode || procedureName;
+                    
+                    // ถ้ายังไม่เคยเห็น procedure นี้ ให้เพิ่มเข้าไป
+                    if (key && !seenProcedures.has(key)) {
+                      seenProcedures.set(key, true);
+                      uniqueProcedures.push(procedure);
+                    }
+                  });
+                  
+                  return uniqueProcedures.length > 0 ? (
+                    <Card sx={{ p: 2, mb: 2, bgcolor: '#f3e5f5', border: '1px solid #e1bee7' }}>
+                      <Typography variant="h6" fontWeight="700" sx={{ mb: 1, color: '#7b1fa2' }}>
+                        หัตถการที่ทำ ({uniqueProcedures.length} รายการ)
+                      </Typography>
+                      <Box sx={{ pl: 1 }}>
+                        {uniqueProcedures.map((procedure, idx) => (
+                          <Typography key={idx} variant="body2" sx={{ mb: 0.5, fontSize: '0.875rem' }}>
+                            • {procedure.MED_PRO_NAME_THAI || procedure.MED_PRO_NAME_ENG || procedure.PROCEDURE_NAME}
+                            {procedure.QTY && procedure.UNIT_NAME && (
+                              <Typography variant="caption" color="text.secondary">
+                                {' '}({procedure.QTY} {procedure.UNIT_NAME})
+                              </Typography>
+                            )}
+                          </Typography>
+                        ))}
+                      </Box>
+                    </Card>
+                  ) : null;
+                })()}
 
                 {/* สรุปการรักษา */}
                 <Card sx={{ p: 2, bgcolor: '#fff8e1', border: '1px solid #ffecb3' }}>
