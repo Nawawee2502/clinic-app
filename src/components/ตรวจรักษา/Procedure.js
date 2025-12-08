@@ -446,19 +446,53 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
 
         console.log('Filtered injection drugs (TD002):', injectionDrugs.length);
 
-        const formattedDrugs = injectionDrugs.map(drug => ({
-          DRUG_CODE: drug.DRUG_CODE,
-          GENERIC_NAME: drug.GENERIC_NAME,
-          TRADE_NAME: drug.TRADE_NAME || '',
-          UNIT_CODE: drug.UNIT_CODE || 'AMP',
-          UNIT_NAME: drug.UNIT_NAME || drug.UNIT_NAME1 || '',
-          UNIT_PRICE: drug.UNIT_PRICE || 0,
-          Type1: drug.Type1 || '',
-          Dose1: drug.Dose1 || '',
-          Indication1: drug.Indication1 || '',
-          Comment1: drug.Comment1 || '',
-          eat1: drug.eat1 || ''
-        }));
+        // ✅ ดึงข้อมูลเพิ่มเติมจาก DrugService เพื่อให้ได้ GENERIC_NAME และ TRADE_NAME ที่ถูกต้อง
+        const formattedDrugs = await Promise.all(
+          injectionDrugs.map(async (drug) => {
+            let genericName = drug.GENERIC_NAME || '';
+            let tradeName = drug.TRADE_NAME || '';
+            
+            // ✅ เช็คว่าข้อมูลปัจจุบันดูเหมือนมีปัญหา (เช่น GENERIC_NAME เป็น "ยา D0001")
+            const needsUpdate = 
+              !genericName || 
+              !tradeName ||
+              genericName.toLowerCase().startsWith('ยา ') ||
+              tradeName.toLowerCase().startsWith('ยา ');
+            
+            if (needsUpdate) {
+              try {
+                const drugResponse = await DrugService.getDrugByCode(drug.DRUG_CODE);
+                if (drugResponse.success && drugResponse.data) {
+                  // ✅ อัปเดต GENERIC_NAME ถ้ายังไม่มีหรือดูเหมือนมีปัญหา
+                  if (!genericName || genericName.toLowerCase().startsWith('ยา ')) {
+                    genericName = drugResponse.data.GENERIC_NAME || genericName || '';
+                  }
+                  // ✅ อัปเดต TRADE_NAME ถ้ายังไม่มีหรือดูเหมือนมีปัญหา
+                  if (!tradeName || tradeName.toLowerCase().startsWith('ยา ')) {
+                    tradeName = drugResponse.data.TRADE_NAME || tradeName || '';
+                  }
+                }
+              } catch (error) {
+                console.warn(`Could not fetch drug details for ${drug.DRUG_CODE}:`, error);
+              }
+            }
+            
+            return {
+              DRUG_CODE: drug.DRUG_CODE,
+              GENERIC_NAME: genericName,
+              TRADE_NAME: tradeName,
+              UNIT_CODE: drug.UNIT_CODE || 'AMP',
+              UNIT_NAME: drug.UNIT_NAME || drug.UNIT_NAME1 || '',
+              UNIT_PRICE: drug.UNIT_PRICE || 0,
+              Type1: drug.Type1 || '',
+              Dose1: drug.Dose1 || '',
+              Indication1: drug.Indication1 || '',
+              Comment1: drug.Comment1 || '',
+              eat1: drug.eat1 || ''
+            };
+          })
+        );
+        
         setDrugOptions(formattedDrugs);
         setApiStatus('connected');
         console.log('Formatted injection drugs:', formattedDrugs.slice(0, 3));
@@ -509,7 +543,7 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
     }));
   };
 
-  const handleDrugSelect = (newValue) => {
+  const handleDrugSelect = async (newValue) => {
     if (!hasProcedures) {
       showSnackbar('กรุณาเพิ่มหัตถการอย่างน้อย 1 รายการก่อนเลือกยา', 'warning');
       return;
@@ -521,15 +555,44 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
       }
 
       const defaultQuantity = newValue.Dose1 || '1';
+      
+      // ✅ ดึงข้อมูลยาจาก DrugService เพื่อให้ได้ GENERIC_NAME และ TRADE_NAME ที่ถูกต้อง
+      let genericName = newValue.GENERIC_NAME || '';
+      let tradeName = newValue.TRADE_NAME || '';
+      
+      // เช็คว่าข้อมูลปัจจุบันดูเหมือนมีปัญหา (เช่น GENERIC_NAME เป็น "ยา D0001")
+      const needsUpdate = 
+        !genericName || 
+        !tradeName ||
+        genericName.toLowerCase().startsWith('ยา ') ||
+        tradeName.toLowerCase().startsWith('ยา ');
+      
+      if (needsUpdate) {
+        try {
+          const drugResponse = await DrugService.getDrugByCode(newValue.DRUG_CODE);
+          if (drugResponse.success && drugResponse.data) {
+            // ✅ อัปเดต GENERIC_NAME ถ้ายังไม่มีหรือดูเหมือนมีปัญหา
+            if (!genericName || genericName.toLowerCase().startsWith('ยา ')) {
+              genericName = drugResponse.data.GENERIC_NAME || genericName || '';
+            }
+            // ✅ อัปเดต TRADE_NAME ถ้ายังไม่มีหรือดูเหมือนมีปัญหา
+            if (!tradeName || tradeName.toLowerCase().startsWith('ยา ')) {
+              tradeName = drugResponse.data.TRADE_NAME || tradeName || '';
+            }
+          }
+        } catch (error) {
+          console.warn(`Could not fetch drug details for ${newValue.DRUG_CODE}:`, error);
+        }
+      }
 
       setMedicineData(prev => ({
         ...prev,
         drugCode: newValue.DRUG_CODE,
-        drugName: newValue.GENERIC_NAME,
-        genericName: newValue.GENERIC_NAME || '', // ✅ เก็บ GENERIC_NAME แยก
-        tradeName: newValue.TRADE_NAME || '', // ✅ เก็บ TRADE_NAME แยก
-        unit: newValue.UNIT_CODE || 'TAB',
-        unitName: newValue.UNIT_NAME || getUnitName(newValue.UNIT_CODE || 'TAB'),
+        drugName: genericName || newValue.DRUG_CODE,
+        genericName: genericName, // ✅ เก็บ GENERIC_NAME ที่ถูกต้อง
+        tradeName: tradeName, // ✅ เก็บ TRADE_NAME ที่ถูกต้อง
+        unit: newValue.UNIT_CODE || 'AMP',
+        unitName: newValue.UNIT_NAME || getUnitName(newValue.UNIT_CODE || 'AMP'),
         unitPrice: newValue.UNIT_PRICE || 0,
         quantity: defaultQuantity
       }));
