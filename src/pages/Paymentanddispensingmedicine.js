@@ -1081,7 +1081,7 @@ const Paymentanddispensingmedicine = () => {
         price: item.editablePrice || 0
       })),
       ...editablePrices.drugs.map(item => ({
-        name: item.GENERIC_NAME || item.DRUG_CODE || "ยา",
+        name: [item.GENERIC_NAME, item.TRADE_NAME].filter(Boolean).join(' / ') || item.GENERIC_NAME || item.TRADE_NAME || item.DRUG_CODE || "ยา",
         quantity: item.QTY || 1,
         unit: item.DISPLAY_UNIT_NAME || item.UNIT_NAME || item.UNIT_CODE || "เม็ด",
         price: item.editablePrice || 0
@@ -1566,7 +1566,9 @@ const Paymentanddispensingmedicine = () => {
                                 ))}
                                 {editablePrices.drugs.map((drug, index) => (
                                   <TableRow key={`drug-${index}`}>
-                                    <TableCell>{drug.GENERIC_NAME || drug.DRUG_CODE}</TableCell>
+                                    <TableCell>
+                                      {[drug.GENERIC_NAME, drug.TRADE_NAME].filter(Boolean).join(' / ') || drug.GENERIC_NAME || drug.TRADE_NAME || drug.DRUG_CODE}
+                                    </TableCell>
                                     <TableCell align="center">
                                       {drug.QTY || 0}{' '}
                                       {drug.DISPLAY_UNIT_NAME || drug.UNIT_NAME || drug.UNIT_CODE || ''}
@@ -1687,7 +1689,7 @@ const Paymentanddispensingmedicine = () => {
                                 fontFamily: "'Sarabun', sans-serif"
                               }}>
                                 <Typography variant="h6" sx={{ color: '#4a90e2', mb: 1, fontFamily: "'Sarabun', sans-serif" }}>
-                                  {drug.GENERIC_NAME || drug.DRUG_CODE}
+                                  {[drug.GENERIC_NAME, drug.TRADE_NAME].filter(Boolean).join(' / ') || drug.GENERIC_NAME || drug.TRADE_NAME || drug.DRUG_CODE}
                                 </Typography>
                                 <Typography variant="body2" sx={{ fontFamily: "'Sarabun', sans-serif" }}>
                                   จำนวน: {drug.QTY} {drug.DISPLAY_UNIT_NAME || drug.UNIT_NAME || drug.UNIT_CODE}
