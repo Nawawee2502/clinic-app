@@ -61,6 +61,7 @@ import {
 // import CheckCircle from '@mui/icons-material/CheckCircle';
 import PatientService from '../services/patientService';
 import TreatmentService from '../services/treatmentService';
+import DrugService from '../services/drugService';
 
 // API Base URL
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
@@ -1947,7 +1948,69 @@ const PatientManagement = () => {
 
                 if (response.success && response.data) {
                     const drugs = response.data.drugs || [];
-                    setSummaryDrugs(drugs);
+                    
+                    // ✅ Deduplicate ยาโดยใช้ DRUG_CODE และรวม QTY ถ้ามี
+                    const drugMap = new Map();
+                    
+                    drugs.forEach(drug => {
+                        const drugCode = drug.DRUG_CODE;
+                        
+                        if (drugCode) {
+                            if (drugMap.has(drugCode)) {
+                                // ถ้ามียาตัวนี้อยู่แล้ว ให้รวม QTY
+                                const existingDrug = drugMap.get(drugCode);
+                                const existingQty = parseFloat(existingDrug.QTY || 0);
+                                const newQty = parseFloat(drug.QTY || 0);
+                                existingDrug.QTY = existingQty + newQty;
+                            } else {
+                                // ถ้ายังไม่เคยเห็นยาตัวนี้ ให้เพิ่มเข้าไป
+                                drugMap.set(drugCode, { ...drug });
+                            }
+                        }
+                    });
+                    
+                    const uniqueDrugs = Array.from(drugMap.values());
+                    
+                    // ✅ ดึงข้อมูลเพิ่มเติมจาก DrugService เพื่อให้ได้ GENERIC_NAME และ TRADE_NAME ที่ถูกต้อง
+                    const drugsWithCorrectNames = await Promise.all(
+                        uniqueDrugs.map(async (drug) => {
+                            let genericName = drug.GENERIC_NAME || '';
+                            let tradeName = drug.TRADE_NAME || '';
+                            
+                            // ✅ เช็คว่าข้อมูลปัจจุบันดูเหมือนมีปัญหา (เช่น GENERIC_NAME เป็น "ยา D0109")
+                            const needsUpdate = 
+                                !genericName || 
+                                !tradeName ||
+                                genericName.toLowerCase().startsWith('ยา ') ||
+                                tradeName.toLowerCase().startsWith('ยา ');
+                            
+                            if (needsUpdate && drug.DRUG_CODE) {
+                                try {
+                                    const drugResponse = await DrugService.getDrugByCode(drug.DRUG_CODE);
+                                    if (drugResponse.success && drugResponse.data) {
+                                        // ✅ อัปเดต GENERIC_NAME ถ้ายังไม่มีหรือดูเหมือนมีปัญหา
+                                        if (!genericName || genericName.toLowerCase().startsWith('ยา ')) {
+                                            genericName = drugResponse.data.GENERIC_NAME || genericName || '';
+                                        }
+                                        // ✅ อัปเดต TRADE_NAME ถ้ายังไม่มีหรือดูเหมือนมีปัญหา
+                                        if (!tradeName || tradeName.toLowerCase().startsWith('ยา ')) {
+                                            tradeName = drugResponse.data.TRADE_NAME || tradeName || '';
+                                        }
+                                    }
+                                } catch (error) {
+                                    console.warn(`Could not fetch drug details for ${drug.DRUG_CODE}:`, error);
+                                }
+                            }
+                            
+                            return {
+                                ...drug,
+                                GENERIC_NAME: genericName,
+                                TRADE_NAME: tradeName
+                            };
+                        })
+                    );
+                    
+                    setSummaryDrugs(drugsWithCorrectNames);
 
                     // อัพเดท DXCODE และ Vital Signs จาก treatment
                     if (response.data.treatment) {
@@ -3290,10 +3353,11 @@ const PatientManagement = () => {
                                                                         <TableCell sx={{ color: '#94A3B8' }}>{index + 1}</TableCell>
                                                                         <TableCell>
                                                                             <Typography variant="body2" sx={{ fontWeight: 600, color: '#334155' }}>
-                                                                                {drug.GENERIC_NAME || drug.TRADE_NAME}
-                                                                            </Typography>
-                                                                            <Typography variant="caption" sx={{ color: '#94A3B8' }}>
-                                                                                {drug.DRUG_CODE}
+                                                                                {[
+                                                                                    drug.GENERIC_NAME,
+                                                                                    drug.TRADE_NAME,
+                                                                                    drug.DRUG_CODE
+                                                                                ].filter(Boolean).join(' / ') || drug.DRUG_CODE || '-'}
                                                                             </Typography>
                                                                         </TableCell>
                                                                         <TableCell align="right" sx={{ color: '#334155' }}>
