@@ -24,14 +24,16 @@ import QueueService from "../../services/queueService";
 
 const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => {
     const [medicineData, setMedicineData] = useState({
-        drugName: '',
-        drugCode: '',
-        quantity: '',
-        unit: '', // ✅ เก็บ UNIT_CODE สำหรับบันทึก
-        unitName: '', // ✅ เก็บ UNIT_NAME สำหรับแสดงผล
-        indication1: '', // ✅ เพิ่มข้อบ่งใช้
-        time: '',
-        unitPrice: 0
+            drugName: '',
+            drugCode: '',
+            genericName: '', // ✅ เพิ่ม genericName
+            tradeName: '', // ✅ เพิ่ม tradeName
+            quantity: '',
+            unit: '', // ✅ เก็บ UNIT_CODE สำหรับบันทึก
+            unitName: '', // ✅ เก็บ UNIT_NAME สำหรับแสดงผล
+            indication1: '', // ✅ เพิ่มข้อบ่งใช้
+            time: '',
+            unitPrice: 0
     });
 
     const [savedMedicines, setSavedMedicines] = useState([]);
@@ -117,6 +119,8 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
                         return {
                             id: index + 1,
                             drugName: drug.GENERIC_NAME,
+                            genericName: drug.GENERIC_NAME || '', // ✅ เก็บ GENERIC_NAME แยก
+                            tradeName: drug.TRADE_NAME || '', // ✅ เก็บ TRADE_NAME แยก
                             drugCode: drug.DRUG_CODE,
                             quantity: drug.QTY,
                             unit: drug.UNIT_CODE || 'TAB', // ✅ เก็บ UNIT_CODE สำหรับบันทึก
@@ -227,6 +231,8 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
                 ...prev,
                 drugCode: newValue.DRUG_CODE,
                 drugName: newValue.GENERIC_NAME,
+                genericName: newValue.GENERIC_NAME || '', // ✅ เก็บ GENERIC_NAME แยก
+                tradeName: newValue.TRADE_NAME || '', // ✅ เก็บ TRADE_NAME แยก
                 unit: newValue.UNIT_CODE || 'TAB', // ✅ เก็บ UNIT_CODE สำหรับบันทึก
                 unitName: newValue.UNIT_NAME || getUnitName(newValue.UNIT_CODE || 'TAB'), // ✅ เก็บ UNIT_NAME สำหรับแสดงผล
                 unitPrice: newValue.UNIT_PRICE || 0,
@@ -240,6 +246,8 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
                 ...prev,
                 drugCode: '',
                 drugName: '',
+                genericName: '',
+                tradeName: '',
                 unit: '',
                 unitName: '',
                 unitPrice: 0,
@@ -276,6 +284,8 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
         const newMedicine = {
             id: editingIndex >= 0 ? savedMedicines[editingIndex].id : Date.now(),
             drugName: medicineData.drugName.trim(),
+            genericName: medicineData.genericName || medicineData.drugName.trim(), // ✅ เก็บ GENERIC_NAME
+            tradeName: medicineData.tradeName || '', // ✅ เก็บ TRADE_NAME
             drugCode: medicineData.drugCode,
             quantity: parseFloat(medicineData.quantity),
             unit: medicineData.unit, // ✅ บันทึก UNIT_CODE
@@ -303,6 +313,8 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
         setMedicineData({
             drugName: '',
             drugCode: '',
+            genericName: '', // ✅ เพิ่ม genericName
+            tradeName: '', // ✅ เพิ่ม tradeName
             quantity: '',
             unit: '',
             unitName: '',
@@ -316,6 +328,8 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
         const medicine = savedMedicines[index];
         setMedicineData({
             drugName: medicine.drugName,
+            genericName: medicine.genericName || medicine.drugName, // ✅ โหลด genericName
+            tradeName: medicine.tradeName || '', // ✅ โหลด tradeName
             drugCode: medicine.drugCode,
             quantity: medicine.quantity.toString(),
             unit: medicine.unit, // ✅ เก็บ UNIT_CODE สำหรับบันทึก
@@ -629,8 +643,9 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
                                         options={availableDrugs}
                                         getOptionLabel={(option) => {
                                             const genericName = option.GENERIC_NAME || '';
-                                            const tradeName = option.TRADE_NAME ? ` (${option.TRADE_NAME})` : '';
-                                            return `${genericName}${tradeName}`;
+                                            const tradeName = option.TRADE_NAME || '';
+                                            const drugCode = option.DRUG_CODE || '';
+                                            return [genericName, tradeName, drugCode].filter(Boolean).join(' / ') || drugCode || '';
                                         }}
                                         isOptionEqualToValue={(option, value) => {
                                             return option.DRUG_CODE === value.DRUG_CODE;
@@ -649,41 +664,17 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
                                             
                                             const searchTerm = inputValue.toLowerCase().trim();
                                             
-                                            // ✅ ค้นหาเป็น "คำ" (word) - ค้นหาเฉพาะคำที่ขึ้นต้นด้วย search term เท่านั้น
-                                            // ไม่แสดงคำที่มี search term อยู่ตรงกลาง
-                                            
-                                            // ฟังก์ชันแยกคำ - แยกด้วย space, slash, hyphen, parentheses, brackets, dots, commas, และตัวเลข
-                                            const splitIntoWords = (text) => {
-                                                if (!text) return [];
-                                                // แยกด้วย space, slash, hyphen, parentheses, brackets, dots, commas, และตัวเลข
-                                                // เช่น "Amiloride 5 mg/Hydrochlorothiazide 50 mg" → ["amiloride", "mg", "hydrochlorothiazide", "mg"]
-                                                return text.toLowerCase()
-                                                    .split(/[\s\/\-\(\)\[\]\.\,\d]+/)
-                                                    .filter(word => word.length > 0);
-                                            };
-                                            
-                                            // ฟังก์ชันเช็คว่ามีคำไหนขึ้นต้นด้วย searchTerm หรือไม่
-                                            const hasWordStartingWith = (text, term) => {
-                                                if (!text || !term) return false;
-                                                const words = splitIntoWords(text);
-                                                // เช็คว่ามีคำไหนขึ้นต้นด้วย searchTerm หรือไม่
-                                                // เช่น search "ayew" จะหา "ayew" แต่ไม่หา "brompheniramine"
-                                                return words.some(word => word.startsWith(term));
-                                            };
-                                            
-                                            // ✅ Filter ยาที่ตรงกับ searchTerm เท่านั้น - ต้องมีคำไหนสักคำขึ้นต้นด้วย searchTerm
+                                            // ✅ ค้นหาแบบครอบคลุม - ค้นหาในทั้ง 3 อย่าง (GENERIC_NAME, TRADE_NAME, DRUG_CODE)
+                                            // ใช้ includes เพื่อให้ค้นหาได้ทั้งตัวที่ขึ้นต้นและอยู่ตรงกลาง
                                             const filtered = drugsWithName.filter(option => {
-                                                const genericName = (option.GENERIC_NAME || '').trim();
-                                                const tradeName = (option.TRADE_NAME || '').trim();
-                                                const drugCode = (option.DRUG_CODE || '').trim();
+                                                const genericName = (option.GENERIC_NAME || '').toLowerCase().trim();
+                                                const tradeName = (option.TRADE_NAME || '').toLowerCase().trim();
+                                                const drugCode = (option.DRUG_CODE || '').toLowerCase().trim();
                                                 
-                                                // ✅ ค้นหาเฉพาะคำที่ขึ้นต้นด้วย searchTerm ใน GENERIC_NAME, TRADE_NAME, และ DRUG_CODE
-                                                // จะหาเฉพาะคำที่ขึ้นต้นด้วย searchTerm เท่านั้น ไม่หาคำที่มี searchTerm อยู่ตรงกลาง
-                                                // เช่น search "ayew" จะหาเฉพาะ "Ayew" (TRADE_NAME) เท่านั้น
-                                                // ไม่หา "Brompheniramine" (ไม่มีคำไหนขึ้นต้นด้วย "ayew")
-                                                const matchesGeneric = hasWordStartingWith(genericName, searchTerm);
-                                                const matchesTrade = hasWordStartingWith(tradeName, searchTerm);
-                                                const matchesCode = hasWordStartingWith(drugCode, searchTerm);
+                                                // ✅ ค้นหาในทั้ง 3 fields - ใช้ includes เพื่อให้ครอบคลุม
+                                                const matchesGeneric = genericName.includes(searchTerm);
+                                                const matchesTrade = tradeName.includes(searchTerm);
+                                                const matchesCode = drugCode.includes(searchTerm);
                                                 
                                                 // ต้องมีอย่างน้อย 1 field ที่ตรงกับ searchTerm
                                                 const matches = matchesGeneric || matchesTrade || matchesCode;
@@ -743,11 +734,15 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
                                                     sx={{ flexDirection: 'column', alignItems: 'flex-start' }}
                                                 >
                                                     <Box component="span" sx={{ fontWeight: 'bold', fontSize: '0.875rem' }}>
-                                                        {option.GENERIC_NAME}
+                                                        {[
+                                                            option.GENERIC_NAME,
+                                                            option.TRADE_NAME,
+                                                            option.DRUG_CODE
+                                                        ].filter(Boolean).join(' / ') || option.DRUG_CODE || ''}
                                                     </Box>
-                                                    {option.TRADE_NAME && (
+                                                    {option.UNIT_CODE && (
                                                         <Box component="span" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
-                                                            {option.TRADE_NAME} | {option.DRUG_CODE} | หน่วย: {option.UNIT_CODE}
+                                                            หน่วย: {option.UNIT_CODE}
                                                         </Box>
                                                     )}
                                                 </Box>
@@ -950,7 +945,11 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
                                             </TableCell>
                                             <TableCell>
                                                 <Typography variant="body2" fontWeight="500">
-                                                    {medicine.drugName}
+                                                    {[
+                                                        medicine.genericName || medicine.drugName,
+                                                        medicine.tradeName,
+                                                        medicine.drugCode
+                                                    ].filter(Boolean).join(' / ') || medicine.drugCode || '-'}
                                                 </Typography>
                                             </TableCell>
                                             <TableCell>

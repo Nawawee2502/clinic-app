@@ -38,6 +38,8 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
   const [medicineData, setMedicineData] = useState({
     drugName: '',
     drugCode: '',
+    genericName: '', // ✅ เพิ่ม genericName
+    tradeName: '', // ✅ เพิ่ม tradeName
     quantity: '',
     unit: '',
     unitName: '',
@@ -153,6 +155,8 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
               uniqueMedicines.push({
                 id: uniqueMedicines.length + 1,
                 drugName: drug.GENERIC_NAME,
+                genericName: drug.GENERIC_NAME || '', // ✅ เก็บ GENERIC_NAME แยก
+                tradeName: drug.TRADE_NAME || '', // ✅ เก็บ TRADE_NAME แยก
                 drugCode: drugCode,
                 quantity: drug.QTY,
                 unit: drug.UNIT_CODE || 'TAB',
@@ -464,6 +468,8 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
         ...prev,
         drugCode: newValue.DRUG_CODE,
         drugName: newValue.GENERIC_NAME,
+        genericName: newValue.GENERIC_NAME || '', // ✅ เก็บ GENERIC_NAME แยก
+        tradeName: newValue.TRADE_NAME || '', // ✅ เก็บ TRADE_NAME แยก
         unit: newValue.UNIT_CODE || 'TAB',
         unitName: newValue.UNIT_NAME || getUnitName(newValue.UNIT_CODE || 'TAB'),
         unitPrice: newValue.UNIT_PRICE || 0,
@@ -474,6 +480,8 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
         ...prev,
         drugCode: '',
         drugName: '',
+        genericName: '', // ✅ เพิ่ม genericName
+        tradeName: '', // ✅ เพิ่ม tradeName
         unit: '',
         unitName: '',
         unitPrice: 0,
@@ -512,6 +520,8 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
     const newMedicine = {
       id: editingMedicineIndex >= 0 ? savedMedicines[editingMedicineIndex].id : Date.now(),
       drugName: medicineData.drugName.trim(),
+      genericName: medicineData.genericName || medicineData.drugName.trim(), // ✅ เก็บ GENERIC_NAME
+      tradeName: medicineData.tradeName || '', // ✅ เก็บ TRADE_NAME
       drugCode: medicineData.drugCode,
       quantity: parseFloat(medicineData.quantity),
       unit: medicineData.unit,
@@ -537,6 +547,8 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
     setMedicineData({
       drugName: '',
       drugCode: '',
+      genericName: '', // ✅ เพิ่ม genericName
+      tradeName: '', // ✅ เพิ่ม tradeName
       quantity: '',
       unit: '',
       unitName: '',
@@ -548,6 +560,8 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
     const medicine = savedMedicines[index];
     setMedicineData({
       drugName: medicine.drugName,
+      genericName: medicine.genericName || medicine.drugName, // ✅ โหลด genericName
+      tradeName: medicine.tradeName || '', // ✅ โหลด tradeName
       drugCode: medicine.drugCode,
       quantity: medicine.quantity.toString(),
       unit: medicine.unit,
@@ -1033,7 +1047,7 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
                       const genericName = option.GENERIC_NAME || '';
                       const tradeName = option.TRADE_NAME || '';
                       const drugCode = option.DRUG_CODE || '';
-                      return `${genericName}-${tradeName}-${drugCode}`;
+                      return [genericName, tradeName, drugCode].filter(Boolean).join(' / ') || drugCode || '';
                     }}
                     getOptionKey={(option) => option.DRUG_CODE || `${option.GENERIC_NAME}-${option.TRADE_NAME}`}
                     isOptionEqualToValue={(option, value) => {
@@ -1055,15 +1069,50 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
                       }
 
                       const searchTerm = inputValue.toLowerCase().trim();
-                      return uniqueDrugs.filter(option =>
-                        (option.GENERIC_NAME || '').toLowerCase().includes(searchTerm) ||
-                        (option.TRADE_NAME || '').toLowerCase().includes(searchTerm) ||
-                        (option.DRUG_CODE || '').toLowerCase().includes(searchTerm)
-                      );
+                      
+                      // ✅ ค้นหาแบบครอบคลุม - ค้นหาในทั้ง 3 อย่าง (GENERIC_NAME, TRADE_NAME, DRUG_CODE)
+                      // ใช้ includes เพื่อให้ค้นหาได้ทั้งตัวที่ขึ้นต้นและอยู่ตรงกลาง
+                      return uniqueDrugs.filter(option => {
+                        const genericName = (option.GENERIC_NAME || '').toLowerCase().trim();
+                        const tradeName = (option.TRADE_NAME || '').toLowerCase().trim();
+                        const drugCode = (option.DRUG_CODE || '').toLowerCase().trim();
+                        
+                        // ✅ ค้นหาในทั้ง 3 fields - ใช้ includes เพื่อให้ครอบคลุม
+                        const matchesGeneric = genericName.includes(searchTerm);
+                        const matchesTrade = tradeName.includes(searchTerm);
+                        const matchesCode = drugCode.includes(searchTerm);
+                        
+                        // ต้องมีอย่างน้อย 1 field ที่ตรงกับ searchTerm
+                        return matchesGeneric || matchesTrade || matchesCode;
+                      });
                     }}
                     value={getAvailableDrugs().find(opt => opt.DRUG_CODE === medicineData.drugCode) || null}
                     onChange={(event, newValue) => {
                       handleDrugSelect(newValue);
+                    }}
+                    renderOption={(props, option) => {
+                      const { key, ...otherProps } = props;
+                      return (
+                        <Box 
+                          component="li" 
+                          key={option.DRUG_CODE || key}
+                          {...otherProps} 
+                          sx={{ flexDirection: 'column', alignItems: 'flex-start' }}
+                        >
+                          <Box component="span" sx={{ fontWeight: 'bold', fontSize: '0.875rem' }}>
+                            {[
+                              option.GENERIC_NAME,
+                              option.TRADE_NAME,
+                              option.DRUG_CODE
+                            ].filter(Boolean).join(' / ') || option.DRUG_CODE || ''}
+                          </Box>
+                          {option.UNIT_CODE && (
+                            <Box component="span" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
+                              หน่วย: {option.UNIT_CODE}
+                            </Box>
+                          )}
+                        </Box>
+                      );
                     }}
                     renderInput={(params) => (
                       <TextField
@@ -1332,7 +1381,11 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
                       </TableCell>
                       <TableCell>
                         <Typography variant="body2" fontWeight="500">
-                          {medicine.drugName}
+                          {[
+                            medicine.genericName || medicine.drugName,
+                            medicine.tradeName,
+                            medicine.drugCode
+                          ].filter(Boolean).join(' / ') || medicine.drugCode || '-'}
                         </Typography>
                       </TableCell>
                       <TableCell>
