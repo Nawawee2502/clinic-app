@@ -763,15 +763,30 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
                                                     component="li" 
                                                     key={option.DRUG_CODE || key}
                                                     {...otherProps} 
-                                                    sx={{ flexDirection: 'column', alignItems: 'flex-start' }}
+                                                    sx={{ flexDirection: 'column', alignItems: 'flex-start', py: 1.5 }}
                                                 >
-                                                    <Box component="span" sx={{ fontWeight: 'bold', fontSize: '0.875rem' }}>
-                                                        {[
-                                                            option.GENERIC_NAME,
-                                                            option.TRADE_NAME,
-                                                            option.DRUG_CODE
-                                                        ].filter(Boolean).join(' / ') || option.DRUG_CODE || ''}
+                                                    {/* GENERIC_NAME เป็นตัวใหญ่ */}
+                                                    <Box component="span" sx={{ 
+                                                        fontWeight: 'bold', 
+                                                        fontSize: '1rem',
+                                                        color: '#1976d2',
+                                                        mb: 0.5
+                                                    }}>
+                                                        {option.GENERIC_NAME || option.DRUG_CODE || '-'}
                                                     </Box>
+                                                    {/* TRADE_NAME และ DRUG_CODE เป็น description */}
+                                                    {(option.TRADE_NAME || option.DRUG_CODE) && (
+                                                        <Box component="span" sx={{ 
+                                                            fontSize: '0.75rem', 
+                                                            color: 'text.secondary',
+                                                            mb: 0.5
+                                                        }}>
+                                                            {[
+                                                                option.TRADE_NAME,
+                                                                option.DRUG_CODE
+                                                            ].filter(Boolean).join(' | ')}
+                                                        </Box>
+                                                    )}
                                                     {option.UNIT_CODE && (
                                                         <Box component="span" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
                                                             หน่วย: {option.UNIT_CODE}
@@ -978,8 +993,7 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
                                                 <Typography variant="body2" fontWeight="500">
                                                     {[
                                                         medicine.genericName || medicine.drugName,
-                                                        medicine.tradeName,
-                                                        medicine.drugCode
+                                                        medicine.tradeName
                                                     ].filter(Boolean).join(' / ') || medicine.drugCode || '-'}
                                                 </Typography>
                                             </TableCell>
