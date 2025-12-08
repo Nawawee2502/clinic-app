@@ -139,34 +139,92 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
           setSavedProcedures(uniqueProcedures);
         }
 
-        // Load medicines
+        // Load medicines - ดึง GENERIC_NAME และ TRADE_NAME ที่ถูกต้องจาก DrugService
+        // ✅ กรองเฉพาะยาฉีด (Type1 = 'TD002') เหมือนตอนเรียกเพิ่มยา
         if (response.data.drugs) {
-          // ✅ Deduplicate medicines โดยใช้ DRUG_CODE
+          // ✅ Deduplicate medicines โดยใช้ DRUG_CODE และกรองเฉพาะยาฉีด
           const seenDrugs = new Map();
-          const uniqueMedicines = [];
+          const uniqueDrugs = [];
           
           response.data.drugs.forEach((drug, index) => {
             const drugCode = drug.DRUG_CODE;
             
+            // ✅ กรองเฉพาะยาฉีด (Type1 = 'TD002') หรือถ้ายังไม่มี Type1 ให้ดึงจาก DrugService
             // ถ้ายังไม่เคยเห็นยาตัวนี้ ให้เพิ่มเข้าไป
             if (drugCode && !seenDrugs.has(drugCode)) {
               seenDrugs.set(drugCode, true);
               
-              uniqueMedicines.push({
-                id: uniqueMedicines.length + 1,
-                drugName: drug.GENERIC_NAME,
-                genericName: drug.GENERIC_NAME || '', // ✅ เก็บ GENERIC_NAME แยก
-                tradeName: drug.TRADE_NAME || '', // ✅ เก็บ TRADE_NAME แยก
-                drugCode: drugCode,
-                quantity: drug.QTY,
-                unit: drug.UNIT_CODE || 'TAB',
-                unitName: drug.UNIT_NAME || getUnitName(drug.UNIT_CODE || 'TAB'),
-                unitPrice: drug.UNIT_PRICE || 0
-              });
+              // ✅ ตรวจสอบว่าเป็นยาฉีดหรือไม่
+              // ถ้ามี Type1 = 'TD002' หรือยังไม่มี Type1 ให้เพิ่มเข้าไปก่อน (จะตรวจสอบอีกทีตอนดึงข้อมูล)
+              if (!drug.Type1 || drug.Type1 === 'TD002') {
+                uniqueDrugs.push(drug);
+              }
             }
           });
           
-          setSavedMedicines(uniqueMedicines);
+          // ✅ โหลดข้อมูลเพิ่มเติมสำหรับยาที่ไม่ซ้ำ - ดึง GENERIC_NAME, TRADE_NAME และ Type1 ที่ถูกต้อง
+          const uniqueMedicines = await Promise.all(
+            uniqueDrugs.map(async (drug, index) => {
+              // ✅ ตั้งค่าเริ่มต้นจากข้อมูลที่มี
+              let genericName = drug.GENERIC_NAME || '';
+              let tradeName = drug.TRADE_NAME || '';
+              let drugType = drug.Type1 || '';
+              
+              // ✅ ดึงข้อมูลจาก DrugService เพื่อให้ได้ GENERIC_NAME, TRADE_NAME และ Type1 ที่ถูกต้อง
+              // และตรวจสอบว่าเป็นยาฉีดหรือไม่
+              const needsUpdate = 
+                !genericName || 
+                !tradeName ||
+                genericName.toLowerCase().startsWith('ยา ') ||
+                tradeName.toLowerCase().startsWith('ยา ') ||
+                !drugType;
+              
+              // ✅ ต้องดึงข้อมูลจาก DrugService เสมอเพื่อตรวจสอบ Type1
+              try {
+                const drugResponse = await DrugService.getDrugByCode(drug.DRUG_CODE);
+                if (drugResponse.success && drugResponse.data) {
+                  // ✅ อัปเดต GENERIC_NAME ถ้ายังไม่มีหรือดูเหมือนมีปัญหา
+                  if (!genericName || genericName.toLowerCase().startsWith('ยา ')) {
+                    genericName = drugResponse.data.GENERIC_NAME || genericName || '';
+                  }
+                  // ✅ อัปเดต TRADE_NAME ถ้ายังไม่มีหรือดูเหมือนมีปัญหา
+                  if (!tradeName || tradeName.toLowerCase().startsWith('ยา ')) {
+                    tradeName = drugResponse.data.TRADE_NAME || tradeName || '';
+                  }
+                  // ✅ อัปเดต Type1 จาก DrugService (สำคัญ!)
+                  drugType = drugResponse.data.Type1 || drugType || '';
+                }
+              } catch (error) {
+                console.warn(`Could not fetch drug details for ${drug.DRUG_CODE}:`, error);
+              }
+              
+              // ✅ กรองเฉพาะยาฉีด (Type1 = 'TD002')
+              // ถ้าไม่ใช่ยาฉีด ให้ return null และ filter ออกภายหลัง
+              if (drugType !== 'TD002') {
+                console.log(`⚠️ Skipping non-injection drug: ${drug.DRUG_CODE} (Type1: ${drugType})`);
+                return null;
+              }
+              
+              return {
+                id: index + 1,
+                drugName: genericName || drug.DRUG_CODE, // ✅ ใช้ genericName ที่ถูกต้อง
+                genericName: genericName, // ✅ เก็บ GENERIC_NAME ที่ถูกต้อง
+                tradeName: tradeName, // ✅ เก็บ TRADE_NAME ที่ถูกต้อง
+                drugCode: drug.DRUG_CODE,
+                quantity: drug.QTY,
+                unit: drug.UNIT_CODE || 'AMP',
+                unitName: drug.UNIT_NAME || getUnitName(drug.UNIT_CODE || 'AMP'),
+                unitPrice: drug.UNIT_PRICE || 0
+              };
+            })
+          );
+          
+          // ✅ กรองเฉพาะยาฉีด (filter out null values)
+          const injectionMedicines = uniqueMedicines.filter(medicine => medicine !== null);
+          
+          console.log(`💉 Loaded ${injectionMedicines.length} injection drugs from ${uniqueDrugs.length} total drugs`);
+          
+          setSavedMedicines(injectionMedicines);
         }
       }
     } catch (error) {
@@ -1043,6 +1101,8 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
                   <Autocomplete
                     disabled={!hasProcedures}
                     options={getAvailableDrugs()}
+                    disablePortal
+                    filterSelectedOptions
                     getOptionLabel={(option) => {
                       const genericName = option.GENERIC_NAME || '';
                       const tradeName = option.TRADE_NAME || '';
@@ -1054,6 +1114,7 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
                       return option.DRUG_CODE === value.DRUG_CODE;
                     }}
                     filterOptions={(options, { inputValue }) => {
+                      // ✅ กรองยาที่ไม่มีชื่อออกก่อน
                       const drugsWithName = options.filter(option =>
                         (option.GENERIC_NAME && option.GENERIC_NAME.trim() !== '') ||
                         (option.TRADE_NAME && option.TRADE_NAME.trim() !== '')
@@ -1070,12 +1131,16 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
 
                       const searchTerm = inputValue.toLowerCase().trim();
                       
+                      if (!searchTerm) {
+                        return uniqueDrugs;
+                      }
+                      
                       // ✅ ค้นหาแบบครอบคลุม - ค้นหาในทั้ง 3 อย่าง (GENERIC_NAME, TRADE_NAME, DRUG_CODE)
                       // ใช้ includes เพื่อให้ค้นหาได้ทั้งตัวที่ขึ้นต้นและอยู่ตรงกลาง
-                      return uniqueDrugs.filter(option => {
-                        const genericName = (option.GENERIC_NAME || '').toLowerCase().trim();
-                        const tradeName = (option.TRADE_NAME || '').toLowerCase().trim();
-                        const drugCode = (option.DRUG_CODE || '').toLowerCase().trim();
+                      const filtered = uniqueDrugs.filter(option => {
+                        const genericName = String(option.GENERIC_NAME || '').toLowerCase().trim();
+                        const tradeName = String(option.TRADE_NAME || '').toLowerCase().trim();
+                        const drugCode = String(option.DRUG_CODE || '').toLowerCase().trim();
                         
                         // ✅ ค้นหาในทั้ง 3 fields - ใช้ includes เพื่อให้ครอบคลุม
                         const matchesGeneric = genericName.includes(searchTerm);
@@ -1085,6 +1150,17 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
                         // ต้องมีอย่างน้อย 1 field ที่ตรงกับ searchTerm
                         return matchesGeneric || matchesTrade || matchesCode;
                       });
+                      
+                      // Debug: log ผลลัพธ์การค้นหา
+                      if (filtered.length > 0) {
+                        console.log(`🔍 Search "${searchTerm}": Found ${filtered.length} drugs`, filtered.slice(0, 3).map(d => ({
+                          code: d.DRUG_CODE,
+                          generic: d.GENERIC_NAME,
+                          trade: d.TRADE_NAME
+                        })));
+                      }
+                      
+                      return filtered;
                     }}
                     value={getAvailableDrugs().find(opt => opt.DRUG_CODE === medicineData.drugCode) || null}
                     onChange={(event, newValue) => {
@@ -1246,7 +1322,6 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
                     ลำดับ
                   </TableCell>
                   <TableCell sx={{ fontWeight: 'bold' }}>รายการทำหัตถการ</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>รหัส</TableCell>
                   <TableCell sx={{ fontWeight: 'bold' }}>แพทย์ผู้ทำ</TableCell>
                   <TableCell sx={{ fontWeight: 'bold' }}>หมายเหตุ</TableCell>
                   <TableCell sx={{ fontWeight: 'bold', textAlign: 'center' }}>จัดการ</TableCell>
@@ -1255,7 +1330,7 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
               <TableBody>
                 {savedProcedures.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} sx={{ textAlign: 'center', py: 4 }}>
+                    <TableCell colSpan={5} sx={{ textAlign: 'center', py: 4 }}>
                       <Typography color="text.secondary">
                         ยังไม่มีรายการหัตถการ กรุณาเพิ่มรายการหัตถการด้านบน
                       </Typography>
@@ -1275,20 +1350,6 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
                         {index + 1}
                       </TableCell>
                       <TableCell>{procedure.procedureName}</TableCell>
-                      <TableCell>
-                        <Typography
-                          variant="caption"
-                          sx={{
-                            bgcolor: procedure.procedureCode?.startsWith('CUSTOM_') ? '#fff3e0' : '#e3f2fd',
-                            px: 1,
-                            py: 0.5,
-                            borderRadius: 1,
-                            fontSize: '11px'
-                          }}
-                        >
-                          {procedure.procedureCode || 'ไม่มีรหัส'}
-                        </Typography>
-                      </TableCell>
                       <TableCell>{procedure.doctorName}</TableCell>
                       <TableCell>{procedure.note}</TableCell>
                       <TableCell sx={{ textAlign: 'center' }}>
@@ -1342,7 +1403,6 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
                 <TableRow>
                   <TableCell sx={{ fontWeight: 'bold' }}>ลำดับ</TableCell>
                   <TableCell sx={{ fontWeight: 'bold' }}>ชื่อยา</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>รหัสยา</TableCell>
                   <TableCell sx={{ fontWeight: 'bold' }}>จำนวน</TableCell>
                   <TableCell sx={{ fontWeight: 'bold' }}>หน่วย</TableCell>
                   <TableCell sx={{ fontWeight: 'bold', textAlign: 'center' }}>จัดการ</TableCell>
@@ -1351,7 +1411,7 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
               <TableBody>
                 {savedMedicines.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} sx={{ textAlign: 'center', py: 4 }}>
+                    <TableCell colSpan={5} sx={{ textAlign: 'center', py: 4 }}>
                       <Typography color="text.secondary">
                         ยังไม่มีรายการยา กรุณาเพิ่มรายการยาด้านบน
                       </Typography>
@@ -1386,11 +1446,6 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
                             medicine.tradeName,
                             medicine.drugCode
                           ].filter(Boolean).join(' / ') || medicine.drugCode || '-'}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2" color="text.secondary">
-                          {medicine.drugCode}
                         </Typography>
                       </TableCell>
                       <TableCell>{medicine.quantity}</TableCell>

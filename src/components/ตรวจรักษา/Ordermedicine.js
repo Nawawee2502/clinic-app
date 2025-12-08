@@ -98,29 +98,49 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
                     }
                 });
                 
-                // โหลดข้อมูลเพิ่มเติมสำหรับยาที่ไม่ซ้ำ
+                // โหลดข้อมูลเพิ่มเติมสำหรับยาที่ไม่ซ้ำ - ดึง GENERIC_NAME และ TRADE_NAME ที่ถูกต้องจาก DrugService
                 const medicines = await Promise.all(
                     uniqueDrugs.map(async (drug, index) => {
-                        // ดึง Indication1 จาก NOTE1 (ถ้ามี) หรือจาก DrugService
+                        // ✅ ตั้งค่าเริ่มต้นจากข้อมูลที่มี
+                        let genericName = drug.GENERIC_NAME || '';
+                        let tradeName = drug.TRADE_NAME || '';
                         let indication1 = drug.NOTE1 || '';
                         
-                        // ถ้าไม่มีใน NOTE1 ให้ดึงจาก DrugService
-                        if (!indication1) {
+                        // ✅ ดึงข้อมูลจาก DrugService เพื่อให้ได้ GENERIC_NAME และ TRADE_NAME ที่ถูกต้อง
+                        // เช็คว่าข้อมูลปัจจุบันดูเหมือนมีปัญหา (เช่น GENERIC_NAME เป็น "ยา D0001")
+                        const needsUpdate = 
+                            !genericName || 
+                            !tradeName ||
+                            genericName.toLowerCase().startsWith('ยา ') ||
+                            tradeName.toLowerCase().startsWith('ยา ');
+                        
+                        if (needsUpdate || !indication1) {
                             try {
                                 const drugResponse = await DrugService.getDrugByCode(drug.DRUG_CODE);
                                 if (drugResponse.success && drugResponse.data) {
-                                    indication1 = drugResponse.data.Indication1 || '';
+                                    // ✅ อัปเดต GENERIC_NAME ถ้ายังไม่มีหรือดูเหมือนมีปัญหา
+                                    if (!genericName || genericName.toLowerCase().startsWith('ยา ')) {
+                                        genericName = drugResponse.data.GENERIC_NAME || genericName || '';
+                                    }
+                                    // ✅ อัปเดต TRADE_NAME ถ้ายังไม่มีหรือดูเหมือนมีปัญหา
+                                    if (!tradeName || tradeName.toLowerCase().startsWith('ยา ')) {
+                                        tradeName = drugResponse.data.TRADE_NAME || tradeName || '';
+                                    }
+                                    // ✅ อัปเดต Indication1 ถ้ายังไม่มี
+                                    if (!indication1) {
+                                        indication1 = drugResponse.data.Indication1 || '';
+                                    }
                                 }
                             } catch (error) {
-                                console.warn(`Could not fetch Indication1 for drug ${drug.DRUG_CODE}:`, error);
+                                console.warn(`Could not fetch drug details for ${drug.DRUG_CODE}:`, error);
                             }
                         }
 
                         return {
                             id: index + 1,
-                            drugName: drug.GENERIC_NAME,
-                            genericName: drug.GENERIC_NAME || '', // ✅ เก็บ GENERIC_NAME แยก
-                            tradeName: drug.TRADE_NAME || '', // ✅ เก็บ TRADE_NAME แยก
+                            drugName: genericName || drug.DRUG_CODE, // ✅ ใช้ genericName ที่ถูกต้อง
+                            genericName: genericName, // ✅ เก็บ GENERIC_NAME ที่ถูกต้อง
+                            tradeName: tradeName, // ✅ เก็บ TRADE_NAME ที่ถูกต้อง
                             drugCode: drug.DRUG_CODE,
                             quantity: drug.QTY,
                             unit: drug.UNIT_CODE || 'TAB', // ✅ เก็บ UNIT_CODE สำหรับบันทึก
@@ -641,6 +661,8 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
                                     </Typography>
                                     <Autocomplete
                                         options={availableDrugs}
+                                        disablePortal
+                                        filterSelectedOptions
                                         getOptionLabel={(option) => {
                                             const genericName = option.GENERIC_NAME || '';
                                             const tradeName = option.TRADE_NAME || '';
@@ -651,25 +673,33 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
                                             return option.DRUG_CODE === value.DRUG_CODE;
                                         }}
                                         filterOptions={(options, { inputValue }) => {
-                                            // ✅ กรองยาที่ไม่มีชื่อออกก่อน (ทำครั้งเดียว)
+                                            // ✅ กรองยาที่ไม่มีชื่อออกก่อน
                                             const drugsWithName = options.filter(option => 
                                                 (option.GENERIC_NAME && option.GENERIC_NAME.trim() !== '') || 
                                                 (option.TRADE_NAME && option.TRADE_NAME.trim() !== '')
                                             );
                                             
+                                            // ✅ ลบ duplicate โดยใช้ DRUG_CODE ก่อน
+                                            const uniqueDrugs = drugsWithName.filter((drug, index, self) =>
+                                                index === self.findIndex(d => d.DRUG_CODE === drug.DRUG_CODE)
+                                            );
+                                            
                                             // ถ้าไม่มีการค้นหา ให้แสดงยาทั้งหมด
                                             if (!inputValue || inputValue.trim() === '') {
-                                                return drugsWithName;
+                                                return uniqueDrugs;
                                             }
                                             
                                             const searchTerm = inputValue.toLowerCase().trim();
                                             
+                                            if (!searchTerm) {
+                                                return uniqueDrugs;
+                                            }
+                                            
                                             // ✅ ค้นหาแบบครอบคลุม - ค้นหาในทั้ง 3 อย่าง (GENERIC_NAME, TRADE_NAME, DRUG_CODE)
-                                            // ใช้ includes เพื่อให้ค้นหาได้ทั้งตัวที่ขึ้นต้นและอยู่ตรงกลาง
-                                            const filtered = drugsWithName.filter(option => {
-                                                const genericName = (option.GENERIC_NAME || '').toLowerCase().trim();
-                                                const tradeName = (option.TRADE_NAME || '').toLowerCase().trim();
-                                                const drugCode = (option.DRUG_CODE || '').toLowerCase().trim();
+                                            const filtered = uniqueDrugs.filter(option => {
+                                                const genericName = String(option.GENERIC_NAME || '').toLowerCase().trim();
+                                                const tradeName = String(option.TRADE_NAME || '').toLowerCase().trim();
+                                                const drugCode = String(option.DRUG_CODE || '').toLowerCase().trim();
                                                 
                                                 // ✅ ค้นหาในทั้ง 3 fields - ใช้ includes เพื่อให้ครอบคลุม
                                                 const matchesGeneric = genericName.includes(searchTerm);
@@ -677,17 +707,19 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
                                                 const matchesCode = drugCode.includes(searchTerm);
                                                 
                                                 // ต้องมีอย่างน้อย 1 field ที่ตรงกับ searchTerm
-                                                const matches = matchesGeneric || matchesTrade || matchesCode;
-                                                
-                                                return matches;
+                                                return matchesGeneric || matchesTrade || matchesCode;
                                             });
                                             
-                                            // ✅ ลบ duplicate ออก (กรณีมี duplicate ในฐานข้อมูล)
-                                            const uniqueFiltered = filtered.filter((option, index, self) => 
-                                                index === self.findIndex(t => t.DRUG_CODE === option.DRUG_CODE)
-                                            );
+                                            // Debug: log ผลลัพธ์การค้นหา
+                                            if (filtered.length > 0 && searchTerm.length >= 3) {
+                                                console.log(`🔍 Search "${searchTerm}": Found ${filtered.length} drugs`, filtered.slice(0, 3).map(d => ({
+                                                    code: d.DRUG_CODE,
+                                                    generic: d.GENERIC_NAME,
+                                                    trade: d.TRADE_NAME
+                                                })));
+                                            }
                                             
-                                            return uniqueFiltered;
+                                            return filtered;
                                         }}
                                         disableListWrap
                                         openOnFocus={false}
@@ -904,7 +936,6 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
                                 <TableRow>
                                     <TableCell sx={{ fontWeight: 'bold' }}>ลำดับ</TableCell>
                                     <TableCell sx={{ fontWeight: 'bold' }}>ชื่อยา</TableCell>
-                                    <TableCell sx={{ fontWeight: 'bold' }}>รหัสยา</TableCell>
                                     <TableCell sx={{ fontWeight: 'bold' }}>จำนวน</TableCell>
                                     <TableCell sx={{ fontWeight: 'bold' }}>หน่วย</TableCell>
                                     <TableCell sx={{ fontWeight: 'bold' }}>ข้อบ่งใช้</TableCell>
@@ -915,7 +946,7 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
                             <TableBody>
                                 {savedMedicines.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={8} sx={{ textAlign: 'center', py: 4 }}>
+                                        <TableCell colSpan={7} sx={{ textAlign: 'center', py: 4 }}>
                                             <Typography color="text.secondary">
                                                 ยังไม่มีรายการยา กรุณาเพิ่มรายการยาด้านบน
                                             </Typography>
@@ -950,11 +981,6 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
                                                         medicine.tradeName,
                                                         medicine.drugCode
                                                     ].filter(Boolean).join(' / ') || medicine.drugCode || '-'}
-                                                </Typography>
-                                            </TableCell>
-                                            <TableCell>
-                                                <Typography variant="body2" color="text.secondary">
-                                                    {medicine.drugCode}
                                                 </Typography>
                                             </TableCell>
                                             <TableCell>{medicine.quantity}</TableCell>
