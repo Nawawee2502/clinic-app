@@ -33,6 +33,7 @@ import PropTypes from 'prop-types';
 
 // Import Services
 import TreatmentService from "../../services/treatmentService";
+import DrugService from "../../services/drugService";
 
 export default function MedicalHistory({ currentPatient, onSaveSuccess }) {
   const [loading, setLoading] = React.useState(false);
@@ -87,8 +88,75 @@ export default function MedicalHistory({ currentPatient, onSaveSuccess }) {
           const treatmentResponse = await TreatmentService.getTreatmentByVNO(currentPatient.VNO);
           if (treatmentResponse.success && treatmentResponse.data) {
             console.log('Found treatment data:', treatmentResponse.data);
-            setTodayTreatment(treatmentResponse.data);
-            setSelectedTreatmentData(treatmentResponse.data); // ตั้งเป็นข้อมูลเริ่มต้น
+            
+            // ✅ ดึงข้อมูลยาเพิ่มเติมจาก DrugService เพื่อให้ได้ GENERIC_NAME และ TRADE_NAME ที่ถูกต้อง
+            let drugs = treatmentResponse.data.drugs || [];
+            
+            // ✅ Deduplicate ยาโดยใช้ DRUG_CODE
+            const drugMap = new Map();
+            drugs.forEach(drug => {
+              const drugCode = drug.DRUG_CODE;
+              if (drugCode) {
+                if (drugMap.has(drugCode)) {
+                  // ถ้ามียาตัวนี้อยู่แล้ว ให้รวม QTY
+                  const existingDrug = drugMap.get(drugCode);
+                  const existingQty = parseFloat(existingDrug.QTY || 0);
+                  const newQty = parseFloat(drug.QTY || 0);
+                  existingDrug.QTY = existingQty + newQty;
+                } else {
+                  drugMap.set(drugCode, { ...drug });
+                }
+              }
+            });
+            
+            const uniqueDrugs = Array.from(drugMap.values());
+            
+            // ✅ ดึงข้อมูลเพิ่มเติมจาก DrugService เพื่อให้ได้ GENERIC_NAME และ TRADE_NAME ที่ถูกต้อง
+            const drugsWithCorrectNames = await Promise.all(
+              uniqueDrugs.map(async (drug) => {
+                let genericName = drug.GENERIC_NAME || '';
+                let tradeName = drug.TRADE_NAME || '';
+                
+                // ✅ เช็คว่าข้อมูลปัจจุบันดูเหมือนมีปัญหา (เช่น GENERIC_NAME เป็น "ยา D0109")
+                const needsUpdate = 
+                  !genericName || 
+                  !tradeName ||
+                  genericName.toLowerCase().startsWith('ยา ') ||
+                  tradeName.toLowerCase().startsWith('ยา ');
+                
+                if (needsUpdate && drug.DRUG_CODE) {
+                  try {
+                    const drugResponse = await DrugService.getDrugByCode(drug.DRUG_CODE);
+                    if (drugResponse.success && drugResponse.data) {
+                      // ✅ อัปเดต GENERIC_NAME ถ้ายังไม่มีหรือดูเหมือนมีปัญหา
+                      if (!genericName || genericName.toLowerCase().startsWith('ยา ')) {
+                        genericName = drugResponse.data.GENERIC_NAME || genericName || '';
+                      }
+                      // ✅ อัปเดต TRADE_NAME ถ้ายังไม่มีหรือดูเหมือนมีปัญหา
+                      if (!tradeName || tradeName.toLowerCase().startsWith('ยา ')) {
+                        tradeName = drugResponse.data.TRADE_NAME || tradeName || '';
+                      }
+                    }
+                  } catch (error) {
+                    console.warn(`Could not fetch drug details for ${drug.DRUG_CODE}:`, error);
+                  }
+                }
+                
+                return {
+                  ...drug,
+                  GENERIC_NAME: genericName,
+                  TRADE_NAME: tradeName
+                };
+              })
+            );
+            
+            const treatmentDataWithCorrectDrugs = {
+              ...treatmentResponse.data,
+              drugs: drugsWithCorrectNames
+            };
+            
+            setTodayTreatment(treatmentDataWithCorrectDrugs);
+            setSelectedTreatmentData(treatmentDataWithCorrectDrugs); // ตั้งเป็นข้อมูลเริ่มต้น
 
             const treatmentVitals = {
               WEIGHT1: treatmentResponse.data.treatment?.WEIGHT1 || initialVitals.WEIGHT1,
@@ -175,7 +243,71 @@ export default function MedicalHistory({ currentPatient, onSaveSuccess }) {
       // โหลดข้อมูลรายละเอียดของการรักษาที่เลือก
       const response = await TreatmentService.getTreatmentByVNO(treatment.VNO);
       if (response.success) {
-        setSelectedTreatmentData(response.data);
+        // ✅ ดึงข้อมูลยาเพิ่มเติมจาก DrugService เพื่อให้ได้ GENERIC_NAME และ TRADE_NAME ที่ถูกต้อง
+        let drugs = response.data.drugs || [];
+        
+        // ✅ Deduplicate ยาโดยใช้ DRUG_CODE
+        const drugMap = new Map();
+        drugs.forEach(drug => {
+          const drugCode = drug.DRUG_CODE;
+          if (drugCode) {
+            if (drugMap.has(drugCode)) {
+              // ถ้ามียาตัวนี้อยู่แล้ว ให้รวม QTY
+              const existingDrug = drugMap.get(drugCode);
+              const existingQty = parseFloat(existingDrug.QTY || 0);
+              const newQty = parseFloat(drug.QTY || 0);
+              existingDrug.QTY = existingQty + newQty;
+            } else {
+              drugMap.set(drugCode, { ...drug });
+            }
+          }
+        });
+        
+        const uniqueDrugs = Array.from(drugMap.values());
+        
+        // ✅ ดึงข้อมูลเพิ่มเติมจาก DrugService เพื่อให้ได้ GENERIC_NAME และ TRADE_NAME ที่ถูกต้อง
+        const drugsWithCorrectNames = await Promise.all(
+          uniqueDrugs.map(async (drug) => {
+            let genericName = drug.GENERIC_NAME || '';
+            let tradeName = drug.TRADE_NAME || '';
+            
+            // ✅ เช็คว่าข้อมูลปัจจุบันดูเหมือนมีปัญหา (เช่น GENERIC_NAME เป็น "ยา D0109")
+            const needsUpdate = 
+              !genericName || 
+              !tradeName ||
+              genericName.toLowerCase().startsWith('ยา ') ||
+              tradeName.toLowerCase().startsWith('ยา ');
+            
+            if (needsUpdate && drug.DRUG_CODE) {
+              try {
+                const drugResponse = await DrugService.getDrugByCode(drug.DRUG_CODE);
+                if (drugResponse.success && drugResponse.data) {
+                  // ✅ อัปเดต GENERIC_NAME ถ้ายังไม่มีหรือดูเหมือนมีปัญหา
+                  if (!genericName || genericName.toLowerCase().startsWith('ยา ')) {
+                    genericName = drugResponse.data.GENERIC_NAME || genericName || '';
+                  }
+                  // ✅ อัปเดต TRADE_NAME ถ้ายังไม่มีหรือดูเหมือนมีปัญหา
+                  if (!tradeName || tradeName.toLowerCase().startsWith('ยา ')) {
+                    tradeName = drugResponse.data.TRADE_NAME || tradeName || '';
+                  }
+                }
+              } catch (error) {
+                console.warn(`Could not fetch drug details for ${drug.DRUG_CODE}:`, error);
+              }
+            }
+            
+            return {
+              ...drug,
+              GENERIC_NAME: genericName,
+              TRADE_NAME: tradeName
+            };
+          })
+        );
+        
+        setSelectedTreatmentData({
+          ...response.data,
+          drugs: drugsWithCorrectNames
+        });
         console.log('Selected treatment data:', response.data);
 
         // อัปเดต vitals จากข้อมูลการรักษาที่เลือก
@@ -563,33 +695,52 @@ export default function MedicalHistory({ currentPatient, onSaveSuccess }) {
                         ยาที่สั่ง
                       </Typography>
                       <Box sx={{ maxHeight: 230, overflowY: 'auto' }}>
-                        {displayTreatmentData?.drugs?.length > 0 ? (
-                          displayTreatmentData.drugs.map((drug, idx) => (
-                            <Box key={idx} sx={{
-                              mb: 1.5,
-                              p: 1.5,
-                              bgcolor: 'white',
-                              borderRadius: 1,
-                              border: '1px solid #e0e0e0'
-                            }}>
-                              <Typography variant="body2" fontWeight="600" sx={{ color: '#1b5e20', fontSize: '0.875rem' }}>
-                                {drug.GENERIC_NAME || drug.TRADE_NAME}
-                              </Typography>
-                              <Typography variant="caption" color="text.secondary">
-                                จำนวน: {drug.QTY} {drug.UNIT_NAME}
-                              </Typography>
-                              {drug.TIME1 && (
-                                <Typography variant="caption" display="block" color="text.secondary">
-                                  วิธีใช้: {drug.TIME1}
+                        {(() => {
+                          // ✅ Deduplicate ยาโดยใช้ DRUG_CODE
+                          const drugs = displayTreatmentData?.drugs || [];
+                          const seenDrugs = new Map();
+                          const uniqueDrugs = [];
+                          
+                          drugs.forEach(drug => {
+                            const drugCode = drug.DRUG_CODE;
+                            if (drugCode && !seenDrugs.has(drugCode)) {
+                              seenDrugs.set(drugCode, true);
+                              uniqueDrugs.push(drug);
+                            }
+                          });
+                          
+                          return uniqueDrugs.length > 0 ? (
+                            uniqueDrugs.map((drug, idx) => (
+                              <Box key={idx} sx={{
+                                mb: 1.5,
+                                p: 1.5,
+                                bgcolor: 'white',
+                                borderRadius: 1,
+                                border: '1px solid #e0e0e0'
+                              }}>
+                                <Typography variant="body2" fontWeight="600" sx={{ color: '#1b5e20', fontSize: '0.875rem' }}>
+                                  {[
+                                    drug.GENERIC_NAME,
+                                    drug.TRADE_NAME,
+                                    drug.DRUG_CODE
+                                  ].filter(Boolean).join(' / ') || drug.DRUG_CODE || '-'}
                                 </Typography>
-                              )}
-                            </Box>
-                          ))
-                        ) : (
-                          <Typography variant="body2" color="text.secondary" fontStyle="italic">
-                            ยังไม่ได้สั่งยา
-                          </Typography>
-                        )}
+                                <Typography variant="caption" color="text.secondary">
+                                  จำนวน: {drug.QTY} {drug.UNIT_NAME}
+                                </Typography>
+                                {drug.TIME1 && (
+                                  <Typography variant="caption" display="block" color="text.secondary">
+                                    วิธีใช้: {drug.TIME1}
+                                  </Typography>
+                                )}
+                              </Box>
+                            ))
+                          ) : (
+                            <Typography variant="body2" color="text.secondary" fontStyle="italic">
+                              ยังไม่ได้สั่งยา
+                            </Typography>
+                          );
+                        })()}
                       </Box>
                     </Card>
                   </Grid>
