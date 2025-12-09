@@ -116,31 +116,76 @@ export default function MedicalHistory({ currentPatient, onSaveSuccess }) {
               uniqueDrugs.map(async (drug) => {
                 let genericName = drug.GENERIC_NAME || '';
                 let tradeName = drug.TRADE_NAME || '';
+                const drugCode = drug.DRUG_CODE || '';
                 
-                // ✅ เช็คว่าข้อมูลปัจจุบันดูเหมือนมีปัญหา (เช่น GENERIC_NAME เป็น "ยา D0109")
+                // ✅ เช็คว่าข้อมูลปัจจุบันดูเหมือนมีปัญหา (เช่น GENERIC_NAME เป็น "ยา D0109" หรือเป็น DRUG_CODE เหมือนกัน)
                 const needsUpdate = 
                   !genericName || 
                   !tradeName ||
                   genericName.toLowerCase().startsWith('ยา ') ||
-                  tradeName.toLowerCase().startsWith('ยา ');
+                  tradeName.toLowerCase().startsWith('ยา ') ||
+                  genericName === drugCode ||
+                  tradeName === drugCode;
                 
-                if (needsUpdate && drug.DRUG_CODE) {
+                if (needsUpdate && drugCode) {
                   try {
-                    const drugResponse = await DrugService.getDrugByCode(drug.DRUG_CODE);
+                    const drugResponse = await DrugService.getDrugByCode(drugCode);
                     if (drugResponse.success && drugResponse.data) {
+                      const fetchedGenericName = drugResponse.data.GENERIC_NAME || '';
+                      const fetchedTradeName = drugResponse.data.TRADE_NAME || '';
+                      
                       // ✅ อัปเดต GENERIC_NAME ถ้ายังไม่มีหรือดูเหมือนมีปัญหา
-                      if (!genericName || genericName.toLowerCase().startsWith('ยา ')) {
-                        genericName = drugResponse.data.GENERIC_NAME || genericName || '';
+                      if (!genericName || genericName.toLowerCase().startsWith('ยา ') || genericName === drugCode) {
+                        // ใช้ชื่อจาก DrugService ถ้ามีและถูกต้อง
+                        if (fetchedGenericName && 
+                            fetchedGenericName !== drugCode && 
+                            !fetchedGenericName.toLowerCase().startsWith('ยา ')) {
+                          genericName = fetchedGenericName;
+                        } else {
+                          genericName = '';
+                        }
+                      } else {
+                        // ถ้ามี genericName แล้ว แต่เป็น drugCode หรือขึ้นต้นด้วย "ยา " ให้ล้าง
+                        if (genericName === drugCode || genericName.toLowerCase().startsWith('ยา ')) {
+                          genericName = '';
+                        }
                       }
+                      
                       // ✅ อัปเดต TRADE_NAME ถ้ายังไม่มีหรือดูเหมือนมีปัญหา
-                      if (!tradeName || tradeName.toLowerCase().startsWith('ยา ')) {
-                        tradeName = drugResponse.data.TRADE_NAME || tradeName || '';
+                      if (!tradeName || tradeName.toLowerCase().startsWith('ยา ') || tradeName === drugCode) {
+                        // ใช้ชื่อจาก DrugService ถ้ามีและถูกต้อง
+                        if (fetchedTradeName && 
+                            fetchedTradeName !== drugCode && 
+                            !fetchedTradeName.toLowerCase().startsWith('ยา ')) {
+                          tradeName = fetchedTradeName;
+                        } else {
+                          tradeName = '';
+                        }
+                      } else {
+                        // ถ้ามี tradeName แล้ว แต่เป็น drugCode หรือขึ้นต้นด้วย "ยา " ให้ล้าง
+                        if (tradeName === drugCode || tradeName.toLowerCase().startsWith('ยา ')) {
+                          tradeName = '';
+                        }
                       }
                     }
                   } catch (error) {
-                    console.warn(`Could not fetch drug details for ${drug.DRUG_CODE}:`, error);
+                    // ถ้าไม่พบยาในระบบ หรือ error อื่นๆ
+                    console.warn(`Could not fetch drug details for ${drugCode}:`, error);
+                    // ไม่ต้องตั้งค่าใหม่ ให้ใช้ค่าปัจจุบันหรือค่าว่าง
+                    if (genericName === drugCode || genericName.toLowerCase().startsWith('ยา ')) {
+                      genericName = '';
+                    }
+                    if (tradeName === drugCode || tradeName.toLowerCase().startsWith('ยา ')) {
+                      tradeName = '';
+                    }
                   }
                 }
+                
+                // ✅ ทำความสะอาดข้อมูล - ถ้า GENERIC_NAME หรือ TRADE_NAME เป็น DRUG_CODE ให้เป็นค่าว่าง
+                if (genericName === drugCode) genericName = '';
+                if (tradeName === drugCode) tradeName = '';
+                if (genericName.toLowerCase().startsWith('ยา ')) genericName = '';
+                if (tradeName.toLowerCase().startsWith('ยา ')) tradeName = '';
                 
                 return {
                   ...drug,
@@ -270,31 +315,76 @@ export default function MedicalHistory({ currentPatient, onSaveSuccess }) {
           uniqueDrugs.map(async (drug) => {
             let genericName = drug.GENERIC_NAME || '';
             let tradeName = drug.TRADE_NAME || '';
+            const drugCode = drug.DRUG_CODE || '';
             
-            // ✅ เช็คว่าข้อมูลปัจจุบันดูเหมือนมีปัญหา (เช่น GENERIC_NAME เป็น "ยา D0109")
+            // ✅ เช็คว่าข้อมูลปัจจุบันดูเหมือนมีปัญหา (เช่น GENERIC_NAME เป็น "ยา D0109" หรือเป็น DRUG_CODE เหมือนกัน)
             const needsUpdate = 
               !genericName || 
               !tradeName ||
               genericName.toLowerCase().startsWith('ยา ') ||
-              tradeName.toLowerCase().startsWith('ยา ');
+              tradeName.toLowerCase().startsWith('ยา ') ||
+              genericName === drugCode ||
+              tradeName === drugCode;
             
-            if (needsUpdate && drug.DRUG_CODE) {
+            if (needsUpdate && drugCode) {
               try {
-                const drugResponse = await DrugService.getDrugByCode(drug.DRUG_CODE);
+                const drugResponse = await DrugService.getDrugByCode(drugCode);
                 if (drugResponse.success && drugResponse.data) {
+                  const fetchedGenericName = drugResponse.data.GENERIC_NAME || '';
+                  const fetchedTradeName = drugResponse.data.TRADE_NAME || '';
+                  
                   // ✅ อัปเดต GENERIC_NAME ถ้ายังไม่มีหรือดูเหมือนมีปัญหา
-                  if (!genericName || genericName.toLowerCase().startsWith('ยา ')) {
-                    genericName = drugResponse.data.GENERIC_NAME || genericName || '';
+                  if (!genericName || genericName.toLowerCase().startsWith('ยา ') || genericName === drugCode) {
+                    // ใช้ชื่อจาก DrugService ถ้ามีและถูกต้อง
+                    if (fetchedGenericName && 
+                        fetchedGenericName !== drugCode && 
+                        !fetchedGenericName.toLowerCase().startsWith('ยา ')) {
+                      genericName = fetchedGenericName;
+                    } else {
+                      genericName = '';
+                    }
+                  } else {
+                    // ถ้ามี genericName แล้ว แต่เป็น drugCode หรือขึ้นต้นด้วย "ยา " ให้ล้าง
+                    if (genericName === drugCode || genericName.toLowerCase().startsWith('ยา ')) {
+                      genericName = '';
+                    }
                   }
+                  
                   // ✅ อัปเดต TRADE_NAME ถ้ายังไม่มีหรือดูเหมือนมีปัญหา
-                  if (!tradeName || tradeName.toLowerCase().startsWith('ยา ')) {
-                    tradeName = drugResponse.data.TRADE_NAME || tradeName || '';
+                  if (!tradeName || tradeName.toLowerCase().startsWith('ยา ') || tradeName === drugCode) {
+                    // ใช้ชื่อจาก DrugService ถ้ามีและถูกต้อง
+                    if (fetchedTradeName && 
+                        fetchedTradeName !== drugCode && 
+                        !fetchedTradeName.toLowerCase().startsWith('ยา ')) {
+                      tradeName = fetchedTradeName;
+                    } else {
+                      tradeName = '';
+                    }
+                  } else {
+                    // ถ้ามี tradeName แล้ว แต่เป็น drugCode หรือขึ้นต้นด้วย "ยา " ให้ล้าง
+                    if (tradeName === drugCode || tradeName.toLowerCase().startsWith('ยา ')) {
+                      tradeName = '';
+                    }
                   }
                 }
               } catch (error) {
-                console.warn(`Could not fetch drug details for ${drug.DRUG_CODE}:`, error);
+                // ถ้าไม่พบยาในระบบ หรือ error อื่นๆ
+                console.warn(`Could not fetch drug details for ${drugCode}:`, error);
+                // ไม่ต้องตั้งค่าใหม่ ให้ใช้ค่าปัจจุบันหรือค่าว่าง
+                if (genericName === drugCode || genericName.toLowerCase().startsWith('ยา ')) {
+                  genericName = '';
+                }
+                if (tradeName === drugCode || tradeName.toLowerCase().startsWith('ยา ')) {
+                  tradeName = '';
+                }
               }
             }
+            
+            // ✅ ทำความสะอาดข้อมูล - ถ้า GENERIC_NAME หรือ TRADE_NAME เป็น DRUG_CODE ให้เป็นค่าว่าง
+            if (genericName === drugCode) genericName = '';
+            if (tradeName === drugCode) tradeName = '';
+            if (genericName.toLowerCase().startsWith('ยา ')) genericName = '';
+            if (tradeName.toLowerCase().startsWith('ยา ')) tradeName = '';
             
             return {
               ...drug,
@@ -719,11 +809,34 @@ export default function MedicalHistory({ currentPatient, onSaveSuccess }) {
                                 border: '1px solid #e0e0e0'
                               }}>
                                 <Typography variant="body2" fontWeight="600" sx={{ color: '#1b5e20', fontSize: '0.875rem' }}>
-                                  {[
-                                    drug.GENERIC_NAME,
-                                    drug.TRADE_NAME,
-                                    drug.DRUG_CODE
-                                  ].filter(Boolean).join(' / ') || drug.DRUG_CODE || '-'}
+                                  {(() => {
+                                    const genericName = (drug.GENERIC_NAME || '').trim();
+                                    const tradeName = (drug.TRADE_NAME || '').trim();
+                                    const drugCode = (drug.DRUG_CODE || '').trim();
+                                    
+                                    // ✅ ตรวจสอบว่า GENERIC_NAME และ TRADE_NAME ไม่ใช่ DRUG_CODE หรือขึ้นต้นด้วย "ยา "
+                                    const hasValidGenericName = genericName && 
+                                      genericName !== drugCode && 
+                                      !genericName.toLowerCase().startsWith('ยา ') &&
+                                      genericName.length > 0;
+                                    
+                                    const hasValidTradeName = tradeName && 
+                                      tradeName !== drugCode && 
+                                      !tradeName.toLowerCase().startsWith('ยา ') &&
+                                      tradeName.length > 0;
+                                    
+                                    // ถ้ามี GENERIC_NAME หรือ TRADE_NAME ที่ถูกต้อง ให้แสดงแบบเต็ม
+                                    if (hasValidGenericName || hasValidTradeName) {
+                                      return [
+                                        hasValidGenericName ? genericName : null,
+                                        hasValidTradeName ? tradeName : null,
+                                        drugCode
+                                      ].filter(Boolean).join(' / ');
+                                    }
+                                    
+                                    // ถ้าไม่มี GENERIC_NAME หรือ TRADE_NAME ที่ถูกต้อง ให้แสดงแค่ DRUG_CODE
+                                    return drugCode || '-';
+                                  })()}
                                 </Typography>
                                 <Typography variant="caption" color="text.secondary">
                                   จำนวน: {drug.QTY} {drug.UNIT_NAME}

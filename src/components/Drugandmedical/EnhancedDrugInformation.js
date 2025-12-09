@@ -68,6 +68,41 @@ const EnhancedDrugInformation = () => {
         setTotalPages(Math.ceil(filteredDrugs.length / itemsPerPage));
     }, [filteredDrugs]);
 
+    // Deduplicate โดยใช้ DRUG_CODE และเลือกชื่อที่ดีที่สุด
+    const deduplicateDrugs = (list) => {
+        const map = new Map();
+        list.forEach((drug) => {
+            const code = drug.DRUG_CODE;
+            if (!code) return;
+
+            // ชื่อที่ถือว่าดี: ไม่ขึ้นต้นด้วย "ยา " และไม่เท่ากับรหัสยา
+            const isValidName = (name) =>
+                name &&
+                name.toLowerCase().trim() !== '' &&
+                !name.toLowerCase().startsWith('ยา ') &&
+                name !== code;
+
+            const existing = map.get(code);
+            if (!existing) {
+                map.set(code, drug);
+                return;
+            }
+
+            // ถ้ามีชื่อที่ดีกว่า ให้แทนที่
+            const existingScore =
+                (isValidName(existing.GENERIC_NAME) ? 2 : 0) +
+                (isValidName(existing.TRADE_NAME) ? 1 : 0);
+            const currentScore =
+                (isValidName(drug.GENERIC_NAME) ? 2 : 0) +
+                (isValidName(drug.TRADE_NAME) ? 1 : 0);
+
+            if (currentScore > existingScore) {
+                map.set(code, drug);
+            }
+        });
+        return Array.from(map.values());
+    };
+
     const loadDrugs = async () => {
         setLoading(true);
         try {
@@ -82,10 +117,12 @@ const EnhancedDrugInformation = () => {
             const result = await response.json();
             
             if (result.success && result.data) {
-                console.log(`✅ โหลดข้อมูลยา ${result.data.length} รายการ`);
-                setDrugs(result.data);
-                setFilteredDrugs(result.data);
-                showAlert(`โหลดข้อมูลยาสำเร็จ ${result.data.length} รายการ`, 'success');
+                // ✅ Deduplicate ยา และเลือกชื่อที่ดีที่สุด
+                const uniqueDrugs = deduplicateDrugs(result.data);
+                console.log(`✅ โหลดข้อมูลยา ${result.data.length} รายการ (เหลือไม่ซ้ำ ${uniqueDrugs.length})`);
+                setDrugs(uniqueDrugs);
+                setFilteredDrugs(uniqueDrugs);
+                showAlert(`โหลดข้อมูลยาสำเร็จ ${uniqueDrugs.length} รายการ`, 'success');
             } else {
                 throw new Error('ไม่สามารถดึงข้อมูลยาได้');
             }
@@ -858,7 +895,13 @@ const EnhancedDrugInformation = () => {
                                                 {(page - 1) * itemsPerPage + index + 1}
                                             </td>
                                             <td style={{ padding: '12px 8px', fontWeight: 500 }}>{drug.DRUG_CODE}</td>
-                                            <td style={{ padding: '12px 8px' }}>{drug.GENERIC_NAME}</td>
+                                            <td style={{ padding: '12px 8px' }}>
+                                                {[
+                                                    drug.GENERIC_NAME,
+                                                    drug.TRADE_NAME,
+                                                    drug.DRUG_CODE
+                                                ].filter(Boolean).join(' / ')}
+                                            </td>
                                             <td style={{ padding: '12px 8px' }}>{drug.TRADE_NAME || '-'}</td>
                                             <td style={{ padding: '12px 8px' }}>{getTypeDrugName(drug.Type1)}</td>
                                             <td style={{ padding: '12px 8px' }}>
