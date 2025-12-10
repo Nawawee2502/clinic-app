@@ -554,8 +554,8 @@ const Receipt1Management = () => {
         const unitCost = parseFloat(data.UNIT_COST);
         if (data.UNIT_COST === '' || data.UNIT_COST === null) {
             errors.UNIT_COST = 'กรุณาระบุราคาต่อหน่วย';
-        } else if (isNaN(unitCost) || unitCost <= 0) {
-            errors.UNIT_COST = 'ราคาต่อหน่วยต้องมากกว่า 0';
+        } else if (isNaN(unitCost) || unitCost < 0) {
+            errors.UNIT_COST = 'ราคาต่อหน่วยต้องมากกว่าหรือเท่ากับ 0';
         }
 
         if (!data.LOT_NO?.trim()) {
@@ -1127,6 +1127,7 @@ const Receipt1Management = () => {
                                         size="small"
                                         error={!!modalErrors.UNIT_COST}
                                         helperText={modalErrors.UNIT_COST}
+                                        inputProps={{ step: "0.01", min: "0" }}
                                         sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
                                     />
                                 </Grid>
