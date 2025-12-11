@@ -40,7 +40,11 @@ const PatientReceptionSection = ({
     const [vitalsLoading, setVitalsLoading] = useState(false);
     const [todayAppointments, setTodayAppointments] = useState([]);
     const [loadingAppointments, setLoadingAppointments] = useState(false);
-    
+
+    // ✅ UCS Usage State
+    const [ucsUsageCount, setUcsUsageCount] = useState(0);
+    const [loadingUcsUsage, setLoadingUcsUsage] = useState(false);
+
     // ✅ เพิ่ม useRef เพื่อป้องกันการเรียก function ซ้ำ
     const isProcessingRef = useRef(false);
 
@@ -85,7 +89,7 @@ const PatientReceptionSection = ({
             const response = await AppointmentService.getTodayAppointments();
             if (response.success) {
                 // กรองเฉพาะนัดที่ยังไม่ได้เข้าคิว (status = 'นัดไว้' หรือ 'ยืนยันแล้ว')
-                const activeAppointments = response.data.filter(apt => 
+                const activeAppointments = response.data.filter(apt =>
                     apt.STATUS === 'นัดไว้' || apt.STATUS === 'ยืนยันแล้ว'
                 );
                 setTodayAppointments(activeAppointments);
@@ -137,6 +141,24 @@ const PatientReceptionSection = ({
 
             // ✅ โหลด Vital Signs เดิมของผู้ป่วย
             await loadPatientVitals(patient.HNCODE);
+
+            // ✅ เช็คสิทธิ์บัตรทองทันทีเมื่อเลือกผู้ป่วย
+            if (patient.UCS_CARD === 'Y') {
+                setLoadingUcsUsage(true);
+                try {
+                    const usageCheck = await TreatmentService.checkUCSUsageThisMonth(patient.HNCODE);
+                    if (usageCheck.success && usageCheck.data) {
+                        // usageCount คือยอดที่ใช้ไปแล้ว ดังนั้นครั้งนี้จะเป็น usageCount + 1
+                        setUcsUsageCount(usageCheck.data.usageCount + 1);
+                    }
+                } catch (error) {
+                    console.error('Error loading UCS usage:', error);
+                } finally {
+                    setLoadingUcsUsage(false);
+                }
+            } else {
+                setUcsUsageCount(0);
+            }
         } else {
             // ถ้าไม่มีผู้ป่วย ให้เคลียร์ข้อมูล Vitals
             setVitalsData({
@@ -268,6 +290,24 @@ const PatientReceptionSection = ({
         showSnackbar('เคลียร์ข้อมูล Vital Signs แล้ว', 'info');
     };
 
+    // ✅ Reset Select Patient
+    const handleClearPatient = () => {
+        setSelectedPatient(null);
+        setPatientOptions([]);
+        setUcsUsageCount(0);
+        setVitalsData({
+            WEIGHT1: '',
+            HIGH1: '',
+            BT1: '',
+            BP1: '',
+            BP2: '',
+            RR1: '',
+            PR1: '',
+            SPO2: '',
+            SYMPTOM: ''
+        });
+    };
+
     // Calculate BMI
     const calculateBMI = (weight, height) => {
         if (!weight || !height) return null;
@@ -304,7 +344,7 @@ const PatientReceptionSection = ({
             // ✅ Step 0: ตรวจสอบว่า HN นี้มีอยู่ในคิวแล้วหรือยัง (ตรวจสอบใน database โดยตรง)
             console.log('🔍 Checking if patient already in queue:', selectedPatient.HNCODE);
             const allQueueResponse = await PatientService.getAllPatientsFromQueue();
-            
+
             if (allQueueResponse.success) {
                 // หาคิวที่มี HN นี้และยังไม่ปิดการรักษา
                 const existingQueues = allQueueResponse.data.filter(patient => {
@@ -316,10 +356,10 @@ const PatientReceptionSection = ({
                     for (const queue of existingQueues) {
                         // ตรวจสอบ STATUS1 จาก TREATMENT_STATUS หรือ STATUS1
                         const status1 = queue.TREATMENT_STATUS || queue.STATUS1 || queue.queueStatus || '';
-                        
+
                         // ถ้า STATUS1 = 'รอตรวจ', 'ทำงานอยู่', 'รอชำระเงิน', 'ชำระเงินแล้ว' -> ห้ามเพิ่ม
                         const blockedStatuses = ['รอตรวจ', 'ทำงานอยู่', 'รอชำระเงิน', 'ชำระเงินแล้ว'];
-                        
+
                         if (blockedStatuses.includes(status1)) {
                             showSnackbar(
                                 `⚠️ ผู้ป่วย HN: ${selectedPatient.HNCODE} มีอยู่ในคิวแล้ว (สถานะ: ${status1}) ไม่สามารถเพิ่มได้ กรุณารอให้ปิดการรักษาก่อน`,
@@ -339,10 +379,10 @@ const PatientReceptionSection = ({
             const ucsCard = selectedPatient?.UCS_CARD || 'N';
             if (ucsCard === 'Y') {
                 const ucsUsageCheck = await TreatmentService.checkUCSUsageThisMonth(selectedPatient.HNCODE);
-                
+
                 if (ucsUsageCheck.success && ucsUsageCheck.data) {
                     const { usageCount, maxUsage, isExceeded, remainingUsage } = ucsUsageCheck.data;
-                    
+
                     if (isExceeded) {
                         // ถ้าใช้เกิน 2 ครั้งแล้ว ให้แจ้งเตือนว่าต้องจ่ายเงิน
                         const confirmResult = await Swal.fire({
@@ -533,7 +573,7 @@ const PatientReceptionSection = ({
 
             // Dispatch event เพื่อแจ้งหน้าอื่นๆ ว่ามีการเพิ่มคิว
             window.dispatchEvent(new CustomEvent('queueAdded', {
-                detail: { 
+                detail: {
                     queueId: queueResponse.data.QUEUE_ID,
                     queueNumber: queueResponse.data.QUEUE_NUMBER,
                     hncode: selectedPatient.HNCODE
@@ -556,23 +596,23 @@ const PatientReceptionSection = ({
     const handleCheckInAppointment = async (appointment) => {
         try {
             setLoading(true);
-            
+
             // เรียก API check-in appointment
             const response = await QueueService.checkInAppointment(appointment.APPOINTMENT_ID);
-            
+
             if (response.success) {
                 showSnackbar(`✅ เข้าคิวสำเร็จ! คิวที่ ${response.data.QUEUE_NUMBER} | VN: ${response.data.VNO}`, 'success');
-                
+
                 // อัพเดทสถานะนัดหมาย
                 await AppointmentService.updateAppointmentStatus(appointment.APPOINTMENT_ID, 'เข้าพบแล้ว');
-                
+
                 // Refresh data
                 loadTodayAppointments();
                 onRefresh();
-                
+
                 // Dispatch event เพื่อแจ้งหน้าอื่นๆ ว่ามีการเพิ่มคิว
                 window.dispatchEvent(new CustomEvent('queueAdded', {
-                    detail: { 
+                    detail: {
                         queueId: response.data.QUEUE_ID,
                         queueNumber: response.data.QUEUE_NUMBER,
                         hncode: appointment.HNCODE
@@ -627,8 +667,8 @@ const PatientReceptionSection = ({
                             <Grid container spacing={2}>
                                 {todayAppointments.map((appointment) => (
                                     <Grid item xs={12} sm={6} md={4} key={appointment.APPOINTMENT_ID}>
-                                        <Card 
-                                            sx={{ 
+                                        <Card
+                                            sx={{
                                                 bgcolor: 'white',
                                                 border: '1px solid #ffc107',
                                                 '&:hover': { boxShadow: 3 }
@@ -648,7 +688,7 @@ const PatientReceptionSection = ({
                                                         </Typography>
                                                     </Box>
                                                 </Box>
-                                                
+
                                                 <Box sx={{ mt: 1, mb: 1.5 }}>
                                                     <Typography variant="body2" sx={{ mb: 0.5 }}>
                                                         ⏰ <strong>เวลา:</strong> {appointment.APPOINTMENT_TIME || '-'}
@@ -664,7 +704,7 @@ const PatientReceptionSection = ({
                                                         </Typography>
                                                     )}
                                                 </Box>
-                                                
+
                                                 <Button
                                                     variant="contained"
                                                     size="small"
@@ -803,6 +843,32 @@ const PatientReceptionSection = ({
                                             📱 {selectedPatient.TEL1}
                                         </Typography>
                                     </Grid>
+
+                                    {/* ✅ แสดงจำนวนครั้งที่ใช้สิทธิ์บัตรทอง */}
+                                    {selectedPatient.UCS_CARD === 'Y' && (
+                                        <Grid item xs={12} sm={4}>
+                                            <TextField
+                                                label="ใช้สิทธิ์บัตรทองครั้งที่"
+                                                value={loadingUcsUsage ? '...' : ucsUsageCount}
+                                                InputProps={{
+                                                    readOnly: true,
+                                                    sx: {
+                                                        fontWeight: 'bold',
+                                                        color: ucsUsageCount > 2 ? '#b91c1c' : 'inherit', // Dark red text
+                                                        bgcolor: ucsUsageCount > 2 ? '#fee2e2' : (ucsUsageCount === 2 ? '#ffedd5' : '#f0f9ff') // Light bg
+                                                    }
+                                                }}
+                                                size="small"
+                                                fullWidth
+                                                helperText={
+                                                    ucsUsageCount > 2
+                                                        ? "⚠️ เกินกำหนด (ต้องจ่ายเงินเอง)"
+                                                        : (ucsUsageCount === 2 ? "⚠️ ครั้งสุดท้ายของเดือน" : "✅ ภายในกำหนด")
+                                                }
+                                                error={ucsUsageCount > 2}
+                                            />
+                                        </Grid>
+                                    )}
                                 </Grid>
                             </Box>
 

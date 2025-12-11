@@ -1665,6 +1665,7 @@ const PatientManagement = () => {
     const [summaryDrugs, setSummaryDrugs] = useState([]);
     const [summaryLoading, setSummaryLoading] = useState(false);
     const [summaryVitals, setSummaryVitals] = useState(null);
+    const [insuranceFilter, setInsuranceFilter] = useState('all'); // 'all', 'social', 'ucs', 'self'
 
     const handleTabChange = useCallback((event, newValue) => {
         setActiveTab(newValue);
@@ -2095,13 +2096,33 @@ const PatientManagement = () => {
         }
     }, [getTreatmentSummary]);
 
-    // ใช้ patientHistory แต่กรองเฉพาะรายการที่มีสรุปการรักษาเท่านั้น
+    // แสดงทุก record ในเดือนนี้ ไม่ว่าจะมี TREATMENT1 หรือ DXCODE หรือไม่ก็ตาม
+    // และ filter ตามสิทธิการรักษา (ถ้ามีการเลือก filter)
     const filteredHistoryRecords = React.useMemo(() => {
+        if (insuranceFilter === 'all') {
+            return patientHistory;
+        }
+
         return patientHistory.filter((record) => {
-            const summary = getTreatmentSummary(record);
-            return summary && summary.toString().trim() !== '';
+            // ดึงค่าจาก record โดยตรง (backend JOIN กับ patient1 แล้ว)
+            const socialCard = (record?.SOCIAL_CARD || record?.patient?.SOCIAL_CARD || 'N').toString().toUpperCase();
+            const ucsCard = (record?.UCS_CARD || record?.patient?.UCS_CARD || 'N').toString().toUpperCase();
+
+            switch (insuranceFilter) {
+                case 'social':
+                    // ประกันสังคม: SOCIAL_CARD = Y, UCS_CARD = N
+                    return socialCard === 'Y' && ucsCard === 'N';
+                case 'ucs':
+                    // บัตรทอง: SOCIAL_CARD = N, UCS_CARD = Y
+                    return socialCard === 'N' && ucsCard === 'Y';
+                case 'self':
+                    // จ่ายเอง: SOCIAL_CARD = N, UCS_CARD = N
+                    return socialCard === 'N' && ucsCard === 'N';
+                default:
+                    return true;
+            }
         });
-    }, [patientHistory, getTreatmentSummary]);
+    }, [patientHistory, insuranceFilter]);
 
     // เมื่อ patients เปลี่ยน ให้อัพเดท filteredPatients (ถ้าไม่มี search)
     useEffect(() => {
@@ -2775,7 +2796,7 @@ const PatientManagement = () => {
                     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: '#f8fafc', overflow: 'hidden', minHeight: 0 }}>
                         <Box sx={{ p: 3, pb: 2, flexShrink: 0 }}>
                             <Grid container spacing={2} alignItems="center">
-                                <Grid item xs={12} md={6}>
+                                <Grid item xs={12} md={4}>
                                     <TextField
                                         label="ค้นหาผู้ป่วย / HN / VN"
                                         value={historySearch}
@@ -2787,6 +2808,24 @@ const PatientManagement = () => {
                                     />
                                 </Grid>
                                 <Grid item xs={12} sm={6} md={3}>
+                                    <TextField
+                                        select
+                                        label="สิทธิการรักษา"
+                                        value={insuranceFilter}
+                                        onChange={(e) => setInsuranceFilter(e.target.value)}
+                                        fullWidth
+                                        size="small"
+                                        SelectProps={{
+                                            native: false
+                                        }}
+                                    >
+                                        <MenuItem value="all">ทั้งหมด</MenuItem>
+                                        <MenuItem value="social">ประกันสังคม</MenuItem>
+                                        <MenuItem value="ucs">บัตรทอง</MenuItem>
+                                        <MenuItem value="self">จ่ายเอง</MenuItem>
+                                    </TextField>
+                                </Grid>
+                                <Grid item xs={12} sm={6} md={2.5}>
                                     <Button
                                         variant="contained"
                                         color="primary"
@@ -2799,13 +2838,14 @@ const PatientManagement = () => {
                                         {isSearchingHistory ? "ค้นหา" : "ค้นหา"}
                                     </Button>
                                 </Grid>
-                                <Grid item xs={12} sm={6} md={3}>
+                                <Grid item xs={12} sm={6} md={2.5}>
                                     <Button
                                         variant="outlined"
                                         color="primary"
                                         startIcon={<Refresh />}
                                         onClick={() => {
                                             setHistorySearch('');
+                                            setInsuranceFilter('all');
                                             setHistoryPage(1);
                                             fetchPatientHistory(1, '');
                                         }}
@@ -2935,20 +2975,14 @@ const PatientManagement = () => {
                                                                 />
                                                             </TableCell>
                                                             <TableCell sx={{ maxWidth: 220 }}>
-                                                                {treatment1 ? (
-                                                                    <Button
-                                                                        variant="outlined"
-                                                                        size="small"
-                                                                        onClick={() => handleViewSummary(record)}
-                                                                        sx={{ borderRadius: 2, textTransform: 'none', fontSize: 12 }}
-                                                                    >
-                                                                        ดูสรุปการรักษา
-                                                                    </Button>
-                                                                ) : (
-                                                                    <Typography variant="body2" sx={{ color: '#94a3b8' }}>
-                                                                        -
-                                                                    </Typography>
-                                                                )}
+                                                                <Button
+                                                                    variant="outlined"
+                                                                    size="small"
+                                                                    onClick={() => handleViewSummary(record)}
+                                                                    sx={{ borderRadius: 2, textTransform: 'none', fontSize: 12 }}
+                                                                >
+                                                                    ดูสรุปการรักษา
+                                                                </Button>
                                                             </TableCell>
                                                             <TableCell align="center">
                                                                 <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>

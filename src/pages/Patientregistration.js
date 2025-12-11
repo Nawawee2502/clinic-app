@@ -49,6 +49,7 @@ const PatientRegistration = () => {
   const [patientData, setPatientData] = useState({
     HNCODE: '',
     IDNO: '',
+    ID_TYPE: 'IDCARD',
     PRENAME: '',
     NAME1: '',
     SURNAME: '',
@@ -242,6 +243,7 @@ const PatientRegistration = () => {
     setPatientData({
       HNCODE: '',
       IDNO: '',
+      ID_TYPE: 'IDCARD',
       PRENAME: '',
       NAME1: '',
       SURNAME: '',

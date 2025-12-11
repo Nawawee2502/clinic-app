@@ -12,7 +12,12 @@ import {
   IconButton,
   Tooltip,
   Autocomplete,
-  Checkbox
+  Checkbox,
+  Radio,
+  RadioGroup,
+  FormControlLabel,
+  FormControl,
+  FormLabel
 } from "@mui/material";
 import AutorenewIcon from '@mui/icons-material/Autorenew';
 
@@ -73,6 +78,10 @@ const GeneralInfoTab = ({ onNext, patientData, updatePatientData }) => {
       updates.UCS_CARD = 'N';
     }
 
+    if (!patientData.ID_TYPE) {
+      updates.ID_TYPE = 'IDCARD';
+    }
+
     if (Object.keys(updates).length > 0) {
       updatePatientData(updates);
     }
@@ -85,7 +94,7 @@ const GeneralInfoTab = ({ onNext, patientData, updatePatientData }) => {
       setSelectedDay(day);
       setSelectedMonth(month);
       setSelectedYear(year);
-      
+
       // ถ้า AGE เป็น 0 หรือไม่มี ให้คำนวณใหม่จาก BDATE
       if (!patientData.AGE || patientData.AGE === 0 || patientData.AGE === '0') {
         if (day && month && year) {
@@ -115,7 +124,16 @@ const GeneralInfoTab = ({ onNext, patientData, updatePatientData }) => {
   }, [patientData.SEX]);
 
   const checkDuplicateIdCard = async (idno) => {
-    if (!idno || idno.length !== 13) {
+    // Basic validation based on type
+    if (!idno) {
+      setIdCardError('');
+      return false;
+    }
+
+    const isThaiID = !patientData.ID_TYPE || patientData.ID_TYPE === 'IDCARD';
+
+    if (isThaiID && idno.length !== 13) {
+      // For Thai ID, don't check duplicate until complete
       setIdCardError('');
       return false;
     }
@@ -129,7 +147,7 @@ const GeneralInfoTab = ({ onNext, patientData, updatePatientData }) => {
 
       if (result.success && result.exists) {
         const existingPatient = result.patient;
-        setIdCardError(`บัตรประชาชนนี้มีอยู่แล้ว (HN: ${existingPatient.HNCODE} - ${existingPatient.NAME1} ${existingPatient.SURNAME})`);
+        setIdCardError(`เลขนี้มีอยู่แล้ว (HN: ${existingPatient.HNCODE} - ${existingPatient.NAME1} ${existingPatient.SURNAME})`);
         return true;
       } else {
         setIdCardError('');
@@ -137,21 +155,49 @@ const GeneralInfoTab = ({ onNext, patientData, updatePatientData }) => {
       }
     } catch (error) {
       console.error('Error checking ID card:', error);
-      setIdCardError('ไม่สามารถตรวจสอบบัตรประชาชนได้');
+      setIdCardError('ไม่สามารถตรวจสอบได้');
       return false;
     } finally {
       setIsCheckingIdCard(false);
     }
   };
 
+  const handleIdTypeChange = (event) => {
+    const newType = event.target.value;
+    updatePatientData({
+      ID_TYPE: newType,
+      IDNO: '' // Clear value when switching type to avoid validation confusion
+    });
+    setIdCardError('');
+  };
+
   const handleIdCardChange = async (event) => {
-    const value = event.target.value.replace(/[^0-9]/g, '').slice(0, 13);
+    let value = event.target.value;
+    const isThaiID = !patientData.ID_TYPE || patientData.ID_TYPE === 'IDCARD';
+
+    if (isThaiID) {
+      // Thai ID: Allow only numbers, max 13
+      value = value.replace(/[^0-9]/g, '').slice(0, 13);
+    } else {
+      // Passport: Allow alphanumeric, max 20
+      value = value.replace(/[^A-Za-z0-9]/g, '').slice(0, 20);
+    }
+
     updatePatientData({ IDNO: value });
 
-    if (value.length === 13) {
-      await checkDuplicateIdCard(value);
+    if (isThaiID) {
+      if (value.length === 13) {
+        await checkDuplicateIdCard(value);
+      } else {
+        setIdCardError('');
+      }
     } else {
-      setIdCardError('');
+      // Passport: Check duplicate if length > 3 to avoid spam
+      if (value.length > 5) {
+        await checkDuplicateIdCard(value);
+      } else {
+        setIdCardError('');
+      }
     }
   };
 
@@ -214,7 +260,7 @@ const GeneralInfoTab = ({ onNext, patientData, updatePatientData }) => {
       // คำนวณความแตกต่างเป็นเดือน
       let ageMonths = (today.getFullYear() - birth.getFullYear()) * 12;
       ageMonths += today.getMonth() - birth.getMonth();
-      
+
       // ถ้าวันที่เกิดยังไม่ถึงวันนี้ในเดือนนี้ ให้ลบ 1 เดือน
       if (today.getDate() < birth.getDate()) {
         ageMonths--;
@@ -381,7 +427,13 @@ const GeneralInfoTab = ({ onNext, patientData, updatePatientData }) => {
       return;
     }
     if (idCardError) {
-      alert('กรุณาแก้ไขปัญหาบัตรประชาชนก่อน');
+      alert('กรุณาแก้ไขปัญหาหมายเลขประจำตัวก่อน');
+      return;
+    }
+
+    // Validate Thai ID length if selected
+    if ((!patientData.ID_TYPE || patientData.ID_TYPE === 'IDCARD') && patientData.IDNO && patientData.IDNO.length !== 13) {
+      alert('กรุณากรอกเลขบัตรประชาชนให้ครบ 13 หลัก');
       return;
     }
     onNext();
@@ -501,11 +553,38 @@ const GeneralInfoTab = ({ onNext, patientData, updatePatientData }) => {
           </Grid>
 
           <Grid item xs={12} sm={6}>
-            <Typography sx={{ fontWeight: '400', fontSize: '16px', textAlign: "left" }}>
-              เลขบัตรประชาชน <span style={{ color: 'red' }}>*</span>
-            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
+              <Typography sx={{ fontWeight: '400', fontSize: '16px' }}>
+                เลขบัตรประจำตัว <span style={{ color: 'red' }}>*</span>
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                <FormControl component="fieldset">
+                  <RadioGroup
+                    row
+                    name="idType"
+                    value={patientData.ID_TYPE || 'IDCARD'}
+                    onChange={handleIdTypeChange}
+                    sx={{ '& .MuiFormControlLabel-root': { mr: 1 } }}
+                  >
+                    <FormControlLabel
+                      value="IDCARD"
+                      control={<Radio size="small" sx={{ p: 0.5 }} />}
+                      label={<Typography variant="caption">บัตรประชาชน</Typography>}
+                      sx={{ mr: 1, ml: 0 }}
+                    />
+                    <FormControlLabel
+                      value="PASSPORT"
+                      control={<Radio size="small" sx={{ p: 0.5 }} />}
+                      label={<Typography variant="caption">พาสปอร์ต</Typography>}
+                      sx={{ mr: 0, ml: 0 }}
+                    />
+                  </RadioGroup>
+                </FormControl>
+              </Box>
+            </Box>
+
             <TextField
-              placeholder="เลขบัตรประชาชน"
+              placeholder={(!patientData.ID_TYPE || patientData.ID_TYPE === 'IDCARD') ? 'เลขบัตรประชาชน 13 หลัก' : 'เลขที่พาสปอร์ต (ตัวเลข/ตัวอักษร)'}
               size="small"
               fullWidth
               value={patientData.IDNO || ''}
@@ -513,7 +592,6 @@ const GeneralInfoTab = ({ onNext, patientData, updatePatientData }) => {
               error={!!idCardError}
               helperText={idCardError}
               sx={{
-                mt: 1,
                 '& .MuiOutlinedInput-root': {
                   borderRadius: '10px',
                   borderColor: idCardError ? 'red' : undefined
