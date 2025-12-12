@@ -24,11 +24,12 @@ import QueueService from "../../services/queueService";
 import Swal from 'sweetalert2';
 
 const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => {
-    // ✅ ตรวจสอบสถานะว่า "ล็อก" หรือไม่ (ถ้าไม่ใช่ 'กำลังตรวจ' ถือว่าล็อก)
+    // ✅ ตรวจสอบสถานะว่า "ล็อก" หรือไม่ (ล็อกเฉพาะเมื่ออยู่ในสถานะที่ดำเนินการเสร็จสิ้นแล้ว)
+    const processingStatuses = ['รอชำระเงิน', 'ชำระเงินแล้ว', 'เสร็จแล้ว', 'ปิดการรักษา'];
     const isLocked =
-        (currentPatient?.STATUS1 !== 'กำลังตรวจ' && currentPatient?.STATUS1 !== 'รอตรวจ') ||
-        ['รอชำระเงิน', 'ชำระเงินแล้ว', 'เสร็จแล้ว', 'ปิดการรักษา'].includes(currentPatient?.queueStatus) ||
-        ['รอชำระเงิน', 'ชำระเงินแล้ว', 'เสร็จแล้ว', 'ปิดการรักษา'].includes(currentPatient?.STATUS);
+        processingStatuses.includes(currentPatient?.queueStatus) ||
+        processingStatuses.includes(currentPatient?.STATUS1) ||
+        processingStatuses.includes(currentPatient?.STATUS);
 
     const [medicineData, setMedicineData] = useState({
         drugName: '',

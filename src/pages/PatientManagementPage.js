@@ -1949,15 +1949,15 @@ const PatientManagement = () => {
 
                 if (response.success && response.data) {
                     const drugs = response.data.drugs || [];
-                    
+
                     // Debug: เช็คว่าข้อมูลที่ได้มาจาก API มีอะไรบ้าง
                     console.log('🔍 Raw drugs from API:', drugs.length, 'items');
-                    console.log('📋 Drugs data (first 10):', drugs.slice(0, 10).map(d => ({ 
-                        DRUG_CODE: d.DRUG_CODE, 
+                    console.log('📋 Drugs data (first 10):', drugs.slice(0, 10).map(d => ({
+                        DRUG_CODE: d.DRUG_CODE,
                         QTY: d.QTY,
-                        VNO: d.VNO 
+                        VNO: d.VNO
                     })));
-                    
+
                     // ✅ Deduplicate ตาม DRUG_CODE - เพราะ backend อาจส่ง duplicate มา
                     const drugMap = new Map();
                     drugs.forEach(drug => {
@@ -1967,10 +1967,10 @@ const PatientManagement = () => {
                             drugMap.set(drugCode, drug);
                         }
                     });
-                    
+
                     const uniqueDrugs = Array.from(drugMap.values());
                     console.log('✅ After deduplicate by DRUG_CODE:', uniqueDrugs.length, 'unique drugs');
-                    
+
                     // ✅ ดึงชื่อยาที่ถูกต้องจาก DrugService
                     const drugsWithCorrectNames = await Promise.all(
                         uniqueDrugs.map(async (drug) => {
@@ -1978,14 +1978,14 @@ const PatientManagement = () => {
                             // เก็บค่าจาก drug เดิมไว้ก่อน (fallback)
                             let genericName = drug.GENERIC_NAME || '';
                             let tradeName = drug.TRADE_NAME || '';
-                            
+
                             // ✅ ดึงชื่อยาที่ถูกต้องจาก DrugService - ดึงทุกครั้ง
                             if (drugCode) {
                                 try {
                                     console.log(`🔍 Fetching drug details for ${drugCode}...`);
                                     const drugResponse = await DrugService.getDrugByCode(drugCode);
                                     console.log(`📦 DrugService response for ${drugCode}:`, drugResponse);
-                                    
+
                                     if (drugResponse && drugResponse.success && drugResponse.data) {
                                         const fetchedDrug = drugResponse.data;
                                         console.log(`✅ Fetched drug data for ${drugCode}:`, {
@@ -1993,7 +1993,7 @@ const PatientManagement = () => {
                                             TRADE_NAME: fetchedDrug.TRADE_NAME,
                                             fullData: fetchedDrug
                                         });
-                                        
+
                                         // ✅ ถ้า DrugService มีชื่อ ใช้ชื่อจาก DrugService (แม้จะเป็น empty string)
                                         // แต่ถ้าเป็น null/undefined ให้ใช้ค่าจาก drug เดิม
                                         if (fetchedDrug.GENERIC_NAME !== null && fetchedDrug.GENERIC_NAME !== undefined) {
@@ -2011,22 +2011,22 @@ const PatientManagement = () => {
                                     // ถ้า error ก็ใช้ค่าจาก drug เดิม
                                 }
                             }
-                            
+
                             // ✅ Final cleanup: ล้างชื่อที่เท่ากับ DRUG_CODE หรือขึ้นต้นด้วย "ยา "
                             // แต่ไม่ล้างถ้าเป็น empty string ธรรมดา (เพราะอาจจะมีใน DB แต่เป็น empty จริงๆ)
                             if (genericName && (
-                                genericName.trim() === '' || 
-                                genericName === drugCode || 
+                                genericName.trim() === '' ||
+                                genericName === drugCode ||
                                 genericName.toLowerCase().startsWith('ยา '))) {
                                 genericName = '';
                             }
                             if (tradeName && (
-                                tradeName.trim() === '' || 
-                                tradeName === drugCode || 
+                                tradeName.trim() === '' ||
+                                tradeName === drugCode ||
                                 tradeName.toLowerCase().startsWith('ยา '))) {
                                 tradeName = '';
                             }
-                            
+
                             // Debug: log สำหรับ D0155
                             if (drugCode === 'D0155') {
                                 console.log(`🔍 D0155 Final values:`, {
@@ -2036,7 +2036,7 @@ const PatientManagement = () => {
                                     originalTrade: drug.TRADE_NAME
                                 });
                             }
-                            
+
                             return {
                                 ...drug,
                                 GENERIC_NAME: genericName,
@@ -2044,26 +2044,26 @@ const PatientManagement = () => {
                             };
                         })
                     );
-                    
+
                     // Debug: เช็คข้อมูลก่อน set
                     console.log('✅ Final drugs before setSummaryDrugs:', drugsWithCorrectNames.length, 'items');
-                    console.log('📊 Final drugs with names:', drugsWithCorrectNames.map(d => ({ 
-                        DRUG_CODE: d.DRUG_CODE, 
+                    console.log('📊 Final drugs with names:', drugsWithCorrectNames.map(d => ({
+                        DRUG_CODE: d.DRUG_CODE,
                         GENERIC_NAME: d.GENERIC_NAME || '(empty)',
                         TRADE_NAME: d.TRADE_NAME || '(empty)',
-                        QTY: d.QTY 
+                        QTY: d.QTY
                     })));
-                    
+
                     // เช็คยาที่ไม่มีชื่อ
-                    const drugsWithoutNames = drugsWithCorrectNames.filter(d => 
-                        (!d.GENERIC_NAME || d.GENERIC_NAME.trim() === '') && 
+                    const drugsWithoutNames = drugsWithCorrectNames.filter(d =>
+                        (!d.GENERIC_NAME || d.GENERIC_NAME.trim() === '') &&
                         (!d.TRADE_NAME || d.TRADE_NAME.trim() === '')
                     );
                     if (drugsWithoutNames.length > 0) {
-                        console.warn('⚠️ Drugs without names (will show as DRUG_CODE):', 
+                        console.warn('⚠️ Drugs without names (will show as DRUG_CODE):',
                             drugsWithoutNames.map(d => d.DRUG_CODE));
                     }
-                    
+
                     setSummaryDrugs(drugsWithCorrectNames);
 
                     // อัพเดท DXCODE และ Vital Signs จาก treatment
@@ -2319,7 +2319,15 @@ const PatientManagement = () => {
         try {
             setLoading(true);
             setError('');
-            const response = await PatientService.updatePatient(selectedPatient.HNCODE, editFormData);
+
+            const hnToUpdate = selectedPatient.HNCODE?.toString().trim();
+            if (!hnToUpdate) {
+                setError('ไม่พบรหัสผู้ป่วย (HN)');
+                setLoading(false);
+                return;
+            }
+
+            const response = await PatientService.updatePatient(hnToUpdate, editFormData);
 
             if (response.success) {
                 const updatedList = await loadPatients();
@@ -3439,18 +3447,18 @@ const PatientManagement = () => {
                                                                     const genericName = drug.GENERIC_NAME || '';
                                                                     const tradeName = drug.TRADE_NAME || '';
                                                                     const drugCode = drug.DRUG_CODE || '';
-                                                                    
+
                                                                     // สร้าง array ของชื่อยาที่จะแสดง โดยกรองค่าที่ไม่ถูกต้อง
                                                                     const displayParts = [];
-                                                                    if (genericName && 
+                                                                    if (genericName &&
                                                                         genericName.trim() !== '' &&
-                                                                        genericName !== drugCode && 
+                                                                        genericName !== drugCode &&
                                                                         !genericName.toLowerCase().startsWith('ยา ')) {
                                                                         displayParts.push(genericName.trim());
                                                                     }
-                                                                    if (tradeName && 
+                                                                    if (tradeName &&
                                                                         tradeName.trim() !== '' &&
-                                                                        tradeName !== drugCode && 
+                                                                        tradeName !== drugCode &&
                                                                         !tradeName.toLowerCase().startsWith('ยา ')) {
                                                                         displayParts.push(tradeName.trim());
                                                                     }
@@ -3458,34 +3466,34 @@ const PatientManagement = () => {
                                                                     if (drugCode && !displayParts.includes(drugCode)) {
                                                                         displayParts.push(drugCode);
                                                                     }
-                                                                    
-                                                                    const displayName = displayParts.length > 0 
-                                                                        ? displayParts.join(' / ') 
+
+                                                                    const displayName = displayParts.length > 0
+                                                                        ? displayParts.join(' / ')
                                                                         : drugCode || '-';
-                                                                    
+
                                                                     // แสดง QTY อย่างง่าย
                                                                     const qtyValue = drug.QTY || '0';
-                                                                    const displayQty = typeof qtyValue === 'string' 
-                                                                        ? qtyValue.trim().split(/\s+/)[0] 
+                                                                    const displayQty = typeof qtyValue === 'string'
+                                                                        ? qtyValue.trim().split(/\s+/)[0]
                                                                         : qtyValue.toString();
                                                                     const unitName = drug.UNIT_NAME || '';
                                                                     const qtyDisplay = unitName ? `${displayQty} ${unitName}` : displayQty;
-                                                                    
+
                                                                     return (
-                                                                    <TableRow key={`${drugCode}-${index}`} hover sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
-                                                                        <TableCell sx={{ color: '#94A3B8' }}>{index + 1}</TableCell>
-                                                                        <TableCell>
-                                                                            <Typography variant="body2" sx={{ fontWeight: 600, color: '#334155' }}>
-                                                                                {displayName}
-                                                                            </Typography>
-                                                                        </TableCell>
-                                                                        <TableCell align="right" sx={{ color: '#334155' }}>
-                                                                            {qtyDisplay}
-                                                                        </TableCell>
-                                                                        <TableCell sx={{ color: '#475569', maxWidth: 200 }}>
-                                                                            {drug.eat1 || drug.NOTE1 || drug.TIME1 || '-'}
-                                                                        </TableCell>
-                                                                    </TableRow>
+                                                                        <TableRow key={`${drugCode}-${index}`} hover sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
+                                                                            <TableCell sx={{ color: '#94A3B8' }}>{index + 1}</TableCell>
+                                                                            <TableCell>
+                                                                                <Typography variant="body2" sx={{ fontWeight: 600, color: '#334155' }}>
+                                                                                    {displayName}
+                                                                                </Typography>
+                                                                            </TableCell>
+                                                                            <TableCell align="right" sx={{ color: '#334155' }}>
+                                                                                {qtyDisplay}
+                                                                            </TableCell>
+                                                                            <TableCell sx={{ color: '#475569', maxWidth: 200 }}>
+                                                                                {drug.eat1 || drug.NOTE1 || drug.TIME1 || '-'}
+                                                                            </TableCell>
+                                                                        </TableRow>
                                                                     );
                                                                 })}
                                                             </TableBody>

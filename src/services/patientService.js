@@ -236,57 +236,57 @@ class PatientService {
             const patientsWithQueue = queueResponse.data.map(queueItem => {
                 // Debug: ตรวจสอบ STATUS จาก backend
                 console.log(`🔍 Queue Item ${queueItem.QUEUE_ID}: STATUS="${queueItem.STATUS}"`);
-                
+
                 // ✅ ใช้ STATUS1 จาก TREATMENT1 เป็นหลัก ถ้าไม่มีให้ใช้ STATUS จาก DAILY_QUEUE
                 const finalStatus = queueItem.TREATMENT_STATUS || queueItem.STATUS || 'รอตรวจ';
-                
+
                 return {
-                // ข้อมูลคิว
-                queueNumber: queueItem.QUEUE_NUMBER,
-                queueTime: queueItem.QUEUE_TIME,
+                    // ข้อมูลคิว
+                    queueNumber: queueItem.QUEUE_NUMBER,
+                    queueTime: queueItem.QUEUE_TIME,
                     queueStatus: finalStatus, // ใช้ STATUS1 จาก TREATMENT1 เป็นหลัก
                     STATUS: queueItem.STATUS || 'รอตรวจ', // เก็บ STATUS จาก DAILY_QUEUE ไว้ด้วย
-                queueType: queueItem.TYPE,
-                queueId: queueItem.QUEUE_ID,
-                queueDate: queueItem.QUEUE_DATE,
+                    queueType: queueItem.TYPE,
+                    queueId: queueItem.QUEUE_ID,
+                    queueDate: queueItem.QUEUE_DATE,
 
-                // ข้อมูลผู้ป่วย
-                HNCODE: queueItem.HNCODE,
-                PRENAME: queueItem.PRENAME,
-                NAME1: queueItem.NAME1,
-                SURNAME: queueItem.SURNAME,
-                AGE: queueItem.AGE,
-                SEX: queueItem.SEX,
-                TEL1: queueItem.TEL1,
+                    // ข้อมูลผู้ป่วย
+                    HNCODE: queueItem.HNCODE,
+                    PRENAME: queueItem.PRENAME,
+                    NAME1: queueItem.NAME1,
+                    SURNAME: queueItem.SURNAME,
+                    AGE: queueItem.AGE,
+                    SEX: queueItem.SEX,
+                    TEL1: queueItem.TEL1,
 
-                // ข้อมูล VN ถ้ามี
-                VNO: queueItem.VNO,
-                TREATMENT_STATUS: queueItem.TREATMENT_STATUS,
+                    // ข้อมูล VN ถ้ามี
+                    VNO: queueItem.VNO,
+                    TREATMENT_STATUS: queueItem.TREATMENT_STATUS,
                     STATUS1: queueItem.TREATMENT_STATUS, // เก็บ STATUS1 ไว้ด้วย
 
-                // อาการเบื้องต้น
-                SYMPTOM: queueItem.CHIEF_COMPLAINT,
+                    // อาการเบื้องต้น
+                    SYMPTOM: queueItem.CHIEF_COMPLAINT,
 
-                // Avatar placeholder
-                avatar: this.generateAvatarUrl(queueItem.SEX, queueItem.NAME1),
+                    // Avatar placeholder
+                    avatar: this.generateAvatarUrl(queueItem.SEX, queueItem.NAME1),
 
-                // ✅ เพิ่มข้อมูลบัตร
-                SOCIAL_CARD: queueItem.SOCIAL_CARD,
-                UCS_CARD: queueItem.UCS_CARD,
+                    // ✅ เพิ่มข้อมูลบัตร
+                    SOCIAL_CARD: queueItem.SOCIAL_CARD,
+                    UCS_CARD: queueItem.UCS_CARD,
 
-                // ✅ เพิ่มข้อมูลประวัติแพ้ยาและโรคประจำตัว
-                DRUG_ALLERGY: queueItem.DRUG_ALLERGY || null,
-                DISEASE1: queueItem.DISEASE1 || null,
+                    // ✅ เพิ่มข้อมูลประวัติแพ้ยาและโรคประจำตัว
+                    DRUG_ALLERGY: queueItem.DRUG_ALLERGY || null,
+                    DISEASE1: queueItem.DISEASE1 || null,
 
-                // ข้อมูลสำหรับ Vital Signs (ยังไม่มี จะได้จาก Treatment)
-                WEIGHT1: queueItem.WEIGHT1 || null,
-                HIGHT1: null,
-                BT1: null,
-                BP1: null,
-                BP2: null,
-                RR1: null,
-                PR1: null,
-                SPO2: null
+                    // ข้อมูลสำหรับ Vital Signs (ยังไม่มี จะได้จาก Treatment)
+                    WEIGHT1: queueItem.WEIGHT1 || null,
+                    HIGHT1: null,
+                    BT1: null,
+                    BP1: null,
+                    BP2: null,
+                    RR1: null,
+                    PR1: null,
+                    SPO2: null
                 };
             });
 
@@ -316,7 +316,7 @@ class PatientService {
     // Helper function for fetch with timeout and retry
     static async fetchWithTimeout(url, options = {}, timeout = 20000, retries = 2) {
         let lastError = null;
-        
+
         for (let attempt = 0; attempt <= retries; attempt++) {
             const controller = new AbortController();
             let timeoutId = null;
@@ -367,15 +367,19 @@ class PatientService {
     // อัพเดทข้อมูลผู้ป่วย
     static async updatePatient(hn, patientData) {
         try {
-            console.log('🔗 Calling API:', `${API_BASE_URL}/patients/${hn}`);
+            if (!hn) {
+                throw new Error('HN is required');
+            }
+            const safeHN = encodeURIComponent(hn.toString().trim());
+            console.log('🔗 Calling API:', `${API_BASE_URL}/patients/${safeHN}`);
             const response = await this.fetchWithTimeout(
-                `${API_BASE_URL}/patients/${hn}`,
+                `${API_BASE_URL}/patients/${safeHN}`,
                 {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(patientData)
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(patientData)
                 },
                 20000, // 20 second timeout
                 2 // 2 retries
@@ -555,8 +559,8 @@ class PatientService {
             // เพราะ database เก็บ AGE เป็น INT ไม่สามารถเก็บข้อมูลเดือนได้
             // ข้อมูลเดือนจะคำนวณจาก BDATE ใน frontend
             AGE: data.AGE ? (
-                data.AGE.toString().includes('เดือน') 
-                    ? 0 
+                data.AGE.toString().includes('เดือน')
+                    ? 0
                     : parseInt(data.AGE, 10)
             ) : 0,
             BLOOD_GROUP1: (data.BLOOD_GROUP1 || '').toString().trim(),

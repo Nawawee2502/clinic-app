@@ -21,12 +21,13 @@ import EmployeeService from "../../services/employeeService";
 import MedicalProcedureService from "../../services/medicalProcesureService";
 
 const Procedure = ({ currentPatient, onSaveSuccess }) => {
-  // ✅ ตรวจสอบสถานะว่า "ล็อก" หรือไม่ (ถ้าไม่ใช่ 'กำลังตรวจ' ถือว่าล็อก)
+  // ✅ ตรวจสอบสถานะว่า "ล็อก" หรือไม่ (ล็อกเฉพาะเมื่ออยู่ในสถานะที่ดำเนินการเสร็จสิ้นแล้ว)
   // Check queueStatus and STATUS as well because STATUS1 might be stale immediately after update
+  const processingStatuses = ['รอชำระเงิน', 'ชำระเงินแล้ว', 'เสร็จแล้ว', 'ปิดการรักษา'];
   const isLocked =
-    (currentPatient?.STATUS1 !== 'กำลังตรวจ' && currentPatient?.STATUS1 !== 'รอตรวจ') ||
-    ['รอชำระเงิน', 'ชำระเงินแล้ว', 'เสร็จแล้ว', 'ปิดการรักษา'].includes(currentPatient?.queueStatus) ||
-    ['รอชำระเงิน', 'ชำระเงินแล้ว', 'เสร็จแล้ว', 'ปิดการรักษา'].includes(currentPatient?.STATUS);
+    processingStatuses.includes(currentPatient?.queueStatus) ||
+    processingStatuses.includes(currentPatient?.STATUS1) ||
+    processingStatuses.includes(currentPatient?.STATUS);
 
   const [procedureData, setProcedureData] = useState({
     procedureName: '',
