@@ -21,7 +21,7 @@ import {
   TableHead,
   TableRow
 } from "@mui/material";
-import { Print as PrintIcon } from "@mui/icons-material";
+import { Print as PrintIcon, Edit as EditIcon, Refresh as RefreshIcon } from "@mui/icons-material";
 
 // Import Services
 import PatientService from "../services/patientService";
@@ -130,6 +130,39 @@ const Paymentanddispensingmedicine = () => {
       loadTreatmentData(patients[selectedPatientIndex].VNO);
     }
   }, [selectedPatientIndex, patients]);
+
+  // ✅ แจ้งเตือนแพ้ยาและโรคประจำตัว เมื่อเลือกผู้ป่วย
+  useEffect(() => {
+    const currentPatient = patients[selectedPatientIndex];
+    if (currentPatient) {
+      const allergy = currentPatient.DRUG_ALLERGY && currentPatient.DRUG_ALLERGY !== '-' ? currentPatient.DRUG_ALLERGY : null;
+      const disease = currentPatient.DISEASE1 && currentPatient.DISEASE1 !== '-' ? currentPatient.DISEASE1 : null;
+
+      if (allergy || disease) {
+        let htmlContent = '<div style="text-align: left;">';
+        if (allergy) {
+          htmlContent += `<p style="color: #d32f2f; font-weight: bold; margin-bottom: 8px;">🚫 ประวัติแพ้ยา: ${allergy}</p>`;
+        }
+        if (disease) {
+          htmlContent += `<p style="color: #1976d2; font-weight: bold;">🏥 โรคประจำตัว: ${disease}</p>`;
+        }
+        htmlContent += '</div>';
+
+        // ใช้ setTimeout เล็กน้อยเพื่อให้แน่ใจว่าไม่ได้ชนกับ alert อื่นๆ
+        setTimeout(() => {
+          Swal.fire({
+            title: '⚠️ แจ้งเตือนข้อมูลสำคัญ',
+            html: htmlContent,
+            icon: 'warning',
+            confirmButtonText: 'รับทราบ',
+            confirmButtonColor: '#d32f2f',
+            timer: 5000,
+            timerProgressBar: true
+          });
+        }, 100);
+      }
+    }
+  }, [selectedPatientIndex, patients]); // เช็คเมื่อเปลี่ยนคนหรือโหลดข้อมูลเสร็จ
 
   const handlePayment = async () => {
     try {
@@ -347,9 +380,6 @@ const Paymentanddispensingmedicine = () => {
       console.error('Error loading patients:', err);
       if (showLoading) {
         setError('เกิดข้อผิดพลาดในการโหลดข้อมูล: ' + err.message);
-      } else {
-        // ถ้าเป็น auto-refresh แล้ว error ให้ log เฉยๆ
-        console.warn('Auto-refresh failed, keeping existing data');
       }
     } finally {
       if (showLoading) {
@@ -413,19 +443,19 @@ const Paymentanddispensingmedicine = () => {
       if (ucsCard === 'Y' && (isUcsExceeded || hasPayableDrugs) && paymentStatus !== 'ชำระเงินแล้ว') {
         // ✅ ถ้ายอดรวมเป็น 0 ให้แสดง modal ยืนยันให้ปิดได้
         if (totalAmount === 0 || totalAmount < 0.01) {
-          const reasonText = isUcsExceeded 
+          const reasonText = isUcsExceeded
             ? `ผู้ป่วยรายนี้ใช้สิทธิ์บัตรทองเกิน 2 ครั้งในเดือนนี้<br/>`
             : `ผู้ป่วยรายนี้เป็นบัตรทอง แต่มียาที่ต้องจ่ายเงิน<br/>`;
-          
+
           const confirmResult = await Swal.fire({
             icon: 'warning',
             title: 'ยืนยันการปิดการรักษา',
             html: `
-              ${reasonText}
-              <p>ยอดรวม: ฿${totalAmount.toFixed(2)}</p>
-              <p>ผู้ป่วยรายนี้ยังไม่ได้ทำการชำระเงิน</p>
-              <p>ต้องการปิดการรักษาแม้ว่ายังไม่มีการชำระเงินหรือไม่?</p>
-            `,
+            ${reasonText}
+            <p>ยอดรวม: ฿${totalAmount.toFixed(2)}</p>
+            <p>ผู้ป่วยรายนี้ยังไม่ได้ทำการชำระเงิน</p>
+            <p>ต้องการปิดการรักษาแม้ว่ายังไม่มีการชำระเงินหรือไม่?</p>
+          `,
             showCancelButton: true,
             confirmButtonText: 'ยืนยันปิดการรักษา',
             cancelButtonText: 'ยกเลิก',
@@ -439,10 +469,10 @@ const Paymentanddispensingmedicine = () => {
           // ถ้ายืนยันแล้ว ให้ดำเนินการปิดการรักษาต่อ (ไม่ return)
         } else {
           // ถ้ายอดรวมมากกว่า 0 ต้องชำระเงินก่อน
-          const reasonText = isUcsExceeded 
+          const reasonText = isUcsExceeded
             ? `ผู้ป่วยรายนี้ใช้สิทธิ์บัตรทองเกิน 2 ครั้งในเดือนนี้<br/>`
             : `ผู้ป่วยรายนี้เป็นบัตรทอง แต่มียาที่ต้องจ่ายเงิน<br/>`;
-          const amountText = isUcsExceeded 
+          const amountText = isUcsExceeded
             ? `<strong>ยอดรวม ฿${totalAmount.toFixed(2)}</strong><br/>`
             : `<strong>จำนวน ${payableDrugs.length} รายการ</strong> รวมเป็นเงิน <strong>฿${payableDrugAmount.toFixed(2)}</strong><br/>`;
 
@@ -466,10 +496,10 @@ const Paymentanddispensingmedicine = () => {
             icon: 'warning',
             title: 'ยืนยันการปิดการรักษา',
             html: `
-              <p>ผู้ป่วยรายนี้ยังไม่ได้ทำการชำระเงิน</p>
-              <p><strong>ยอดรวม: ฿${totalAmount.toFixed(2)}</strong></p>
-              <p>ต้องการปิดการรักษาแม้ว่ายังไม่มีการชำระเงินหรือไม่?</p>
-            `,
+            <p>ผู้ป่วยรายนี้ยังไม่ได้ทำการชำระเงิน</p>
+            <p><strong>ยอดรวม: ฿${totalAmount.toFixed(2)}</strong></p>
+            <p>ต้องการปิดการรักษาแม้ว่ายังไม่มีการชำระเงินหรือไม่?</p>
+          `,
             showCancelButton: true,
             confirmButtonText: 'ยืนยันปิดการรักษา',
             cancelButtonText: 'ยกเลิก',
@@ -487,10 +517,10 @@ const Paymentanddispensingmedicine = () => {
             icon: 'warning',
             title: 'ยังไม่สามารถปิดการรักษาได้',
             html: `
-              <p>ผู้ป่วยรายนี้ยังไม่ได้ทำการชำระเงิน</p>
-              <p><strong>ยอดรวม: ฿${totalAmount.toFixed(2)}</strong></p>
-              <p>กรุณาชำระเงินก่อนปิดการรักษา</p>
-            `,
+            <p>ผู้ป่วยรายนี้ยังไม่ได้ทำการชำระเงิน</p>
+            <p><strong>ยอดรวม: ฿${totalAmount.toFixed(2)}</strong></p>
+            <p>กรุณาชำระเงินก่อนปิดการรักษา</p>
+          `,
             confirmButtonText: 'ตกลง',
             confirmButtonColor: '#5698E0'
           });
@@ -578,6 +608,56 @@ const Paymentanddispensingmedicine = () => {
     }
   };
 
+  // ✅ ฟังก์ชั่นส่งคืนแพทย์ (Unlock)
+  const handleReturnToDoctor = async () => {
+    try {
+      if (!patients[selectedPatientIndex]) return;
+      const currentPatient = patients[selectedPatientIndex];
+
+      const confirmResult = await Swal.fire({
+        icon: 'warning',
+        title: 'ยืนยันการส่งคืนแพทย์',
+        text: 'สถานะจะเปลี่ยนกลับเป็น "กำลังตรวจ" และแพทย์จะสามารถแก้ไขรายการยาได้',
+        showCancelButton: true,
+        confirmButtonText: 'ยืนยันส่งคืน',
+        cancelButtonText: 'ยกเลิก',
+        confirmButtonColor: '#ff9800',
+        cancelButtonColor: '#64748b'
+      });
+
+      if (!confirmResult.isConfirmed) return;
+
+      setLoading(true);
+
+      const updateData = {
+        STATUS1: 'กำลังตรวจ'
+      };
+
+      const response = await TreatmentService.updateTreatment(currentPatient.VNO, updateData);
+
+      if (response.success) {
+        setSnackbar({
+          open: true,
+          message: `✅ ส่งคืนผู้ป่วยกลับไปห้องตรวจเรียบร้อย - ${currentPatient.PRENAME}${currentPatient.NAME1}`,
+          severity: 'success'
+        });
+
+        // Refresh data (Patient should disappear from this list)
+        loadCompletedPatients(true);
+      } else {
+        throw new Error(response.message);
+      }
+    } catch (error) {
+      console.error('Error returning to doctor:', error);
+      setSnackbar({
+        open: true,
+        message: 'เกิดข้อผิดพลาดในการส่งคืนแพทย์: ' + error.message,
+        severity: 'error'
+      });
+      setLoading(false);
+    }
+  };
+
   const loadTreatmentData = async (vno) => {
     if (!vno) {
       setTreatmentData(null);
@@ -600,7 +680,7 @@ const Paymentanddispensingmedicine = () => {
 
       if (response.success) {
         setTreatmentData(response.data);
-        
+
         console.log('💊 Drugs data:', response.data?.drugs);
         console.log('🔧 Procedures data:', response.data?.procedures);
 
@@ -677,24 +757,24 @@ const Paymentanddispensingmedicine = () => {
           proceduresLength: response.data.procedures?.length || 0,
           proceduresData: response.data.procedures
         });
-        
+
         if (response.data.procedures && response.data.procedures.length > 0) {
           // ✅ Deduplicate procedures โดยใช้ MEDICAL_PROCEDURE_CODE หรือ PROCEDURE_CODE
           const seenProcedures = new Map();
           const uniqueProcedures = [];
-          
+
           response.data.procedures.forEach(item => {
             const procedureCode = item.MEDICAL_PROCEDURE_CODE || item.PROCEDURE_CODE;
             const procedureName = item.MED_PRO_NAME_THAI || item.PROCEDURE_NAME;
             const key = procedureCode || procedureName;
-            
+
             // ถ้ายังไม่เคยเห็น procedure นี้ ให้เพิ่มเข้าไป
             if (key && !seenProcedures.has(key)) {
               seenProcedures.set(key, true);
               uniqueProcedures.push(item);
             }
           });
-          
+
           proceduresArray = uniqueProcedures.map(item => ({
             ...item,
             editablePrice: parseFloat(item.AMT || item.UNIT_PRICE || 200),
@@ -712,12 +792,12 @@ const Paymentanddispensingmedicine = () => {
           drugsLength: response.data.drugs?.length || 0,
           drugsData: response.data.drugs
         });
-        
+
         if (response.data.drugs && response.data.drugs.length > 0) {
           // ✅ Deduplicate drugs โดยใช้ DRUG_CODE
           const seenDrugs = new Map();
           const uniqueDrugs = [];
-          
+
           response.data.drugs.forEach(item => {
             const drugCode = item.DRUG_CODE;
             if (drugCode && !seenDrugs.has(drugCode)) {
@@ -725,7 +805,7 @@ const Paymentanddispensingmedicine = () => {
               uniqueDrugs.push(item);
             }
           });
-          
+
           // map สำหรับชื่อหน่วยสวยๆ
           const unitNameMap = {
             TAB: 'เม็ด',
@@ -769,15 +849,15 @@ const Paymentanddispensingmedicine = () => {
 
               // ✅ ดึงข้อมูลเพิ่มเติมจาก DrugService เพื่อให้ได้ข้อมูลที่ถูกต้อง
               // เช็คว่าข้อมูลปัจจุบันดูเหมือนจะมีปัญหา (เช่น GENERIC_NAME เป็น "ยา D0054" แทนชื่อยาจริง)
-              const needsUpdate = 
-                !drugUcsCard || 
-                drugUcsCard === 'N' || 
-                !indication1 || 
-                !genericName || 
+              const needsUpdate =
+                !drugUcsCard ||
+                drugUcsCard === 'N' ||
+                !indication1 ||
+                !genericName ||
                 !tradeName ||
                 genericName.toLowerCase().startsWith('ยา ') ||
                 tradeName.toLowerCase().startsWith('ยา ');
-              
+
               if (needsUpdate) {
                 try {
                   const drugResponse = await DrugService.getDrugByCode(item.DRUG_CODE);
@@ -832,10 +912,10 @@ const Paymentanddispensingmedicine = () => {
         let ucsUsageExceeded = false;
         if (isGoldCard && currentPatient?.HNCODE) {
           const ucsUsageCheck = await TreatmentService.checkUCSUsageThisMonth(currentPatient.HNCODE);
-          
+
           if (ucsUsageCheck.success && ucsUsageCheck.data) {
             const { usageCount, maxUsage, isExceeded, remainingUsage } = ucsUsageCheck.data;
-            
+
             // บันทึกข้อมูลการใช้งานสิทธิ์
             setUcsUsageInfo({
               isExceeded: isExceeded,
@@ -896,18 +976,18 @@ const Paymentanddispensingmedicine = () => {
           procedures: proceduresArray,
           drugs: drugsArray
         });
-        
+
         setEditablePrices({
           labs: labsArray,
           procedures: proceduresArray,
           drugs: drugsArray
         });
-        
+
         console.log('✅ Editable prices set successfully');
 
         // ✅ ดึงส่วนลดจาก treatmentData มาใส่ใน paymentData ถ้ามี
         const discountFromTreatment = parseFloat(response.data.treatment?.DISCOUNT_AMOUNT || 0);
-        
+
         // ✅ ตั้งค่ารักษา: ถ้าเป็นบัตรทองและยังใช้สิทธิ์ไม่เกิน 2 ครั้ง ให้เป็น 0, ถ้าไม่ใช่ให้เป็น 100.00
         // ✅ แต่ไม่ override ถ้า user แก้ไขค่าไว้แล้ว (รวมถึง 0)
         setPaymentData(prev => {
@@ -923,7 +1003,7 @@ const Paymentanddispensingmedicine = () => {
               treatmentFee = 100.00; // ถ้ายังไม่มีค่า ให้ใช้ default
             }
           }
-          
+
           return {
             ...prev,
             discount: discountFromTreatment,
@@ -1466,6 +1546,31 @@ const Paymentanddispensingmedicine = () => {
                                 onCancelEdit={handleCancelEdit}
                               />
                             </Box>
+
+                            {/* ✅ ปุ่มแก้ไขยา (ส่งคืนแพทย์) อยู่ใต้ตารางยา */}
+                            <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 3 }}>
+                              <Button
+                                variant="outlined"
+                                color="warning"
+                                onClick={handleReturnToDoctor}
+                                startIcon={<EditIcon />}
+                                sx={{
+                                  fontSize: '0.9rem',
+                                  fontWeight: 600,
+                                  py: 1,
+                                  px: 2,
+                                  borderRadius: '10px',
+                                  borderColor: '#ff9800',
+                                  color: '#ed6c02',
+                                  '&:hover': {
+                                    borderColor: '#ed6c02',
+                                    backgroundColor: '#fff3e0'
+                                  }
+                                }}
+                              >
+                                แก้ไขยา (ส่งคืนแพทย์)
+                              </Button>
+                            </Box>
                           </Grid>
 
                           {/* Right Column - Payment Summary */}
@@ -1481,6 +1586,8 @@ const Paymentanddispensingmedicine = () => {
                                 ucsUsageInfo={ucsUsageInfo} // ✅ ส่งข้อมูลการใช้งานสิทธิ์บัตรทอง
                                 loading={false}
                               />
+
+
                             </Box>
                           </Grid>
                         </Grid>
@@ -1590,7 +1697,7 @@ const Paymentanddispensingmedicine = () => {
                                 treatmentData?.patient?.UCS_CARD === 'Y';
                               const isUcsExceeded = ucsUsageInfo.isExceeded;
                               const treatmentFee = (isGoldCard && !isUcsExceeded) ? 0.00 : parseFloat(paymentData.treatmentFee || 100.00);
-                              
+
                               if (treatmentFee > 0) {
                                 return (
                                   <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
@@ -1601,7 +1708,7 @@ const Paymentanddispensingmedicine = () => {
                               }
                               return null;
                             })()}
-                            
+
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                               <Typography>รวมค่ารักษา:</Typography>
                               <Typography>{calculateTotalFromEditablePrices().toFixed(2)} บาท</Typography>
@@ -1656,6 +1763,27 @@ const Paymentanddispensingmedicine = () => {
                             patient={currentPatient}
                             onCloseCase={handleCloseCase}
                           />
+
+                          {/* ✅ ปุ่มแก้ไขยา (ส่งคืนแพทย์) ในหน้าใบเสร็จ */}
+                          <Button
+                            variant="outlined"
+                            color="warning"
+                            onClick={handleReturnToDoctor}
+                            startIcon={<EditIcon />}
+                            sx={{
+                              fontSize: '0.9rem',
+                              fontWeight: 600,
+                              borderRadius: '12px',
+                              borderColor: '#ff9800',
+                              color: '#ed6c02',
+                              '&:hover': {
+                                borderColor: '#ed6c02',
+                                backgroundColor: '#fff3e0'
+                              }
+                            }}
+                          >
+                            แก้ไขยา
+                          </Button>
                         </Box>
                       </Box>
                     ) : (
@@ -1765,7 +1893,7 @@ const Paymentanddispensingmedicine = () => {
           {snackbar.message}
         </Alert>
       </Snackbar>
-    </Container>
+    </Container >
   );
 };
 

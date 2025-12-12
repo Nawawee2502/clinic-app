@@ -21,19 +21,26 @@ import PropTypes from 'prop-types';
 import TreatmentService from "../../services/treatmentService";
 import DrugService from "../../services/drugService";
 import QueueService from "../../services/queueService";
+import Swal from 'sweetalert2';
 
 const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => {
+    // ✅ ตรวจสอบสถานะว่า "ล็อก" หรือไม่ (ถ้าไม่ใช่ 'กำลังตรวจ' ถือว่าล็อก)
+    const isLocked =
+        (currentPatient?.STATUS1 !== 'กำลังตรวจ' && currentPatient?.STATUS1 !== 'รอตรวจ') ||
+        ['รอชำระเงิน', 'ชำระเงินแล้ว', 'เสร็จแล้ว', 'ปิดการรักษา'].includes(currentPatient?.queueStatus) ||
+        ['รอชำระเงิน', 'ชำระเงินแล้ว', 'เสร็จแล้ว', 'ปิดการรักษา'].includes(currentPatient?.STATUS);
+
     const [medicineData, setMedicineData] = useState({
-            drugName: '',
-            drugCode: '',
-            genericName: '', // ✅ เพิ่ม genericName
-            tradeName: '', // ✅ เพิ่ม tradeName
-            quantity: '',
-            unit: '', // ✅ เก็บ UNIT_CODE สำหรับบันทึก
-            unitName: '', // ✅ เก็บ UNIT_NAME สำหรับแสดงผล
-            indication1: '', // ✅ เพิ่มข้อบ่งใช้
-            time: '',
-            unitPrice: 0
+        drugName: '',
+        drugCode: '',
+        genericName: '', // ✅ เพิ่ม genericName
+        tradeName: '', // ✅ เพิ่ม tradeName
+        quantity: '',
+        unit: '', // ✅ เก็บ UNIT_CODE สำหรับบันทึก
+        unitName: '', // ✅ เก็บ UNIT_NAME สำหรับแสดงผล
+        indication1: '', // ✅ เพิ่มข้อบ่งใช้
+        time: '',
+        unitPrice: 0
     });
 
     const [savedMedicines, setSavedMedicines] = useState([]);
@@ -68,6 +75,35 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
     const [editingIndex, setEditingIndex] = useState(-1);
     const [apiStatus, setApiStatus] = useState('checking');
 
+    // ✅ แจ้งเตือนแพ้ยา/โรคประจำตัว เมื่อโหลดผู้ป่วย
+    useEffect(() => {
+        if (currentPatient) {
+            const allergy = currentPatient.DRUG_ALLERGY && currentPatient.DRUG_ALLERGY !== '-' ? currentPatient.DRUG_ALLERGY : null;
+            const disease = currentPatient.DISEASE1 && currentPatient.DISEASE1 !== '-' ? currentPatient.DISEASE1 : null;
+
+            if (allergy || disease) {
+                let htmlContent = '<div style="text-align: left;">';
+                if (allergy) {
+                    htmlContent += `<p style="color: #d32f2f; font-weight: bold; margin-bottom: 8px;">🚫 ประวัติแพ้ยา: ${allergy}</p>`;
+                }
+                if (disease) {
+                    htmlContent += `<p style="color: #1976d2; font-weight: bold;">🏥 โรคประจำตัว: ${disease}</p>`;
+                }
+                htmlContent += '</div>';
+
+                Swal.fire({
+                    title: '⚠️ แจ้งเตือนข้อมูลสำคัญ',
+                    html: htmlContent,
+                    icon: 'warning',
+                    confirmButtonText: 'รับทราบ',
+                    confirmButtonColor: '#d32f2f',
+                    timer: 5000,
+                    timerProgressBar: true
+                });
+            }
+        }
+    }, [currentPatient?.VNO]); // เช็คจาก VNO (เมื่อเปลี่ยนเคส)
+
     useEffect(() => {
         if (currentPatient?.VNO) {
             loadMedicineData();
@@ -88,7 +124,7 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
                 // ✅ Deduplicate medicines โดยใช้ DRUG_CODE
                 const seenDrugs = new Map();
                 const uniqueDrugs = [];
-                
+
                 // กรอง duplicate ก่อน
                 response.data.drugs.forEach(drug => {
                     const drugCode = drug.DRUG_CODE;
@@ -97,7 +133,7 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
                         uniqueDrugs.push(drug);
                     }
                 });
-                
+
                 // โหลดข้อมูลเพิ่มเติมสำหรับยาที่ไม่ซ้ำ - ดึง GENERIC_NAME และ TRADE_NAME ที่ถูกต้องจาก DrugService
                 const medicines = await Promise.all(
                     uniqueDrugs.map(async (drug, index) => {
@@ -105,15 +141,15 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
                         let genericName = drug.GENERIC_NAME || '';
                         let tradeName = drug.TRADE_NAME || '';
                         let indication1 = drug.NOTE1 || '';
-                        
+
                         // ✅ ดึงข้อมูลจาก DrugService เพื่อให้ได้ GENERIC_NAME และ TRADE_NAME ที่ถูกต้อง
                         // เช็คว่าข้อมูลปัจจุบันดูเหมือนมีปัญหา (เช่น GENERIC_NAME เป็น "ยา D0001")
-                        const needsUpdate = 
-                            !genericName || 
+                        const needsUpdate =
+                            !genericName ||
                             !tradeName ||
                             genericName.toLowerCase().startsWith('ยา ') ||
                             tradeName.toLowerCase().startsWith('ยา ');
-                        
+
                         if (needsUpdate || !indication1) {
                             try {
                                 const drugResponse = await DrugService.getDrugByCode(drug.DRUG_CODE);
@@ -201,11 +237,11 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
 
     const getAvailableDrugs = () => {
         // ✅ กรองยาที่ไม่มีชื่อ (GENERIC_NAME หรือ TRADE_NAME) ออก
-        const drugsWithName = drugOptions.filter(drug => 
-            (drug.GENERIC_NAME && drug.GENERIC_NAME.trim() !== '') || 
+        const drugsWithName = drugOptions.filter(drug =>
+            (drug.GENERIC_NAME && drug.GENERIC_NAME.trim() !== '') ||
             (drug.TRADE_NAME && drug.TRADE_NAME.trim() !== '')
         );
-        
+
         if (editingIndex >= 0) {
             const currentEditingDrugCode = savedMedicines[editingIndex]?.drugCode;
             return drugsWithName.filter(drug =>
@@ -422,17 +458,17 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
             });
 
             const response = await TreatmentService.updateTreatment(currentPatient.VNO, treatmentData);
-            
+
             console.log('📥 Response from API:', response);
 
             if (response && response.success) {
                 showSnackbar('บันทึกข้อมูลยาสำเร็จ!', 'success');
 
                 if (!isLockedStatus) {
-                try {
-                    await QueueService.updateQueueStatus(currentPatient.queueId, 'กำลังตรวจ');
-                } catch (error) {
-                    console.warn('Could not update queue status:', error);
+                    try {
+                        await QueueService.updateQueueStatus(currentPatient.queueId, 'กำลังตรวจ');
+                    } catch (error) {
+                        console.warn('Could not update queue status:', error);
                     }
                 }
 
@@ -647,6 +683,13 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
                                 </Typography>
                             </Box>
 
+                            {/* Alert เมื่อถูกล็อก */}
+                            {isLocked && (
+                                <Alert severity="warning" sx={{ mb: 2 }}>
+                                    ⚠️ ขณะนี้ข้อมูลถูกส่งไปยังห้องการเงิน/ห้องยาแล้ว หากต้องการแก้ไขกรุณาแจ้งให้ห้องยา "ส่งคืนแพทย์ (แก้ไขยา)"
+                                </Alert>
+                            )}
+
                             {availableDrugs.length === 0 && editingIndex < 0 && (
                                 <Alert severity="info" sx={{ mb: 2 }}>
                                     ✅ คุณได้เพิ่มยาครบทุกตัวในระบบแล้ว! หากต้องการเพิ่มยา กรุณาลบยาบางตัวออกก่อน หรือแก้ไขรายการที่มีอยู่
@@ -674,42 +717,42 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
                                         }}
                                         filterOptions={(options, { inputValue }) => {
                                             // ✅ กรองยาที่ไม่มีชื่อออกก่อน
-                                            const drugsWithName = options.filter(option => 
-                                                (option.GENERIC_NAME && option.GENERIC_NAME.trim() !== '') || 
+                                            const drugsWithName = options.filter(option =>
+                                                (option.GENERIC_NAME && option.GENERIC_NAME.trim() !== '') ||
                                                 (option.TRADE_NAME && option.TRADE_NAME.trim() !== '')
                                             );
-                                            
+
                                             // ✅ ลบ duplicate โดยใช้ DRUG_CODE ก่อน
                                             const uniqueDrugs = drugsWithName.filter((drug, index, self) =>
                                                 index === self.findIndex(d => d.DRUG_CODE === drug.DRUG_CODE)
                                             );
-                                            
+
                                             // ถ้าไม่มีการค้นหา ให้แสดงยาทั้งหมด
                                             if (!inputValue || inputValue.trim() === '') {
                                                 return uniqueDrugs;
                                             }
-                                            
+
                                             const searchTerm = inputValue.toLowerCase().trim();
-                                            
+
                                             if (!searchTerm) {
                                                 return uniqueDrugs;
                                             }
-                                            
+
                                             // ✅ ค้นหาแบบครอบคลุม - ค้นหาในทั้ง 3 อย่าง (GENERIC_NAME, TRADE_NAME, DRUG_CODE)
                                             const filtered = uniqueDrugs.filter(option => {
                                                 const genericName = String(option.GENERIC_NAME || '').toLowerCase().trim();
                                                 const tradeName = String(option.TRADE_NAME || '').toLowerCase().trim();
                                                 const drugCode = String(option.DRUG_CODE || '').toLowerCase().trim();
-                                                
+
                                                 // ✅ ค้นหาในทั้ง 3 fields - ใช้ includes เพื่อให้ครอบคลุม
                                                 const matchesGeneric = genericName.includes(searchTerm);
                                                 const matchesTrade = tradeName.includes(searchTerm);
                                                 const matchesCode = drugCode.includes(searchTerm);
-                                                
+
                                                 // ต้องมีอย่างน้อย 1 field ที่ตรงกับ searchTerm
                                                 return matchesGeneric || matchesTrade || matchesCode;
                                             });
-                                            
+
                                             // Debug: log ผลลัพธ์การค้นหา
                                             if (filtered.length > 0 && searchTerm.length >= 3) {
                                                 console.log(`🔍 Search "${searchTerm}": Found ${filtered.length} drugs`, filtered.slice(0, 3).map(d => ({
@@ -718,7 +761,7 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
                                                     trade: d.TRADE_NAME
                                                 })));
                                             }
-                                            
+
                                             return filtered;
                                         }}
                                         disableListWrap
@@ -733,7 +776,7 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
                                         onChange={(event, newValue) => {
                                             handleDrugSelect(newValue);
                                         }}
-                                        disabled={availableDrugs.length === 0 && editingIndex < 0}
+                                        disabled={(availableDrugs.length === 0 && editingIndex < 0) || isLocked}
                                         renderInput={(params) => (
                                             <TextField
                                                 {...params}
@@ -759,15 +802,15 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
                                         renderOption={(props, option) => {
                                             const { key, ...otherProps } = props;
                                             return (
-                                                <Box 
-                                                    component="li" 
+                                                <Box
+                                                    component="li"
                                                     key={option.DRUG_CODE || key}
-                                                    {...otherProps} 
+                                                    {...otherProps}
                                                     sx={{ flexDirection: 'column', alignItems: 'flex-start', py: 1.5 }}
                                                 >
                                                     {/* GENERIC_NAME เป็นตัวใหญ่ */}
-                                                    <Box component="span" sx={{ 
-                                                        fontWeight: 'bold', 
+                                                    <Box component="span" sx={{
+                                                        fontWeight: 'bold',
                                                         fontSize: '1rem',
                                                         color: '#1976d2',
                                                         mb: 0.5
@@ -776,8 +819,8 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
                                                     </Box>
                                                     {/* TRADE_NAME และ DRUG_CODE เป็น description */}
                                                     {(option.TRADE_NAME || option.DRUG_CODE) && (
-                                                        <Box component="span" sx={{ 
-                                                            fontSize: '0.75rem', 
+                                                        <Box component="span" sx={{
+                                                            fontSize: '0.75rem',
                                                             color: 'text.secondary',
                                                             mb: 0.5
                                                         }}>
@@ -814,6 +857,7 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
                                         value={medicineData.quantity}
                                         onChange={(e) => handleMedicineChange('quantity', e.target.value)}
                                         inputProps={{ min: 0.1, step: 0.1 }}
+                                        disabled={isLocked}
                                         sx={{
                                             width: '100%',
                                             '& .MuiOutlinedInput-root': {
@@ -856,6 +900,7 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
                                         placeholder="ดึงค่า default มาจาก Indication1 ของยา (สามารถแก้ไขได้)"
                                         value={medicineData.indication1}
                                         onChange={(e) => handleMedicineChange('indication1', e.target.value)}
+                                        disabled={isLocked}
                                         sx={{
                                             width: '100%',
                                             '& .MuiOutlinedInput-root': {
@@ -879,6 +924,7 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
                                         placeholder="ดึงค่า default มาจาก eat1 ของยา (สามารถแก้ไขได้)"
                                         value={medicineData.time}
                                         onChange={(e) => handleMedicineChange('time', e.target.value)}
+                                        disabled={isLocked}
                                         sx={{
                                             width: '100%',
                                             '& .MuiOutlinedInput-root': {
@@ -901,6 +947,7 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
                                                     showSnackbar('ยกเลิกการแก้ไข', 'info');
                                                 }}
                                                 size="small"
+                                                disabled={isLocked}
                                             >
                                                 ยกเลิก
                                             </Button>
@@ -909,7 +956,7 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
                                             variant="contained"
                                             onClick={handleAddMedicine}
                                             startIcon={<AddIcon />}
-                                            disabled={availableDrugs.length === 0 && editingIndex < 0}
+                                            disabled={(availableDrugs.length === 0 && editingIndex < 0) || isLocked}
                                             sx={{
                                                 bgcolor: '#5698E0',
                                                 color: '#FFFFFF',
@@ -930,127 +977,133 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
                             </Grid>
                         </CardContent>
                     </Card>
+
+
+                    {/* Medicine List Table */}
+                    {/* Close Grid item for Form (sm=7) */}
+                </Grid>
+
+                {/* Medicine List Table - Full Width */}
+                <Grid item xs={12}>
+                    <Card>
+                        <CardContent>
+                            <Typography variant="h6" fontWeight="600" sx={{ mb: 2 }}>
+                                📋 รายการยาที่สั่ง ({savedMedicines.length} รายการ)
+                                {savedMedicines.length > 0 && (
+                                    <Typography component="span" sx={{ fontSize: '0.875rem', color: 'text.secondary', ml: 1 }}>
+                                        - เพิ่มแล้ว {savedMedicines.length} จาก {totalDrugs} ยา
+                                    </Typography>
+                                )}
+                            </Typography>
+
+                            <TableContainer component={Paper} sx={{ border: '1px solid #e0e0e0', maxHeight: 400 }}>
+                                <Table stickyHeader>
+                                    <TableHead sx={{ bgcolor: '#F0F5FF' }}>
+                                        <TableRow>
+                                            <TableCell sx={{ fontWeight: 'bold' }}>ลำดับ</TableCell>
+                                            <TableCell sx={{ fontWeight: 'bold' }}>ชื่อยา</TableCell>
+                                            <TableCell sx={{ fontWeight: 'bold' }}>จำนวน</TableCell>
+                                            <TableCell sx={{ fontWeight: 'bold' }}>หน่วย</TableCell>
+                                            <TableCell sx={{ fontWeight: 'bold' }}>ข้อบ่งใช้</TableCell>
+                                            <TableCell sx={{ fontWeight: 'bold' }}>วิธีรับประทาน</TableCell>
+                                            <TableCell sx={{ fontWeight: 'bold', textAlign: 'center' }}>จัดการ</TableCell>
+                                        </TableRow>
+                                    </TableHead>
+                                    <TableBody>
+                                        {savedMedicines.length === 0 ? (
+                                            <TableRow>
+                                                <TableCell colSpan={7} sx={{ textAlign: 'center', py: 4 }}>
+                                                    <Typography color="text.secondary">
+                                                        ยังไม่มีรายการยา กรุณาเพิ่มรายการยาด้านบน
+                                                    </Typography>
+                                                </TableCell>
+                                            </TableRow>
+                                        ) : (
+                                            savedMedicines.map((medicine, index) => (
+                                                <TableRow
+                                                    key={medicine.id}
+                                                    sx={{
+                                                        '&:hover': { bgcolor: '#f5f5f5' },
+                                                        bgcolor: editingIndex === index ? '#fff3e0' : 'inherit'
+                                                    }}
+                                                >
+                                                    <TableCell>
+                                                        {index + 1}
+                                                        {editingIndex === index && (
+                                                            <Typography component="span" sx={{
+                                                                ml: 1,
+                                                                fontSize: '0.75rem',
+                                                                color: '#ff9800',
+                                                                fontWeight: 'bold'
+                                                            }}>
+                                                                (แก้ไข)
+                                                            </Typography>
+                                                        )}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Typography variant="body2" fontWeight="500">
+                                                            {[
+                                                                medicine.genericName || medicine.drugName,
+                                                                medicine.tradeName
+                                                            ].filter(Boolean).join(' / ') || medicine.drugCode || '-'}
+                                                        </Typography>
+                                                    </TableCell>
+                                                    <TableCell>{medicine.quantity}</TableCell>
+                                                    <TableCell>{medicine.unitName || getUnitName(medicine.unit)}</TableCell>
+                                                    <TableCell>
+                                                        <Typography variant="body2" sx={{
+                                                            fontStyle: medicine.indication1 ? 'normal' : 'italic',
+                                                            color: medicine.indication1 ? 'inherit' : 'text.secondary'
+                                                        }}>
+                                                            {medicine.indication1 || '-'}
+                                                        </Typography>
+                                                    </TableCell>
+                                                    <TableCell>{medicine.time}</TableCell>
+                                                    <TableCell sx={{ textAlign: 'center' }}>
+                                                        <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
+                                                            <IconButton
+                                                                onClick={() => handleEditMedicine(index)}
+                                                                size="small"
+                                                                sx={{
+                                                                    border: '1px solid #5698E0',
+                                                                    borderRadius: '7px',
+                                                                    color: '#5698E0',
+                                                                    bgcolor: editingIndex === index ? '#e3f2fd' : 'transparent'
+                                                                }}
+                                                                disabled={editingIndex >= 0 && editingIndex !== index || isLocked}
+                                                            >
+                                                                <EditIcon fontSize="small" />
+                                                            </IconButton>
+                                                            <IconButton
+                                                                onClick={() => handleDeleteMedicine(index)}
+                                                                size="small"
+                                                                sx={{
+                                                                    border: '1px solid #F62626',
+                                                                    borderRadius: '7px',
+                                                                    color: '#F62626'
+                                                                }}
+                                                                disabled={editingIndex >= 0 || isLocked}
+                                                            >
+                                                                <DeleteIcon fontSize="small" />
+                                                            </IconButton>
+                                                        </Box>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))
+                                        )}
+                                    </TableBody>
+                                </Table>
+                            </TableContainer>
+                        </CardContent>
+                    </Card>
                 </Grid>
             </Grid>
 
-            {/* Medicine List Table */}
-            <Card>
-                <CardContent>
-                    <Typography variant="h6" fontWeight="600" sx={{ mb: 2 }}>
-                        📋 รายการยาที่สั่ง ({savedMedicines.length} รายการ)
-                        {savedMedicines.length > 0 && (
-                            <Typography component="span" sx={{ fontSize: '0.875rem', color: 'text.secondary', ml: 1 }}>
-                                - เพิ่มแล้ว {savedMedicines.length} จาก {totalDrugs} ยา
-                            </Typography>
-                        )}
-                    </Typography>
-
-                    <TableContainer component={Paper} sx={{ border: '1px solid #e0e0e0', maxHeight: 400 }}>
-                        <Table stickyHeader>
-                            <TableHead sx={{ bgcolor: '#F0F5FF' }}>
-                                <TableRow>
-                                    <TableCell sx={{ fontWeight: 'bold' }}>ลำดับ</TableCell>
-                                    <TableCell sx={{ fontWeight: 'bold' }}>ชื่อยา</TableCell>
-                                    <TableCell sx={{ fontWeight: 'bold' }}>จำนวน</TableCell>
-                                    <TableCell sx={{ fontWeight: 'bold' }}>หน่วย</TableCell>
-                                    <TableCell sx={{ fontWeight: 'bold' }}>ข้อบ่งใช้</TableCell>
-                                    <TableCell sx={{ fontWeight: 'bold' }}>วิธีรับประทาน</TableCell>
-                                    <TableCell sx={{ fontWeight: 'bold', textAlign: 'center' }}>จัดการ</TableCell>
-                                </TableRow>
-                            </TableHead>
-                            <TableBody>
-                                {savedMedicines.length === 0 ? (
-                                    <TableRow>
-                                        <TableCell colSpan={7} sx={{ textAlign: 'center', py: 4 }}>
-                                            <Typography color="text.secondary">
-                                                ยังไม่มีรายการยา กรุณาเพิ่มรายการยาด้านบน
-                                            </Typography>
-                                        </TableCell>
-                                    </TableRow>
-                                ) : (
-                                    savedMedicines.map((medicine, index) => (
-                                        <TableRow
-                                            key={medicine.id}
-                                            sx={{
-                                                '&:hover': { bgcolor: '#f5f5f5' },
-                                                bgcolor: editingIndex === index ? '#fff3e0' : 'inherit'
-                                            }}
-                                        >
-                                            <TableCell>
-                                                {index + 1}
-                                                {editingIndex === index && (
-                                                    <Typography component="span" sx={{
-                                                        ml: 1,
-                                                        fontSize: '0.75rem',
-                                                        color: '#ff9800',
-                                                        fontWeight: 'bold'
-                                                    }}>
-                                                        (แก้ไข)
-                                                    </Typography>
-                                                )}
-                                            </TableCell>
-                                            <TableCell>
-                                                <Typography variant="body2" fontWeight="500">
-                                                    {[
-                                                        medicine.genericName || medicine.drugName,
-                                                        medicine.tradeName
-                                                    ].filter(Boolean).join(' / ') || medicine.drugCode || '-'}
-                                                </Typography>
-                                            </TableCell>
-                                            <TableCell>{medicine.quantity}</TableCell>
-                                            <TableCell>{medicine.unitName || getUnitName(medicine.unit)}</TableCell>
-                                            <TableCell>
-                                                <Typography variant="body2" sx={{ 
-                                                    fontStyle: medicine.indication1 ? 'normal' : 'italic',
-                                                    color: medicine.indication1 ? 'inherit' : 'text.secondary'
-                                                }}>
-                                                    {medicine.indication1 || '-'}
-                                                </Typography>
-                                            </TableCell>
-                                            <TableCell>{medicine.time}</TableCell>
-                                            <TableCell sx={{ textAlign: 'center' }}>
-                                                <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
-                                                    <IconButton
-                                                        onClick={() => handleEditMedicine(index)}
-                                                        size="small"
-                                                        sx={{
-                                                            border: '1px solid #5698E0',
-                                                            borderRadius: '7px',
-                                                            color: '#5698E0',
-                                                            bgcolor: editingIndex === index ? '#e3f2fd' : 'transparent'
-                                                        }}
-                                                        disabled={editingIndex >= 0 && editingIndex !== index}
-                                                    >
-                                                        <EditIcon fontSize="small" />
-                                                    </IconButton>
-                                                    <IconButton
-                                                        onClick={() => handleDeleteMedicine(index)}
-                                                        size="small"
-                                                        sx={{
-                                                            border: '1px solid #F62626',
-                                                            borderRadius: '7px',
-                                                            color: '#F62626'
-                                                        }}
-                                                        disabled={editingIndex >= 0}
-                                                    >
-                                                        <DeleteIcon fontSize="small" />
-                                                    </IconButton>
-                                                </Box>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))
-                                )}
-                            </TableBody>
-                        </Table>
-                    </TableContainer>
-                </CardContent>
-            </Card>
-
             {/* Action Button - เสร็จสิ้นการรักษา (รวมการบันทึกยาไว้ด้วย) */}
-            <Box sx={{ 
-                display: 'flex', 
-                gap: 2, 
-                justifyContent: 'flex-end', 
+            <Box sx={{
+                display: 'flex',
+                gap: 2,
+                justifyContent: 'flex-end',
                 mt: 2,
                 alignItems: 'center'
             }}>
@@ -1058,7 +1111,7 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
                 <Button
                     variant="contained"
                     onClick={handleCompleteRequest}
-                    disabled={saving}
+                    disabled={saving || isLocked}
                     startIcon={saving ? <CircularProgress size={20} /> : <CheckCircleIcon />}
                     sx={{
                         minWidth: 250,
@@ -1083,7 +1136,7 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
                         transition: 'all 0.3s ease'
                     }}
                 >
-                    {saving ? 'กำลังบันทึกยา...' : '✅ เสร็จสิ้นการรักษา'}
+                    {isLocked ? (currentPatient?.STATUS1 === 'รอชำระเงิน' ? 'รอชำระเงิน' : 'บันทึกแล้ว') : (saving ? 'กำลังบันทึกยา...' : '✅ เสร็จสิ้นการรักษา')}
                 </Button>
             </Box>
 
@@ -1102,7 +1155,7 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
                     {snackbar.message}
                 </Alert>
             </Snackbar>
-        </Box>
+        </Box >
     );
 };
 

@@ -21,6 +21,13 @@ import EmployeeService from "../../services/employeeService";
 import MedicalProcedureService from "../../services/medicalProcesureService";
 
 const Procedure = ({ currentPatient, onSaveSuccess }) => {
+  // ✅ ตรวจสอบสถานะว่า "ล็อก" หรือไม่ (ถ้าไม่ใช่ 'กำลังตรวจ' ถือว่าล็อก)
+  // Check queueStatus and STATUS as well because STATUS1 might be stale immediately after update
+  const isLocked =
+    (currentPatient?.STATUS1 !== 'กำลังตรวจ' && currentPatient?.STATUS1 !== 'รอตรวจ') ||
+    ['รอชำระเงิน', 'ชำระเงินแล้ว', 'เสร็จแล้ว', 'ปิดการรักษา'].includes(currentPatient?.queueStatus) ||
+    ['รอชำระเงิน', 'ชำระเงินแล้ว', 'เสร็จแล้ว', 'ปิดการรักษา'].includes(currentPatient?.STATUS);
+
   const [procedureData, setProcedureData] = useState({
     procedureName: '',
     procedureCode: '',
@@ -106,23 +113,23 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
           // ✅ Deduplicate procedures โดยใช้ procedureCode หรือ procedureName
           const seenProcedures = new Map();
           const uniqueProcedures = [];
-          
+
           response.data.procedures.forEach((procedure, index) => {
             const procedureCode = procedure.MEDICAL_PROCEDURE_CODE || procedure.PROCEDURE_CODE;
             const procedureName = procedure.MED_PRO_NAME_THAI || procedure.PROCEDURE_NAME || 'ไม่ระบุชื่อ';
             const key = procedureCode || procedureName;
-            
+
             // ถ้ายังไม่เคยเห็น procedure นี้ ให้เพิ่มเข้าไป
             if (!seenProcedures.has(key)) {
               seenProcedures.set(key, true);
-              
+
               // หา employee จาก employeeList
               const employee = employeeList.find(e => e.EMP_CODE === procedure.EMP_CODE);
               // ✅ เก็บ UNIT_PRICE และ AMT จาก database
               const unitPrice = parseFloat(procedure.UNIT_PRICE || 0);
               const qty = parseFloat(procedure.QTY || 1);
               const amt = parseFloat(procedure.AMT || 0);
-              
+
               uniqueProcedures.push({
                 id: uniqueProcedures.length + 1,
                 procedureName: procedureName,
@@ -135,7 +142,7 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
               });
             }
           });
-          
+
           setSavedProcedures(uniqueProcedures);
         }
 
@@ -145,15 +152,15 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
           // ✅ Deduplicate medicines โดยใช้ DRUG_CODE และกรองเฉพาะยาฉีด
           const seenDrugs = new Map();
           const uniqueDrugs = [];
-          
+
           response.data.drugs.forEach((drug, index) => {
             const drugCode = drug.DRUG_CODE;
-            
+
             // ✅ กรองเฉพาะยาฉีด (Type1 = 'TD002') หรือถ้ายังไม่มี Type1 ให้ดึงจาก DrugService
             // ถ้ายังไม่เคยเห็นยาตัวนี้ ให้เพิ่มเข้าไป
             if (drugCode && !seenDrugs.has(drugCode)) {
               seenDrugs.set(drugCode, true);
-              
+
               // ✅ ตรวจสอบว่าเป็นยาฉีดหรือไม่
               // ถ้ามี Type1 = 'TD002' หรือยังไม่มี Type1 ให้เพิ่มเข้าไปก่อน (จะตรวจสอบอีกทีตอนดึงข้อมูล)
               if (!drug.Type1 || drug.Type1 === 'TD002') {
@@ -161,7 +168,7 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
               }
             }
           });
-          
+
           // ✅ โหลดข้อมูลเพิ่มเติมสำหรับยาที่ไม่ซ้ำ - ดึง GENERIC_NAME, TRADE_NAME และ Type1 ที่ถูกต้อง
           const uniqueMedicines = await Promise.all(
             uniqueDrugs.map(async (drug, index) => {
@@ -169,16 +176,16 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
               let genericName = drug.GENERIC_NAME || '';
               let tradeName = drug.TRADE_NAME || '';
               let drugType = drug.Type1 || '';
-              
+
               // ✅ ดึงข้อมูลจาก DrugService เพื่อให้ได้ GENERIC_NAME, TRADE_NAME และ Type1 ที่ถูกต้อง
               // และตรวจสอบว่าเป็นยาฉีดหรือไม่
-              const needsUpdate = 
-                !genericName || 
+              const needsUpdate =
+                !genericName ||
                 !tradeName ||
                 genericName.toLowerCase().startsWith('ยา ') ||
                 tradeName.toLowerCase().startsWith('ยา ') ||
                 !drugType;
-              
+
               // ✅ ต้องดึงข้อมูลจาก DrugService เสมอเพื่อตรวจสอบ Type1
               try {
                 const drugResponse = await DrugService.getDrugByCode(drug.DRUG_CODE);
@@ -197,14 +204,14 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
               } catch (error) {
                 console.warn(`Could not fetch drug details for ${drug.DRUG_CODE}:`, error);
               }
-              
+
               // ✅ กรองเฉพาะยาฉีด (Type1 = 'TD002')
               // ถ้าไม่ใช่ยาฉีด ให้ return null และ filter ออกภายหลัง
               if (drugType !== 'TD002') {
                 console.log(`⚠️ Skipping non-injection drug: ${drug.DRUG_CODE} (Type1: ${drugType})`);
                 return null;
               }
-              
+
               return {
                 id: index + 1,
                 drugName: genericName || drug.DRUG_CODE, // ✅ ใช้ genericName ที่ถูกต้อง
@@ -218,12 +225,12 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
               };
             })
           );
-          
+
           // ✅ กรองเฉพาะยาฉีด (filter out null values)
           const injectionMedicines = uniqueMedicines.filter(medicine => medicine !== null);
-          
+
           console.log(`💉 Loaded ${injectionMedicines.length} injection drugs from ${uniqueDrugs.length} total drugs`);
-          
+
           setSavedMedicines(injectionMedicines);
         }
       }
@@ -379,11 +386,11 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
 
     // ✅ เช็ค duplicate procedure (ถ้าไม่ใช่โหมดแก้ไข)
     if (editingIndex < 0) {
-      const isDuplicate = savedProcedures.some(proc => 
+      const isDuplicate = savedProcedures.some(proc =>
         (proc.procedureCode && proc.procedureCode === finalProcedureCode) ||
         (!proc.procedureCode && proc.procedureName === finalProcedureName)
       );
-      
+
       if (isDuplicate) {
         showSnackbar('หัตถการนี้ถูกเพิ่มไปแล้ว กรุณาเลือกหัตถการอื่น', 'warning');
         return;
@@ -451,14 +458,14 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
           injectionDrugs.map(async (drug) => {
             let genericName = drug.GENERIC_NAME || '';
             let tradeName = drug.TRADE_NAME || '';
-            
+
             // ✅ เช็คว่าข้อมูลปัจจุบันดูเหมือนมีปัญหา (เช่น GENERIC_NAME เป็น "ยา D0001")
-            const needsUpdate = 
-              !genericName || 
+            const needsUpdate =
+              !genericName ||
               !tradeName ||
               genericName.toLowerCase().startsWith('ยา ') ||
               tradeName.toLowerCase().startsWith('ยา ');
-            
+
             if (needsUpdate) {
               try {
                 const drugResponse = await DrugService.getDrugByCode(drug.DRUG_CODE);
@@ -476,7 +483,7 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
                 console.warn(`Could not fetch drug details for ${drug.DRUG_CODE}:`, error);
               }
             }
-            
+
             return {
               DRUG_CODE: drug.DRUG_CODE,
               GENERIC_NAME: genericName,
@@ -492,7 +499,7 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
             };
           })
         );
-        
+
         setDrugOptions(formattedDrugs);
         setApiStatus('connected');
         console.log('Formatted injection drugs:', formattedDrugs.slice(0, 3));
@@ -555,18 +562,18 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
       }
 
       const defaultQuantity = newValue.Dose1 || '1';
-      
+
       // ✅ ดึงข้อมูลยาจาก DrugService เพื่อให้ได้ GENERIC_NAME และ TRADE_NAME ที่ถูกต้อง
       let genericName = newValue.GENERIC_NAME || '';
       let tradeName = newValue.TRADE_NAME || '';
-      
+
       // เช็คว่าข้อมูลปัจจุบันดูเหมือนมีปัญหา (เช่น GENERIC_NAME เป็น "ยา D0001")
-      const needsUpdate = 
-        !genericName || 
+      const needsUpdate =
+        !genericName ||
         !tradeName ||
         genericName.toLowerCase().startsWith('ยา ') ||
         tradeName.toLowerCase().startsWith('ยา ');
-      
+
       if (needsUpdate) {
         try {
           const drugResponse = await DrugService.getDrugByCode(newValue.DRUG_CODE);
@@ -1074,6 +1081,7 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
                       }
                     }}
                     size="small"
+                    disabled={isLocked} // ✅ Disable input
                     renderInput={(params) => (
                       <TextField
                         {...params}
@@ -1102,6 +1110,7 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
                         borderRadius: '10px',
                       },
                     }}
+                    disabled={isLocked} // ✅ Disable input
                   />
                 </Grid>
 
@@ -1117,6 +1126,7 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
                           showSnackbar('ยกเลิกการแก้ไข', 'info');
                         }}
                         size="small"
+                        disabled={isLocked} // ✅ Disable button
                       >
                         ยกเลิก
                       </Button>
@@ -1133,6 +1143,7 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
                           bgcolor: '#4285d1'
                         }
                       }}
+                      disabled={saving || isLocked} // ✅ Disable button
                     >
                       {editingIndex >= 0 ? 'บันทึกการแก้ไข' : 'เพิ่มหัตถการ'}
                     </Button>
@@ -1162,7 +1173,7 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
                     ชื่อยา *
                   </Typography>
                   <Autocomplete
-                    disabled={!hasProcedures}
+                    disabled={!hasProcedures || isLocked} // ✅ Disable input
                     options={getAvailableDrugs()}
                     disablePortal
                     filterSelectedOptions
@@ -1193,27 +1204,27 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
                       }
 
                       const searchTerm = inputValue.toLowerCase().trim();
-                      
+
                       if (!searchTerm) {
                         return uniqueDrugs;
                       }
-                      
+
                       // ✅ ค้นหาแบบครอบคลุม - ค้นหาในทั้ง 3 อย่าง (GENERIC_NAME, TRADE_NAME, DRUG_CODE)
                       // ใช้ includes เพื่อให้ค้นหาได้ทั้งตัวที่ขึ้นต้นและอยู่ตรงกลาง
                       const filtered = uniqueDrugs.filter(option => {
                         const genericName = String(option.GENERIC_NAME || '').toLowerCase().trim();
                         const tradeName = String(option.TRADE_NAME || '').toLowerCase().trim();
                         const drugCode = String(option.DRUG_CODE || '').toLowerCase().trim();
-                        
+
                         // ✅ ค้นหาในทั้ง 3 fields - ใช้ includes เพื่อให้ครอบคลุม
                         const matchesGeneric = genericName.includes(searchTerm);
                         const matchesTrade = tradeName.includes(searchTerm);
                         const matchesCode = drugCode.includes(searchTerm);
-                        
+
                         // ต้องมีอย่างน้อย 1 field ที่ตรงกับ searchTerm
                         return matchesGeneric || matchesTrade || matchesCode;
                       });
-                      
+
                       // Debug: log ผลลัพธ์การค้นหา
                       if (filtered.length > 0) {
                         console.log(`🔍 Search "${searchTerm}": Found ${filtered.length} drugs`, filtered.slice(0, 3).map(d => ({
@@ -1222,7 +1233,7 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
                           trade: d.TRADE_NAME
                         })));
                       }
-                      
+
                       return filtered;
                     }}
                     value={getAvailableDrugs().find(opt => opt.DRUG_CODE === medicineData.drugCode) || null}
@@ -1232,15 +1243,15 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
                     renderOption={(props, option) => {
                       const { key, ...otherProps } = props;
                       return (
-                        <Box 
-                          component="li" 
+                        <Box
+                          component="li"
                           key={option.DRUG_CODE || key}
-                          {...otherProps} 
+                          {...otherProps}
                           sx={{ flexDirection: 'column', alignItems: 'flex-start', py: 1.5 }}
                         >
                           {/* GENERIC_NAME เป็นตัวใหญ่ */}
-                          <Box component="span" sx={{ 
-                            fontWeight: 'bold', 
+                          <Box component="span" sx={{
+                            fontWeight: 'bold',
                             fontSize: '1rem',
                             color: '#1976d2',
                             mb: 0.5
@@ -1249,8 +1260,8 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
                           </Box>
                           {/* TRADE_NAME และ DRUG_CODE เป็น description */}
                           {(option.TRADE_NAME || option.DRUG_CODE) && (
-                            <Box component="span" sx={{ 
-                              fontSize: '0.75rem', 
+                            <Box component="span" sx={{
+                              fontSize: '0.75rem',
                               color: 'text.secondary',
                               mb: 0.5
                             }}>
@@ -1302,7 +1313,7 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
                   <TextField
                     id="medicine-quantity"
                     name="medicineQuantity"
-                    disabled={!hasProcedures}
+                    disabled={!hasProcedures || isLocked} // ✅ Disable quantity input
                     size="small"
                     type="number"
                     placeholder="จำนวน"
@@ -1345,7 +1356,7 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
                   <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
                     {editingMedicineIndex >= 0 && (
                       <Button
-                        disabled={!hasProcedures}
+                        disabled={!hasProcedures || isLocked} // ✅ Disable button
                         variant="outlined"
                         onClick={() => {
                           resetMedicineForm();
@@ -1358,7 +1369,7 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
                       </Button>
                     )}
                     <Button
-                      disabled={!hasProcedures}
+                      disabled={!hasProcedures || isLocked} // ✅ Disable button
                       variant="contained"
                       onClick={handleAddMedicine}
                       startIcon={<AddIcon />}
@@ -1440,6 +1451,7 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
                               borderRadius: '7px',
                               color: '#5698E0'
                             }}
+                            disabled={editingIndex >= 0 && editingIndex !== index || isLocked} // ✅ Disable edit
                           >
                             <EditIcon fontSize="small" />
                           </IconButton>
@@ -1451,6 +1463,7 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
                               borderRadius: '7px',
                               color: '#F62626'
                             }}
+                            disabled={editingIndex >= 0 || isLocked} // ✅ Disable delete
                           >
                             <DeleteIcon fontSize="small" />
                           </IconButton>
@@ -1538,7 +1551,7 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
                               color: '#5698E0',
                               bgcolor: editingMedicineIndex === index ? '#e3f2fd' : 'transparent'
                             }}
-                            disabled={editingMedicineIndex >= 0 && editingMedicineIndex !== index}
+                            disabled={editingMedicineIndex >= 0 && editingMedicineIndex !== index || isLocked} // ✅ Disable edit medicine
                           >
                             <EditIcon fontSize="small" />
                           </IconButton>
@@ -1550,7 +1563,7 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
                               borderRadius: '7px',
                               color: '#F62626'
                             }}
-                            disabled={editingMedicineIndex >= 0}
+                            disabled={editingMedicineIndex >= 0 || isLocked} // ✅ Disable delete medicine
                           >
                             <DeleteIcon fontSize="small" />
                           </IconButton>
@@ -1570,7 +1583,7 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
         <Button
           variant="contained"
           onClick={handleSave}
-          disabled={saving || (savedProcedures.length === 0 && savedMedicines.length === 0)}
+          disabled={saving || (savedProcedures.length === 0 && savedMedicines.length === 0) || isLocked} // ✅ Disable save button
           startIcon={saving ? <CircularProgress size={20} /> : <SaveIcon />}
           sx={{
             backgroundColor: "#5698E0",
@@ -1587,7 +1600,7 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
             }
           }}
         >
-          {saving ? 'กำลังบันทึก...' : 'บันทึกข้อมูล'}
+          {isLocked ? (currentPatient?.STATUS1 === 'รอชำระเงิน' ? 'รอชำระเงิน' : 'บันทึกแล้ว') : (saving ? 'กำลังบันทึก...' : 'บันทึกข้อมูล')}
         </Button>
 
         <Button

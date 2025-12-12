@@ -88,10 +88,10 @@ export default function MedicalHistory({ currentPatient, onSaveSuccess }) {
           const treatmentResponse = await TreatmentService.getTreatmentByVNO(currentPatient.VNO);
           if (treatmentResponse.success && treatmentResponse.data) {
             console.log('Found treatment data:', treatmentResponse.data);
-            
+
             // ✅ ดึงข้อมูลยาเพิ่มเติมจาก DrugService เพื่อให้ได้ GENERIC_NAME และ TRADE_NAME ที่ถูกต้อง
             let drugs = treatmentResponse.data.drugs || [];
-            
+
             // ✅ Deduplicate ยาโดยใช้ DRUG_CODE
             const drugMap = new Map();
             drugs.forEach(drug => {
@@ -108,38 +108,38 @@ export default function MedicalHistory({ currentPatient, onSaveSuccess }) {
                 }
               }
             });
-            
+
             const uniqueDrugs = Array.from(drugMap.values());
-            
+
             // ✅ ดึงข้อมูลเพิ่มเติมจาก DrugService เพื่อให้ได้ GENERIC_NAME และ TRADE_NAME ที่ถูกต้อง
             const drugsWithCorrectNames = await Promise.all(
               uniqueDrugs.map(async (drug) => {
                 let genericName = drug.GENERIC_NAME || '';
                 let tradeName = drug.TRADE_NAME || '';
                 const drugCode = drug.DRUG_CODE || '';
-                
+
                 // ✅ เช็คว่าข้อมูลปัจจุบันดูเหมือนมีปัญหา (เช่น GENERIC_NAME เป็น "ยา D0109" หรือเป็น DRUG_CODE เหมือนกัน)
-                const needsUpdate = 
-                  !genericName || 
+                const needsUpdate =
+                  !genericName ||
                   !tradeName ||
                   genericName.toLowerCase().startsWith('ยา ') ||
                   tradeName.toLowerCase().startsWith('ยา ') ||
                   genericName === drugCode ||
                   tradeName === drugCode;
-                
+
                 if (needsUpdate && drugCode) {
                   try {
                     const drugResponse = await DrugService.getDrugByCode(drugCode);
                     if (drugResponse.success && drugResponse.data) {
                       const fetchedGenericName = drugResponse.data.GENERIC_NAME || '';
                       const fetchedTradeName = drugResponse.data.TRADE_NAME || '';
-                      
+
                       // ✅ อัปเดต GENERIC_NAME ถ้ายังไม่มีหรือดูเหมือนมีปัญหา
                       if (!genericName || genericName.toLowerCase().startsWith('ยา ') || genericName === drugCode) {
                         // ใช้ชื่อจาก DrugService ถ้ามีและถูกต้อง
-                        if (fetchedGenericName && 
-                            fetchedGenericName !== drugCode && 
-                            !fetchedGenericName.toLowerCase().startsWith('ยา ')) {
+                        if (fetchedGenericName &&
+                          fetchedGenericName !== drugCode &&
+                          !fetchedGenericName.toLowerCase().startsWith('ยา ')) {
                           genericName = fetchedGenericName;
                         } else {
                           genericName = '';
@@ -150,13 +150,13 @@ export default function MedicalHistory({ currentPatient, onSaveSuccess }) {
                           genericName = '';
                         }
                       }
-                      
+
                       // ✅ อัปเดต TRADE_NAME ถ้ายังไม่มีหรือดูเหมือนมีปัญหา
                       if (!tradeName || tradeName.toLowerCase().startsWith('ยา ') || tradeName === drugCode) {
                         // ใช้ชื่อจาก DrugService ถ้ามีและถูกต้อง
-                        if (fetchedTradeName && 
-                            fetchedTradeName !== drugCode && 
-                            !fetchedTradeName.toLowerCase().startsWith('ยา ')) {
+                        if (fetchedTradeName &&
+                          fetchedTradeName !== drugCode &&
+                          !fetchedTradeName.toLowerCase().startsWith('ยา ')) {
                           tradeName = fetchedTradeName;
                         } else {
                           tradeName = '';
@@ -180,13 +180,13 @@ export default function MedicalHistory({ currentPatient, onSaveSuccess }) {
                     }
                   }
                 }
-                
+
                 // ✅ ทำความสะอาดข้อมูล - ถ้า GENERIC_NAME หรือ TRADE_NAME เป็น DRUG_CODE ให้เป็นค่าว่าง
                 if (genericName === drugCode) genericName = '';
                 if (tradeName === drugCode) tradeName = '';
                 if (genericName.toLowerCase().startsWith('ยา ')) genericName = '';
                 if (tradeName.toLowerCase().startsWith('ยา ')) tradeName = '';
-                
+
                 return {
                   ...drug,
                   GENERIC_NAME: genericName,
@@ -194,12 +194,12 @@ export default function MedicalHistory({ currentPatient, onSaveSuccess }) {
                 };
               })
             );
-            
+
             const treatmentDataWithCorrectDrugs = {
               ...treatmentResponse.data,
               drugs: drugsWithCorrectNames
             };
-            
+
             setTodayTreatment(treatmentDataWithCorrectDrugs);
             setSelectedTreatmentData(treatmentDataWithCorrectDrugs); // ตั้งเป็นข้อมูลเริ่มต้น
 
@@ -290,7 +290,7 @@ export default function MedicalHistory({ currentPatient, onSaveSuccess }) {
       if (response.success) {
         // ✅ ดึงข้อมูลยาเพิ่มเติมจาก DrugService เพื่อให้ได้ GENERIC_NAME และ TRADE_NAME ที่ถูกต้อง
         let drugs = response.data.drugs || [];
-        
+
         // ✅ Deduplicate ยาโดยใช้ DRUG_CODE
         const drugMap = new Map();
         drugs.forEach(drug => {
@@ -307,38 +307,38 @@ export default function MedicalHistory({ currentPatient, onSaveSuccess }) {
             }
           }
         });
-        
+
         const uniqueDrugs = Array.from(drugMap.values());
-        
+
         // ✅ ดึงข้อมูลเพิ่มเติมจาก DrugService เพื่อให้ได้ GENERIC_NAME และ TRADE_NAME ที่ถูกต้อง
         const drugsWithCorrectNames = await Promise.all(
           uniqueDrugs.map(async (drug) => {
             let genericName = drug.GENERIC_NAME || '';
             let tradeName = drug.TRADE_NAME || '';
             const drugCode = drug.DRUG_CODE || '';
-            
+
             // ✅ เช็คว่าข้อมูลปัจจุบันดูเหมือนมีปัญหา (เช่น GENERIC_NAME เป็น "ยา D0109" หรือเป็น DRUG_CODE เหมือนกัน)
-            const needsUpdate = 
-              !genericName || 
+            const needsUpdate =
+              !genericName ||
               !tradeName ||
               genericName.toLowerCase().startsWith('ยา ') ||
               tradeName.toLowerCase().startsWith('ยา ') ||
               genericName === drugCode ||
               tradeName === drugCode;
-            
+
             if (needsUpdate && drugCode) {
               try {
                 const drugResponse = await DrugService.getDrugByCode(drugCode);
                 if (drugResponse.success && drugResponse.data) {
                   const fetchedGenericName = drugResponse.data.GENERIC_NAME || '';
                   const fetchedTradeName = drugResponse.data.TRADE_NAME || '';
-                  
+
                   // ✅ อัปเดต GENERIC_NAME ถ้ายังไม่มีหรือดูเหมือนมีปัญหา
                   if (!genericName || genericName.toLowerCase().startsWith('ยา ') || genericName === drugCode) {
                     // ใช้ชื่อจาก DrugService ถ้ามีและถูกต้อง
-                    if (fetchedGenericName && 
-                        fetchedGenericName !== drugCode && 
-                        !fetchedGenericName.toLowerCase().startsWith('ยา ')) {
+                    if (fetchedGenericName &&
+                      fetchedGenericName !== drugCode &&
+                      !fetchedGenericName.toLowerCase().startsWith('ยา ')) {
                       genericName = fetchedGenericName;
                     } else {
                       genericName = '';
@@ -349,13 +349,13 @@ export default function MedicalHistory({ currentPatient, onSaveSuccess }) {
                       genericName = '';
                     }
                   }
-                  
+
                   // ✅ อัปเดต TRADE_NAME ถ้ายังไม่มีหรือดูเหมือนมีปัญหา
                   if (!tradeName || tradeName.toLowerCase().startsWith('ยา ') || tradeName === drugCode) {
                     // ใช้ชื่อจาก DrugService ถ้ามีและถูกต้อง
-                    if (fetchedTradeName && 
-                        fetchedTradeName !== drugCode && 
-                        !fetchedTradeName.toLowerCase().startsWith('ยา ')) {
+                    if (fetchedTradeName &&
+                      fetchedTradeName !== drugCode &&
+                      !fetchedTradeName.toLowerCase().startsWith('ยา ')) {
                       tradeName = fetchedTradeName;
                     } else {
                       tradeName = '';
@@ -379,13 +379,13 @@ export default function MedicalHistory({ currentPatient, onSaveSuccess }) {
                 }
               }
             }
-            
+
             // ✅ ทำความสะอาดข้อมูล - ถ้า GENERIC_NAME หรือ TRADE_NAME เป็น DRUG_CODE ให้เป็นค่าว่าง
             if (genericName === drugCode) genericName = '';
             if (tradeName === drugCode) tradeName = '';
             if (genericName.toLowerCase().startsWith('ยา ')) genericName = '';
             if (tradeName.toLowerCase().startsWith('ยา ')) tradeName = '';
-            
+
             return {
               ...drug,
               GENERIC_NAME: genericName,
@@ -393,7 +393,7 @@ export default function MedicalHistory({ currentPatient, onSaveSuccess }) {
             };
           })
         );
-        
+
         setSelectedTreatmentData({
           ...response.data,
           drugs: drugsWithCorrectNames
@@ -532,6 +532,64 @@ export default function MedicalHistory({ currentPatient, onSaveSuccess }) {
                 </Box>
               </Grid>
             </Grid>
+          </Card>
+
+          {/* Allergy & Chronic Disease Info */}
+          <Card sx={{ p: 2, mb: 3, bgcolor: '#f9fafb', border: '1px solid #e2e8f0' }}>
+            <Typography
+              variant="subtitle2"
+              sx={{ fontWeight: 700, fontSize: '0.85rem', mb: 1, color: '#0f172a' }}
+            >
+              ข้อมูลสำคัญ
+            </Typography>
+
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+                <Typography
+                  variant="caption"
+                  sx={{ fontWeight: 700, fontSize: '0.8rem', color: '#b91c1c' }}
+                >
+                  ⚠️ แพ้ยา:
+                </Typography>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    fontSize: '0.9rem',
+                    px: 1,
+                    py: 0.25,
+                    borderRadius: 1,
+                    bgcolor: currentPatient.DRUG_ALLERGY ? '#fee2e2' : '#e5e7eb',
+                    color: currentPatient.DRUG_ALLERGY ? '#b91c1c' : '#4b5563',
+                    fontWeight: currentPatient.DRUG_ALLERGY ? 600 : 400
+                  }}
+                >
+                  {currentPatient.DRUG_ALLERGY || 'ไม่มี'}
+                </Typography>
+              </Box>
+
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+                <Typography
+                  variant="caption"
+                  sx={{ fontWeight: 700, fontSize: '0.8rem', color: '#0f766e' }}
+                >
+                  🏥 โรคประจำตัว:
+                </Typography>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    fontSize: '0.9rem',
+                    px: 1,
+                    py: 0.25,
+                    borderRadius: 1,
+                    bgcolor: currentPatient.DISEASE1 ? '#ccfbf1' : '#e5e7eb',
+                    color: currentPatient.DISEASE1 ? '#115e59' : '#4b5563',
+                    fontWeight: currentPatient.DISEASE1 ? 600 : 400
+                  }}
+                >
+                  {currentPatient.DISEASE1 || 'ไม่มี'}
+                </Typography>
+              </Box>
+            </Box>
           </Card>
 
           {/* ประวัติการรักษาทั้งหมด */}
@@ -790,7 +848,7 @@ export default function MedicalHistory({ currentPatient, onSaveSuccess }) {
                           const drugs = displayTreatmentData?.drugs || [];
                           const seenDrugs = new Map();
                           const uniqueDrugs = [];
-                          
+
                           drugs.forEach(drug => {
                             const drugCode = drug.DRUG_CODE;
                             if (drugCode && !seenDrugs.has(drugCode)) {
@@ -798,7 +856,7 @@ export default function MedicalHistory({ currentPatient, onSaveSuccess }) {
                               uniqueDrugs.push(drug);
                             }
                           });
-                          
+
                           return uniqueDrugs.length > 0 ? (
                             uniqueDrugs.map((drug, idx) => (
                               <Box key={idx} sx={{
@@ -813,18 +871,18 @@ export default function MedicalHistory({ currentPatient, onSaveSuccess }) {
                                     const genericName = (drug.GENERIC_NAME || '').trim();
                                     const tradeName = (drug.TRADE_NAME || '').trim();
                                     const drugCode = (drug.DRUG_CODE || '').trim();
-                                    
+
                                     // ✅ ตรวจสอบว่า GENERIC_NAME และ TRADE_NAME ไม่ใช่ DRUG_CODE หรือขึ้นต้นด้วย "ยา "
-                                    const hasValidGenericName = genericName && 
-                                      genericName !== drugCode && 
+                                    const hasValidGenericName = genericName &&
+                                      genericName !== drugCode &&
                                       !genericName.toLowerCase().startsWith('ยา ') &&
                                       genericName.length > 0;
-                                    
-                                    const hasValidTradeName = tradeName && 
-                                      tradeName !== drugCode && 
+
+                                    const hasValidTradeName = tradeName &&
+                                      tradeName !== drugCode &&
                                       !tradeName.toLowerCase().startsWith('ยา ') &&
                                       tradeName.length > 0;
-                                    
+
                                     // ถ้ามี GENERIC_NAME หรือ TRADE_NAME ที่ถูกต้อง ให้แสดงแบบเต็ม
                                     if (hasValidGenericName || hasValidTradeName) {
                                       return [
@@ -833,7 +891,7 @@ export default function MedicalHistory({ currentPatient, onSaveSuccess }) {
                                         drugCode
                                       ].filter(Boolean).join(' / ');
                                     }
-                                    
+
                                     // ถ้าไม่มี GENERIC_NAME หรือ TRADE_NAME ที่ถูกต้อง ให้แสดงแค่ DRUG_CODE
                                     return drugCode || '-';
                                   })()}
@@ -865,19 +923,19 @@ export default function MedicalHistory({ currentPatient, onSaveSuccess }) {
                   const procedures = displayTreatmentData?.procedures || [];
                   const seenProcedures = new Map();
                   const uniqueProcedures = [];
-                  
+
                   procedures.forEach(procedure => {
                     const procedureCode = procedure.MEDICAL_PROCEDURE_CODE || procedure.PROCEDURE_CODE;
                     const procedureName = procedure.MED_PRO_NAME_THAI || procedure.MED_PRO_NAME_ENG || procedure.PROCEDURE_NAME;
                     const key = procedureCode || procedureName;
-                    
+
                     // ถ้ายังไม่เคยเห็น procedure นี้ ให้เพิ่มเข้าไป
                     if (key && !seenProcedures.has(key)) {
                       seenProcedures.set(key, true);
                       uniqueProcedures.push(procedure);
                     }
                   });
-                  
+
                   return uniqueProcedures.length > 0 ? (
                     <Card sx={{ p: 2, mb: 2, bgcolor: '#f3e5f5', border: '1px solid #e1bee7' }}>
                       <Typography variant="h6" fontWeight="700" sx={{ mb: 1, color: '#7b1fa2' }}>

@@ -116,7 +116,6 @@ const DrugsTable = ({
                                 <TableCell align="center" sx={{ fontWeight: 'bold' }}>จำนวน</TableCell>
                                 <TableCell align="right" sx={{ fontWeight: 'bold' }}>ราคา/หน่วย</TableCell>
                                 <TableCell align="right" sx={{ fontWeight: 'bold' }}>ราคารวม</TableCell>
-                                <TableCell align="center" sx={{ fontWeight: 'bold' }}>จ่ายยา</TableCell>
                             </TableRow>
                         </TableHead>
                         <TableBody>
@@ -185,15 +184,6 @@ const DrugsTable = ({
                                                 currentPrice={drug.editablePrice}
                                             />
                                         </TableCell>
-                                        <TableCell align="center">
-                                            <Checkbox
-                                                defaultChecked
-                                                sx={{
-                                                    color: '#4caf50',
-                                                    '&.Mui-checked': { color: '#4caf50' }
-                                                }}
-                                            />
-                                        </TableCell>
                                     </TableRow>
                                 ))
                             ) : (
@@ -213,13 +203,12 @@ const DrugsTable = ({
                             {/* แถวยอดรวมยา */}
                             {editablePrices.drugs.length > 0 && (
                                 <TableRow sx={{ bgcolor: '#fff3e0' }}>
-                                    <TableCell colSpan={4} sx={{ fontWeight: 'bold', textAlign: 'right' }}>
+                                    <TableCell colSpan={5} sx={{ fontWeight: 'bold', textAlign: 'right' }}>
                                         รวมค่ายาทั้งหมด:
                                     </TableCell>
                                     <TableCell align="right" sx={{ fontWeight: 'bold', color: '#f57c00', fontSize: '1.1rem' }}>
                                         ฿{editablePrices.drugs.reduce((sum, item) => sum + item.editablePrice, 0).toFixed(2)}
                                     </TableCell>
-                                    <TableCell></TableCell>
                                 </TableRow>
                             )}
                         </TableBody>
