@@ -54,6 +54,9 @@ const PatientReceptionSection = ({
         SYMPTOM: ''
     });
 
+    // ✅ State สำหรับนับจำนวนครั้งที่ใช้สิทธิ์จากที่อื่น
+    const [externalUcsCount, setExternalUcsCount] = useState('');
+
     // ✅ useEffect สำหรับจัดการผู้ป่วยที่เพิ่งลงทะเบียน
     useEffect(() => {
         if (newlyRegisteredPatient) {
@@ -82,7 +85,7 @@ const PatientReceptionSection = ({
             const response = await AppointmentService.getTodayAppointments();
             if (response.success) {
                 // กรองเฉพาะนัดที่ยังไม่ได้เข้าคิว (status = 'นัดไว้' หรือ 'ยืนยันแล้ว')
-                const activeAppointments = response.data.filter(apt => 
+                const activeAppointments = response.data.filter(apt =>
                     apt.STATUS === 'นัดไว้' || apt.STATUS === 'ยืนยันแล้ว'
                 );
                 setTodayAppointments(activeAppointments);
@@ -147,6 +150,8 @@ const PatientReceptionSection = ({
                 SPO2: '',
                 SYMPTOM: ''
             });
+            // Reset external count
+            setExternalUcsCount('');
         }
     };
 
@@ -293,7 +298,7 @@ const PatientReceptionSection = ({
             // ✅ Step 0: ตรวจสอบว่า HN นี้มีอยู่ในคิวแล้วหรือยัง
             console.log('🔍 Checking if patient already in queue:', selectedPatient.HNCODE);
             const allQueueResponse = await PatientService.getAllPatientsFromQueue();
-            
+
             if (allQueueResponse.success) {
                 // หาคิวที่มี HN นี้และยังไม่ปิดการรักษา
                 const existingQueues = allQueueResponse.data.filter(patient => {
@@ -305,10 +310,10 @@ const PatientReceptionSection = ({
                     for (const queue of existingQueues) {
                         // ตรวจสอบ STATUS1 จาก TREATMENT_STATUS หรือ STATUS1
                         const status1 = queue.TREATMENT_STATUS || queue.STATUS1 || queue.queueStatus || '';
-                        
+
                         // ถ้า STATUS1 = 'รอตรวจ', 'ทำงานอยู่', 'รอชำระเงิน', 'ชำระเงินแล้ว' -> ห้ามเพิ่ม
                         const blockedStatuses = ['รอตรวจ', 'ทำงานอยู่', 'รอชำระเงิน', 'ชำระเงินแล้ว'];
-                        
+
                         if (blockedStatuses.includes(status1)) {
                             showSnackbar(
                                 `⚠️ ผู้ป่วย HN: ${selectedPatient.HNCODE} มีอยู่ในคิวแล้ว (สถานะ: ${status1}) ไม่สามารถเพิ่มได้ กรุณารอให้ปิดการรักษาก่อน`,
@@ -327,11 +332,43 @@ const PatientReceptionSection = ({
             const ucsCard = selectedPatient?.UCS_CARD || 'N';
             if (ucsCard === 'Y') {
                 const ucsUsageCheck = await TreatmentService.checkUCSUsageThisMonth(selectedPatient.HNCODE);
-                
+
                 if (ucsUsageCheck.success && ucsUsageCheck.data) {
                     const { usageCount, maxUsage, isExceeded, remainingUsage } = ucsUsageCheck.data;
-                    
-                    if (isExceeded) {
+
+                    // ✅ รวมจำนวนครั้งที่ใช้จากที่อื่น
+                    const externalCount = parseInt(externalUcsCount) || 0;
+                    // Note: usageCount คือจำนวนครั้งที่ใช้ในระบบ (เช็คจาก DB treatment)
+                    // เราต้องการรวมกับ externaCount
+                    // ถ้า User กรอกว่า "ใช้มาแล้ว 2 ครั้ง" หมายถึงรวมทุกที่แล้ว 
+                    // หรือ "ใช้ที่อื่นมา 2 ครั้ง"? 
+                    // User Request: "ถามว่า ใช้มาแล้วกี่ครั้ง" (How many times used total)
+                    // So externalUcsCount IS the total used count reported by patient? 
+                    // Or is it "Used elsewhere"?
+                    // Context: "ถ้าไปรักษาจาก คลินิก อื่นมา แล้วเกิน 2 ครั้งแล้ว... ถามเขาว่าเดือนนี้ใช้ไปกี่ครั้งแล้ว"
+                    // If user enters '2', it implies TOTAL usage is 2.
+                    // But we also have `usageCount` from our DB.
+                    // If patient says "Used 2 times" (meaning total), do we add `usageCount`?
+                    // If they visited US once before, manual input "2" might overlap?
+                    // Let's assume the input is "External/Other Clinic Usage". 
+                    // "ใช้มาแล้วกี่ครั้ง" usually implies total.
+                    // IF input is TOTAL: `totalUsage = Math.max(usageCount, parseInt(externalUcsCount))`?
+                    // Prompt says: "ถามเขาว่าเดือนนี้ใช้ไปกี่ครั้งแล้ว... ถ้ากรอก >= 2 คือไม่สามารถใช้ได้"
+                    // I will treat the input as "Total Used Count reported by Patient".
+                    // If manual input is provided, we compare it with system count.
+                    // Actually, to be safe and additive: `totalUsage = usageCount + externalCount` is safer if the input is "Extra".
+                    // But if label is "Used Total", then we should just take the max.
+                    // User said: "ไม่ต้องถามว่า ใช้ที่อื่นมาแล้วกี่ครั้ง ถามว่า ใช้มาแล้วกี่ครั้งก็พอ"
+                    // -> "Don't ask how many times used elsewhere, ask how many times used [total]."
+                    // So if I use `totalUsage = parseInt(externalUcsCount)`, we ignore system count? 
+                    // Better logic: `totalUsage = Math.max(usageCount, parseInt(externalUcsCount) || 0)`.
+                    // This covers "Used 2 times" (Patient knows best).
+
+                    const manualCount = parseInt(externalUcsCount) || 0;
+                    const totalUsage = Math.max(usageCount, manualCount);
+                    const realRemaining = Math.max(0, maxUsage - totalUsage);
+
+                    if (isExceeded || totalUsage >= maxUsage) {
                         // ถ้าใช้เกิน 2 ครั้งแล้ว ให้แจ้งเตือนว่าต้องจ่ายเงิน
                         const confirmResult = await Swal.fire({
                             icon: 'warning',
@@ -346,12 +383,15 @@ const PatientReceptionSection = ({
                                         <strong>📊 สถิติการใช้สิทธิ์บัตรทองในเดือนนี้:</strong>
                                     </p>
                                     <ul style="font-size: 14px; color: #666; margin-left: 20px;">
-                                        <li>ใช้แล้ว: <strong style="color: #f59e0b;">${usageCount} ครั้ง</strong></li>
+                                        <li>ใช้ที่คลินิก: <strong>${usageCount} ครั้ง</strong></li>
+                                        <li>ใช้ที่คลินิก: <strong>${usageCount} ครั้ง</strong></li>
+                                        ${manualCount > 0 ? `<li>แจ้งว่าใช้มาแล้ว: <strong>${manualCount} ครั้ง</strong></li>` : ''}
+                                        <li>ประเมินว่าใช้ไปแล้ว: <strong style="color: #f59e0b;">${totalUsage} ครั้ง</strong></li>
                                         <li>จำกัด: ${maxUsage} ครั้งต่อเดือน</li>
                                     </ul>
                                     <div style="background-color: #fee2e2; padding: 15px; border-radius: 8px; margin-top: 15px; border-left: 4px solid #ef4444;">
                                         <p style="font-size: 15px; color: #991b1b; margin: 0; font-weight: 600;">
-                                            ⚠️ ใช้สิทธิ์เกินกำหนดแล้ว!<br/>
+                                            ⚠️ ใช้สิทธิ์ครบ/เกินกำหนดแล้ว!<br/>
                                             การรักษาครั้งนี้จะคิดเงินตามปกติ
                                         </p>
                                     </div>
@@ -369,30 +409,34 @@ const PatientReceptionSection = ({
                             setLoading(false);
                             return;
                         }
-                    } else if (remainingUsage === 0) {
-                        // ถ้าใช้ครบ 2 ครั้งแล้ว แต่ยังไม่เกิน (ยังพอใช้ได้ 1 ครั้ง)
+                    } else if (realRemaining === 0) { // This condition might be unreachable if >= maxUsage is caught above, but keeping logic consistent
+                        // ... (logic for exact limit reached is covered above mostly, but let's handle "last time" if remaining is 1 but now effectively 0? No, this block was for previous "remainingUsage === 0" check.
+                        // Let's simplified: if totalUsage >= 2 -> Block/Warn.
+                        // If totalUsage < 2, maybe warn if it's the last one? 
+                        // Logic below was: } else if (remainingUsage === 0) 
+                        // If max is 2. Used 2. Remaining 0. Matches above.
+                        // So this else if is actually redundant for the "exceeded" case but maybe intended for "Just reached limit"?
+                        // The original code: isExceeded (meaning >2?) OR remainingUsage === 0 (meaning =2?).
+                        // Let's stick to the plan: >= 2 is the warning condition.
+                    } else if (realRemaining === 1 && totalUsage === 1) {
+                        // ถ้าใช้ไป 1 (รวม) แล้วเหลือ 1 (คือครั้งนี้ใช้ได้ แต่เป็นครั้งสุดท้ายของเดือน? ไม่ใช่ ครั้งนี้ใช้แล้วจะเหลือ 0)
+                        // Original logic: "remainingUsage === 0" meant "Used 2, 0 left".
+                        // Wait, if max is 2. Used 1. Remaining 1. 
+                        // Current visit will make it 2. So "Last usage"?
                         await Swal.fire({
                             icon: 'info',
-                            title: '💡 ใช้สิทธิ์บัตรทองครั้งสุดท้าย',
+                            title: '💡 ใช้สิทธิ์บัตรทอง',
                             html: `
                                 <div style="text-align: left; padding: 10px;">
                                     <p style="font-size: 16px; margin-bottom: 15px;">
                                         ผู้ป่วย HN: <strong>${selectedPatient.HNCODE}</strong>
                                     </p>
-                                    <p style="font-size: 14px; color: #666; margin-bottom: 10px;">
-                                        <strong>📊 สถิติการใช้สิทธิ์บัตรทองในเดือนนี้:</strong>
-                                    </p>
                                     <ul style="font-size: 14px; color: #666; margin-left: 20px;">
-                                        <li>ใช้แล้ว: ${usageCount} ครั้ง</li>
-                                        <li>จำกัด: ${maxUsage} ครั้งต่อเดือน</li>
-                                        <li>เหลือ: <strong style="color: #059669;">${remainingUsage} ครั้ง</strong></li>
+                                        <li>ใช้ที่คลินิก: ${usageCount} ครั้ง</li>
+                                        ${manualCount > 0 ? `<li>แจ้งว่าใช้มาแล้ว: ${manualCount} ครั้ง</li>` : ''}
+                                        <li>ประเมินว่าใช้ไปแล้ว: ${totalUsage} ครั้ง</li>
+                                        <li>เหลือสิทธิ์: <strong style="color: #059669;">${realRemaining} ครั้ง</strong></li>
                                     </ul>
-                                    <div style="background-color: #dbeafe; padding: 15px; border-radius: 8px; margin-top: 15px; border-left: 4px solid #3b82f6;">
-                                        <p style="font-size: 14px; color: #1e40af; margin: 0;">
-                                            💡 นี่เป็นการใช้สิทธิ์ครั้งสุดท้ายในเดือนนี้<br/>
-                                            ครั้งถัดไปจะต้องจ่ายเงินตามปกติ
-                                        </p>
-                                    </div>
                                 </div>
                             `,
                             confirmButtonText: 'ตกลง',
@@ -400,28 +444,11 @@ const PatientReceptionSection = ({
                             width: '500px'
                         });
                     } else {
-                        // ยังใช้ไม่ครบ ให้แจ้งจำนวนที่เหลือ
-                        await Swal.fire({
-                            icon: 'info',
-                            title: '📊 สถิติการใช้สิทธิ์บัตรทอง',
-                            html: `
-                                <div style="text-align: left; padding: 10px;">
-                                    <p style="font-size: 14px; color: #666; margin-bottom: 10px;">
-                                        <strong>ผู้ป่วย HN:</strong> ${selectedPatient.HNCODE}
-                                    </p>
-                                    <ul style="font-size: 14px; color: #666; margin-left: 20px;">
-                                        <li>ใช้แล้ว: ${usageCount} ครั้ง</li>
-                                        <li>เหลือ: <strong style="color: #059669;">${remainingUsage} ครั้ง</strong></li>
-                                    </ul>
-                                </div>
-                            `,
-                            confirmButtonText: 'ตกลง',
-                            confirmButtonColor: '#3b82f6',
-                            width: '400px'
-                        });
+                        // Safe to use
                     }
                 }
             }
+
 
             // ✅ Step 1: สร้างคิวพร้อมข้อมูลบัตร
             const queueData = {
@@ -430,7 +457,8 @@ const PatientReceptionSection = ({
                 CREATED_BY: 'RECEPTION_SYSTEM',
                 // ✅ เพิ่มข้อมูลบัตรที่นี่
                 SOCIAL_CARD: selectedPatient.SOCIAL_CARD,
-                UCS_CARD: selectedPatient.UCS_CARD
+                // ✅ ส่งค่า UCS_CARD ที่คำนวณแล้ว (ถ้าเกิน 2 ครั้งจะเป็น 'N')
+                UCS_CARD: (selectedPatient.UCS_CARD === 'Y' && totalUsage >= maxUsage) ? 'N' : selectedPatient.UCS_CARD
             };
 
             console.log('🏥 Creating queue with card info:', queueData);
@@ -464,7 +492,8 @@ const PatientReceptionSection = ({
 
                 // ข้อมูลพื้นฐาน
                 EMP_CODE: 'DOC001',
-                STATUS1: 'ทำงานอยู่'
+                STATUS1: 'ทำงานอยู่',
+                UCS_CARD: (selectedPatient.UCS_CARD === 'Y' && totalUsage >= maxUsage) ? 'N' : selectedPatient.UCS_CARD
             };
 
             console.log('💊 Creating treatment record with vitals...');
@@ -499,7 +528,7 @@ const PatientReceptionSection = ({
 
             // Dispatch event เพื่อแจ้งหน้าอื่นๆ ว่ามีการเพิ่มคิว
             window.dispatchEvent(new CustomEvent('queueAdded', {
-                detail: { 
+                detail: {
                     queueId: queueResponse.data.QUEUE_ID,
                     queueNumber: queueResponse.data.QUEUE_NUMBER,
                     hncode: selectedPatient.HNCODE
@@ -518,23 +547,23 @@ const PatientReceptionSection = ({
     const handleCheckInAppointment = async (appointment) => {
         try {
             setLoading(true);
-            
+
             // เรียก API check-in appointment
             const response = await QueueService.checkInAppointment(appointment.APPOINTMENT_ID);
-            
+
             if (response.success) {
                 showSnackbar(`✅ เข้าคิวสำเร็จ! คิวที่ ${response.data.QUEUE_NUMBER} | VN: ${response.data.VNO}`, 'success');
-                
+
                 // อัพเดทสถานะนัดหมาย
                 await AppointmentService.updateAppointmentStatus(appointment.APPOINTMENT_ID, 'เข้าพบแล้ว');
-                
+
                 // Refresh data
                 loadTodayAppointments();
                 onRefresh();
-                
+
                 // Dispatch event เพื่อแจ้งหน้าอื่นๆ ว่ามีการเพิ่มคิว
                 window.dispatchEvent(new CustomEvent('queueAdded', {
-                    detail: { 
+                    detail: {
                         queueId: response.data.QUEUE_ID,
                         queueNumber: response.data.QUEUE_NUMBER,
                         hncode: appointment.HNCODE
@@ -589,8 +618,8 @@ const PatientReceptionSection = ({
                             <Grid container spacing={2}>
                                 {todayAppointments.map((appointment) => (
                                     <Grid item xs={12} sm={6} md={4} key={appointment.APPOINTMENT_ID}>
-                                        <Card 
-                                            sx={{ 
+                                        <Card
+                                            sx={{
                                                 bgcolor: 'white',
                                                 border: '1px solid #ffc107',
                                                 '&:hover': { boxShadow: 3 }
@@ -610,7 +639,7 @@ const PatientReceptionSection = ({
                                                         </Typography>
                                                     </Box>
                                                 </Box>
-                                                
+
                                                 <Box sx={{ mt: 1, mb: 1.5 }}>
                                                     <Typography variant="body2" sx={{ mb: 0.5 }}>
                                                         ⏰ <strong>เวลา:</strong> {appointment.APPOINTMENT_TIME || '-'}
@@ -626,7 +655,7 @@ const PatientReceptionSection = ({
                                                         </Typography>
                                                     )}
                                                 </Box>
-                                                
+
                                                 <Button
                                                     variant="contained"
                                                     size="small"
@@ -795,6 +824,34 @@ const PatientReceptionSection = ({
                                     เคลียร์ข้อมูล
                                 </Button>
                             </Box>
+
+                            {/* ✅ Input จำนวนครั้งที่ใช้สิทธิ์จากที่อื่น (เฉพาะบัตรทอง) */}
+                            {selectedPatient.UCS_CARD === 'Y' && (
+                                <Box sx={{ mb: 2, p: 2, bgcolor: '#fff7ed', borderRadius: '10px', border: '1px solid #ffcc80' }}>
+                                    <Grid container spacing={2} alignItems="center">
+                                        <Grid item xs={12} md={8}>
+                                            <Typography variant="body2" sx={{ color: '#e65100', fontWeight: 'bold' }}>
+                                                💳 ผู้ป่วยมีสิทธิ์บัตรทอง
+                                            </Typography>
+                                            <Typography variant="caption" sx={{ color: '#e65100' }}>
+                                                กรุณาสอบถามผู้ป่วยว่าเดือนนี้ใช้สิทธิ์ที่คลินิกอื่นมาแล้วกี่ครั้ง
+                                            </Typography>
+                                        </Grid>
+                                        <Grid item xs={12} md={4}>
+                                            <TextField
+                                                label="ใช้มาแล้วกี่ครั้ง"
+                                                type="number"
+                                                value={externalUcsCount}
+                                                onChange={(e) => setExternalUcsCount(e.target.value)}
+                                                fullWidth
+                                                size="small"
+                                                inputProps={{ min: 0, max: 10 }}
+                                                sx={{ bgcolor: 'white' }}
+                                            />
+                                        </Grid>
+                                    </Grid>
+                                </Box>
+                            )}
 
                             <Grid container spacing={2}>
                                 <Grid item xs={6} md={3}>

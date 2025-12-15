@@ -402,10 +402,10 @@ const Paymentanddispensingmedicine = () => {
       }
 
       // ✅ เช็ค UCS_CARD: ถ้าเป็น 'Y' ไม่ต้องชำระเงิน, ถ้าเป็น 'N' ต้องชำระเงินก่อน
-      const ucsCard = currentPatient?.UCS_CARD ||
+      // Prioritize Treatment-specific status (Visit status) over Patient status
+      const ucsCard = treatmentData?.treatment?.UCS_CARD ||
+        currentPatient?.UCS_CARD ||
         currentPatient?.PATIENT_UCS_CARD ||
-        treatmentData?.treatment?.UCS_CARD ||
-        treatmentData?.patient?.UCS_CARD ||
         'N';
       const paymentStatus = currentPatient.PAYMENT_STATUS || 'รอชำระ';
 
@@ -1112,9 +1112,9 @@ const Paymentanddispensingmedicine = () => {
     // ✅ ดึงส่วนลดจาก paymentData ก่อน (เพราะ user อาจแก้ไขใน UI) แล้วค่อย fallback ไปที่อื่น
     const discount = parseFloat(
       (paymentData.discount !== undefined && paymentData.discount !== null) ? paymentData.discount :
-      treatmentData?.treatment?.DISCOUNT_AMOUNT ||
-      currentPatient?.paymentData?.discount ||
-      0
+        treatmentData?.treatment?.DISCOUNT_AMOUNT ||
+        currentPatient?.paymentData?.discount ||
+        0
     );
     return Math.max(0, totalCost - discount);
   };
@@ -1717,9 +1717,9 @@ const Paymentanddispensingmedicine = () => {
                               // ✅ ดึงส่วนลดจาก paymentData ก่อน (เพราะ user อาจแก้ไขใน UI) แล้วค่อย fallback ไปที่อื่น
                               const discount = parseFloat(
                                 (paymentData.discount !== undefined && paymentData.discount !== null) ? paymentData.discount :
-                                treatmentData?.treatment?.DISCOUNT_AMOUNT ||
-                                currentPatient?.paymentData?.discount ||
-                                0
+                                  treatmentData?.treatment?.DISCOUNT_AMOUNT ||
+                                  currentPatient?.paymentData?.discount ||
+                                  0
                               );
                               return discount > 0 ? (
                                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
@@ -1751,9 +1751,9 @@ const Paymentanddispensingmedicine = () => {
                               // ✅ ส่งส่วนลดจาก paymentData ก่อน (เพราะ user อาจแก้ไขใน UI) แล้วค่อย fallback ไปที่อื่น
                               discount: parseFloat(
                                 (paymentData.discount !== undefined && paymentData.discount !== null) ? paymentData.discount :
-                                treatmentData?.treatment?.DISCOUNT_AMOUNT ||
-                                currentPatient?.paymentData?.discount ||
-                                0
+                                  treatmentData?.treatment?.DISCOUNT_AMOUNT ||
+                                  currentPatient?.paymentData?.discount ||
+                                  0
                               )
                             }}
                           />
