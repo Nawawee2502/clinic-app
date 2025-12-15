@@ -89,7 +89,44 @@ const PatientRegistration = () => {
     loadTodayQueue();
     loadQueueStats();
     loadTodayAppointments();
+    checkDuplicateVNOs(); // ✅ เช็ค VN ซ้ำตอนเปิดหน้า
   }, []);
+
+  // ✅ เช็ค VN ซ้ำในวันนี้
+  const checkDuplicateVNOs = async () => {
+    try {
+      const response = await PatientService.getTodayPatientsFromQueue();
+      if (response.success && response.data) {
+        const vnoMap = new Map();
+        const duplicates = [];
+
+        // เก็บ VN ทั้งหมด
+        response.data.forEach(patient => {
+          const vno = patient.VNO || patient.VNNO;
+          if (vno) {
+            if (vnoMap.has(vno)) {
+              duplicates.push({
+                vno,
+                patients: [vnoMap.get(vno), patient]
+              });
+            } else {
+              vnoMap.set(vno, patient);
+            }
+          }
+        });
+
+        if (duplicates.length > 0) {
+          console.error('⚠️ พบ VN ซ้ำ:', duplicates);
+          showSnackbar(
+            `⚠️ พบ VN ซ้ำ ${duplicates.length} คู่: ${duplicates.map(d => d.vno).join(', ')} กรุณาตรวจสอบ`,
+            'error'
+          );
+        }
+      }
+    } catch (error) {
+      console.error('Error checking duplicate VNOs:', error);
+    }
+  };
 
   // ✅ เปลี่ยนให้ใช้ Service เดียวกันกับหน้าตรวจรักษา
   const loadTodayQueue = async () => {

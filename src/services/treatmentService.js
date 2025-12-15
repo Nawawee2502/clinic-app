@@ -371,6 +371,23 @@ class TreatmentService {
         }
     }
 
+    // ✅ ตรวจสอบว่า VNO ซ้ำหรือไม่
+    static async checkVNOExists(vno) {
+        try {
+            const response = await fetch(`${API_BASE_URL}/treatments/check-vno/${vno}`);
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('Error checking VNO:', error);
+            throw error;
+        }
+    }
+
     // ✅ อัพเดทข้อมูลการรักษา - แก้ไขเพื่อรองรับ freestyle procedures
     static async updateTreatment(vno, treatmentData) {
         try {
