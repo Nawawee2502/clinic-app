@@ -1338,8 +1338,8 @@ const PatientDetailPanel = React.memo(({
                         </Paper>
                     </Grid>
 
-                    <Grid item xs={12}>
-                        <Paper sx={{ p: 3, borderRadius: 3, border: '1px solid #e2e8f0' }}>
+                    <Grid item xs={12} md={6}>
+                        <Paper sx={{ p: 3, borderRadius: 3, border: '1px solid #e2e8f0', height: '100%' }}>
                             <Typography
                                 variant="h6"
                                 fontWeight={600}
@@ -1559,8 +1559,8 @@ const PatientDetailPanel = React.memo(({
                         </Paper>
                     </Grid>
 
-                    <Grid item xs={12}>
-                        <Paper sx={{ p: 3, borderRadius: 3, border: '1px solid #e2e8f0' }}>
+                    <Grid item xs={12} md={6}>
+                        <Paper sx={{ p: 3, borderRadius: 3, border: '1px solid #e2e8f0', height: '100%' }}>
                             <Typography
                                 variant="h6"
                                 fontWeight={600}
@@ -1572,11 +1572,10 @@ const PatientDetailPanel = React.memo(({
 
                             <Grid container spacing={2}>
                                 {[
-                                    { label: 'บัตรการรักษา', field: 'TREATMENT_CARD' },
                                     { label: 'บัตรประกันสังคม', field: 'SOCIAL_CARD' },
                                     { label: 'บัตรทอง/บัตร UC', field: 'UCS_CARD' }
                                 ].map(({ label, field }) => (
-                                    <Grid item xs={12} sm={4} key={field}>
+                                    <Grid item xs={12} key={field}>
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                                             <Typography
                                                 variant="body2"
@@ -2354,25 +2353,26 @@ const PatientManagement = () => {
         const previousFiltered = [...filteredPatients];
         const previousSelected = { ...selectedPatient };
 
-        // 2. Create optimistic payload
-        const optimisticPatient = { ...selectedPatient, ...editFormData };
+        // 2. Create optimistic payload & Format Data
+        const mergedData = { ...selectedPatient, ...editFormData };
+        const formattedData = PatientService.formatPatientData(mergedData);
 
         // 3. Update UI immediately
         // Note: Do NOT set global loading to true to prevent UI freeze
         setError('');
         setIsEditing(false);
-        setSelectedPatient(optimisticPatient);
+        setSelectedPatient(formattedData);
 
         // Update in lists
         const updateList = (list) => list.map(p =>
-            p.HNCODE === hnToUpdate ? optimisticPatient : p
+            p.HNCODE === hnToUpdate ? formattedData : p
         );
         setPatients(updateList(patients));
         setFilteredPatients(updateList(filteredPatients));
 
         try {
             // 4. Perform API call in background
-            const response = await PatientService.updatePatient(hnToUpdate, editFormData);
+            const response = await PatientService.updatePatient(hnToUpdate, formattedData);
 
             if (response.success) {
                 // Success! State is already updated.
