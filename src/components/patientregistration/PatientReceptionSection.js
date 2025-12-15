@@ -44,7 +44,7 @@ const PatientReceptionSection = ({
     // Vitals State
     const [vitalsData, setVitalsData] = useState({
         WEIGHT1: '',
-        HIGH1: '',  // ✅ แก้ไขจาก HIGHT1 เป็น HIGH1
+        HIGH1: '',
         BT1: '',
         BP1: '',
         BP2: '',
@@ -135,13 +135,32 @@ const PatientReceptionSection = ({
         if (patient) {
             showSnackbar(`เลือกผู้ป่วย: ${patient.PRENAME} ${patient.NAME1} ${patient.SURNAME}`, 'success');
 
+            // ✅ Pre-fill Gold Card usage count
+            if (patient.UCS_CARD === 'Y') {
+                try {
+                    const ucsUsageCheck = await TreatmentService.checkUCSUsageThisMonth(patient.HNCODE);
+                    if (ucsUsageCheck.success && ucsUsageCheck.data) {
+                        const { usageCount } = ucsUsageCheck.data;
+                        // Default to System Usage + 1 (Current Visit)
+                        setExternalUcsCount(usageCount + 1);
+                    } else {
+                        setExternalUcsCount('1');
+                    }
+                } catch (error) {
+                    console.error('Error fetching UCS usage:', error);
+                    setExternalUcsCount('1'); // Fallback
+                }
+            } else {
+                setExternalUcsCount('');
+            }
+
             // ✅ โหลด Vital Signs เดิมของผู้ป่วย
             await loadPatientVitals(patient.HNCODE);
         } else {
             // ถ้าไม่มีผู้ป่วย ให้เคลียร์ข้อมูล Vitals
             setVitalsData({
                 WEIGHT1: '',
-                HIGH1: '',  // ✅ แก้ไขจาก HIGHT1 เป็น HIGH1
+                HIGH1: '',
                 BT1: '',
                 BP1: '',
                 BP2: '',
@@ -156,7 +175,6 @@ const PatientReceptionSection = ({
     };
 
     // ✅ ฟังก์ชันโหลด Vital Signs เดิม
-    // ✅ ฟังก์ชันโหลด Vital Signs เดิม - เฉพาะน้ำหนักและส่วนสูงเท่านั้น
     const loadPatientVitals = async (hncode) => {
         setVitalsLoading(true);
 
@@ -172,7 +190,7 @@ const PatientReceptionSection = ({
                 setVitalsData(prev => ({
                     ...prev,
                     WEIGHT1: patientWithVitals.WEIGHT1 || '',
-                    HIGH1: patientWithVitals.HIGH1 || '',  // ✅ แก้ไขจาก HIGHT1 เป็น HIGH1
+                    HIGH1: patientWithVitals.HIGH1 || '',
                     // เคลียร์ข้อมูลอื่นๆ ให้กรอกใหม่
                     BT1: '',
                     BP1: '',
@@ -198,7 +216,7 @@ const PatientReceptionSection = ({
                     setVitalsData(prev => ({
                         ...prev,
                         WEIGHT1: treatmentData.WEIGHT1 || '',
-                        HIGH1: treatmentData.HIGH1 || treatmentData.HIGHT1 || '',  // ✅ รองรับทั้งสอง format
+                        HIGH1: treatmentData.HIGH1 || treatmentData.HIGHT1 || '',
                         // เคลียร์ข้อมูลอื่นๆ ให้กรอกใหม่
                         BT1: '',
                         BP1: '',
@@ -258,7 +276,7 @@ const PatientReceptionSection = ({
     const clearVitalsData = () => {
         setVitalsData({
             WEIGHT1: '',
-            HIGH1: '',  // ✅ แก้ไขจาก HIGHT1 เป็น HIGH1
+            HIGH1: '',
             BT1: '',
             BP1: '',
             BP2: '',
@@ -330,46 +348,24 @@ const PatientReceptionSection = ({
 
             // ✅ Step 0.5: เช็คสิทธิ์บัตรทอง - ถ้าใช้เกิน 2 ครั้งในเดือนนี้ให้แจ้งเตือน
             const ucsCard = selectedPatient?.UCS_CARD || 'N';
+            let totalUsage = 0;
+            let maxUsage = 2;
+            let manualCount = 0;
+
             if (ucsCard === 'Y') {
                 const ucsUsageCheck = await TreatmentService.checkUCSUsageThisMonth(selectedPatient.HNCODE);
 
                 if (ucsUsageCheck.success && ucsUsageCheck.data) {
-                    const { usageCount, maxUsage, isExceeded, remainingUsage } = ucsUsageCheck.data;
+                    const { usageCount, maxUsage: apiMaxUsage, isExceeded, remainingUsage } = ucsUsageCheck.data;
+                    maxUsage = apiMaxUsage;
 
                     // ✅ รวมจำนวนครั้งที่ใช้จากที่อื่น
-                    const externalCount = parseInt(externalUcsCount) || 0;
-                    // Note: usageCount คือจำนวนครั้งที่ใช้ในระบบ (เช็คจาก DB treatment)
-                    // เราต้องการรวมกับ externaCount
-                    // ถ้า User กรอกว่า "ใช้มาแล้ว 2 ครั้ง" หมายถึงรวมทุกที่แล้ว 
-                    // หรือ "ใช้ที่อื่นมา 2 ครั้ง"? 
-                    // User Request: "ถามว่า ใช้มาแล้วกี่ครั้ง" (How many times used total)
-                    // So externalUcsCount IS the total used count reported by patient? 
-                    // Or is it "Used elsewhere"?
-                    // Context: "ถ้าไปรักษาจาก คลินิก อื่นมา แล้วเกิน 2 ครั้งแล้ว... ถามเขาว่าเดือนนี้ใช้ไปกี่ครั้งแล้ว"
-                    // If user enters '2', it implies TOTAL usage is 2.
-                    // But we also have `usageCount` from our DB.
-                    // If patient says "Used 2 times" (meaning total), do we add `usageCount`?
-                    // If they visited US once before, manual input "2" might overlap?
-                    // Let's assume the input is "External/Other Clinic Usage". 
-                    // "ใช้มาแล้วกี่ครั้ง" usually implies total.
-                    // IF input is TOTAL: `totalUsage = Math.max(usageCount, parseInt(externalUcsCount))`?
-                    // Prompt says: "ถามเขาว่าเดือนนี้ใช้ไปกี่ครั้งแล้ว... ถ้ากรอก >= 2 คือไม่สามารถใช้ได้"
-                    // I will treat the input as "Total Used Count reported by Patient".
-                    // If manual input is provided, we compare it with system count.
-                    // Actually, to be safe and additive: `totalUsage = usageCount + externalCount` is safer if the input is "Extra".
-                    // But if label is "Used Total", then we should just take the max.
-                    // User said: "ไม่ต้องถามว่า ใช้ที่อื่นมาแล้วกี่ครั้ง ถามว่า ใช้มาแล้วกี่ครั้งก็พอ"
-                    // -> "Don't ask how many times used elsewhere, ask how many times used [total]."
-                    // So if I use `totalUsage = parseInt(externalUcsCount)`, we ignore system count? 
-                    // Better logic: `totalUsage = Math.max(usageCount, parseInt(externalUcsCount) || 0)`.
-                    // This covers "Used 2 times" (Patient knows best).
-
-                    const manualCount = parseInt(externalUcsCount) || 0;
-                    const totalUsage = Math.max(usageCount, manualCount);
+                    manualCount = parseInt(externalUcsCount) || 0;
+                    totalUsage = Math.max(usageCount, manualCount);
                     const realRemaining = Math.max(0, maxUsage - totalUsage);
 
-                    if (isExceeded || totalUsage >= maxUsage) {
-                        // ถ้าใช้เกิน 2 ครั้งแล้ว ให้แจ้งเตือนว่าต้องจ่ายเงิน
+                    if (isExceeded || totalUsage > maxUsage) {
+                        // ถ้าใช้เกิน 2 ครั้งแล้ว (ครั้งที่ 3 ขึ้นไป) ให้แจ้งเตือนว่าต้องจ่ายเงิน
                         const confirmResult = await Swal.fire({
                             icon: 'warning',
                             title: '⚠️ ใช้สิทธิ์บัตรทองเกินกำหนด',
@@ -409,20 +405,10 @@ const PatientReceptionSection = ({
                             setLoading(false);
                             return;
                         }
-                    } else if (realRemaining === 0) { // This condition might be unreachable if >= maxUsage is caught above, but keeping logic consistent
-                        // ... (logic for exact limit reached is covered above mostly, but let's handle "last time" if remaining is 1 but now effectively 0? No, this block was for previous "remainingUsage === 0" check.
-                        // Let's simplified: if totalUsage >= 2 -> Block/Warn.
-                        // If totalUsage < 2, maybe warn if it's the last one? 
-                        // Logic below was: } else if (remainingUsage === 0) 
-                        // If max is 2. Used 2. Remaining 0. Matches above.
-                        // So this else if is actually redundant for the "exceeded" case but maybe intended for "Just reached limit"?
-                        // The original code: isExceeded (meaning >2?) OR remainingUsage === 0 (meaning =2?).
-                        // Let's stick to the plan: >= 2 is the warning condition.
+                    } else if (realRemaining === 0) {
+                        // ...
                     } else if (realRemaining === 1 && totalUsage === 1) {
-                        // ถ้าใช้ไป 1 (รวม) แล้วเหลือ 1 (คือครั้งนี้ใช้ได้ แต่เป็นครั้งสุดท้ายของเดือน? ไม่ใช่ ครั้งนี้ใช้แล้วจะเหลือ 0)
-                        // Original logic: "remainingUsage === 0" meant "Used 2, 0 left".
-                        // Wait, if max is 2. Used 1. Remaining 1. 
-                        // Current visit will make it 2. So "Last usage"?
+                        // ถ้าใช้ไป 1 (รวม) แล้วเหลือ 1
                         await Swal.fire({
                             icon: 'info',
                             title: '💡 ใช้สิทธิ์บัตรทอง',
@@ -458,7 +444,7 @@ const PatientReceptionSection = ({
                 // ✅ เพิ่มข้อมูลบัตรที่นี่
                 SOCIAL_CARD: selectedPatient.SOCIAL_CARD,
                 // ✅ ส่งค่า UCS_CARD ที่คำนวณแล้ว (ถ้าเกิน 2 ครั้งจะเป็น 'N')
-                UCS_CARD: (selectedPatient.UCS_CARD === 'Y' && totalUsage >= maxUsage) ? 'N' : selectedPatient.UCS_CARD
+                UCS_CARD: (selectedPatient.UCS_CARD === 'Y' && totalUsage > maxUsage) ? 'N' : selectedPatient.UCS_CARD
             };
 
             console.log('🏥 Creating queue with card info:', queueData);
@@ -493,7 +479,7 @@ const PatientReceptionSection = ({
                 // ข้อมูลพื้นฐาน
                 EMP_CODE: 'DOC001',
                 STATUS1: 'ทำงานอยู่',
-                UCS_CARD: (selectedPatient.UCS_CARD === 'Y' && totalUsage >= maxUsage) ? 'N' : selectedPatient.UCS_CARD
+                UCS_CARD: (selectedPatient.UCS_CARD === 'Y' && totalUsage > maxUsage) ? 'N' : selectedPatient.UCS_CARD
             };
 
             console.log('💊 Creating treatment record with vitals...');
@@ -839,7 +825,7 @@ const PatientReceptionSection = ({
                                         </Grid>
                                         <Grid item xs={12} md={4}>
                                             <TextField
-                                                label="ใช้มาแล้วกี่ครั้ง"
+                                                label="ครั้งที่"
                                                 type="number"
                                                 value={externalUcsCount}
                                                 onChange={(e) => setExternalUcsCount(e.target.value)}
@@ -875,15 +861,15 @@ const PatientReceptionSection = ({
                                     <TextField
                                         label="ส่วนสูง (cm)"
                                         type="number"
-                                        value={vitalsData.HIGH1}  // ✅ แก้ไขจาก HIGHT1 เป็น HIGH1
-                                        onChange={(e) => setVitalsData(prev => ({ ...prev, HIGH1: e.target.value }))}  // ✅ แก้ไขจาก HIGHT1 เป็น HIGH1
+                                        value={vitalsData.HIGH1}
+                                        onChange={(e) => setVitalsData(prev => ({ ...prev, HIGH1: e.target.value }))}
                                         fullWidth
                                         size="small"
                                         inputProps={{ min: 0, max: 300, step: 0.1 }}
                                         sx={{
                                             '& .MuiOutlinedInput-root': {
                                                 borderRadius: '10px',
-                                                bgcolor: vitalsData.HIGH1 ? '#f0f8ff' : 'inherit'  // ✅ แก้ไขจาก HIGHT1 เป็น HIGH1
+                                                bgcolor: vitalsData.HIGH1 ? '#f0f8ff' : 'inherit'
                                             }
                                         }}
                                     />
