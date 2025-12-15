@@ -4,9 +4,10 @@ import { useNavigate, Link } from 'react-router-dom';
 import AuthService from '../services/authService';
 import {
     Box, Card, CardContent, TextField, Button, Typography,
-    Alert, InputAdornment, IconButton, CircularProgress, Grid
+    Alert, InputAdornment, IconButton, CircularProgress, Grid,
+    Container, Paper, Divider
 } from '@mui/material';
-import { Visibility, VisibilityOff, PersonAdd } from '@mui/icons-material';
+import { Visibility, VisibilityOff, PersonAdd, LocalHospital } from '@mui/icons-material';
 
 const RegisterPage = () => {
     const navigate = useNavigate();
@@ -107,20 +108,48 @@ const RegisterPage = () => {
     };
 
     return (
-        <Box sx={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            minHeight: '100vh',
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            padding: 3
-        }}>
-            <Card sx={{ maxWidth: 600, width: '100%' }}>
-                <CardContent sx={{ p: 4 }}>
-                    <Box sx={{ textAlign: 'center', mb: 3 }}>
-                        <PersonAdd sx={{ fontSize: 60, color: 'primary.main', mb: 2 }} />
-                        <Typography variant="h4" fontWeight="bold" gutterBottom>
-                            ลงทะเบียน
+        <Box
+            sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                minHeight: '100vh',
+                backgroundColor: '#f1f5f9',
+                backgroundImage: 'radial-gradient(at 50% 50%, rgba(74, 158, 255, 0.1) 0%, transparent 50%)',
+                padding: 3
+            }}
+        >
+            <Container maxWidth="sm">
+                <Paper
+                    elevation={0}
+                    sx={{
+                        p: 4,
+                        borderRadius: 4,
+                        border: '1px solid',
+                        borderColor: 'grey.200',
+                        boxShadow: '0 4px 20px rgba(0,0,0,0.05)',
+                        backgroundColor: '#ffffff'
+                    }}
+                >
+                    <Box sx={{ textAlign: 'center', mb: 4 }}>
+                        <Box
+                            sx={{
+                                width: 56,
+                                height: 56,
+                                borderRadius: '50%',
+                                backgroundColor: '#eff6ff',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                margin: '0 auto',
+                                mb: 2,
+                                color: '#4A9EFF'
+                            }}
+                        >
+                            <PersonAdd sx={{ fontSize: 32 }} />
+                        </Box>
+                        <Typography variant="h5" fontWeight="800" color="#1e293b" gutterBottom>
+                            ลงทะเบียนเจ้าหน้าที่
                         </Typography>
                         <Typography variant="body2" color="text.secondary">
                             สร้างบัญชีใหม่เพื่อเข้าใช้งานระบบ
@@ -128,13 +157,25 @@ const RegisterPage = () => {
                     </Box>
 
                     {error && (
-                        <Alert severity="error" sx={{ mb: 3 }}>
+                        <Alert
+                            severity="error"
+                            sx={{
+                                mb: 3,
+                                borderRadius: 2
+                            }}
+                        >
                             {error}
                         </Alert>
                     )}
 
                     {success && (
-                        <Alert severity="success" sx={{ mb: 3 }}>
+                        <Alert
+                            severity="success"
+                            sx={{
+                                mb: 3,
+                                borderRadius: 2
+                            }}
+                        >
                             ลงทะเบียนสำเร็จ! กำลังนำคุณเข้าสู่ระบบ...
                         </Alert>
                     )}
@@ -142,26 +183,34 @@ const RegisterPage = () => {
                     <form onSubmit={handleSubmit}>
                         <Grid container spacing={2}>
                             <Grid item xs={12}>
+                                <Typography variant="caption" fontWeight="600" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+                                    ชื่อผู้ใช้งาน <span style={{ color: '#ef4444' }}>*</span>
+                                </Typography>
                                 <TextField
                                     fullWidth
-                                    label="Username *"
                                     name="username"
+                                    placeholder="กำหนดชื่อผู้ใช้งาน"
                                     value={formData.username}
                                     onChange={handleChange}
                                     disabled={loading || success}
                                     error={!!validationErrors.username}
                                     helperText={validationErrors.username}
                                     autoComplete="username"
-                                    autoFocus
+                                    InputProps={{
+                                        sx: { borderRadius: 2 }
+                                    }}
                                 />
                             </Grid>
 
                             <Grid item xs={12} sm={6}>
+                                <Typography variant="caption" fontWeight="600" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+                                    รหัสผ่าน <span style={{ color: '#ef4444' }}>*</span>
+                                </Typography>
                                 <TextField
                                     fullWidth
-                                    label="Password *"
                                     name="password"
                                     type={showPassword ? 'text' : 'password'}
+                                    placeholder="กำหนดรหัสผ่าน"
                                     value={formData.password}
                                     onChange={handleChange}
                                     disabled={loading || success}
@@ -169,13 +218,15 @@ const RegisterPage = () => {
                                     helperText={validationErrors.password}
                                     autoComplete="new-password"
                                     InputProps={{
+                                        sx: { borderRadius: 2 },
                                         endAdornment: (
                                             <InputAdornment position="end">
                                                 <IconButton
                                                     onClick={() => setShowPassword(!showPassword)}
                                                     edge="end"
+                                                    size="small"
                                                 >
-                                                    {showPassword ? <VisibilityOff /> : <Visibility />}
+                                                    {showPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
                                                 </IconButton>
                                             </InputAdornment>
                                         )
@@ -184,11 +235,14 @@ const RegisterPage = () => {
                             </Grid>
 
                             <Grid item xs={12} sm={6}>
+                                <Typography variant="caption" fontWeight="600" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+                                    ยืนยันรหัสผ่าน <span style={{ color: '#ef4444' }}>*</span>
+                                </Typography>
                                 <TextField
                                     fullWidth
-                                    label="ยืนยัน Password *"
                                     name="confirmPassword"
                                     type={showConfirmPassword ? 'text' : 'password'}
+                                    placeholder="ยืนยันรหัสผ่านอีกครั้ง"
                                     value={formData.confirmPassword}
                                     onChange={handleChange}
                                     disabled={loading || success}
@@ -196,13 +250,15 @@ const RegisterPage = () => {
                                     helperText={validationErrors.confirmPassword}
                                     autoComplete="new-password"
                                     InputProps={{
+                                        sx: { borderRadius: 2 },
                                         endAdornment: (
                                             <InputAdornment position="end">
                                                 <IconButton
                                                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                                                     edge="end"
+                                                    size="small"
                                                 >
-                                                    {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
+                                                    {showConfirmPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
                                                 </IconButton>
                                             </InputAdornment>
                                         )
@@ -211,55 +267,83 @@ const RegisterPage = () => {
                             </Grid>
 
                             <Grid item xs={12}>
+                                <Divider sx={{ my: 1, borderStyle: 'dashed' }} />
+                            </Grid>
+
+                            <Grid item xs={12}>
+                                <Typography variant="caption" fontWeight="600" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+                                    ชื่อ-นามสกุล <span style={{ color: '#ef4444' }}>*</span>
+                                </Typography>
                                 <TextField
                                     fullWidth
-                                    label="ชื่อ-นามสกุล *"
                                     name="fullName"
+                                    placeholder="ชื่อ-นามสกุลจริง"
                                     value={formData.fullName}
                                     onChange={handleChange}
                                     disabled={loading || success}
                                     error={!!validationErrors.fullName}
                                     helperText={validationErrors.fullName}
                                     autoComplete="name"
+                                    InputProps={{
+                                        sx: { borderRadius: 2 }
+                                    }}
                                 />
                             </Grid>
 
                             <Grid item xs={12} sm={6}>
+                                <Typography variant="caption" fontWeight="600" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+                                    รหัสพนักงาน
+                                </Typography>
                                 <TextField
                                     fullWidth
-                                    label="รหัสพนักงาน"
                                     name="empCode"
+                                    placeholder="ระบุรหัสพนักงาน (ถ้ามี)"
                                     value={formData.empCode}
                                     onChange={handleChange}
                                     disabled={loading || success}
                                     autoComplete="off"
+                                    InputProps={{
+                                        sx: { borderRadius: 2 }
+                                    }}
                                 />
                             </Grid>
 
                             <Grid item xs={12} sm={6}>
+                                <Typography variant="caption" fontWeight="600" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+                                    เบอร์โทรศัพท์
+                                </Typography>
                                 <TextField
                                     fullWidth
-                                    label="เบอร์โทรศัพท์"
                                     name="tel"
+                                    placeholder="0xx-xxxxxxx"
                                     value={formData.tel}
                                     onChange={handleChange}
                                     disabled={loading || success}
                                     autoComplete="tel"
+                                    InputProps={{
+                                        sx: { borderRadius: 2 }
+                                    }}
                                 />
                             </Grid>
 
                             <Grid item xs={12}>
+                                <Typography variant="caption" fontWeight="600" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+                                    อีเมล
+                                </Typography>
                                 <TextField
                                     fullWidth
-                                    label="Email"
                                     name="email"
                                     type="email"
+                                    placeholder="name@example.com"
                                     value={formData.email}
                                     onChange={handleChange}
                                     disabled={loading || success}
                                     error={!!validationErrors.email}
                                     helperText={validationErrors.email}
                                     autoComplete="email"
+                                    InputProps={{
+                                        sx: { borderRadius: 2 }
+                                    }}
                                 />
                             </Grid>
                         </Grid>
@@ -270,25 +354,39 @@ const RegisterPage = () => {
                             variant="contained"
                             size="large"
                             disabled={loading || success}
-                            sx={{ mt: 3, mb: 2 }}
+                            sx={{
+                                mt: 4,
+                                mb: 2,
+                                py: 1.5,
+                                borderRadius: 2,
+                                backgroundColor: '#4A9EFF',
+                                fontSize: '1rem',
+                                fontWeight: 600,
+                                textTransform: 'none',
+                                boxShadow: '0 4px 12px rgba(74, 158, 255, 0.2)',
+                                '&:hover': {
+                                    backgroundColor: '#3b82f6',
+                                    boxShadow: '0 6px 16px rgba(74, 158, 255, 0.3)'
+                                }
+                            }}
                         >
                             {loading ? (
                                 <>
-                                    <CircularProgress size={24} sx={{ mr: 1 }} />
+                                    <CircularProgress size={20} color="inherit" sx={{ mr: 1.5 }} />
                                     กำลังลงทะเบียน...
                                 </>
-                            ) : success ? 'ลงทะเบียนสำเร็จ' : 'ลงทะเบียน'}
+                            ) : success ? 'ลงทะเบียนสำเร็จ' : 'ยืนยันการลงทะเบียน'}
                         </Button>
 
                         <Box sx={{ textAlign: 'center', mt: 2 }}>
-                            <Typography variant="body2">
+                            <Typography variant="body2" color="text.secondary">
                                 มีบัญชีอยู่แล้ว?{' '}
                                 <Link
                                     to="/login"
                                     style={{
-                                        color: '#667eea',
+                                        color: '#4A9EFF',
                                         textDecoration: 'none',
-                                        fontWeight: 'bold'
+                                        fontWeight: 600
                                     }}
                                 >
                                     เข้าสู่ระบบ
@@ -296,14 +394,14 @@ const RegisterPage = () => {
                             </Typography>
                         </Box>
                     </form>
+                </Paper>
 
-                    <Box sx={{ mt: 3, textAlign: 'center' }}>
-                        <Typography variant="caption" color="text.secondary">
-                            * ข้อมูลที่จำเป็นต้องกรอก
-                        </Typography>
-                    </Box>
-                </CardContent>
-            </Card>
+                <Box sx={{ mt: 3, textAlign: 'center' }}>
+                    <Typography variant="caption" color="text.disabled">
+                        © 2024 Clinic Management System. All rights reserved.
+                    </Typography>
+                </Box>
+            </Container>
         </Box>
     );
 };

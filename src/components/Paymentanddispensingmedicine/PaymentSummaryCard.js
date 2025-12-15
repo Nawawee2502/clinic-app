@@ -204,7 +204,7 @@ const PaymentSummaryCard = ({
 
                     <Divider sx={{ my: 1 }} />
 
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                         <Typography variant="body1" fontWeight="bold">รวมทั้งหมด:</Typography>
                         <Typography variant="body1" fontWeight="bold" color="primary">
                             {calculateTotalFromEditablePrices().toFixed(2)} บาท
@@ -236,9 +236,9 @@ const PaymentSummaryCard = ({
                 )}
 
                 {/* ✅ แสดงส่วนลดเมื่อชำระแล้ว หรือเมื่อกรอกส่วนลด */}
-                {(isPaymentCompleted || (paymentData.discount && paymentData.discount > 0)) && (
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                        <Typography variant="body2">ส่วนลด:</Typography>
+                {(isPaymentCompleted || (paymentData.discount && parseFloat(paymentData.discount) > 0)) && (
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+                        <Typography variant="body2" fontWeight="bold">ส่วนลด:</Typography>
                         <Typography variant="body2" fontWeight="bold" color="error">
                             -{parseFloat(paymentData.discount || 0).toFixed(2)} บาท
                         </Typography>

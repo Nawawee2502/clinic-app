@@ -11,7 +11,7 @@ class FiveDiseasesPDF {
     const patientAddress = formData.patientAddress || currentPatient?.ADDR1 || '';
     
     const doctorName = formData.doctorName || 'นายแพทย์ ภรภัทร ก๋องเงิน';
-    const doctorLicense = formData.doctorLicense || 'ว.78503';
+    const doctorLicense = formData.doctorLicense || ''; // ไม่ใส่ default ให้ผู้ใช้กรอกเอง
     
     // Format dates
     const getDateParts = (dateString) => {
@@ -61,6 +61,16 @@ class FiveDiseasesPDF {
             margin: 15mm 20mm;
         }
         
+        @media print {
+            body {
+                padding: 0;
+                margin: 0;
+            }
+            .container {
+                page-break-inside: avoid;
+            }
+        }
+        
         * {
             margin: 0;
             padding: 0;
@@ -69,8 +79,8 @@ class FiveDiseasesPDF {
         
         body {
             font-family: 'Sarabun', sans-serif;
-            font-size: 13px;
-            line-height: 1.5;
+            font-size: 11px;
+            line-height: 1.4;
             color: #000;
             padding: 0;
         }
@@ -88,15 +98,14 @@ class FiveDiseasesPDF {
         .clinic-logo {
             width: 55px;
             height: 55px;
-            background: #3B82F6;
-            color: white;
-            display: inline-block;
-            text-align: center;
-            line-height: 55px;
-            font-size: 22px;
-            border-radius: 4px;
             margin-right: 12px;
             flex-shrink: 0;
+        }
+        
+        .clinic-logo img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
         }
         
         .clinic-info {
@@ -135,15 +144,15 @@ class FiveDiseasesPDF {
         .section-title {
             font-size: 13px;
             font-weight: 600;
-            margin-top: 15px;
-            margin-bottom: 8px;
+            margin-top: 12px;
+            margin-bottom: 6px;
         }
         
         .form-field {
-            margin-bottom: 6px;
+            margin-bottom: 4px;
             display: flex;
             align-items: baseline;
-            font-size: 13px;
+            font-size: 11px;
         }
         
         .form-label {
@@ -153,20 +162,20 @@ class FiveDiseasesPDF {
         }
         
         .underline {
-            border-bottom: 1px solid #000;
+            border-bottom: 1px dotted #000;
             flex: 1;
             margin-left: 8px;
             min-height: 18px;
-            padding-bottom: 1px;
+            padding-bottom: 2px;
             display: inline-block;
         }
         
         .underline-inline {
-            border-bottom: 1px solid #000;
+            border-bottom: 1px dotted #000;
             display: inline-block;
             min-width: 50px;
             text-align: center;
-            padding-bottom: 1px;
+            padding-bottom: 2px;
         }
         
         .checkbox-container {
@@ -201,13 +210,13 @@ class FiveDiseasesPDF {
         
         .text-block {
             text-align: justify;
-            line-height: 1.8;
-            margin: 10px 0;
-            font-size: 13px;
+            line-height: 1.6;
+            margin: 8px 0;
+            font-size: 11px;
         }
         
         .signature-line {
-            border-top: 1px solid #000;
+            border-top: 1px dotted #000;
             width: 180px;
             margin-top: 30px;
             padding-top: 3px;
@@ -227,16 +236,16 @@ class FiveDiseasesPDF {
         }
         
         .disease-item {
-            margin-bottom: 4px;
-            font-size: 13px;
+            margin-bottom: 3px;
+            font-size: 11px;
         }
         
         .recommendation-box {
             border: 1px solid #000;
-            min-height: 50px;
-            padding: 5px;
-            margin-top: 5px;
-            font-size: 13px;
+            min-height: 40px;
+            padding: 4px;
+            margin-top: 4px;
+            font-size: 11px;
         }
         
         @media print {
@@ -250,7 +259,9 @@ class FiveDiseasesPDF {
     <div class="container">
         <!-- Header -->
         <div class="header">
-            <div class="clinic-logo">S</div>
+            <div class="clinic-logo">
+                <img src="/logo.png" alt="Logo" />
+            </div>
             <div class="clinic-info">
                 <div class="clinic-name">${clinicName}</div>
                 <div class="clinic-address">${clinicAddress}</div>
@@ -495,7 +506,7 @@ class FiveDiseasesPDF {
         </div>
         
         <!-- Footer Note -->
-        <div class="note" style="margin-top: 20px; text-align: center; padding-top: 10px; border-top: 1px solid #ddd;">
+        <div class="note" style="margin-top: 15px; text-align: center; padding-top: 8px; border-top: 1px solid #ddd; font-size: 10px;">
             หมายเหตุ ใบรับรองแพทย์นี้ใช้ได้ 1 เดือนนับจากวันที่ตรวจ
         </div>
     </div>

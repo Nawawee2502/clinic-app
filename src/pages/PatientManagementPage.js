@@ -1846,18 +1846,42 @@ const PatientManagement = () => {
         }
     }, [historyLimit, getCurrentMonthDateRange]);
 
-    // Load patients function - ต้องประกาศก่อน useEffect ที่ใช้มัน
-    const loadPatients = useCallback(async (page = 1, limit = 10) => {
+    // Load patients function - ใช้ทั้งโหลดปกติและค้นหา
+    const loadPatients = useCallback(async (page = 1, limit = 10, searchTerm = '') => {
         try {
             setLoading(true);
-            const response = await PatientService.getAllPatients(page, limit);
+            let response;
+
+            const term = searchTerm || debouncedSearchTerm;
+
+            if (term && term.trim()) {
+                // ถ้ามีคำค้นหา ใช้ searchPatients พร้อม pagination
+                response = await PatientService.searchPatients(term.trim(), page, limit);
+            } else {
+                // ถ้าไม่มีคำค้นหา ใช้ getAllPatients
+                response = await PatientService.getAllPatients(page, limit);
+            }
+
             if (response.success) {
                 setPatients(response.data);
                 setFilteredPatients(response.data);
 
                 // อัพเดท pagination info
                 if (response.pagination) {
-                    setPatientPagination(response.pagination);
+                    setPatientPagination({
+                        ...response.pagination,
+                        // Ensure limit is consistent
+                        limit: parseInt(limit)
+                    });
+                } else {
+                    // Fallback for unexpected response structure
+                    setPatientPagination(prev => ({
+                        ...prev,
+                        page,
+                        limit,
+                        total: response.data.length,
+                        totalPages: 1
+                    }));
                 }
 
                 return response.data;
@@ -1869,7 +1893,7 @@ const PatientManagement = () => {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [debouncedSearchTerm]);
 
     // เมื่อมีการค้นหา ให้ fetch ข้อมูลใหม่
     const handleHistorySearch = useCallback(() => {
@@ -2027,20 +2051,25 @@ const PatientManagement = () => {
                                 tradeName = '';
                             }
 
+                            // ✅ Priority for Usage: TIME1 (from treatment) > eat1 (from drug master)
+                            const usage = drug.TIME1 || drug.eat1 || '';
+
                             // Debug: log สำหรับ D0155
                             if (drugCode === 'D0155') {
                                 console.log(`🔍 D0155 Final values:`, {
                                     genericName,
                                     tradeName,
                                     originalGeneric: drug.GENERIC_NAME,
-                                    originalTrade: drug.TRADE_NAME
+                                    originalTrade: drug.TRADE_NAME,
+                                    usage
                                 });
                             }
 
                             return {
                                 ...drug,
                                 GENERIC_NAME: genericName,
-                                TRADE_NAME: tradeName
+                                TRADE_NAME: tradeName,
+                                TIME1: usage // Ensure TIME1 is set with fallback
                             };
                         })
                     );
@@ -2143,40 +2172,36 @@ const PatientManagement = () => {
 
     // Auto search when debounced term changes
     useEffect(() => {
-        if (debouncedSearchTerm.trim()) {
-            const performSearch = async () => {
-                try {
-                    setLoading(true);
-                    const response = await PatientService.searchPatients(debouncedSearchTerm.trim());
-                    if (response.success) {
-                        setFilteredPatients(response.data);
-                        setPatientPagination({
-                            page: 1,
-                            limit: response.data.length,
-                            total: response.data.length,
-                            totalPages: 1
-                        });
-                        // Reset selected patient when searching
-                        setSelectedPatient(null);
-                        setEditFormData({});
-                        setIsEditing(false);
-                    }
-                } catch (err) {
-                    setError('เกิดข้อผิดพลาดในการค้นหา');
-                } finally {
-                    setLoading(false);
-                }
-            };
-            performSearch();
-        } else if (debouncedSearchTerm === '' && searchTerm === '') {
-            // ถ้า search term เป็นค่าว่าง ให้ reset และโหลดข้อมูลใหม่
-            setPatientPage(1);
-            setSelectedPatient(null);
-            setEditFormData({});
-            setIsEditing(false);
-            loadPatients(1, patientPagination.limit);
-        }
-    }, [debouncedSearchTerm, searchTerm, loadPatients, patientPagination.limit]);
+        const performSearch = async () => {
+            // ถ้าคำค้นหาไม่เปลี่ยน (เช่นแค่เปลี่ยนหน้า) ไม่ต้อง reset page เป็น 1 ที่นี่
+            // แต่อาจจะต้องเรียก loadPatients ด้วยหน้าใหม่
+            // Logic:
+            // 1. ถ้า searchTerm เปลี่ยน => Reset page to 1, Call loadPatients(1, ...)
+            // 2. ถ้า searchTerm ไม่เปลี่ยนแต่ page เปลี่ยน => (จัดการโดย handlePageChange ซึ่งเรียก loadPatients)
+
+            // Effect นี้ทำงานเมื่อ debouncedSearchTerm เปลี่ยน แปลว่าเป็นการค้นหาใหม่
+            if (debouncedSearchTerm.trim()) {
+                setPatientPage(1); // Reset page only on new search term
+                setSelectedPatient(null);
+                setEditFormData({});
+                setIsEditing(false);
+
+                await loadPatients(1, patientPagination.limit, debouncedSearchTerm.trim());
+            } else if (debouncedSearchTerm === '' && searchTerm === '') {
+                // Reset Search
+                setPatientPage(1);
+                setSelectedPatient(null);
+                setEditFormData({});
+                setIsEditing(false);
+                loadPatients(1, patientPagination.limit);
+            }
+        };
+
+        performSearch();
+    }, [debouncedSearchTerm, loadPatients]);
+    // ตัด searchTerm และ patientPagination.limit ออกจาก deps เพื่อป้องกัน loop
+    // แต่จริงๆ searchTerm ใช้ใน logic 'else if' ดังนั้นใส่ได้ถ้าระวัง
+    // loadPatients ถูก wrap แล้ว
 
     useEffect(() => {
         if (activeTab === 'history') {
@@ -2255,42 +2280,23 @@ const PatientManagement = () => {
         }
     };
 
-    // Load patients only when manage tab is active (lazy loading for faster initial load)
+    // Load patients when page changes or tab changes
     useEffect(() => {
-        if (activeTab === 'manage' && !searchTerm) {
+        if (activeTab === 'manage') {
+            // โหลดข้อมูลเมื่อเปลี่ยนหน้า หรือเปลี่ยน tab
+            // (ใช้ debouncedSearchTerm ภายใน loadPatients เอง)
             loadPatients(patientPage, patientPagination.limit);
         }
-    }, [activeTab, patientPage, searchTerm, loadPatients, patientPagination.limit]);
+    }, [activeTab, patientPage, loadPatients, patientPagination.limit]);
 
-    const handleSearch = useCallback(async (term = null) => {
-        const searchValue = term || debouncedSearchTerm || searchTerm;
+    // handleSearch ถูกแทนที่ด้วย debounced effect และ loadPatients แล้ว จึงลบออกได้
 
-        if (!searchValue || !searchValue.trim()) {
-            // ถ้าไม่มี search term ให้ reset ไปหน้าแรก
-            setPatientPage(1);
-            setFilteredPatients(patients);
-            return;
-        }
-
-        try {
-            setLoading(true);
-            const response = await PatientService.searchPatients(searchValue.trim());
-            if (response.success) {
-                setFilteredPatients(response.data);
-                // เมื่อ search ไม่ใช้ pagination
-                setPatientPagination({
-                    page: 1,
-                    limit: response.data.length,
-                    total: response.data.length,
-                    totalPages: 1
-                });
-            }
-        } catch (err) {
-            setError('เกิดข้อผิดพลาดในการค้นหา');
-        } finally {
-            setLoading(false);
-        }
-    }, [debouncedSearchTerm, searchTerm, patients]);
+    // ไม่ใช้ handleSearch แบบเดิมแล้ว ใช้ผ่าน debounced effect แทน
+    // แต่ยังเก็บไว้เผื่อปุ่ม clear search
+    const handleClearSearch = useCallback(() => {
+        setSearchTerm('');
+        setDebouncedSearchTerm('');
+    }, []);
 
     const handlePatientSelect = useCallback((patient) => {
         setSelectedPatient(patient);
@@ -2316,39 +2322,77 @@ const PatientManagement = () => {
             return;
         }
 
+        const hnToUpdate = selectedPatient.HNCODE?.toString().trim();
+        if (!hnToUpdate) {
+            setError('ไม่พบรหัสผู้ป่วย (HN)');
+            return;
+        }
+
+        // Helper to normalize values for comparison
+        const normalize = (val) => {
+            if (val === null || val === undefined) return '';
+            return String(val).trim();
+        };
+
+        // Check if there are any actual changes
+        const hasChanges = Object.keys(editFormData).some(key => {
+            // Skip keys that are not part of the editable data or are always different
+            if (['avatar'].includes(key)) return false;
+            // Compare normalized values
+            return normalize(editFormData[key]) !== normalize(selectedPatient[key]);
+        });
+
+        if (!hasChanges) {
+            console.log('No changes detected, skipping API update');
+            setIsEditing(false);
+            return;
+        }
+
+        // --- Optimistic Update Logic ---
+        // 1. Snapshot previous state for rollback
+        const previousPatients = [...patients];
+        const previousFiltered = [...filteredPatients];
+        const previousSelected = { ...selectedPatient };
+
+        // 2. Create optimistic payload
+        const optimisticPatient = { ...selectedPatient, ...editFormData };
+
+        // 3. Update UI immediately
+        // Note: Do NOT set global loading to true to prevent UI freeze
+        setError('');
+        setIsEditing(false);
+        setSelectedPatient(optimisticPatient);
+
+        // Update in lists
+        const updateList = (list) => list.map(p =>
+            p.HNCODE === hnToUpdate ? optimisticPatient : p
+        );
+        setPatients(updateList(patients));
+        setFilteredPatients(updateList(filteredPatients));
+
         try {
-            setLoading(true);
-            setError('');
-
-            const hnToUpdate = selectedPatient.HNCODE?.toString().trim();
-            if (!hnToUpdate) {
-                setError('ไม่พบรหัสผู้ป่วย (HN)');
-                setLoading(false);
-                return;
-            }
-
+            // 4. Perform API call in background
             const response = await PatientService.updatePatient(hnToUpdate, editFormData);
 
             if (response.success) {
-                const updatedList = await loadPatients();
-                const updatedPatient = Array.isArray(updatedList)
-                    ? updatedList.find((patient) => patient.HNCODE === selectedPatient.HNCODE)
-                    : null;
+                // Success! State is already updated.
+                // Optional: If backend returned updated data that includes server-generated fields,
+                // we could update again here. But current backend only returns basic info.
 
-                if (updatedPatient) {
-                    setSelectedPatient(updatedPatient);
-                    setEditFormData(updatedPatient);
-                } else {
-                    setSelectedPatient(null);
-                }
-
-                setIsEditing(false);
-                setError('');
+                // We might want to silent-refresh the list if we suspect other users changed data,
+                // but for "responsiveness", we trust our write.
             } else {
-                setError(response.message || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล');
+                throw new Error(response.message || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล');
             }
         } catch (err) {
             console.error('Error saving patient:', err);
+
+            // 5. Revert on failure
+            setPatients(previousPatients);
+            setFilteredPatients(previousFiltered);
+            setSelectedPatient(previousSelected);
+            setIsEditing(true); // Re-open edit mode so user can retry
+
             const errorMessage = err.message || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล';
             if (errorMessage.includes('หมดเวลา') || errorMessage.includes('timeout') || errorMessage.includes('TIMED_OUT')) {
                 setError('การเชื่อมต่อหมดเวลา กรุณาลองใหม่อีกครั้ง');
@@ -2357,8 +2401,6 @@ const PatientManagement = () => {
             } else {
                 setError(errorMessage);
             }
-        } finally {
-            setLoading(false);
         }
     };
 
@@ -2568,8 +2610,8 @@ const PatientManagement = () => {
                                             />
                                         ))}
 
-                                        {/* Pagination Controls - แสดงเฉพาะเมื่อไม่มีการ search */}
-                                        {!searchTerm && patientPagination.totalPages > 1 && (
+                                        {/* Pagination Controls - แสดงเสมอถ้ามีมากกว่า 1 หน้า */}
+                                        {patientPagination.totalPages > 1 && (
                                             <Paper
                                                 elevation={0}
                                                 sx={{
@@ -3447,6 +3489,7 @@ const PatientManagement = () => {
                                                                     const genericName = drug.GENERIC_NAME || '';
                                                                     const tradeName = drug.TRADE_NAME || '';
                                                                     const drugCode = drug.DRUG_CODE || '';
+                                                                    const usage = drug.TIME1 || '';
 
                                                                     // สร้าง array ของชื่อยาที่จะแสดง โดยกรองค่าที่ไม่ถูกต้อง
                                                                     const displayParts = [];
@@ -3474,28 +3517,31 @@ const PatientManagement = () => {
                                                                     // แสดง QTY อย่างง่าย
                                                                     const qtyValue = drug.QTY || '0';
                                                                     const displayQty = typeof qtyValue === 'string'
-                                                                        ? qtyValue.trim().split(/\s+/)[0]
-                                                                        : qtyValue.toString();
-                                                                    const unitName = drug.UNIT_NAME || '';
-                                                                    const qtyDisplay = unitName ? `${displayQty} ${unitName}` : displayQty;
+                                                                        ? qtyValue.replace('.00', '')
+                                                                        : qtyValue;
 
                                                                     return (
-                                                                        <TableRow key={`${drugCode}-${index}`} hover sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
-                                                                            <TableCell sx={{ color: '#94A3B8' }}>{index + 1}</TableCell>
+                                                                        <TableRow key={index} hover>
+                                                                            <TableCell sx={{ color: '#64748B' }}>{index + 1}</TableCell>
                                                                             <TableCell>
                                                                                 <Typography variant="body2" sx={{ fontWeight: 600, color: '#334155' }}>
                                                                                     {displayName}
                                                                                 </Typography>
                                                                             </TableCell>
-                                                                            <TableCell align="right" sx={{ color: '#334155' }}>
-                                                                                {qtyDisplay}
+                                                                            <TableCell align="right">
+                                                                                <Typography variant="body2" sx={{ color: '#334155' }}>
+                                                                                    {displayQty} {drug.UNIT_NAME || drug.UNIT_CODE || ''}
+                                                                                </Typography>
                                                                             </TableCell>
-                                                                            <TableCell sx={{ color: '#475569', maxWidth: 200 }}>
-                                                                                {drug.eat1 || drug.NOTE1 || drug.TIME1 || '-'}
+                                                                            <TableCell>
+                                                                                <Typography variant="body2" sx={{ color: '#475569' }}>
+                                                                                    {usage || '-'}
+                                                                                </Typography>
                                                                             </TableCell>
                                                                         </TableRow>
                                                                     );
                                                                 })}
+
                                                             </TableBody>
                                                         </Table>
                                                     </TableContainer>

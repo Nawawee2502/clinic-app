@@ -59,6 +59,7 @@ import TuneIcon from '@mui/icons-material/Tune';
 import LocalPharmacyIcon from '@mui/icons-material/LocalPharmacy';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
+import CheckCircle from '@mui/icons-material/CheckCircle';
 
 // กำหนดธีมให้ตรงกับ Design
 const demoTheme = createTheme({
@@ -382,6 +383,11 @@ const CustomSidebar = ({ activeMenu, onMenuClick, isOpen, role }) => {
             path: '/clinic/finance/general-incomes',
             icon: <ReceiptLongIcon />
         },
+        {
+            title: 'ยืนยันผู้ป่วยบัตรทอง',
+            path: '/clinic/finance/gold-confirmation',
+            icon: <CheckCircle />
+        }
     ];
 
     // เมนูย่อยสำหรับรายงาน

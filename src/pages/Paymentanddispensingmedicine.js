@@ -1109,11 +1109,11 @@ const Paymentanddispensingmedicine = () => {
 
   const calculateTotal = () => {
     const totalCost = calculateTotalFromEditablePrices();
-    // ✅ ดึงส่วนลดจาก treatmentData หรือ currentPatient หรือ paymentData
+    // ✅ ดึงส่วนลดจาก paymentData ก่อน (เพราะ user อาจแก้ไขใน UI) แล้วค่อย fallback ไปที่อื่น
     const discount = parseFloat(
+      (paymentData.discount !== undefined && paymentData.discount !== null) ? paymentData.discount :
       treatmentData?.treatment?.DISCOUNT_AMOUNT ||
       currentPatient?.paymentData?.discount ||
-      paymentData.discount ||
       0
     );
     return Math.max(0, totalCost - discount);
@@ -1714,11 +1714,11 @@ const Paymentanddispensingmedicine = () => {
                               <Typography>{calculateTotalFromEditablePrices().toFixed(2)} บาท</Typography>
                             </Box>
                             {(() => {
-                              // ✅ ดึงส่วนลดจาก treatmentData หรือ paymentData หรือ currentPatient
+                              // ✅ ดึงส่วนลดจาก paymentData ก่อน (เพราะ user อาจแก้ไขใน UI) แล้วค่อย fallback ไปที่อื่น
                               const discount = parseFloat(
+                                (paymentData.discount !== undefined && paymentData.discount !== null) ? paymentData.discount :
                                 treatmentData?.treatment?.DISCOUNT_AMOUNT ||
                                 currentPatient?.paymentData?.discount ||
-                                paymentData.discount ||
                                 0
                               );
                               return discount > 0 ? (
@@ -1748,11 +1748,11 @@ const Paymentanddispensingmedicine = () => {
                             items={getReceiptItems()}
                             paymentData={{
                               ...paymentData,
-                              // ✅ ส่งส่วนลดจาก treatmentData หรือ currentPatient ถ้ามี
+                              // ✅ ส่งส่วนลดจาก paymentData ก่อน (เพราะ user อาจแก้ไขใน UI) แล้วค่อย fallback ไปที่อื่น
                               discount: parseFloat(
+                                (paymentData.discount !== undefined && paymentData.discount !== null) ? paymentData.discount :
                                 treatmentData?.treatment?.DISCOUNT_AMOUNT ||
                                 currentPatient?.paymentData?.discount ||
-                                paymentData.discount ||
                                 0
                               )
                             }}

@@ -10,7 +10,7 @@ class GeneralMedicalPDF {
     const patientHN = currentPatient?.HNCODE || '';
     
     const doctorName = formData.doctorName || 'นายแพทย์ ภรภัทร ก๋องเงิน';
-    const doctorLicense = formData.doctorLicense || 'ว.78503';
+    const doctorLicense = formData.doctorLicense || ''; // ไม่ใส่ default ให้ผู้ใช้กรอกเอง
     
     // Format dates
     const getDateParts = (dateString) => {
@@ -46,6 +46,16 @@ class GeneralMedicalPDF {
             margin: 15mm 20mm;
         }
         
+        @media print {
+            body {
+                padding: 0;
+                margin: 0;
+            }
+            .container {
+                page-break-inside: avoid;
+            }
+        }
+        
         * {
             margin: 0;
             padding: 0;
@@ -54,8 +64,8 @@ class GeneralMedicalPDF {
         
         body {
             font-family: 'Sarabun', sans-serif;
-            font-size: 13px;
-            line-height: 1.6;
+            font-size: 12px;
+            line-height: 1.5;
             color: #000;
             padding: 0;
         }
@@ -73,15 +83,14 @@ class GeneralMedicalPDF {
         .clinic-logo {
             width: 55px;
             height: 55px;
-            background: #3B82F6;
-            color: white;
-            display: inline-block;
-            text-align: center;
-            line-height: 55px;
-            font-size: 22px;
-            border-radius: 4px;
             margin-right: 12px;
             flex-shrink: 0;
+        }
+        
+        .clinic-logo img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
         }
         
         .clinic-info {
@@ -132,20 +141,20 @@ class GeneralMedicalPDF {
         }
         
         .underline {
-            border-bottom: 1px solid #000;
+            border-bottom: 1px dotted #000;
             flex: 1;
             margin-left: 8px;
             min-height: 18px;
-            padding-bottom: 1px;
+            padding-bottom: 2px;
             display: inline-block;
         }
         
         .underline-inline {
-            border-bottom: 1px solid #000;
+            border-bottom: 1px dotted #000;
             display: inline-block;
             min-width: 50px;
             text-align: center;
-            padding-bottom: 1px;
+            padding-bottom: 2px;
         }
         
         .text-block {
@@ -156,7 +165,7 @@ class GeneralMedicalPDF {
         }
         
         .signature-line {
-            border-top: 1px solid #000;
+            border-top: 1px dotted #000;
             width: 180px;
             margin-top: 30px;
             padding-top: 3px;
@@ -165,7 +174,7 @@ class GeneralMedicalPDF {
         }
         
         .separator {
-            border-top: 1px solid #000;
+            border-top: 1px dotted #000;
             margin: 15px 0;
         }
         
@@ -180,7 +189,9 @@ class GeneralMedicalPDF {
     <div class="container">
         <!-- Header -->
         <div class="header">
-            <div class="clinic-logo">S</div>
+            <div class="clinic-logo">
+                <img src="/logo.png" alt="Logo" />
+            </div>
             <div class="clinic-info">
                 <div class="clinic-name">${clinicName}</div>
                 <div class="clinic-address">${clinicAddress}</div>
@@ -196,18 +207,18 @@ class GeneralMedicalPDF {
         </div>
         
         <!-- Doctor's Statement -->
-        <div class="text-block">
+        <div class="text-block" style="margin-bottom: 12px;">
             ข้าพเจ้า ${doctorName} แพทย์ปริญญา ปฏิบัติงาน ณ ${clinicName} เป็นผู้ประกอบวิชาชีพเวชกรรมแผนปัจจุบันชั้นหนึ่งสาขาเวชกรรม 
-            ใบอนุญาตประกอบวิชาชีพเวชกรรมเลขที่ ${doctorLicense} ได้ตรวจร่างกายผู้ป่วยชื่อ
+            ${doctorLicense ? `ใบอนุญาตประกอบวิชาชีพเวชกรรมเลขที่ ${doctorLicense}` : 'ใบอนุญาตประกอบวิชาชีพเวชกรรมเลขที่ <span class="underline" style="width: 150px; display: inline-block;"></span>'} ได้ตรวจร่างกายผู้ป่วยชื่อ
             <span class="underline" style="width: 400px; display: inline-block; margin-left: 10px;">${patientName}</span>
         </div>
         
-        <div class="form-field">
+        <div class="form-field" style="margin-bottom: 8px;">
             <span class="form-label">ทะเบียนผู้ป่วยเลขที่</span>
             <span class="underline">${patientHN}</span>
         </div>
         
-        <div class="form-field">
+        <div class="form-field" style="margin-bottom: 8px;">
             <span class="form-label">เมื่อวันที่</span>
             <span class="underline" style="width: 200px;">${examDateParts.day} เดือน ${examDateParts.month} พ.ศ. ${examDateParts.year}</span>
             <span class="form-label" style="margin-left: 20px; min-width: 100px;">มีความเห็นว่า</span>
@@ -215,29 +226,29 @@ class GeneralMedicalPDF {
         </div>
         
         <!-- Separator -->
-        <div class="separator"></div>
+        <div class="separator" style="margin: 12px 0;"></div>
         
         <!-- Certification Statement -->
-        <div class="text-block">
+        <div class="text-block" style="margin: 12px 0;">
             ขอรับรองว่าผู้ป่วยรายนี้ได้มารับการตรวจรักษาในวันและเวลาดังกล่าวจริง ทั้งนี้ได้ให้การรักษาพร้อมด้วยคำแนะนำไว้เรียบร้อยแล้ว
         </div>
         
         <!-- Diagnosis Details -->
-        <div class="form-field" style="margin-top: 20px;">
+        <div class="form-field" style="margin-top: 12px; margin-bottom: 8px;">
             <span class="form-label">เป็นโรค</span>
             <span class="underline">${formData.diagnosis || ''}</span>
         </div>
         
-        <div class="form-field">
+        <div class="form-field" style="margin-bottom: 8px;">
             <span class="form-label">มีอาการ</span>
             <span class="underline">${formData.symptoms || ''}</span>
         </div>
         
         <!-- Doctor Signature -->
-        <div style="text-align: right; margin-top: 60px;">
+        <div style="text-align: right; margin-top: 40px;">
             <div class="signature-line"></div>
             <div style="margin-top: 5px;">(นพ. ${doctorName})</div>
-            <div style="margin-top: 5px;">(${doctorLicense})</div>
+            ${doctorLicense ? `<div style="margin-top: 5px;">(${doctorLicense})</div>` : '<div style="margin-top: 5px;"><span class="underline" style="width: 150px; display: inline-block;"></span></div>'}
             <div style="margin-top: 5px;">แพทย์ผู้ตรวจ</div>
         </div>
     </div>

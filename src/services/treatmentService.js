@@ -1092,17 +1092,25 @@ class TreatmentService {
 
     // ✅ สร้างข้อมูลการชำระเงินจาก editablePrices
     static createPaymentDataFromEditablePrices(editablePrices, paymentInfo) {
-        const totalAmount = this.calculateTotalFromEditablePrices(editablePrices);
+        // ✅ คำนวณยอดรวมจาก editablePrices (ยังไม่รวม TREATMENT_FEE)
+        const baseTotal = this.calculateTotalFromEditablePrices(editablePrices);
+        
+        // ✅ เพิ่ม TREATMENT_FEE เข้าไปในยอดรวมก่อนหักส่วนลด
+        const treatmentFee = parseFloat(paymentInfo.treatmentFee !== undefined && paymentInfo.treatmentFee !== null ? paymentInfo.treatmentFee : 100.00);
+        const totalAmount = baseTotal + treatmentFee;
+        
+        // ✅ หักส่วนลดจากยอดรวมที่รวม TREATMENT_FEE แล้ว
         const discount = parseFloat(paymentInfo.discount || 0);
         const netAmount = Math.max(0, totalAmount - discount);
+        
         const receivedAmount = parseFloat(paymentInfo.receivedAmount || 0);
         const changeAmount = Math.max(0, receivedAmount - netAmount);
 
         return {
-            TOTAL_AMOUNT: totalAmount,
-            TREATMENT_FEE: parseFloat(paymentInfo.treatmentFee || 100.00), // ✅ บันทึกค่ารักษาแยก
+            TOTAL_AMOUNT: totalAmount, // ✅ รวม TREATMENT_FEE แล้ว
+            TREATMENT_FEE: treatmentFee, // ✅ บันทึกค่ารักษาแยก
             DISCOUNT_AMOUNT: discount,
-            NET_AMOUNT: netAmount,
+            NET_AMOUNT: netAmount, // ✅ ยอดชำระสุทธิหลังหักส่วนลด
             PAYMENT_STATUS: 'ชำระเงินแล้ว',
             PAYMENT_DATE: getCurrentDateForDB(),
             PAYMENT_TIME: getCurrentTimeForDB(),

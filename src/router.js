@@ -30,6 +30,7 @@ import DrugReport from "./pages/DrugReport";
 // Import หน้าใหม่ (Lazy loading)
 const UserManagement = lazy(() => import("./pages/UserManagement"));
 const RegisterPage = lazy(() => import("./pages/RegisterPage"));
+const GoldCardConfirmation = lazy(() => import("./pages/GoldCardConfirmation"));
 
 // Import หน้าระบบการเงิน/บัญชี (Lazy loading)
 // const ExpenseCategories = lazy(() => import("./pages/Finance/ExpenseCategories"));
@@ -124,6 +125,7 @@ const Router = () => {
               <Route path="finance/financetypes" element={<FinanceTypes />} />
               <Route path="finance/general-pay" element={<Pay1Management />} />
               <Route path="finance/general-incomes" element={<Income1Management />} />
+              <Route path="finance/gold-confirmation" element={<GoldCardConfirmation />} />
 
 
               {/* Report Routes */}

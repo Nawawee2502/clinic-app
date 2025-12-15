@@ -186,7 +186,8 @@ class EmployeeService {
         return {
             EMP_CODE: data.EMP_CODE?.trim().toUpperCase(),
             EMP_NAME: data.EMP_NAME?.trim(),
-            EMP_TYPE: data.EMP_TYPE?.trim()
+            EMP_TYPE: data.EMP_TYPE?.trim(),
+            LICENSE_NO: data.LICENSE_NO?.trim() || null
         };
     }
 

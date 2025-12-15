@@ -194,7 +194,7 @@ const Medicalcertificate = ({ currentPatient }) => {
         ...prev,
         doctorName: doctor.EMP_NAME || '',
         doctorCode: doctor.EMP_CODE || '',
-        doctorLicense: doctor.LICENSE_NO || 'ว.78503' // Default fallback
+        doctorLicense: doctor.LICENSE_NO || '' // ดึงจากข้อมูลแพทย์ ถ้าไม่มีให้เป็นค่าว่าง
       }));
     }
   };

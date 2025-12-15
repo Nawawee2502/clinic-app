@@ -39,10 +39,11 @@ class PatientService {
     }
 
     // ค้นหาผู้ป่วย (จาก DB จริง)
-    static async searchPatients(searchTerm) {
+    static async searchPatients(searchTerm, page = 1, limit = 50) {
         try {
-            console.log('🔗 Calling API:', `${API_BASE_URL}/patients/search/${encodeURIComponent(searchTerm)}`);
-            const response = await fetch(`${API_BASE_URL}/patients/search/${encodeURIComponent(searchTerm)}`);
+            const url = `${API_BASE_URL}/patients/search/${encodeURIComponent(searchTerm)}?page=${page}&limit=${limit}`;
+            console.log('🔗 Calling API:', url);
+            const response = await fetch(url);
 
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);

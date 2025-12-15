@@ -11,7 +11,7 @@ class DrivingLicensePDF {
     const patientAddress = formData.patientAddress || currentPatient?.ADDR1 || '';
     
     const doctorName = formData.doctorName || 'นายแพทย์ ภรภัทร ก๋องเงิน';
-    const doctorLicense = formData.doctorLicense || 'ว.78503';
+    const doctorLicense = formData.doctorLicense || ''; // ไม่ใส่ default ให้ผู้ใช้กรอกเอง
     
     // Format dates
     const getDateParts = (dateString) => {
@@ -70,6 +70,16 @@ class DrivingLicensePDF {
             margin: 15mm 20mm;
         }
         
+        @media print {
+            body {
+                padding: 0;
+                margin: 0;
+            }
+            .container {
+                page-break-inside: avoid;
+            }
+        }
+        
         * {
             margin: 0;
             padding: 0;
@@ -78,8 +88,8 @@ class DrivingLicensePDF {
         
         body {
             font-family: 'Sarabun', sans-serif;
-            font-size: 13px;
-            line-height: 1.5;
+            font-size: 11px;
+            line-height: 1.4;
             color: #000;
             padding: 0;
         }
@@ -89,37 +99,72 @@ class DrivingLicensePDF {
         }
         
         .header {
-            text-align: center;
-            margin-bottom: 15px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: flex-start;
+        }
+        
+        .clinic-logo {
+            width: 55px;
+            height: 55px;
+            margin-right: 12px;
+            flex-shrink: 0;
+        }
+        
+        .clinic-logo img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        
+        .clinic-info {
+            flex: 1;
+        }
+        
+        .clinic-name {
+            font-size: 18px;
+            font-weight: 700;
+            color: #5BA9FF;
+            margin-bottom: 3px;
+        }
+        
+        .clinic-address {
+            font-size: 11px;
+            margin-bottom: 2px;
+        }
+        
+        .clinic-tel {
+            font-size: 11px;
         }
         
         .title {
+            text-align: center;
             font-size: 16px;
             font-weight: 700;
-            margin-bottom: 8px;
+            margin: 12px 0 8px 0;
             letter-spacing: 0.5px;
         }
         
         .header-info {
             display: flex;
             justify-content: space-between;
-            margin-bottom: 15px;
+            margin-bottom: 12px;
             font-size: 12px;
         }
         
         .section-title {
             font-size: 13px;
             font-weight: 600;
-            margin-top: 15px;
-            margin-bottom: 8px;
+            margin-top: 12px;
+            margin-bottom: 6px;
             text-decoration: underline;
         }
         
         .form-field {
-            margin-bottom: 6px;
+            margin-bottom: 4px;
             display: flex;
             align-items: baseline;
-            font-size: 13px;
+            font-size: 11px;
         }
         
         .form-label {
@@ -129,20 +174,20 @@ class DrivingLicensePDF {
         }
         
         .underline {
-            border-bottom: 1px solid #000;
+            border-bottom: 1px dotted #000;
             flex: 1;
             margin-left: 8px;
             min-height: 18px;
-            padding-bottom: 1px;
+            padding-bottom: 2px;
             display: inline-block;
         }
         
         .underline-inline {
-            border-bottom: 1px solid #000;
+            border-bottom: 1px dotted #000;
             display: inline-block;
             min-width: 60px;
             text-align: center;
-            padding-bottom: 1px;
+            padding-bottom: 2px;
         }
         
         .checkbox-container {
@@ -200,13 +245,13 @@ class DrivingLicensePDF {
         
         .text-block {
             text-align: justify;
-            line-height: 1.8;
-            margin: 10px 0;
-            font-size: 13px;
+            line-height: 1.6;
+            margin: 8px 0;
+            font-size: 11px;
         }
         
         .signature-line {
-            border-top: 1px solid #000;
+            border-top: 1px dotted #000;
             width: 180px;
             margin-top: 30px;
             padding-top: 3px;
@@ -226,16 +271,16 @@ class DrivingLicensePDF {
         }
         
         .disease-item {
-            margin-bottom: 4px;
-            font-size: 13px;
+            margin-bottom: 3px;
+            font-size: 11px;
         }
         
         .recommendation-box {
             border: 1px solid #000;
-            min-height: 50px;
-            padding: 5px;
-            margin-top: 5px;
-            font-size: 13px;
+            min-height: 40px;
+            padding: 4px;
+            margin-top: 4px;
+            font-size: 11px;
         }
         
         @media print {
@@ -249,11 +294,21 @@ class DrivingLicensePDF {
     <div class="container">
         <!-- Header -->
         <div class="header">
-            <div class="title">ใบรับรองแพทย์ (สำหรับใบอนุญาตขับรถ)</div>
-            <div class="header-info">
-                <span>เล่มที่ <span class="underline-inline" style="min-width: 80px;">${formData.bookNumber || ''}</span></span>
-                <span>เลขที่ <span class="underline-inline" style="min-width: 80px;">${formData.certificateNumber || ''}</span></span>
+            <div class="clinic-logo">
+                <img src="/logo.png" alt="Logo" />
             </div>
+            <div class="clinic-info">
+                <div class="clinic-name">${clinicName}</div>
+                <div class="clinic-address">${clinicAddress}</div>
+                <div class="clinic-tel">โทร ${clinicTel}</div>
+            </div>
+        </div>
+        
+        <div class="title">ใบรับรองแพทย์ (สำหรับใบอนุญาตขับรถ)</div>
+        
+        <div class="header-info">
+            <span>เล่มที่ <span class="underline-inline" style="min-width: 80px;">${formData.bookNumber || ''}</span></span>
+            <span>เลขที่ <span class="underline-inline" style="min-width: 80px;">${formData.certificateNumber || ''}</span></span>
         </div>
         
         <!-- Section 1: ของผู้ขอรับใบรับรองสุขภาพ -->
@@ -501,15 +556,15 @@ class DrivingLicensePDF {
         </div>
         
         <div class="form-field">
-            <span class="underline" style="width: 300px;">(${doctorName} ${doctorLicense})</span>
+            <span class="underline" style="width: 300px;">(${doctorName}${doctorLicense ? ' ' + doctorLicense : ''})</span>
         </div>
         
         <!-- Footer Notes -->
-        <div class="note" style="margin-top: 20px; padding-top: 10px; border-top: 1px solid #ddd;">
-            <div style="margin-bottom: 3px;"><strong>หมายเหตุ</strong></div>
-            <div style="margin-bottom: 3px;">(1) ต้องเป็นแพทย์ซึ่งได้ขึ้นทะเบียนรับใบอนุญาตประกอบวิชาชีพเวชกรรม</div>
-            <div style="margin-bottom: 3px;">(2) ให้แสดงว่าเป็นผู้มีร่างกายสมบูรณ์เพียงใด ใบรับรองแพทย์ฉบับนี้ให้ใช้ได้ 1 เดือนนับแต่วันที่ตรวจร่างกาย</div>
-            <div style="margin-bottom: 3px;">(3) คำรับรองนี้เป็นการตรวจวินิจฉัยเบื้องต้น และใบรับรองแพทย์นี้ ใช้สำหรับใบอนุญาตขับรถและปฏิบัติหน้าที่เป็นผู้ประจำรถ</div>
+        <div class="note" style="margin-top: 15px; padding-top: 8px; border-top: 1px solid #ddd; font-size: 9px; line-height: 1.3;">
+            <div style="margin-bottom: 2px;"><strong>หมายเหตุ</strong></div>
+            <div style="margin-bottom: 2px;">(1) ต้องเป็นแพทย์ซึ่งได้ขึ้นทะเบียนรับใบอนุญาตประกอบวิชาชีพเวชกรรม</div>
+            <div style="margin-bottom: 2px;">(2) ให้แสดงว่าเป็นผู้มีร่างกายสมบูรณ์เพียงใด ใบรับรองแพทย์ฉบับนี้ให้ใช้ได้ 1 เดือนนับแต่วันที่ตรวจร่างกาย</div>
+            <div style="margin-bottom: 2px;">(3) คำรับรองนี้เป็นการตรวจวินิจฉัยเบื้องต้น และใบรับรองแพทย์นี้ ใช้สำหรับใบอนุญาตขับรถและปฏิบัติหน้าที่เป็นผู้ประจำรถ</div>
             <div>แบบฟอร์มนี้ได้รับการรับรองจากมติคณะกรรมการแพทยสภาในการประชุมครั้งที่ 2/2564 วันที่ 4 กุมภาพันธ์ 2564</div>
         </div>
     </div>
