@@ -456,39 +456,9 @@ const PatientReceptionSection = ({
 
             console.log('✅ Queue created:', queueResponse.data);
 
-            // ✅ Step 1.5: เช็ค VN ซ้ำก่อนสร้าง (ป้องกัน race condition)
-            // เนื่องจาก backend จะ generate VN เอง แต่เราต้องเช็คก่อนว่ามี VN ซ้ำในวันนี้หรือไม่
-            try {
-                const todayQueueCheck = await PatientService.getTodayPatientsFromQueue();
-                if (todayQueueCheck.success && todayQueueCheck.data) {
-                    const vnoSet = new Set();
-                    const duplicates = [];
-                    
-                    todayQueueCheck.data.forEach(patient => {
-                        const vno = patient.VNO || patient.VNNO;
-                        if (vno) {
-                            if (vnoSet.has(vno)) {
-                                duplicates.push(vno);
-                            } else {
-                                vnoSet.add(vno);
-                            }
-                        }
-                    });
-
-                    if (duplicates.length > 0) {
-                        console.error('⚠️ พบ VN ซ้ำก่อนสร้าง treatment:', duplicates);
-                        showSnackbar(
-                            `⚠️ พบ VN ซ้ำในระบบ: ${duplicates.join(', ')} กรุณารอสักครู่แล้วลองใหม่`,
-                            'error'
-                        );
-                        setLoading(false);
-                        return;
-                    }
-                }
-            } catch (vnoCheckError) {
-                console.warn('⚠️ ไม่สามารถเช็ค VN ซ้ำได้:', vnoCheckError);
-                // ไม่ block การสร้าง treatment เพราะอาจเป็น network error
-            }
+            // ✅ Step 1.5: (ยกเลิกการเช็ค VN ซ้ำที่หน้าบ้าน)
+            // ให้ Backend จัดการเรื่อง VN ซ้ำเอง เพื่อไม่ให้บล็อกการทำงานของผู้ใช้
+            // หากมี VN ซ้ำเก่าในระบบ ก็ปล่อยไป แต่ของใหม่ต้องไม่ซ้ำ (ซึ่งแก้ที่ Backend แล้ว)
 
             // Step 2: สร้าง Treatment record พร้อม Vital Signs
             const treatmentData = {
