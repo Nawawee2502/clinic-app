@@ -407,28 +407,28 @@ const PatientReceptionSection = ({
                         }
                     } else if (realRemaining === 0) {
                         // ...
-                    } else if (realRemaining === 1 && totalUsage === 1) {
-                        // ถ้าใช้ไป 1 (รวม) แล้วเหลือ 1
-                        await Swal.fire({
-                            icon: 'info',
-                            title: '💡 ใช้สิทธิ์บัตรทอง',
-                            html: `
-                                <div style="text-align: left; padding: 10px;">
-                                    <p style="font-size: 16px; margin-bottom: 15px;">
-                                        ผู้ป่วย HN: <strong>${selectedPatient.HNCODE}</strong>
-                                    </p>
-                                    <ul style="font-size: 14px; color: #666; margin-left: 20px;">
-                                        <li>ใช้ที่คลินิก: ${usageCount} ครั้ง</li>
-                                        ${manualCount > 0 ? `<li>แจ้งว่าใช้มาแล้ว: ${manualCount} ครั้ง</li>` : ''}
-                                        <li>ประเมินว่าใช้ไปแล้ว: ${totalUsage} ครั้ง</li>
-                                        <li>เหลือสิทธิ์: <strong style="color: #059669;">${realRemaining} ครั้ง</strong></li>
-                                    </ul>
-                                </div>
-                            `,
-                            confirmButtonText: 'ตกลง',
-                            confirmButtonColor: '#3b82f6',
-                            width: '500px'
-                        });
+                        // } else if (realRemaining === 1 && totalUsage === 1) {
+                        //     // ถ้าใช้ไป 1 (รวม) แล้วเหลือ 1
+                        //     await Swal.fire({
+                        //         icon: 'info',
+                        //         title: '💡 ใช้สิทธิ์บัตรทอง',
+                        //         html: `
+                        //             <div style="text-align: left; padding: 10px;">
+                        //                 <p style="font-size: 16px; margin-bottom: 15px;">
+                        //                     ผู้ป่วย HN: <strong>${selectedPatient.HNCODE}</strong>
+                        //                 </p>
+                        //                 <ul style="font-size: 14px; color: #666; margin-left: 20px;">
+                        //                     <li>ใช้ที่คลินิก: ${usageCount} ครั้ง</li>
+                        //                     ${manualCount > 0 ? `<li>แจ้งว่าใช้มาแล้ว: ${manualCount} ครั้ง</li>` : ''}
+                        //                     <li>ประเมินว่าใช้ไปแล้ว: ${totalUsage} ครั้ง</li>
+                        //                     <li>เหลือสิทธิ์: <strong style="color: #059669;">${realRemaining} ครั้ง</strong></li>
+                        //                 </ul>
+                        //             </div>
+                        //         `,
+                        //         confirmButtonText: 'ตกลง',
+                        //         confirmButtonColor: '#3b82f6',
+                        //         width: '500px'
+                        //     });
                     } else {
                         // Safe to use
                     }
