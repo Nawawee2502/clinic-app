@@ -68,12 +68,17 @@ const GoldCardConfirmation = () => {
 
     // Handle Confirm Click
     const handleConfirmClick = (treatment) => {
-        const netAmount = parseFloat(treatment.NET_AMOUNT || 0);
+        // ใช้ ACTUAL_PRICE ในการคำนวณยอดคงเหลือ
+        const actualPrice = parseFloat(treatment.ACTUAL_PRICE || treatment.TOTAL_AMOUNT || 0);
         const paidAmount = parseFloat(treatment.RECEIVED_AMOUNT || 0);
-        const balance = Math.max(0, netAmount - paidAmount);
+
+        // ถ้าเคยบันทึกค่า claim ไว้แล้ว ให้ใช้ค่านั้น หรือถ้าไม่มีให้คำนวณใหม่
+        const existingClaim = treatment.CLAIM_ACTUAL_AMOUNT ? parseFloat(treatment.CLAIM_ACTUAL_AMOUNT) : null;
+
+        const balance = existingClaim !== null ? existingClaim : Math.max(0, actualPrice - paidAmount);
 
         setSelectedTreatment(treatment);
-        setConfirmAmount(balance.toString()); // Default to remaining balance
+        setConfirmAmount(balance.toString());
         setOpenDialog(true);
     };
 
@@ -186,7 +191,7 @@ const GoldCardConfirmation = () => {
                                 <TableCell width="15%">VN</TableCell>
                                 <TableCell width="10%">HN</TableCell>
                                 <TableCell width="25%">ชื่อคนไข้</TableCell>
-                                <TableCell align="right" width="10%">ยอดรวม</TableCell>
+                                <TableCell align="right" width="10%">ราคาจริง</TableCell>
                                 <TableCell align="right" width="10%">เก็บแล้ว</TableCell>
                                 <TableCell align="right" width="10%">คงเหลือ</TableCell>
                                 <TableCell align="center" width="15%">ดำเนินการ</TableCell>
@@ -217,10 +222,14 @@ const GoldCardConfirmation = () => {
                                             <TableCell>{item.VNO}</TableCell>
                                             <TableCell>{item.HNNO}</TableCell>
                                             <TableCell>{`${item.PRENAME || ''}${item.NAME1} ${item.SURNAME || ''}`}</TableCell>
-                                            <TableCell align="right">{net.toLocaleString()}</TableCell>
+                                            <TableCell align="right">
+                                                {/* Original NET: {net.toLocaleString()} */}
+                                                {(parseFloat(item.ACTUAL_PRICE || item.TOTAL_AMOUNT || 0)).toLocaleString()}
+                                            </TableCell>
                                             <TableCell align="right">{paid.toLocaleString()}</TableCell>
+                                            {/* ยอดคงเหลือ (Claim Amount) = Actual Price - Paid */}
                                             <TableCell align="right" sx={{ color: 'error.main', fontWeight: 'bold' }}>
-                                                {balance.toLocaleString()}
+                                                {Math.max(0, (parseFloat(item.ACTUAL_PRICE || item.TOTAL_AMOUNT || 0)) - paid).toLocaleString()}
                                             </TableCell>
                                             <TableCell align="center">
                                                 <Button
