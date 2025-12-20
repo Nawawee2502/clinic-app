@@ -359,12 +359,15 @@ const PatientReceptionSection = ({
                     const { usageCount, maxUsage: apiMaxUsage, isExceeded, remainingUsage } = ucsUsageCheck.data;
                     maxUsage = apiMaxUsage;
 
-                    // ✅ รวมจำนวนครั้งที่ใช้จากที่อื่น
-                    manualCount = parseInt(externalUcsCount) || 0;
-                    totalUsage = Math.max(usageCount, manualCount);
+                    // ✅ คำนวณครั้งที่ใช้อย่างชัดเจน
+                    const currentVisitCount = manualCount > 0 ? manualCount : (usageCount + 1);
+                    totalUsage = currentVisitCount;
                     const realRemaining = Math.max(0, maxUsage - totalUsage);
 
-                    if (isExceeded || totalUsage > maxUsage) {
+                    // เงื่อนไข: ถ้าครั้งที่ปัจจุบัน > จำกัด หรือ เกินโควต้าแล้ว -> จ่ายเงิน
+                    const shouldPay = currentVisitCount > maxUsage || isExceeded;
+
+                    if (shouldPay) {
                         // ถ้าใช้เกิน 2 ครั้งแล้ว (ครั้งที่ 3 ขึ้นไป) ให้แจ้งเตือนว่าต้องจ่ายเงิน
                         const confirmResult = await Swal.fire({
                             icon: 'warning',
@@ -380,15 +383,14 @@ const PatientReceptionSection = ({
                                     </p>
                                     <ul style="font-size: 14px; color: #666; margin-left: 20px;">
                                         <li>ใช้ที่คลินิก: <strong>${usageCount} ครั้ง</strong></li>
-                                        <li>ใช้ที่คลินิก: <strong>${usageCount} ครั้ง</strong></li>
-                                        ${manualCount > 0 ? `<li>แจ้งว่าใช้มาแล้ว: <strong>${manualCount} ครั้ง</strong></li>` : ''}
-                                        <li>ประเมินว่าใช้ไปแล้ว: <strong style="color: #f59e0b;">${totalUsage} ครั้ง</strong></li>
+                                        ${manualCount > 0 ? `<li>ระบุครั้งที่: <strong>${manualCount}</strong></li>` : ''}
+                                        <li>ครั้งนี้เป็นครั้งที่: <strong style="color: #f59e0b;">${currentVisitCount}</strong></li>
                                         <li>จำกัด: ${maxUsage} ครั้งต่อเดือน</li>
                                     </ul>
                                     <div style="background-color: #fee2e2; padding: 15px; border-radius: 8px; margin-top: 15px; border-left: 4px solid #ef4444;">
                                         <p style="font-size: 15px; color: #991b1b; margin: 0; font-weight: 600;">
                                             ⚠️ ใช้สิทธิ์ครบ/เกินกำหนดแล้ว!<br/>
-                                            การรักษาครั้งนี้จะคิดเงินตามปกติ
+                                            การรักษาครั้งนี้จะคิดเงินตามปกติ (ไม่ใช้สิทธิ์)
                                         </p>
                                     </div>
                                 </div>
@@ -405,33 +407,33 @@ const PatientReceptionSection = ({
                             setLoading(false);
                             return;
                         }
-                    } else if (realRemaining === 0) {
-                        // ...
-                        // } else if (realRemaining === 1 && totalUsage === 1) {
-                        //     // ถ้าใช้ไป 1 (รวม) แล้วเหลือ 1
-                        //     await Swal.fire({
-                        //         icon: 'info',
-                        //         title: '💡 ใช้สิทธิ์บัตรทอง',
-                        //         html: `
-                        //             <div style="text-align: left; padding: 10px;">
-                        //                 <p style="font-size: 16px; margin-bottom: 15px;">
-                        //                     ผู้ป่วย HN: <strong>${selectedPatient.HNCODE}</strong>
-                        //                 </p>
-                        //                 <ul style="font-size: 14px; color: #666; margin-left: 20px;">
-                        //                     <li>ใช้ที่คลินิก: ${usageCount} ครั้ง</li>
-                        //                     ${manualCount > 0 ? `<li>แจ้งว่าใช้มาแล้ว: ${manualCount} ครั้ง</li>` : ''}
-                        //                     <li>ประเมินว่าใช้ไปแล้ว: ${totalUsage} ครั้ง</li>
-                        //                     <li>เหลือสิทธิ์: <strong style="color: #059669;">${realRemaining} ครั้ง</strong></li>
-                        //                 </ul>
-                        //             </div>
-                        //         `,
-                        //         confirmButtonText: 'ตกลง',
-                        //         confirmButtonColor: '#3b82f6',
-                        //         width: '500px'
-                        //     });
-                    } else {
-                        // Safe to use
+                    } else if (currentVisitCount === maxUsage) {
+                        // เป็นครั้งสุดท้ายที่ใช้ฟรีได้ (ครั้งที่ 2)
+                        await Swal.fire({
+                            icon: 'info',
+                            title: '💡 ใช้สิทธิ์บัตรทอง (ครั้งสุดท้ายของเดือน)',
+                            html: `
+                                <div style="text-align: left; padding: 10px;">
+                                    <p style="font-size: 16px; margin-bottom: 15px;">
+                                        ผู้ป่วย HN: <strong>${selectedPatient.HNCODE}</strong>
+                                    </p>
+                                    <ul style="font-size: 14px; color: #666; margin-left: 20px;">
+                                        <li>ครั้งนี้เป็นครั้งที่: <strong>${currentVisitCount}</strong> (ฟรี)</li>
+                                        <li>จำกัด: ${maxUsage} ครั้งต่อเดือน</li>
+                                        <li>สถานะ: <strong style="color: #d97706;">ใช้สิทธิ์ครบโควต้าแล้วในครั้งนี้</strong></li>
+                                    </ul>
+                                    <p style="font-size: 13px; color: #ef4444; margin-top: 10px;">
+                                        *ครั้งถัดไปจะต้องชำระเงินเอง
+                                    </p>
+                                </div>
+                            `,
+                            confirmButtonText: 'ตกลง',
+                            confirmButtonColor: '#3b82f6',
+                            width: '500px'
+                        });
                     }
+
+                    // ... (existing code)
                 }
             }
 
@@ -444,7 +446,7 @@ const PatientReceptionSection = ({
                 // ✅ เพิ่มข้อมูลบัตรที่นี่
                 SOCIAL_CARD: selectedPatient.SOCIAL_CARD,
                 // ✅ ส่งค่า UCS_CARD ที่คำนวณแล้ว (ถ้าเกิน 2 ครั้งจะเป็น 'N')
-                UCS_CARD: (selectedPatient.UCS_CARD === 'Y' && totalUsage > maxUsage) ? 'N' : selectedPatient.UCS_CARD
+                UCS_CARD: (selectedPatient.UCS_CARD === 'Y' && (parseInt(externalUcsCount) > maxUsage || (parseInt(externalUcsCount) === 0 && usageCount >= maxUsage))) ? 'N' : selectedPatient.UCS_CARD
             };
 
             console.log('🏥 Creating queue with card info:', queueData);
