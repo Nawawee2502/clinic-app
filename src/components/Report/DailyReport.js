@@ -102,7 +102,7 @@ const DailyReport = () => {
     const [summaryStats, setSummaryStats] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
-    
+
     // ✅ States for treatment history dialog
     const [historyDialog, setHistoryDialog] = useState({ open: false, vno: null, treatmentData: null });
 
@@ -181,7 +181,7 @@ const DailyReport = () => {
                 params.hnno = selectedPatient;
             }
 
-            const treatmentResponse = await TreatmentService.getPaidTreatments(params);
+            const treatmentResponse = await TreatmentService.getPaidTreatmentsWithDetails(params);
 
             if (treatmentResponse.success) {
                 setReportData(treatmentResponse.data);
@@ -304,7 +304,7 @@ const DailyReport = () => {
                     {/* เพิ่มปุ่มสร้างรายงาน PDF */}
                     <DailyReportButton
                         selectedDate={startDate}
-                        endDate={endDate} 
+                        endDate={endDate}
                         revenueData={reportData}
                     />
                 </Box>
@@ -535,118 +535,111 @@ const DailyReport = () => {
                             รายละเอียดการรักษา ({reportData.length} รายการ)
                         </Typography>
                         <TableContainer component={Paper} sx={{ maxHeight: 600 }}>
-                            <Table stickyHeader>
+                            <Table stickyHeader size="small">
                                 <TableHead>
                                     <TableRow>
-                                        <TableCell>วันที่</TableCell>
+                                        <TableCell>ลำดับ</TableCell>
                                         <TableCell>VN</TableCell>
-                                        <TableCell>ผู้ป่วย</TableCell>
                                         <TableCell>HN</TableCell>
-                                        <TableCell>อายุ</TableCell>
-                                        <TableCell>แพทย์</TableCell>
-                                        <TableCell>อาการ</TableCell>
-                                        <TableCell>การวินิจฉัย</TableCell>
-                                        <TableCell align="right">จำนวนเงิน</TableCell>
-                                        <TableCell align="right">ส่วนลด</TableCell>
-                                        <TableCell align="right">สุทธิ</TableCell>
-                                        <TableCell>วิธีชำระ</TableCell>
-                                        <TableCell>สถานะ</TableCell>
+                                        <TableCell>ชื่อคนไข้</TableCell>
+                                        <TableCell align="right">ค่ารักษา</TableCell>
+                                        <TableCell align="right">ค่าหัตถการ</TableCell>
+                                        <TableCell align="right">ค่า LAB</TableCell>
+                                        <TableCell align="right">ค่ายา</TableCell>
+                                        <TableCell align="right">รวม</TableCell>
+                                        <TableCell align="right">เงินสด</TableCell>
+                                        <TableCell align="right">เงินโอน</TableCell>
+                                        <TableCell align="right">บัตรทอง</TableCell>
                                         <TableCell align="center">จัดการ</TableCell>
                                     </TableRow>
                                 </TableHead>
                                 <TableBody>
-                                    {reportData.map((row, index) => (
-                                        <TableRow key={row.VNO || index} hover>
-                                            <TableCell>{formatThaiDateShortDisplay(row.PAYMENT_DATE || row.RDATE)}</TableCell>
-                                            <TableCell>
-                                                <Typography variant="body2" fontWeight="medium">
-                                                    {row.VNO}
-                                                </Typography>
-                                            </TableCell>
-                                            <TableCell>
-                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                    <Avatar sx={{ width: 32, height: 32 }}>
-                                                        {row.NAME1?.charAt(0)}
-                                                    </Avatar>
-                                                    <Box>
-                                                        <Typography variant="body2" fontWeight="medium">
-                                                            {`${row.PRENAME || ''}${row.NAME1} ${row.SURNAME || ''}`.trim()}
-                                                        </Typography>
-                                                        <Typography variant="caption" color="text.secondary">
-                                                            {row.SEX}
-                                                        </Typography>
-                                                    </Box>
-                                                </Box>
-                                            </TableCell>
-                                            <TableCell>{row.HNNO}</TableCell>
-                                            <TableCell>{row.AGE}</TableCell>
-                                            <TableCell>
-                                                <Typography variant="body2">
-                                                    {row.EMP_NAME || 'ไม่ระบุ'}
-                                                </Typography>
-                                            </TableCell>
-                                            <TableCell>
-                                                <Typography variant="body2" sx={{ maxWidth: 200 }} noWrap>
-                                                    {row.SYMPTOM || '-'}
-                                                </Typography>
-                                            </TableCell>
-                                            <TableCell>
-                                                <Typography variant="body2" sx={{ maxWidth: 200 }} noWrap>
-                                                    {row.DXNAME_THAI || row.ICD10NAME_THAI || '-'}
-                                                </Typography>
-                                            </TableCell>
-                                            <TableCell align="right">
-                                                {formatCurrency(row.TOTAL_AMOUNT)}
-                                            </TableCell>
-                                            <TableCell align="right">
-                                                {formatCurrency(row.DISCOUNT_AMOUNT)}
-                                            </TableCell>
-                                            <TableCell align="right">
-                                                <Typography variant="body2" fontWeight="bold" color="primary">
-                                                    {formatCurrency(row.NET_AMOUNT)}
-                                                </Typography>
-                                            </TableCell>
-                                            <TableCell>
-                                                <Chip
-                                                    label={row.PAYMENT_METHOD || 'เงินสด'}
-                                                    size="small"
-                                                    variant="outlined"
-                                                />
-                                            </TableCell>
-                                            <TableCell>
-                                                <Chip
-                                                    label={row.PAYMENT_STATUS || row.STATUS1 || 'ไม่ระบุ'}
-                                                    color={getStatusColor(row.PAYMENT_STATUS || row.STATUS1)}
-                                                    size="small"
-                                                />
-                                            </TableCell>
-                                            <TableCell align="center">
-                                                <IconButton
-                                                    size="small"
-                                                    onClick={async () => {
-                                                        try {
-                                                            const response = await TreatmentService.getTreatmentByVNO(row.VNO);
-                                                            if (response.success) {
-                                                                setHistoryDialog({ open: true, vno: row.VNO, treatmentData: response.data });
+                                    {reportData.map((row, index) => {
+                                        // Calculate breakdowns
+                                        const drugFee = row.drugs?.reduce((sum, d) => sum + (parseFloat(d.AMT) || 0), 0) || 0;
+                                        const procFee = row.procedures?.reduce((sum, p) => sum + (parseFloat(p.AMT) || 0), 0) || 0;
+                                        const labFee = (row.labTests?.reduce((sum, l) => sum + (parseFloat(l.PRICE) || 0), 0) || 0) +
+                                            (row.radiologicalTests?.reduce((sum, r) => sum + (parseFloat(r.PRICE) || 0), 0) || 0);
+                                        const treatmentFee = parseFloat(row.TREATMENT_FEE) || 0;
+
+                                        // Calculate total and payment distribution
+                                        const total = parseFloat(row.TOTAL_AMOUNT) || 0;
+                                        const net = parseFloat(row.NET_AMOUNT) || 0;
+                                        const method = row.PAYMENT_METHOD || 'เงินสด';
+
+                                        // Payment distribution logic
+                                        let cash = 0;
+                                        let transfer = 0;
+                                        let goldCard = 0;
+
+                                        // Check if this is a Gold Card case (UCS_CARD = 'Y') or Payment Method is 'บัตรทอง'
+                                        const isGoldCardCase = row.UCS_CARD === 'Y' || method === 'บัตรทอง';
+
+                                        if (method === 'เงินโอน') {
+                                            transfer = net;
+                                        } else if (method === 'บัตรทอง') {
+                                            goldCard = net;
+                                        } else {
+                                            // Default to cash for other methods like 'เงินสด'
+                                            cash = net;
+                                        }
+
+                                        // If net is 0 and it IS a gold card case, we might want to show "-" or "0" in gold card column?
+                                        // Code above handles: if goldCard > 0 show formatted. Else if isGoldCardCase and net===0 show '0'.
+
+                                        return (
+                                            <TableRow key={row.VNO || index} hover>
+                                                <TableCell>{index + 1}</TableCell>
+                                                <TableCell>
+                                                    <Typography variant="body2" fontWeight="medium">
+                                                        {row.VNO}
+                                                    </Typography>
+                                                </TableCell>
+                                                <TableCell>{row.HNNO}</TableCell>
+                                                <TableCell>
+                                                    <Typography variant="body2" fontWeight="medium">
+                                                        {`${row.PRENAME || ''}${row.NAME1} ${row.SURNAME || ''}`.trim()}
+                                                    </Typography>
+                                                </TableCell>
+                                                <TableCell align="right">{formatCurrency(treatmentFee)}</TableCell>
+                                                <TableCell align="right">{formatCurrency(procFee)}</TableCell>
+                                                <TableCell align="right">{formatCurrency(labFee)}</TableCell>
+                                                <TableCell align="right">{formatCurrency(drugFee)}</TableCell>
+                                                <TableCell align="right">
+                                                    <Typography variant="body2" fontWeight="bold">
+                                                        {formatCurrency(total)}
+                                                    </Typography>
+                                                </TableCell>
+                                                <TableCell align="right" sx={{ color: 'success.main' }}>
+                                                    {cash > 0 ? formatCurrency(cash) : '-'}
+                                                </TableCell>
+                                                <TableCell align="right" sx={{ color: 'info.main' }}>
+                                                    {transfer > 0 ? formatCurrency(transfer) : '-'}
+                                                </TableCell>
+                                                <TableCell align="right" sx={{ color: 'warning.main' }}>
+                                                    {goldCard > 0 ? formatCurrency(goldCard) : (isGoldCardCase && net === 0 ? '0' : '-')}
+                                                </TableCell>
+                                                <TableCell align="center">
+                                                    <IconButton
+                                                        size="small"
+                                                        onClick={() => {
+                                                            setHistoryDialog({ open: true, vno: row.VNO, treatmentData: row });
+                                                        }}
+                                                        sx={{
+                                                            border: '1px solid #5698E0',
+                                                            borderRadius: '7px',
+                                                            color: '#5698E0',
+                                                            '&:hover': {
+                                                                bgcolor: '#e3f2fd'
                                                             }
-                                                        } catch (error) {
-                                                            console.error('Error loading treatment:', error);
-                                                        }
-                                                    }}
-                                                    sx={{
-                                                        border: '1px solid #5698E0',
-                                                        borderRadius: '7px',
-                                                        color: '#5698E0',
-                                                        '&:hover': {
-                                                            bgcolor: '#e3f2fd'
-                                                        }
-                                                    }}
-                                                >
-                                                    <VisibilityIcon fontSize="small" />
-                                                </IconButton>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
+                                                        }}
+                                                    >
+                                                        <VisibilityIcon fontSize="small" />
+                                                    </IconButton>
+                                                </TableCell>
+                                            </TableRow>
+                                        );
+                                    })}
                                 </TableBody>
                             </Table>
                         </TableContainer>
@@ -687,35 +680,35 @@ const DailyReport = () => {
                     {historyDialog.treatmentData ? (
                         <Box>
                             {/* ข้อมูลการรักษา */}
-                            {historyDialog.treatmentData.treatment && (
-                                <Card sx={{ mb: 2 }}>
-                                    <CardContent>
-                                        <Typography variant="h6" sx={{ mb: 2 }}>ข้อมูลการรักษา</Typography>
-                                        <Grid container spacing={2}>
-                                            <Grid item xs={6}>
-                                                <Typography variant="body2" color="text.secondary">วันที่:</Typography>
-                                                <Typography variant="body1">{formatThaiDateShortDisplay(historyDialog.treatmentData.treatment.RDATE)}</Typography>
-                                            </Grid>
-                                            <Grid item xs={6}>
-                                                <Typography variant="body2" color="text.secondary">อาการ:</Typography>
-                                                <Typography variant="body1">{historyDialog.treatmentData.treatment.SYMPTOM || '-'}</Typography>
-                                            </Grid>
-                                            <Grid item xs={6}>
-                                                <Typography variant="body2" color="text.secondary">การวินิจฉัย:</Typography>
-                                                <Typography variant="body1" color="primary">
-                                                    {historyDialog.treatmentData.treatment.DXCODE || '-'}
-                                                </Typography>
-                                            </Grid>
-                                            <Grid item xs={6}>
-                                                <Typography variant="body2" color="text.secondary">ชื่อการวินิจฉัย:</Typography>
-                                                <Typography variant="body1">
-                                                    {historyDialog.treatmentData.treatment.DXNAME_THAI || '-'}
-                                                </Typography>
-                                            </Grid>
+                            {/* ข้อมูลการรักษา - Fixed key access */}
+                            <Card sx={{ mb: 2 }}>
+                                <CardContent>
+                                    <Typography variant="h6" sx={{ mb: 2 }}>ข้อมูลการรักษา</Typography>
+                                    <Grid container spacing={2}>
+                                        <Grid item xs={6}>
+                                            <Typography variant="body2" color="text.secondary">วันที่:</Typography>
+                                            <Typography variant="body1">{formatThaiDateShort(historyDialog.treatmentData.RDATE)}</Typography>
                                         </Grid>
-                                    </CardContent>
-                                </Card>
-                            )}
+                                        <Grid item xs={6}>
+                                            <Typography variant="body2" color="text.secondary">อาการ:</Typography>
+                                            <Typography variant="body1">{historyDialog.treatmentData.SYMPTOM || '-'}</Typography>
+                                        </Grid>
+                                        <Grid item xs={6}>
+                                            <Typography variant="body2" color="text.secondary">การวินิจฉัย:</Typography>
+                                            <Typography variant="body1" color="primary">
+                                                {historyDialog.treatmentData.DXCODE || '-'}{' '}
+                                                {historyDialog.treatmentData.ICD10CODE ? `(${historyDialog.treatmentData.ICD10CODE})` : ''}
+                                            </Typography>
+                                        </Grid>
+                                        <Grid item xs={6}>
+                                            <Typography variant="body2" color="text.secondary">ชื่อการวินิจฉัย:</Typography>
+                                            <Typography variant="body1">
+                                                {historyDialog.treatmentData.DXNAME_THAI || historyDialog.treatmentData.ICD10NAME_THAI || '-'}
+                                            </Typography>
+                                        </Grid>
+                                    </Grid>
+                                </CardContent>
+                            </Card>
 
                             {/* รายการยา */}
                             {historyDialog.treatmentData.drugs && historyDialog.treatmentData.drugs.length > 0 && (
@@ -774,6 +767,43 @@ const DailyReport = () => {
                                     </CardContent>
                                 </Card>
                             )}
+                            {/* ค่าแล็บ/เอกซเรย์ */}
+                            {(
+                                (historyDialog.treatmentData.labTests && historyDialog.treatmentData.labTests.length > 0) ||
+                                (historyDialog.treatmentData.radiologicalTests && historyDialog.treatmentData.radiologicalTests.length > 0)
+                            ) && (
+                                    <Card sx={{ mb: 2 }}>
+                                        <CardContent>
+                                            <Typography variant="h6" sx={{ mb: 2 }}>Lab & X-ray</Typography>
+                                            <TableContainer>
+                                                <Table size="small">
+                                                    <TableHead>
+                                                        <TableRow>
+                                                            <TableCell>รายการ</TableCell>
+                                                            <TableCell align="right">ราคา</TableCell>
+                                                        </TableRow>
+                                                    </TableHead>
+                                                    <TableBody>
+                                                        {/* Labs */}
+                                                        {historyDialog.treatmentData.labTests?.map((lab, index) => (
+                                                            <TableRow key={`lab-${index}`}>
+                                                                <TableCell>{lab.LAB_NAME_THAI || lab.LAB_NAME}</TableCell>
+                                                                <TableCell align="right">{formatCurrency(lab.PRICE)}</TableCell>
+                                                            </TableRow>
+                                                        ))}
+                                                        {/* Radio */}
+                                                        {historyDialog.treatmentData.radiologicalTests?.map((rad, index) => (
+                                                            <TableRow key={`rad-${index}`}>
+                                                                <TableCell>{rad.RADIOLOGICAL_NAME_THAI || rad.RADIOLOGICAL_NAME}</TableCell>
+                                                                <TableCell align="right">{formatCurrency(rad.PRICE)}</TableCell>
+                                                            </TableRow>
+                                                        ))}
+                                                    </TableBody>
+                                                </Table>
+                                            </TableContainer>
+                                        </CardContent>
+                                    </Card>
+                                )}
                         </Box>
                     ) : (
                         <CircularProgress />

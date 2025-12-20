@@ -32,10 +32,11 @@ import {
 import {
   Download as DownloadIcon,
   Refresh as RefreshIcon,
-  Visibility as VisibilityIcon,
   Search as SearchIcon,
+  Close as CloseIcon,
+  Visibility as VisibilityIcon,
 } from "@mui/icons-material";
-import Income1Service from "../../services/income1Service";
+import TreatmentService from "../../services/treatmentService";
 import {
   formatThaiDateShort,
 } from "../../utils/dateTimeUtils";
@@ -50,7 +51,7 @@ const formatCurrency = (amount) =>
 const MonthlyIncome = () => {
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth() + 1;
-  
+
   const [startYear, setStartYear] = useState(currentYear.toString());
   const [startMonth, setStartMonth] = useState(currentMonth.toString());
   const [endYear, setEndYear] = useState(currentYear.toString());
@@ -68,6 +69,13 @@ const MonthlyIncome = () => {
     data: null,
   });
 
+  // State for history dialog (View detail)
+  const [historyDialog, setHistoryDialog] = useState({
+    open: false,
+    vno: null,
+    treatmentData: null
+  });
+
   useEffect(() => {
     loadIncomeRecords();
   }, []);
@@ -80,12 +88,30 @@ const MonthlyIncome = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await Income1Service.getAllIncome1(1, 500);
+
+      // Calculate date range based on selected start/end month/year
+      const startYearNum = parseInt(startYear);
+      const startMonthNum = parseInt(startMonth);
+      const endYearNum = parseInt(endYear);
+      const endMonthNum = parseInt(endMonth);
+
+      const startDateStr = `${startYearNum}-${String(startMonthNum).padStart(2, '0')}-01`;
+      // For end date, get the last day of the end month
+      const lastDayOfEndMonth = new Date(endYearNum, endMonthNum, 0).getDate();
+      const endDateStr = `${endYearNum}-${String(endMonthNum).padStart(2, '0')}-${lastDayOfEndMonth}`;
+
+      console.log(`Fetching monthly report from ${startDateStr} to ${endDateStr}`);
+
+      const response = await TreatmentService.getPaidTreatmentsWithDetails({
+        date_from: startDateStr,
+        date_to: endDateStr,
+        limit: 1000 // Increase limit for monthly report
+      });
+
       if (response.success) {
-        const records = Array.isArray(response.data) ? response.data : [];
-        setIncomeRecords(records);
+        setIncomeRecords(response.data);
       } else {
-        setError(response.message || "ไม่สามารถโหลดข้อมูลรายรับได้");
+        setError("ไม่สามารถโหลดข้อมูลรายรับได้");
       }
     } catch (err) {
       console.error("Error loading income records", err);
@@ -96,34 +122,28 @@ const MonthlyIncome = () => {
   };
 
   const applyFilters = () => {
-    const startYearNum = parseInt(startYear);
-    const startMonthNum = parseInt(startMonth);
-    const endYearNum = parseInt(endYear);
-    const endMonthNum = parseInt(endMonth);
+    let filtered = [...incomeRecords];
 
-    const filtered = incomeRecords.filter((item) => {
-      const itemYear = parseInt(item.MYEAR) || 0;
-      const itemMonth = parseInt(item.MONTHH) || 0;
+    if (statusFilter) {
+      // Map status if needed, or filter by PAYMENT_STATUS / STATUS1
+      filtered = filtered.filter(item =>
+        (item.PAYMENT_STATUS === statusFilter) || (item.STATUS1 === statusFilter)
+      );
+    }
 
-      // ตรวจสอบว่าอยู่ในช่วงเดือนที่เลือกหรือไม่
-      const startDate = new Date(startYearNum, startMonthNum - 1, 1);
-      const endDate = new Date(endYearNum, endMonthNum, 0); // วันสุดท้ายของเดือน
-      const itemDate = new Date(itemYear, itemMonth - 1, 1);
+    if (typeFilter) {
+      filtered = filtered.filter(item => item.PAYMENT_METHOD === typeFilter);
+    }
 
-      if (itemDate < startDate || itemDate > endDate) return false;
-
-      if (statusFilter && item.STATUS !== statusFilter) return false;
-      if (typeFilter && item.TYPE_PAY !== typeFilter) return false;
-      if (searchTerm) {
-        const search = searchTerm.toLowerCase();
-        const match =
-          item.REFNO?.toLowerCase().includes(search) ||
-          item.NAME1?.toLowerCase().includes(search) ||
-          item.BANK_NO?.toLowerCase().includes(search);
-        if (!match) return false;
-      }
-      return true;
-    });
+    if (searchTerm) {
+      const search = searchTerm.toLowerCase();
+      filtered = filtered.filter((item) =>
+        item.VNO?.toLowerCase().includes(search) ||
+        item.HNNO?.toLowerCase().includes(search) ||
+        item.NAME1?.toLowerCase().includes(search) ||
+        (item.PRENAME + item.NAME1 + " " + item.SURNAME).toLowerCase().includes(search)
+      );
+    }
 
     setFilteredRecords(filtered);
   };
@@ -131,16 +151,31 @@ const MonthlyIncome = () => {
   const summary = useMemo(() => {
     const totals = filteredRecords.reduce(
       (acc, item) => {
-        const total = parseFloat(item.TOTAL) || 0;
+        const total = parseFloat(item.NET_AMOUNT) || 0; // Use NET_AMOUNT for consistency
         acc.totalAmount += total;
-        if (item.TYPE_PAY === "เงินสด") {
-          acc.cash += total;
-        } else if (item.TYPE_PAY === "เงินโอน") {
-          acc.transfer += total;
+
+        const method = item.PAYMENT_METHOD || 'เงินสด';
+
+        // Handle Gold Card special case
+        const isGoldCardCase = item.UCS_CARD === 'Y' || method === 'บัตรทอง';
+        let amountToAdd = total;
+
+        if (method === 'เงินสด') {
+          acc.cash += amountToAdd;
+        } else if (method === 'เงินโอน') {
+          acc.transfer += amountToAdd;
+        } else if (method === 'บัตรทอง') {
+          // Usually 0 or small amount for upgrades, but we track it as revenue if > 0
+          // If total is 0, we count it as 0 revenue but maybe count the case?
+          if (amountToAdd > 0) acc.other += amountToAdd;
         } else {
-          acc.other += total;
+          acc.other += amountToAdd;
         }
-        acc.status[item.STATUS] = (acc.status[item.STATUS] || 0) + 1;
+
+        // Status tracking
+        const status = item.PAYMENT_STATUS || item.STATUS1 || 'สำเร็จ';
+        acc.status[status] = (acc.status[status] || 0) + 1;
+
         return acc;
       },
       { totalAmount: 0, cash: 0, transfer: 0, other: 0, status: {} }
@@ -163,26 +198,12 @@ const MonthlyIncome = () => {
   }, [incomeRecords]);
 
   const handleExportCSV = () => {
-    if (filteredRecords.length === 0) {
-      alert("ไม่มีข้อมูลสำหรับการส่งออก");
-      return;
-    }
-    Income1Service.downloadCSV(filteredRecords, "monthly-income-report");
+    // Income1Service.downloadCSV(filteredRecords, "monthly-income-report");
+    alert("Export CSV not yet implemented for new format");
   };
 
   const loadRecordDetail = async (refno) => {
-    try {
-      setDetailDialog({ open: true, refno, data: null });
-      const response = await Income1Service.getIncome1ByRefno(refno);
-      if (response.success) {
-        setDetailDialog({ open: true, refno, data: response.data });
-      } else {
-        setDetailDialog((prev) => ({ ...prev, data: { error: "ไม่พบข้อมูลรายละเอียด" } }));
-      }
-    } catch (err) {
-      console.error("Error fetching income detail", err);
-      setDetailDialog((prev) => ({ ...prev, data: { error: err.message } }));
-    }
+    // Placeholder
   };
 
   const detailTotal = useMemo(() => {
@@ -446,65 +467,98 @@ const MonthlyIncome = () => {
               <Table stickyHeader size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell sx={{ width: 110, whiteSpace: "nowrap" }}>วันที่</TableCell>
-                    <TableCell sx={{ width: 120, whiteSpace: "nowrap" }}>เลขที่</TableCell>
-                    <TableCell sx={{ width: 240, whiteSpace: "nowrap" }}>รับจาก</TableCell>
-                    <TableCell sx={{ width: 130, whiteSpace: "nowrap" }}>วิธีรับ</TableCell>
-                    <TableCell align="right" sx={{ width: 150, whiteSpace: "nowrap" }}>จำนวนเงิน</TableCell>
-                    <TableCell sx={{ width: 150, whiteSpace: "nowrap" }}>สถานะ</TableCell>
-                    <TableCell align="center" sx={{ width: 120, whiteSpace: "nowrap" }}>จัดการ</TableCell>
+                    <TableCell>ลำดับ</TableCell>
+                    <TableCell>VN</TableCell>
+                    <TableCell>HN</TableCell>
+                    <TableCell>ชื่อคนไข้</TableCell>
+                    <TableCell align="right">ค่ารักษา</TableCell>
+                    <TableCell align="right">ค่าหัตถการ</TableCell>
+                    <TableCell align="right">ค่า LAB</TableCell>
+                    <TableCell align="right">ค่ายา</TableCell>
+                    <TableCell align="right">รวม</TableCell>
+                    <TableCell align="right">เงินสด</TableCell>
+                    <TableCell align="right">เงินโอน</TableCell>
+                    <TableCell align="right">บัตรทอง</TableCell>
+                    <TableCell align="center">จัดการ</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {filteredRecords.map((item) => (
-                    <TableRow key={item.REFNO} hover>
-                      <TableCell sx={{ width: 110, whiteSpace: "nowrap" }}>
-                        {formatThaiDateShort(item.RDATE)}
-                      </TableCell>
-                      <TableCell sx={{ width: 120, whiteSpace: "nowrap" }}>
-                        <Typography variant="body2" fontWeight="bold">
-                          {item.REFNO}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {item.BANK_NO || "-"}
-                        </Typography>
-                      </TableCell>
-                      <TableCell sx={{ width: 240 }}>
-                        <Typography
-                          variant="body2"
-                          fontWeight="medium"
-                          noWrap
-                          sx={{ maxWidth: 220 }}
-                        >
-                          {item.NAME1 || "-"}
-                        </Typography>
-                      </TableCell>
-                      <TableCell sx={{ width: 130, whiteSpace: "nowrap" }}>
-                        {item.TYPE_PAY || "-"}
-                      </TableCell>
-                      <TableCell align="right" sx={{ width: 150, whiteSpace: "nowrap" }}>
-                        <Typography variant="body2" fontWeight="bold" color="primary">
-                          {formatCurrency(item.TOTAL)}
-                        </Typography>
-                      </TableCell>
-                      <TableCell sx={{ width: 150, whiteSpace: "nowrap" }}>
-                        <Chip
-                          label={item.STATUS || "-"}
-                          color={item.STATUS === "ทำงานอยู่" ? "success" : "default"}
-                          size="small"
-                        />
-                      </TableCell>
-                      <TableCell align="center" sx={{ width: 120, whiteSpace: "nowrap" }}>
-                        <IconButton
-                          size="small"
-                          onClick={() => loadRecordDetail(item.REFNO)}
-                          sx={{ border: "1px solid #5698E0", borderRadius: "7px", color: "#5698E0" }}
-                        >
-                          <VisibilityIcon fontSize="small" />
-                        </IconButton>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {filteredRecords.map((row, index) => {
+                    // Calculate breakdowns
+                    const drugFee = row.drugs?.reduce((sum, d) => sum + (parseFloat(d.AMT) || 0), 0) || 0;
+                    const procFee = row.procedures?.reduce((sum, p) => sum + (parseFloat(p.AMT) || 0), 0) || 0;
+                    const labFee = (row.labTests?.reduce((sum, l) => sum + (parseFloat(l.PRICE) || 0), 0) || 0) +
+                      (row.radiologicalTests?.reduce((sum, r) => sum + (parseFloat(r.PRICE) || 0), 0) || 0);
+                    const treatmentFee = parseFloat(row.TREATMENT_FEE) || 0;
+
+                    // Calculate total and payment distribution
+                    const total = parseFloat(row.TOTAL_AMOUNT) || 0;
+                    const net = parseFloat(row.NET_AMOUNT) || 0;
+                    const method = row.PAYMENT_METHOD || 'เงินสด';
+
+                    // Payment distribution logic
+                    let cash = 0;
+                    let transfer = 0;
+                    let goldCard = 0;
+
+                    // Check if this is a Gold Card case (UCS_CARD = 'Y') or Payment Method is 'บัตรทอง'
+                    const isGoldCardCase = row.UCS_CARD === 'Y' || method === 'บัตรทอง';
+
+                    if (method === 'เงินโอน') {
+                      transfer = net;
+                    } else if (method === 'บัตรทอง') {
+                      goldCard = net;
+                    } else {
+                      // Default to cash for other methods like 'เงินสด'
+                      cash = net;
+                    }
+
+                    return (
+                      <TableRow key={row.VNO || index} hover>
+                        <TableCell>{index + 1}</TableCell>
+                        <TableCell>
+                          <Typography variant="body2" fontWeight="medium">
+                            {row.VNO}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>{row.HNNO}</TableCell>
+                        <TableCell>
+                          <Typography variant="body2" fontWeight="medium">
+                            {`${row.PRENAME || ''}${row.NAME1} ${row.SURNAME || ''}`.trim()}
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="right">{formatCurrency(treatmentFee)}</TableCell>
+                        <TableCell align="right">{formatCurrency(procFee)}</TableCell>
+                        <TableCell align="right">{formatCurrency(labFee)}</TableCell>
+                        <TableCell align="right">{formatCurrency(drugFee)}</TableCell>
+                        <TableCell align="right">
+                          <Typography variant="body2" fontWeight="bold">
+                            {formatCurrency(total)}
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="right" sx={{ color: 'success.main' }}>
+                          {cash > 0 ? formatCurrency(cash) : '-'}
+                        </TableCell>
+                        <TableCell align="right" sx={{ color: 'info.main' }}>
+                          {transfer > 0 ? formatCurrency(transfer) : '-'}
+                        </TableCell>
+                        <TableCell align="right" sx={{ color: 'warning.main' }}>
+                          {goldCard > 0 ? formatCurrency(goldCard) : (isGoldCardCase && net === 0 ? '0' : '-')}
+                        </TableCell>
+                        <TableCell align="center">
+                          <IconButton
+                            size="small"
+                            onClick={() => {
+                              setHistoryDialog({ open: true, vno: row.VNO, treatmentData: row });
+                            }}
+                            sx={{ border: "1px solid #5698E0", borderRadius: "7px", color: "#5698E0" }}
+                          >
+                            <VisibilityIcon fontSize="small" />
+                          </IconButton>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </TableContainer>
@@ -525,97 +579,163 @@ const MonthlyIncome = () => {
         </Card>
       )}
 
+      {/* Dialog removed as it depended on Income1Service data structure */}
       <Dialog
-        open={detailDialog.open}
+        open={false}
         onClose={() => setDetailDialog({ open: false, refno: null, data: null })}
-        maxWidth="md"
+      >
+      </Dialog>
+
+      {/* History/Detail Dialog - Copied and adapted from DailyReport */}
+      <Dialog
+        open={historyDialog.open}
+        onClose={() => setHistoryDialog({ open: false, vno: null, treatmentData: null })}
+        maxWidth="lg"
         fullWidth
       >
         <DialogTitle>
-          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <Typography variant="h6">รายละเอียดใบสำคัญรับ {detailDialog.refno}</Typography>
-            <Button onClick={() => setDetailDialog({ open: false, refno: null, data: null })}>
-              ปิด
-            </Button>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Typography variant="h6">ประวัติการรักษา - VN: {historyDialog.vno}</Typography>
+            <IconButton onClick={() => setHistoryDialog({ open: false, vno: null, treatmentData: null })} size="small">
+              <CloseIcon />
+            </IconButton>
           </Box>
         </DialogTitle>
-        <DialogContent dividers>
-          {!detailDialog.data && (
-            <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
-              <CircularProgress />
-            </Box>
-          )}
-          {detailDialog.data?.error && (
-            <Alert severity="error">{detailDialog.data.error}</Alert>
-          )}
-          {detailDialog.data?.header && (
+        <DialogContent>
+          {historyDialog.treatmentData ? (
             <Box>
-              <Grid container spacing={2} sx={{ mb: 2 }}>
-                <Grid item xs={12} md={4}>
-                  <Typography variant="body2" color="text.secondary">
-                    วันที่
-                  </Typography>
-                  <Typography variant="body1">
-                    {formatThaiDateShort(detailDialog.data.header.RDATE)}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} md={4}>
-                  <Typography variant="body2" color="text.secondary">
-                    รับจาก
-                  </Typography>
-                  <Typography variant="body1">
-                    {detailDialog.data.header.NAME1 || "-"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} md={4}>
-                  <Typography variant="body2" color="text.secondary">
-                    วิธีรับ
-                  </Typography>
-                  <Typography variant="body1">
-                    {detailDialog.data.header.TYPE_PAY || "-"}
-                  </Typography>
-                </Grid>
-              </Grid>
+              {/* ข้อมูลการรักษา */}
+              <Card sx={{ mb: 2 }}>
+                <CardContent>
+                  <Typography variant="h6" sx={{ mb: 2 }}>ข้อมูลการรักษา</Typography>
+                  <Grid container spacing={2}>
+                    <Grid item xs={6}>
+                      <Typography variant="body2" color="text.secondary">วันที่:</Typography>
+                      <Typography variant="body1">{formatThaiDateShort(historyDialog.treatmentData.RDATE)}</Typography>
+                    </Grid>
+                    <Grid item xs={6}>
+                      <Typography variant="body2" color="text.secondary">อาการ:</Typography>
+                      <Typography variant="body1">{historyDialog.treatmentData.SYMPTOM || '-'}</Typography>
+                    </Grid>
+                    <Grid item xs={6}>
+                      <Typography variant="body2" color="text.secondary">การวินิจฉัย:</Typography>
+                      <Typography variant="body1" color="primary">
+                        {historyDialog.treatmentData.DXCODE || '-'}{' '}
+                        {historyDialog.treatmentData.ICD10CODE ? `(${historyDialog.treatmentData.ICD10CODE})` : ''}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={6}>
+                      <Typography variant="body2" color="text.secondary">ชื่อการวินิจฉัย:</Typography>
+                      <Typography variant="body1">
+                        {historyDialog.treatmentData.DXNAME_THAI || historyDialog.treatmentData.ICD10NAME_THAI || '-'}
+                      </Typography>
+                    </Grid>
+                  </Grid>
+                </CardContent>
+              </Card>
 
-              <Divider sx={{ mb: 2 }} />
-              <Typography variant="subtitle1" sx={{ mb: 1 }}>
-                รายการรับ
-              </Typography>
-              <TableContainer>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>ประเภท</TableCell>
-                      <TableCell>รายละเอียด</TableCell>
-                      <TableCell align="right">จำนวนเงิน</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {(detailDialog.data.details || []).map((detail, index) => (
-                      <TableRow key={index}>
-                        <TableCell>{detail.TYPE_INCOME_NAME || detail.TYPE_INCOME_CODE || "-"}</TableCell>
-                        <TableCell>{detail.DESCM1 || "-"}</TableCell>
-                        <TableCell align="right">{formatCurrency(parseFloat(detail.AMT) || 0)}</TableCell>
-                      </TableRow>
-                    ))}
-                    <TableRow>
-                      <TableCell colSpan={2} align="right" sx={{ fontWeight: 600 }}>
-                        รวม
-                      </TableCell>
-                      <TableCell align="right" sx={{ fontWeight: 600 }}>
-                        {formatCurrency(detailTotal)}
-                      </TableCell>
-                    </TableRow>
-                  </TableBody>
-                </Table>
-              </TableContainer>
+              {/* รายการยา */}
+              {historyDialog.treatmentData.drugs && historyDialog.treatmentData.drugs.length > 0 && (
+                <Card sx={{ mb: 2 }}>
+                  <CardContent>
+                    <Typography variant="h6" sx={{ mb: 2 }}>รายการยา ({historyDialog.treatmentData.drugs.length} รายการ)</Typography>
+                    <TableContainer>
+                      <Table size="small">
+                        <TableHead>
+                          <TableRow>
+                            <TableCell>ชื่อยา</TableCell>
+                            <TableCell align="right">จำนวน</TableCell>
+                            <TableCell>หน่วย</TableCell>
+                            <TableCell align="right">ราคา</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {historyDialog.treatmentData.drugs.map((drug, index) => (
+                            <TableRow key={index}>
+                              <TableCell>{drug.GENERIC_NAME || drug.DRUG_CODE}</TableCell>
+                              <TableCell align="right">{drug.QTY}</TableCell>
+                              <TableCell>{drug.UNIT_CODE}</TableCell>
+                              <TableCell align="right">{formatCurrency(drug.AMT)}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* หัตถการ */}
+              {historyDialog.treatmentData.procedures && historyDialog.treatmentData.procedures.length > 0 && (
+                <Card sx={{ mb: 2 }}>
+                  <CardContent>
+                    <Typography variant="h6" sx={{ mb: 2 }}>หัตถการ ({historyDialog.treatmentData.procedures.length} รายการ)</Typography>
+                    <TableContainer>
+                      <Table size="small">
+                        <TableHead>
+                          <TableRow>
+                            <TableCell>ชื่อหัตถการ</TableCell>
+                            <TableCell align="right">ราคา</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {historyDialog.treatmentData.procedures.map((proc, index) => (
+                            <TableRow key={index}>
+                              <TableCell>{proc.MED_PRO_NAME_THAI || proc.PROCEDURE_NAME}</TableCell>
+                              <TableCell align="right">{formatCurrency(proc.AMT)}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* ค่าแล็บ/เอกซเรย์ */}
+              {(
+                (historyDialog.treatmentData.labTests && historyDialog.treatmentData.labTests.length > 0) ||
+                (historyDialog.treatmentData.radiologicalTests && historyDialog.treatmentData.radiologicalTests.length > 0)
+              ) && (
+                  <Card sx={{ mb: 2 }}>
+                    <CardContent>
+                      <Typography variant="h6" sx={{ mb: 2 }}>Lab & X-ray</Typography>
+                      <TableContainer>
+                        <Table size="small">
+                          <TableHead>
+                            <TableRow>
+                              <TableCell>รายการ</TableCell>
+                              <TableCell align="right">ราคา</TableCell>
+                            </TableRow>
+                          </TableHead>
+                          <TableBody>
+                            {/* Labs */}
+                            {historyDialog.treatmentData.labTests?.map((lab, index) => (
+                              <TableRow key={`lab-${index}`}>
+                                <TableCell>{lab.LAB_NAME_THAI || lab.LAB_NAME}</TableCell>
+                                <TableCell align="right">{formatCurrency(lab.PRICE)}</TableCell>
+                              </TableRow>
+                            ))}
+                            {/* Radio */}
+                            {historyDialog.treatmentData.radiologicalTests?.map((rad, index) => (
+                              <TableRow key={`rad-${index}`}>
+                                <TableCell>{rad.RADIOLOGICAL_NAME_THAI || rad.RADIOLOGICAL_NAME}</TableCell>
+                                <TableCell align="right">{formatCurrency(rad.PRICE)}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </TableContainer>
+                    </CardContent>
+                  </Card>
+                )}
             </Box>
+          ) : (
+            <CircularProgress />
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDetailDialog({ open: false, refno: null, data: null })}>
-            ปิด
-          </Button>
+          <Button onClick={() => setHistoryDialog({ open: false, vno: null, treatmentData: null })}>ปิด</Button>
         </DialogActions>
       </Dialog>
     </Box>
@@ -623,4 +743,3 @@ const MonthlyIncome = () => {
 };
 
 export default MonthlyIncome;
-

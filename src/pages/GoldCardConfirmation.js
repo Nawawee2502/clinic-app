@@ -72,13 +72,18 @@ const GoldCardConfirmation = () => {
         const actualPrice = parseFloat(treatment.ACTUAL_PRICE || treatment.TOTAL_AMOUNT || 0);
         const paidAmount = parseFloat(treatment.RECEIVED_AMOUNT || 0);
 
-        // ถ้าเคยบันทึกค่า claim ไว้แล้ว ให้ใช้ค่านั้น หรือถ้าไม่มีให้คำนวณใหม่
-        const existingClaim = treatment.CLAIM_ACTUAL_AMOUNT ? parseFloat(treatment.CLAIM_ACTUAL_AMOUNT) : null;
+        // คำนวณยอดคงเหลือที่ควรจะเป็น
+        const calculatedBalance = Math.max(0, actualPrice - paidAmount);
 
-        const balance = existingClaim !== null ? existingClaim : Math.max(0, actualPrice - paidAmount);
+        // ดึงค่าที่เคยบันทึกไว้ (ถ้ามี)
+        const existingClaim = parseFloat(treatment.CLAIM_ACTUAL_AMOUNT || 0);
+
+        // ถ้ามีค่าที่บันทึกไว้ให้ใช้ค่านั้น แต่ถ้าเป็น 0 ให้ใช้ยอดคงเหลือที่คำนวณได้เป็นค่าเริ่มต้น
+        // (เพื่อให้ User ไม่ต้องกรอกเองถ้าส่วนใหญ่ยอดตรงกัน)
+        const defaultAmount = existingClaim > 0 ? existingClaim : calculatedBalance;
 
         setSelectedTreatment(treatment);
-        setConfirmAmount(balance.toString());
+        setConfirmAmount(defaultAmount.toString());
         setOpenDialog(true);
     };
 
@@ -190,11 +195,12 @@ const GoldCardConfirmation = () => {
                                 <TableCell width="5%">ลำดับ</TableCell>
                                 <TableCell width="15%">VN</TableCell>
                                 <TableCell width="10%">HN</TableCell>
-                                <TableCell width="25%">ชื่อคนไข้</TableCell>
+                                <TableCell width="20%">ชื่อคนไข้</TableCell>
+                                <TableCell align="center" width="10%">ใช้สิทธิ์ (ครั้งที่)</TableCell>
                                 <TableCell align="right" width="10%">ราคาจริง</TableCell>
                                 <TableCell align="right" width="10%">เก็บแล้ว</TableCell>
                                 <TableCell align="right" width="10%">คงเหลือ</TableCell>
-                                <TableCell align="center" width="15%">ดำเนินการ</TableCell>
+                                <TableCell align="center" width="10%">ดำเนินการ</TableCell>
                             </TableRow>
                         </TableHead>
                         <TableBody>
@@ -222,6 +228,22 @@ const GoldCardConfirmation = () => {
                                             <TableCell>{item.VNO}</TableCell>
                                             <TableCell>{item.HNNO}</TableCell>
                                             <TableCell>{`${item.PRENAME || ''}${item.NAME1} ${item.SURNAME || ''}`}</TableCell>
+                                            <TableCell align="center">
+                                                <Typography
+                                                    variant="body2"
+                                                    fontWeight="bold"
+                                                    sx={{
+                                                        color: item.EXTERNAL_UCS_COUNT > 2 ? 'error.main' : 'success.main',
+                                                        bgcolor: item.EXTERNAL_UCS_COUNT > 2 ? '#ffebee' : '#e8f5e9',
+                                                        py: 0.5,
+                                                        borderRadius: 1,
+                                                        display: 'inline-block',
+                                                        px: 1
+                                                    }}
+                                                >
+                                                    {item.EXTERNAL_UCS_COUNT || 0}
+                                                </Typography>
+                                            </TableCell>
                                             <TableCell align="right">
                                                 {/* Original NET: {net.toLocaleString()} */}
                                                 {(parseFloat(item.ACTUAL_PRICE || item.TOTAL_AMOUNT || 0)).toLocaleString()}
@@ -232,15 +254,27 @@ const GoldCardConfirmation = () => {
                                                 {Math.max(0, (parseFloat(item.ACTUAL_PRICE || item.TOTAL_AMOUNT || 0)) - paid).toLocaleString()}
                                             </TableCell>
                                             <TableCell align="center">
-                                                <Button
-                                                    variant="contained"
-                                                    color="primary"
-                                                    size="small"
-                                                    startIcon={<CheckCircle />}
-                                                    onClick={() => handleConfirmClick(item)}
-                                                >
-                                                    ยืนยัน
-                                                </Button>
+                                                {item.UCS_STATUS === 'paid' ? (
+                                                    <Button
+                                                        variant="contained"
+                                                        color="success"
+                                                        size="small"
+                                                        disabled
+                                                        startIcon={<CheckCircle />}
+                                                    >
+                                                        ยืนยันแล้ว
+                                                    </Button>
+                                                ) : (
+                                                    <Button
+                                                        variant="contained"
+                                                        color="primary"
+                                                        size="small"
+                                                        startIcon={<CheckCircle />}
+                                                        onClick={() => handleConfirmClick(item)}
+                                                    >
+                                                        ยืนยัน
+                                                    </Button>
+                                                )}
                                             </TableCell>
                                         </TableRow>
                                     );
@@ -268,6 +302,9 @@ const GoldCardConfirmation = () => {
                         ยืนยันการรับชำระเงินสำหรับ VN: <b>{selectedTreatment?.VNO}</b><br />
                         คนไข้: <b>{selectedTreatment?.NAME1} {selectedTreatment?.SURNAME}</b>
                     </DialogContentText>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
+                        * ระบบดึงยอดคงเหลือมาเป็นค่าเริ่มต้น (สามารถแก้ไขยอดตกลงจริงได้)
+                    </Typography>
                     <TextField
                         autoFocus
                         margin="dense"
@@ -279,6 +316,9 @@ const GoldCardConfirmation = () => {
                         InputProps={{
                             endAdornment: <InputAdornment position="end">บาท</InputAdornment>,
                         }}
+                        helperText={`ยอดที่ควรจะเป็น: ${(parseFloat(selectedTreatment?.CLAIM_ACTUAL_AMOUNT || 0) ||
+                            Math.max(0, (parseFloat(selectedTreatment?.ACTUAL_PRICE || selectedTreatment?.TOTAL_AMOUNT || 0) - parseFloat(selectedTreatment?.RECEIVED_AMOUNT || 0)))).toLocaleString()
+                            } บาท`}
                     />
                 </DialogContent>
                 <DialogActions>
