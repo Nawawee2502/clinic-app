@@ -95,6 +95,11 @@ const DailyReport = () => {
     const [selectedPatientObject, setSelectedPatientObject] = useState(null);
     const [patientSearch, setPatientSearch] = useState('');
 
+    // ✅ New Filters State
+    const [rightsType, setRightsType] = useState(''); // '', 'gold_card', 'social_security', 'cash'
+    const [ucsStartDate, setUcsStartDate] = useState(getCurrentDateForDB());
+    const [ucsEndDate, setUcsEndDate] = useState(getCurrentDateForDB());
+
     // States for data
     const [doctors, setDoctors] = useState([]);
     const [allPatients, setAllPatients] = useState([]);
@@ -117,7 +122,7 @@ const DailyReport = () => {
         if (startDate && endDate) {
             loadReportData();
         }
-    }, [startDate, endDate, selectedDoctor, selectedPatient]);
+    }, [startDate, endDate, selectedDoctor, selectedPatient, rightsType, ucsStartDate, ucsEndDate]);
 
     const loadAllPatients = async () => {
         try {
@@ -179,6 +184,17 @@ const DailyReport = () => {
 
             if (selectedPatient) {
                 params.hnno = selectedPatient;
+            }
+
+            // ✅ Add New Filters to Params
+            if (rightsType) {
+                params.rights_type = rightsType;
+
+                // Only send UCS date filters if rights_type is gold_card
+                if (rightsType === 'gold_card') {
+                    params.ucs_payment_date_from = ucsStartDate;
+                    params.ucs_payment_date_to = ucsEndDate;
+                }
             }
 
             const treatmentResponse = await TreatmentService.getPaidTreatmentsWithDetails(params);
@@ -245,6 +261,9 @@ const DailyReport = () => {
         setSelectedPatient('');
         setSelectedPatientObject(null);
         setPatientSearch('');
+        setRightsType('');
+        setUcsStartDate(getCurrentDateForDB());
+        setUcsEndDate(getCurrentDateForDB());
     };
 
     const formatCurrency = (amount) => {
@@ -408,6 +427,44 @@ const DailyReport = () => {
                                 selectOnFocus={false}
                             />
                         </Grid>
+
+                        {/* ✅ Rights Type Filter */}
+                        <Grid item xs={12} sm={6} md={3}>
+                            <FormControl fullWidth>
+                                <InputLabel>สิทธิการรักษา</InputLabel>
+                                <Select
+                                    value={rightsType}
+                                    label="สิทธิการรักษา"
+                                    onChange={(e) => setRightsType(e.target.value)}
+                                >
+                                    <MenuItem value="">ทั้งหมด</MenuItem>
+                                    <MenuItem value="gold_card">บัตรทอง (UCS)</MenuItem>
+                                    <MenuItem value="social_security">ประกันสังคม</MenuItem>
+                                    <MenuItem value="cash">เงินสด/ทั่วไป</MenuItem>
+                                </Select>
+                            </FormControl>
+                        </Grid>
+
+                        {/* ✅ Show UCS Payment Date filters only when Gold Card is selected */}
+                        {rightsType === 'gold_card' && (
+                            <>
+                                <Grid item xs={12} sm={6} md={2}>
+                                    <DateInputBE
+                                        label="วันที่รับเงินตั้วแต่"
+                                        value={ucsStartDate}
+                                        onChange={(e) => setUcsStartDate(e.target.value)}
+                                    />
+                                </Grid>
+                                <Grid item xs={12} sm={6} md={2}>
+                                    <DateInputBE
+                                        label="ถึงวันที่"
+                                        value={ucsEndDate}
+                                        onChange={(e) => setUcsEndDate(e.target.value)}
+                                    />
+                                </Grid>
+                            </>
+                        )}
+
                         <Grid item xs={12} sm={6} md={2}>
                             <Button
                                 variant="outlined"
@@ -539,9 +596,11 @@ const DailyReport = () => {
                                 <TableHead>
                                     <TableRow>
                                         <TableCell>ลำดับ</TableCell>
+                                        <TableCell>วันที่</TableCell> {/* ✅ Re-added Date */}
                                         <TableCell>VN</TableCell>
                                         <TableCell>HN</TableCell>
                                         <TableCell>ชื่อคนไข้</TableCell>
+                                        <TableCell>สิทธิการรักษา</TableCell> {/* ✅ Re-added Rights */}
                                         <TableCell align="right">ค่ารักษา</TableCell>
                                         <TableCell align="right">ค่าหัตถการ</TableCell>
                                         <TableCell align="right">ค่า LAB</TableCell>
@@ -550,6 +609,7 @@ const DailyReport = () => {
                                         <TableCell align="right">เงินสด</TableCell>
                                         <TableCell align="right">เงินโอน</TableCell>
                                         <TableCell align="right">บัตรทอง</TableCell>
+                                        <TableCell align="center">วันรับเงินบัตรทอง</TableCell> {/* ✅ Re-added Gold Card Date */}
                                         <TableCell align="center">จัดการ</TableCell>
                                     </TableRow>
                                 </TableHead>
@@ -572,8 +632,20 @@ const DailyReport = () => {
                                         let transfer = 0;
                                         let goldCard = 0;
 
+                                        // ✅ Check Rights Logic (Same as before)
+                                        let treatmentRights = 'เงินสด';
+                                        let rightsColor = 'text.primary';
+
+                                        if (row.VISIT_UCS_CARD === 'Y' || method === 'บัตรทอง') {
+                                            treatmentRights = 'บัตรทอง (UCS)';
+                                            rightsColor = 'warning.main';
+                                        } else if (row.VISIT_SOCIAL_CARD === 'Y' || method === 'ประกันสังคม') {
+                                            treatmentRights = 'ประกันสังคม';
+                                            rightsColor = 'info.main';
+                                        }
+
                                         // Check if this is a Gold Card case (UCS_CARD = 'Y') or Payment Method is 'บัตรทอง'
-                                        const isGoldCardCase = row.UCS_CARD === 'Y' || method === 'บัตรทอง';
+                                        const isGoldCardCase = row.VISIT_UCS_CARD === 'Y' || method === 'บัตรทอง';
 
                                         if (method === 'เงินโอน') {
                                             transfer = net;
@@ -590,6 +662,7 @@ const DailyReport = () => {
                                         return (
                                             <TableRow key={row.VNO || index} hover>
                                                 <TableCell>{index + 1}</TableCell>
+                                                <TableCell>{formatThaiDateShortDisplay(row.RDATE)}</TableCell> {/* ✅ Date */}
                                                 <TableCell>
                                                     <Typography variant="body2" fontWeight="medium">
                                                         {row.VNO}
@@ -599,6 +672,11 @@ const DailyReport = () => {
                                                 <TableCell>
                                                     <Typography variant="body2" fontWeight="medium">
                                                         {`${row.PRENAME || ''}${row.NAME1} ${row.SURNAME || ''}`.trim()}
+                                                    </Typography>
+                                                </TableCell>
+                                                <TableCell> {/* ✅ Rights */}
+                                                    <Typography variant="body2" sx={{ color: rightsColor, fontWeight: 'bold' }}>
+                                                        {treatmentRights}
                                                     </Typography>
                                                 </TableCell>
                                                 <TableCell align="right">{formatCurrency(treatmentFee)}</TableCell>
@@ -618,6 +696,13 @@ const DailyReport = () => {
                                                 </TableCell>
                                                 <TableCell align="right" sx={{ color: 'warning.main' }}>
                                                     {goldCard > 0 ? formatCurrency(goldCard) : (isGoldCardCase && net === 0 ? '0' : '-')}
+                                                </TableCell>
+                                                <TableCell align="center"> {/* ✅ Gold Card Payment Date from UCS_PAYMENT_DATE */}
+                                                    {isGoldCardCase ? (
+                                                        <Typography variant="body2" color="text.secondary">
+                                                            {row.UCS_PAYMENT_DATE ? formatThaiDateShortDisplay(row.UCS_PAYMENT_DATE) : '-'}
+                                                        </Typography>
+                                                    ) : '-'}
                                                 </TableCell>
                                                 <TableCell align="center">
                                                     <IconButton

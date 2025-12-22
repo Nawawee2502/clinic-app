@@ -294,6 +294,11 @@ class TreatmentService {
             if (params.dx_code) queryParams.append('dx_code', params.dx_code);
             if (params.icd10_code) queryParams.append('icd10_code', params.icd10_code);
 
+            // ✅ New Filters
+            if (params.rights_type) queryParams.append('rights_type', params.rights_type);
+            if (params.ucs_payment_date_from) queryParams.append('ucs_payment_date_from', params.ucs_payment_date_from);
+            if (params.ucs_payment_date_to) queryParams.append('ucs_payment_date_to', params.ucs_payment_date_to);
+
             const url = `${API_BASE_URL}/treatments${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
             const response = await fetch(url);
 
@@ -1111,15 +1116,15 @@ class TreatmentService {
     static createPaymentDataFromEditablePrices(editablePrices, paymentInfo) {
         // ✅ คำนวณยอดรวมจาก editablePrices (ยังไม่รวม TREATMENT_FEE)
         const baseTotal = this.calculateTotalFromEditablePrices(editablePrices);
-        
+
         // ✅ เพิ่ม TREATMENT_FEE เข้าไปในยอดรวมก่อนหักส่วนลด
         const treatmentFee = parseFloat(paymentInfo.treatmentFee !== undefined && paymentInfo.treatmentFee !== null ? paymentInfo.treatmentFee : 100.00);
         const totalAmount = baseTotal + treatmentFee;
-        
+
         // ✅ หักส่วนลดจากยอดรวมที่รวม TREATMENT_FEE แล้ว
         const discount = parseFloat(paymentInfo.discount || 0);
         const netAmount = Math.max(0, totalAmount - discount);
-        
+
         const receivedAmount = parseFloat(paymentInfo.receivedAmount || 0);
         const changeAmount = Math.max(0, receivedAmount - netAmount);
 
