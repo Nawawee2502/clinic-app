@@ -649,8 +649,14 @@ const DailyReport = () => {
 
                                         if (method === 'เงินโอน') {
                                             transfer = net;
-                                        } else if (method === 'บัตรทอง') {
-                                            goldCard = net;
+                                        } else if (isGoldCardCase) {
+                                            // ✅ ถ้ามีการยืนยันยอดเงินแล้ว (UCS_STATUS === 'paid') ให้ใช้ยอดที่ยืนยัน (CLAIM_ACTUAL_AMOUNT)
+                                            // ถ้ายังไม่ยืนยัน ให้เป็น 0 (เพราะยังไม่ได้เงิน) หรือถ้ามีเน็ตที่จ่ายจริง (กรณีส่วนเกิน) ก็ให้แสดง
+                                            if (row.UCS_STATUS === 'paid') {
+                                                goldCard = parseFloat(row.CLAIM_ACTUAL_AMOUNT) || 0;
+                                            } else {
+                                                goldCard = method === 'บัตรทอง' ? net : 0;
+                                            }
                                         } else {
                                             // Default to cash for other methods like 'เงินสด'
                                             cash = net;
