@@ -1343,13 +1343,20 @@ class TreatmentService {
             if (params.limit) queryParams.append('limit', params.limit);
             if (params.date_from) queryParams.append('date_from', params.date_from);
             if (params.date_to) queryParams.append('date_to', params.date_to);
+            if (params.status) queryParams.append('status', params.status); // ✅ Add status filter
 
             // เพิ่มการส่งพารามิเตอร์ filter หมอและผู้ป่วย
             if (params.emp_code) queryParams.append('emp_code', params.emp_code);
             if (params.hnno) queryParams.append('hnno', params.hnno);
 
-            // บังคับให้ดึงเฉพาะที่ชำระเงินแล้ว
-            queryParams.append('payment_status', 'ชำระเงินแล้ว');
+            // ✅ Allow overriding payment_status (default to 'ชำระเงินแล้ว' if not provided)
+            if (params.payment_status !== undefined) {
+                if (params.payment_status !== 'all' && params.payment_status !== '') {
+                    queryParams.append('payment_status', params.payment_status);
+                }
+            } else {
+                queryParams.append('payment_status', 'ชำระเงินแล้ว');
+            }
 
             const url = `${API_BASE_URL}/treatments${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
             console.log('API URL:', url);
@@ -1363,19 +1370,11 @@ class TreatmentService {
 
             const result = await response.json();
 
-            // Double-check กรองเฉพาะที่ชำระเงินแล้ว
+            // ✅ Return data directly (client-side filtering removed to support "all" status)
             if (result.success && result.data) {
-                const paidTreatments = result.data.filter(treatment => {
-                    const isPaidStatus = treatment.PAYMENT_STATUS === 'ชำระเงินแล้ว';
-                    const isPaidStatus1 = treatment.STATUS1 === 'ชำระเงินแล้ว';
-                    return isPaidStatus || isPaidStatus1;
-                });
-
-                console.log(`Found ${paidTreatments.length} paid treatments out of ${result.data.length} total`);
-
                 return {
                     success: true,
-                    data: paidTreatments,
+                    data: result.data,
                     pagination: result.pagination
                 };
             }

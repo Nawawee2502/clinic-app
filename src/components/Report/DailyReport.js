@@ -175,7 +175,9 @@ const DailyReport = () => {
             const params = {
                 date_from: startDate,
                 date_to: endDate,
-                limit: 100
+                limit: 100,
+                status: 'ปิดการรักษา', // ✅ Fetch all closed treatments
+                payment_status: 'all'  // ✅ Ignore payment status (fetch both paid and unpaid)
             };
 
             if (selectedDoctor) {

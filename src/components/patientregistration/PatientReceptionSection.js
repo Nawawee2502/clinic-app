@@ -350,7 +350,7 @@ const PatientReceptionSection = ({
             const ucsCard = selectedPatient?.UCS_CARD || 'N';
             let totalUsage = 0;
             let maxUsage = 2;
-            let manualCount = 0;
+            let manualCount = parseInt(externalUcsCount) || 0; // ✅ Fix: Use the manually entered count
 
             if (ucsCard === 'Y') {
                 const ucsUsageCheck = await TreatmentService.checkUCSUsageThisMonth(selectedPatient.HNCODE);
