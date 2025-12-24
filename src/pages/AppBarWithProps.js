@@ -60,6 +60,7 @@ import LocalPharmacyIcon from '@mui/icons-material/LocalPharmacy';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import CheckCircle from '@mui/icons-material/CheckCircle';
+import SettingsSuggestIcon from '@mui/icons-material/SettingsSuggest';
 
 // กำหนดธีมให้ตรงกับ Design
 const demoTheme = createTheme({
@@ -293,6 +294,7 @@ const CustomSidebar = ({ activeMenu, onMenuClick, isOpen, role }) => {
     const [openReport, setOpenReport] = React.useState(false);
     const [openMedicalStock, setOpenMedicalStock] = React.useState(false);
     const [openFinance, setOpenFinance] = React.useState(false);
+    const [openUtilities, setOpenUtilities] = React.useState(false);
 
     const normalizedRole = (role || '').toString().trim().toLowerCase();
     const isStaffRole = role === 'เจ้าหน้าที่' || normalizedRole === 'staff' || normalizedRole === 'officer';
@@ -307,6 +309,10 @@ const CustomSidebar = ({ activeMenu, onMenuClick, isOpen, role }) => {
 
     const handleFinanceClick = () => {
         setOpenFinance(!openFinance);
+    };
+
+    const handleUtilitiesClick = () => {
+        setOpenUtilities(!openUtilities);
     };
 
     // เมนูหลัก
@@ -409,19 +415,18 @@ const CustomSidebar = ({ activeMenu, onMenuClick, isOpen, role }) => {
         },
     ];
 
-    // เมนูย่อยสำหรับรายงาน
-    const reportSubItems2 = [
+    // เมนูย่อยสำหรับอรรถประโยชน์
+    const utilitiesSubItems = [
         {
             title: 'ปิดประจำเดือน',
-            path: '/clinic/report/daily',
+            path: '/clinic/utilities/monthly-closing',
             icon: <TodayIcon />
         },
         {
             title: 'Backup Data',
-            path: '/clinic/report/monthly',
+            path: '/clinic/utilities/backup',
             icon: <DateRangeIcon />
         },
-
     ];
 
     return (
@@ -699,12 +704,14 @@ const CustomSidebar = ({ activeMenu, onMenuClick, isOpen, role }) => {
                             </Collapse>
                         </Box>
 
+
+
                         {/* เมนูอรรถประโยชน์ พร้อมเมนูย่อย */}
                         <Box>
                             <Button
-                                startIcon={<DescriptionIcon />}
-                                endIcon={openReport ? <ExpandLess /> : <ExpandMore />}
-                                onClick={handleReportClick}
+                                startIcon={<SettingsSuggestIcon />} // Changed icon to differentiate
+                                endIcon={openUtilities ? <ExpandLess /> : <ExpandMore />}
+                                onClick={handleUtilitiesClick}
                                 sx={{
                                     justifyContent: 'space-between',
                                     textAlign: 'left',
@@ -713,28 +720,28 @@ const CustomSidebar = ({ activeMenu, onMenuClick, isOpen, role }) => {
                                     mb: 0.5,
                                     borderRadius: 1,
                                     width: '100%',
-                                    color: activeMenu.startsWith('/clinic/report') ? '#fff' : 'rgba(53, 70, 105, 0.9)',
-                                    bgcolor: activeMenu.startsWith('/clinic/report') ? 'rgba(26, 93, 180, 0.8)' : 'transparent',
+                                    color: activeMenu.startsWith('/clinic/utilities') ? '#fff' : 'rgba(53, 70, 105, 0.9)',
+                                    bgcolor: activeMenu.startsWith('/clinic/utilities') ? 'rgba(26, 93, 180, 0.8)' : 'transparent',
                                     '&:hover': {
                                         bgcolor: 'rgba(26, 93, 180, 0.5)',
                                     },
                                     '& .MuiButton-startIcon': {
-                                        color: activeMenu.startsWith('/clinic/report') ? '#fff' : 'rgba(0, 48, 143, 0.9)',
+                                        color: activeMenu.startsWith('/clinic/utilities') ? '#fff' : 'rgba(0, 48, 143, 0.9)',
                                         marginRight: '12px'
                                     },
                                     '& .MuiButton-endIcon': {
-                                        color: activeMenu.startsWith('/clinic/report') ? '#fff' : 'rgba(0, 48, 143, 0.9)',
+                                        color: activeMenu.startsWith('/clinic/utilities') ? '#fff' : 'rgba(0, 48, 143, 0.9)',
                                         marginLeft: 'auto'
                                     },
-                                    fontWeight: activeMenu.startsWith('/clinic/report') ? 'bold' : 'normal',
+                                    fontWeight: activeMenu.startsWith('/clinic/utilities') ? 'bold' : 'normal',
                                 }}
                             >
                                 <span>อรรถประโยชน์</span>
                             </Button>
 
-                            <Collapse in={openReport} timeout="auto" unmountOnExit>
+                            <Collapse in={openUtilities} timeout="auto" unmountOnExit>
                                 <List component="div" disablePadding>
-                                    {reportSubItems2.map((subItem) => (
+                                    {utilitiesSubItems.map((subItem) => (
                                         <Button
                                             key={subItem.title}
                                             startIcon={subItem.icon}

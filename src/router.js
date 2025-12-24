@@ -31,6 +31,7 @@ import DrugReport from "./pages/DrugReport";
 const UserManagement = lazy(() => import("./pages/UserManagement"));
 const RegisterPage = lazy(() => import("./pages/RegisterPage"));
 const GoldCardConfirmation = lazy(() => import("./pages/GoldCardConfirmation"));
+const MonthlyClosing = lazy(() => import("./pages/MonthlyClosing"));
 
 // Import หน้าระบบการเงิน/บัญชี (Lazy loading)
 // const ExpenseCategories = lazy(() => import("./pages/Finance/ExpenseCategories"));
@@ -133,6 +134,9 @@ const Router = () => {
               <Route path="report/daily" element={<Report />} />
               <Route path="report/monthly" element={<ReportMonthly />} />
               <Route path="report/yearly" element={<ReportYearly />} />
+
+              {/* Utility Routes */}
+              <Route path="utilities/monthly-closing" element={<MonthlyClosing />} />
 
               <Route path="settings" element={<SettingsPage />} />
 

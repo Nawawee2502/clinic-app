@@ -446,7 +446,7 @@ const PatientReceptionSection = ({
                 // ✅ เพิ่มข้อมูลบัตรที่นี่
                 SOCIAL_CARD: selectedPatient.SOCIAL_CARD,
                 // ✅ ส่งค่า UCS_CARD ที่คำนวณแล้ว (ถ้าเกิน 2 ครั้งจะเป็น 'N')
-                UCS_CARD: (selectedPatient.UCS_CARD === 'Y' && (parseInt(externalUcsCount) > maxUsage || (parseInt(externalUcsCount) === 0 && usageCount >= maxUsage))) ? 'N' : selectedPatient.UCS_CARD
+                UCS_CARD: (selectedPatient.UCS_CARD === 'Y' && totalUsage > maxUsage) ? 'N' : selectedPatient.UCS_CARD
             };
 
             console.log('🏥 Creating queue with card info:', queueData);
