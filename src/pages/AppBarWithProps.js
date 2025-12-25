@@ -459,10 +459,15 @@ const CustomSidebar = ({ activeMenu, onMenuClick, isOpen, role }) => {
                 }}
             >
                 <img
-                    src='/logo5.png'
+                    src='/logo.png'
                     style={{
-                        width: '174px',
-                        height: '174px'
+                        width: 'auto',
+                        height: 'auto',
+                        maxWidth: '180px',
+                        maxHeight: '120px',
+                        objectFit: 'contain',
+                        marginTop: '12px',
+                        marginBottom: '12px'
                     }}
                 />
             </Box>

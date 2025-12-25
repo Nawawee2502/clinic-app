@@ -134,19 +134,22 @@ const RegisterPage = () => {
                     <Box sx={{ textAlign: 'center', mb: 4 }}>
                         <Box
                             sx={{
-                                width: 56,
-                                height: 56,
-                                borderRadius: '50%',
-                                backgroundColor: '#eff6ff',
                                 display: 'flex',
-                                alignItems: 'center',
                                 justifyContent: 'center',
-                                margin: '0 auto',
-                                mb: 2,
-                                color: '#4A9EFF'
+                                mb: 3
                             }}
                         >
-                            <PersonAdd sx={{ fontSize: 32 }} />
+                            <img
+                                src="/logo.png"
+                                alt="Clinic Logo"
+                                style={{
+                                    width: 'auto',
+                                    height: 'auto',
+                                    maxWidth: '180px',
+                                    maxHeight: '100px',
+                                    objectFit: 'contain'
+                                }}
+                            />
                         </Box>
                         <Typography variant="h5" fontWeight="800" color="#1e293b" gutterBottom>
                             ลงทะเบียนเจ้าหน้าที่
