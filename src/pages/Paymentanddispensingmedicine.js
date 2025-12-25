@@ -403,11 +403,37 @@ const Paymentanddispensingmedicine = () => {
 
       // ✅ เช็ค UCS_CARD: ถ้าเป็น 'Y' ไม่ต้องชำระเงิน, ถ้าเป็น 'N' ต้องชำระเงินก่อน
       // Prioritize Treatment-specific status (Visit status) over Patient status
-      const ucsCard = treatmentData?.treatment?.UCS_CARD ||
-        currentPatient?.UCS_CARD ||
-        currentPatient?.PATIENT_UCS_CARD ||
-        'N';
+      // ✅ Master Sync Logic (Logic เดียวครอบคลุมทุกเคส):
+      // 1. ดึงข้อมูลล่าสุดมา (สิทธิ์ใน Patient และ จำนวนครั้งที่คีย์หน้าเคาน์เตอร์)
+      const livePatientUcs = currentPatient?.PATIENT_UCS_CARD || 'N';
+      const manualUcsCount = treatmentData?.treatment?.EXTERNAL_UCS_COUNT || 0;
+      const currentUcsCard = treatmentData?.treatment?.UCS_CARD || 'N';
+
+      console.log('⚖️ Master Sync Decision:', {
+        livePatientUcs,
+        manualUcsCount,
+        currentUcsCard
+      });
+
+      // ✅ 2. ตัดสินใจ "สิทธิ์ที่จะใช้" (Calculated Rights)
+      let finalUcsCard = 'N';
+
+      // 🛑 กฎข้อที่ 1: มาครั้งที่ 3 ขึ้นไป (Manual Count > 2) -> ต้องจ่ายเงินเสมอ! ('N')
+      if (manualUcsCount > 2) {
+        finalUcsCard = 'N';
+      }
+      // 🔄 กฎข้อที่ 2: ถ้ามาครั้งที่ 1-2 -> ให้ Sync ตามสิทธิ์ล่าสุดของคนไข้ทันที
+      // (ถ้าคนไข้แก้เป็น Y ก็ได้ Y, ถ้าแก้เป็น N ก็ได้ N)
+      else {
+        finalUcsCard = livePatientUcs;
+      }
+
+      // ✅ ใช้ค่าที่คำนวณได้เป็นตัวหลัก
+      const ucsCard = finalUcsCard;
+
       const paymentStatus = currentPatient.PAYMENT_STATUS || 'รอชำระ';
+
+
 
       // ✅ เช็คว่าใช้สิทธิ์บัตรทองเกิน 2 ครั้งหรือไม่
       let isUcsExceeded = ucsUsageInfo.isExceeded;
@@ -552,7 +578,9 @@ const Paymentanddispensingmedicine = () => {
         // เพิ่มข้อมูลเวลาปิดการรักษา (optional)
         CLOSE_DATE: getCurrentDateForDB(), // ✅ ใช้ utility สำหรับบันทึก DB (ค.ศ.)
         CLOSE_TIME: getCurrentTimeForDB(), // ✅ ใช้ utility สำหรับบันทึก DB (เวลาไทย)
-        CLOSED_BY: 'PAYMENT_SYSTEM'
+        CLOSED_BY: 'PAYMENT_SYSTEM',
+        // ✅ Master Sync Update: บันทึกค่า UCS_CARD ที่คำนวณใหม่ลง DB เสมอ เพื่อความถูกต้อง
+        UCS_CARD: ucsCard
       };
 
       console.log('🔒 Closing case for VNO:', currentPatient.VNO);

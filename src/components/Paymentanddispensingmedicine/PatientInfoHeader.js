@@ -36,6 +36,15 @@ const PatientInfoHeader = ({ patient, treatmentData }) => {
     const physicalExam = diagnosis.PHYSICAL_EXAM || '';
     const plan = diagnosis.PLAN1 || '';
 
+    // ✅ ดึงข้อมูลจำนวนครั้งที่ใช้สิทธิ์บัตรทอง (Time #)
+    // ถ้าเป็นบัตรทอง (UCS) แต่ข้อมูลเป็น 0 ให้แสดงเป็น 1 (ครั้งปัจจุบัน)
+    let externalUcsCount = treatment.EXTERNAL_UCS_COUNT || 0;
+    if (patientRight.code === 'UCS' && externalUcsCount === 0) {
+        externalUcsCount = 1;
+    }
+
+
+
     // เลือก icon ตามประเภทสิทธิ์
     const getRightIcon = (code) => {
         switch (code) {
@@ -222,7 +231,6 @@ const PatientInfoHeader = ({ patient, treatmentData }) => {
                             variant="caption"
                             sx={{
                                 opacity: 0.95,
-                                mb: 1,
                                 display: 'block',
                                 fontSize: '0.7rem',
                                 fontWeight: 600,
@@ -258,6 +266,37 @@ const PatientInfoHeader = ({ patient, treatmentData }) => {
                                 transition: 'all 0.3s ease'
                             }}
                         />
+
+                        {/* ✅ แสดงจำนวนครั้งที่ใช้สิทธิ์ (ถ้ามี) - Design ปรับปรุงใหม่ */}
+                        {externalUcsCount > 0 && (
+                            <Box
+                                sx={{
+                                    mt: 0.5,
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    bgcolor: 'rgba(255, 255, 255, 0.15)',
+                                    backdropFilter: 'blur(4px)',
+                                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                                    borderRadius: '12px',
+                                    px: 1.5,
+                                    py: 0.25,
+                                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                                }}
+                            >
+                                <Typography
+                                    variant="caption"
+                                    sx={{
+                                        color: '#fff',
+                                        fontSize: '0.75rem',
+                                        fontWeight: 600,
+                                        letterSpacing: 0.3
+                                    }}
+                                >
+                                    ครั้งที่ {externalUcsCount}
+                                </Typography>
+                            </Box>
+                        )}
                     </Box>
                 </Grid>
             </Grid>

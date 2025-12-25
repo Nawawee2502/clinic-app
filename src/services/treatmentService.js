@@ -596,6 +596,7 @@ class TreatmentService {
             RECEIVED_AMOUNT: data.RECEIVED_AMOUNT ? parseFloat(data.RECEIVED_AMOUNT) : null,
             CHANGE_AMOUNT: data.CHANGE_AMOUNT ? parseFloat(data.CHANGE_AMOUNT) : null,
             CASHIER: toNull(data.CASHIER),
+            EXTERNAL_UCS_COUNT: data.EXTERNAL_UCS_COUNT !== undefined ? parseInt(data.EXTERNAL_UCS_COUNT) : undefined, // ✅ เพิ่ม EXTERNAL_UCS_COUNT (ใช้ undefined ถ้าไม่มีค่า เพื่อให้ backend ตัดสินใจ)
 
             // Diagnosis details
             diagnosis: data.diagnosis ? {
@@ -1388,8 +1389,8 @@ class TreatmentService {
 
     static getPatientRight(patient) {
         // ตรวจสอบจากข้อมูลผู้ป่วยโดยตรง หรือจาก treatment
-        const socialCard = patient?.SOCIAL_CARD || patient?.treatment?.SOCIAL_CARD || 'N';
-        const ucsCard = patient?.UCS_CARD || patient?.treatment?.UCS_CARD || 'N';
+        const socialCard = patient?.PATIENT_SOCIAL_CARD || patient?.SOCIAL_CARD || patient?.treatment?.SOCIAL_CARD || 'N';
+        const ucsCard = patient?.PATIENT_UCS_CARD || patient?.UCS_CARD || patient?.treatment?.UCS_CARD || 'N';
 
         if (socialCard === 'Y') {
             return {

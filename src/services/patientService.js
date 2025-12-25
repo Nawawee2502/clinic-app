@@ -274,6 +274,7 @@ class PatientService {
                     // ✅ เพิ่มข้อมูลบัตร
                     SOCIAL_CARD: queueItem.SOCIAL_CARD,
                     UCS_CARD: queueItem.UCS_CARD,
+                    PATIENT_UCS_CARD: queueItem.PATIENT_UCS_CARD, // ✅ Live status from Patient table
 
                     // ✅ เพิ่มข้อมูลประวัติแพ้ยาและโรคประจำตัว
                     DRUG_ALLERGY: queueItem.DRUG_ALLERGY || null,

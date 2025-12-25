@@ -32,11 +32,11 @@ const PaymentSummaryCard = ({
     const calculateTotalFromEditablePrices = () => {
         const labTotal = editablePrices.labs.reduce((sum, item) => sum + item.editablePrice, 0);
         const procedureTotal = editablePrices.procedures.reduce((sum, item) => sum + item.editablePrice, 0);
-        
+
         // ✅ สำหรับผู้ป่วยบัตรทอง: คำนวณยาที่ UCS_CARD = 'N' หรือยาที่แก้ราคาแล้ว (editablePrice > 0)
-        const isGoldCard = patient?.UCS_CARD === 'Y' || patient?.treatment?.UCS_CARD === 'Y';
+        const isGoldCard = patient?.PATIENT_UCS_CARD === 'Y' || patient?.UCS_CARD === 'Y' || patient?.treatment?.UCS_CARD === 'Y';
         const isUcsExceeded = ucsUsageInfo?.isExceeded || false;
-        
+
         let drugTotal = 0;
         if (isGoldCard && !isUcsExceeded) {
             // คำนวณยาที่ UCS_CARD = 'N' หรือยาที่แก้ราคาแล้ว (editablePrice > 0)
@@ -62,7 +62,7 @@ const PaymentSummaryCard = ({
     const calculateTotal = () => {
         const totalCost = calculateTotalFromEditablePrices();
         const discount = parseFloat(paymentData.discount || 0);
-        
+
         return Math.max(0, totalCost - discount);
     };
 
@@ -135,7 +135,7 @@ const PaymentSummaryCard = ({
                         <Typography variant="body2" fontWeight="bold">
                             {(() => {
                                 // ✅ สำหรับผู้ป่วยบัตรทอง: คำนวณยาที่ UCS_CARD = 'N' หรือยาที่แก้ราคาแล้ว (editablePrice > 0)
-                                const isGoldCard = patient?.UCS_CARD === 'Y' || patient?.treatment?.UCS_CARD === 'Y';
+                                const isGoldCard = patient?.PATIENT_UCS_CARD === 'Y' || patient?.UCS_CARD === 'Y' || patient?.treatment?.UCS_CARD === 'Y';
                                 if (isGoldCard) {
                                     return editablePrices.drugs.reduce((sum, item) => {
                                         // ถ้าเป็นยาที่ต้องจ่าย (UCS_CARD = 'N') หรือแก้ราคาแล้ว (editablePrice > 0) ให้นับ
@@ -174,8 +174,8 @@ const PaymentSummaryCard = ({
                             size="small"
                             inputProps={{ step: "0.01", min: "0" }}
                             disabled={(patient?.UCS_CARD === 'Y' || patient?.treatment?.UCS_CARD === 'Y') && !ucsUsageInfo?.isExceeded}
-                            helperText={(patient?.UCS_CARD === 'Y' || patient?.treatment?.UCS_CARD === 'Y') && !ucsUsageInfo?.isExceeded 
-                                ? 'บัตรทอง: ค่ารักษา = 0.00' 
+                            helperText={(patient?.UCS_CARD === 'Y' || patient?.treatment?.UCS_CARD === 'Y') && !ucsUsageInfo?.isExceeded
+                                ? 'บัตรทอง: ค่ารักษา = 0.00'
                                 : 'สามารถแก้ไขได้ (กรอก 0.00 ได้)'}
                             sx={{
                                 '& .MuiOutlinedInput-root': {
@@ -192,7 +192,7 @@ const PaymentSummaryCard = ({
                             <Typography variant="body2">ค่ารักษา:</Typography>
                             <Typography variant="body2" fontWeight="bold">
                                 {(() => {
-                                    const isGoldCard = patient?.UCS_CARD === 'Y' || patient?.treatment?.UCS_CARD === 'Y';
+                                    const isGoldCard = patient?.PATIENT_UCS_CARD === 'Y' || patient?.UCS_CARD === 'Y' || patient?.treatment?.UCS_CARD === 'Y';
                                     const isUcsExceeded = ucsUsageInfo?.isExceeded || false;
                                     // ✅ ใช้เช็ค undefined/null แทน || เพื่อให้ 0 ถูกยอมรับได้
                                     const treatmentFee = (isGoldCard && !isUcsExceeded) ? 0.00 : (paymentData.treatmentFee !== undefined && paymentData.treatmentFee !== null ? parseFloat(paymentData.treatmentFee) : 100.00);
