@@ -996,6 +996,17 @@ const Paymentanddispensingmedicine = () => {
         }
         // ถ้า isGoldCard แต่ ucsUsageExceeded = true ไม่ต้องตั้งราคาเป็น 0 (ให้คิดเงินตามปกติ)
 
+        // ✅ เรียงลำดับยา: เอาประเภท "ยาฉีด" (TD002) ไว้ล่างสุด
+        drugsArray.sort((a, b) => {
+          // เช็คว่าเป็นยาฉีดหรือไม่ (ตรวจสอบหลาย field เพื่อความชัวร์)
+          const isAInjection = a.Type1 === 'TD002' || a.DRUG_TYPE === 'TD002' || a.Drug_formulations === 'Injections' || a.Drug_formulations === 'ยาฉีด' || (a.GENERIC_NAME && a.GENERIC_NAME.includes('Injection'));
+          const isBInjection = b.Type1 === 'TD002' || b.DRUG_TYPE === 'TD002' || b.Drug_formulations === 'Injections' || b.Drug_formulations === 'ยาฉีด' || (b.GENERIC_NAME && b.GENERIC_NAME.includes('Injection'));
+
+          if (isAInjection && !isBInjection) return 1; // A เป็นยาฉีด ไปอยู่หลัง
+          if (!isAInjection && isBInjection) return -1; // B เป็นยาฉีด ไปอยู่หลัง
+          return 0; // รักษาลำดับเดิม
+        });
+
         // เซ็ตราคาที่แก้ไขได้
         console.log('💰 Setting editable prices:', {
           labsCount: labsArray.length,

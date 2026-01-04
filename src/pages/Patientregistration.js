@@ -128,6 +128,27 @@ const PatientRegistration = () => {
     }
   };
 
+  // ✅ Listen for queue updates from other components
+  useEffect(() => {
+    const handleQueueUpdate = (event) => {
+      console.log('🔄 Queue update event received:', event.type);
+      // Refresh queue data without showing full loading spinner if possible, 
+      // but reusable functions might set loading. 
+      // Here we just call the load functions.
+      loadTodayQueue();
+      loadQueueStats();
+      loadTodayAppointments(); // Also refresh appointments if status changed
+    };
+
+    window.addEventListener('queueAdded', handleQueueUpdate);
+    window.addEventListener('queueStatusChanged', handleQueueUpdate);
+
+    return () => {
+      window.removeEventListener('queueAdded', handleQueueUpdate);
+      window.removeEventListener('queueStatusChanged', handleQueueUpdate);
+    };
+  }, []);
+
   // ✅ เปลี่ยนให้ใช้ Service เดียวกันกับหน้าตรวจรักษา
   const loadTodayQueue = async () => {
     try {
