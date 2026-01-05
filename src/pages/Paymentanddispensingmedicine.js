@@ -1037,7 +1037,8 @@ const Paymentanddispensingmedicine = () => {
             // ถ้า user แก้ไขค่าไว้แล้ว (รวมถึง 0) ให้เก็บไว้, ถ้าไม่ใช่ให้ใช้ 100.00
             // ✅ ต้องเช็คว่า prev.treatmentFee เป็น 0 ได้ (0 !== undefined && 0 !== null)
             if (prev.treatmentFee !== undefined && prev.treatmentFee !== null) {
-              treatmentFee = prev.treatmentFee; // เก็บค่าที่ user แก้ไขไว้ (รวมถึง 0)
+              // ✅ ป้องกันทศนิยมเพี้ยน (round 2 decimal places)
+              treatmentFee = Math.round(parseFloat(prev.treatmentFee) * 100) / 100;
             } else {
               treatmentFee = 100.00; // ถ้ายังไม่มีค่า ให้ใช้ default
             }
@@ -1140,7 +1141,7 @@ const Paymentanddispensingmedicine = () => {
     }
 
     // ✅ เพิ่มค่ารักษา (ถ้าไม่ใช่บัตรทอง หรือใช้สิทธิ์เกิน 2 ครั้ง)
-    // ✅ ใช้ ?? แทน || เพื่อให้ 0 ถูกยอมรับได้
+    // ✅ ใช้เช็ค undefined/null แทน || เพื่อให้ 0 ถูกยอมรับได้
     const treatmentFee = (isGoldCard && !isUcsExceeded) ? 0 : (paymentData.treatmentFee !== undefined && paymentData.treatmentFee !== null ? parseFloat(paymentData.treatmentFee) : 100.00);
 
     return labTotal + procedureTotal + drugTotal + treatmentFee;

@@ -161,13 +161,15 @@ const PaymentSummaryCard = ({
                             value={paymentData.treatmentFee !== undefined && paymentData.treatmentFee !== null ? paymentData.treatmentFee : ''}
                             onChange={(e) => {
                                 const value = e.target.value;
-                                // ✅ อนุญาตให้กรอก 0.00 ได้ - ถ้าค่าว่างให้เป็น undefined, ถ้าเป็น 0 ให้เป็น 0
+                                // ✅ อนุญาตให้กรอก 0.00 ได้ - ถ้าค่าว่างให้เป็น 0
                                 let treatmentFeeValue;
                                 if (value === '' || value === null || value === undefined) {
-                                    treatmentFeeValue = undefined; // ให้เป็น undefined เพื่อใช้ default
+                                    treatmentFeeValue = 0; // เปลี่ยนจาก undefined (default) เป็น 0 เพื่อให้ตรงกับที่ตาเห็น
                                 } else {
                                     const parsed = parseFloat(value);
-                                    treatmentFeeValue = isNaN(parsed) ? undefined : parsed; // ถ้า parse ไม่ได้ให้เป็น undefined
+                                    // ✅ ป้องกันทศนิยมเพี้ยน (Floating Point Issue) โดยปัดเศษ 2 ตำแหน่ง
+                                    const rounded = Math.round(parsed * 100) / 100;
+                                    treatmentFeeValue = isNaN(parsed) ? 0 : rounded; // ถ้า parse ไม่ได้ให้เป็น 0
                                 }
                                 onPaymentDataChange({ ...paymentData, treatmentFee: treatmentFeeValue });
                             }}
