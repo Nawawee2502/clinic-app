@@ -16,7 +16,7 @@ const DrugLabelsPrint = ({ patient, drugs }) => {
         <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
         <style>
           @page { 
-            size: 8cm 5cm; 
+            size: 80mm 50mm; 
             margin: 0; 
           }
           * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -25,50 +25,59 @@ const DrugLabelsPrint = ({ patient, drugs }) => {
             background: white; 
             margin: 0;
             padding: 0;
-            overflow: hidden; /* ป้องกัน scrollbar */
+            overflow: hidden; 
           }
           .labels-container { 
             width: 100%;
           }
 
           .drug-label {
-            width: 8cm;
-            height: 5cm;
-            /* ✅ เว้นพื้นที่ส่วนหัว 1.1cm */
-            padding: 0.2cm 0.4cm; /* ขยับซ้ายขวาเพิ่มหน่อย */
-            padding-top: 1.1cm; 
+            width: 80mm;
+            height: 50mm;
+            padding: 0 4mm;
+            padding-bottom: 2mm;
             position: relative;
             page-break-after: always;
+            break-inside: avoid;
             border: none;
             display: flex;
             flex-direction: column;
             justify-content: flex-start;
+            overflow: hidden; 
+          }
+          
+          /* Spacer สำหรับเว้นหัวกระดาษ 0.9cm (เผื่อเป็น 1.2cm/12mm ให้ปลอดภัย) */
+          .header-spacer {
+            width: 100%;
+            height: 12mm;
+            flex-shrink: 0;
           }
 
-          /* Layout ตามรูป: ชื่อยาตัวใหญ่บนสุด */
+          /* Layout: ชื่อยา */
           .top-row {
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
             margin-bottom: 2px;
+            margin-top: 2px;
           }
           .drug-name {
-            font-size: 16px;
+            font-size: 14px; 
             font-weight: 700;
             line-height: 1.1;
-            flex: 1; /* ให้กินพื้นที่เยอะสุด */
+            flex: 1;
           }
           .drug-qty {
-             font-size: 14px;
+             font-size: 13px;
              font-weight: 700;
              white-space: nowrap;
-             margin-left: 8px;
+             margin-left: 6px;
              color: #000;
           }
 
           .line-field {
-            font-size: 12px;
-            margin-bottom: 3px;
+            font-size: 11px;
+            margin-bottom: 1px;
             display: flex;
             align-items: baseline;
             line-height: 1.3;
@@ -76,29 +85,29 @@ const DrugLabelsPrint = ({ patient, drugs }) => {
 
           .line-field .label { 
             font-weight: 600; 
-            min-width: 85px; /* ล็อคความกว้าง Label ให้ตรงกันเหมือนในรูป */
+            min-width: 75px; 
           }
           
           .line-field .value {
             flex: 1;
+            word-wrap: break-word; 
           }
 
           .usage-line {
-             margin-top: 2px;
+             margin-top: 1px;
           }
 
           .footer-expiry { 
-            font-size: 10px; 
+            font-size: 9px; 
             position: absolute;
-            bottom: 5px;
-            right: 15px;
+            bottom: 3px;
+            right: 10px;
             color: #444;
           }
           
-          /* เส้นกั้นบางๆ ถ้าต้องการ */
           .divider {
             border-bottom: 1px dotted #ccc;
-            margin: 2px 0 4px 0;
+            margin: 2px 0 3px 0;
           }
 
         </style>
@@ -120,6 +129,9 @@ const DrugLabelsPrint = ({ patient, drugs }) => {
       return `
               <div class="drug-label">
                 
+                <!-- Spacer ดันเนื้อหาลงมาให้พ้นหัวกระดาษ -->
+                <div class="header-spacer"></div>
+
                 <!-- บรรทัด 1: ชื่อยา + จำนวน -->
                 <div class="top-row">
                   <div class="drug-name">${name}</div>
