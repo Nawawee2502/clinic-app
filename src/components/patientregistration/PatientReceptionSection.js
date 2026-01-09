@@ -133,7 +133,14 @@ const PatientReceptionSection = ({
             const response = await PatientService.searchPatients(searchTerm);
 
             if (response.success) {
-                setPatientOptions(response.data);
+                // ✅ Check if patient has appointment today
+                const resultsWithAppointment = response.data.map(patient => {
+                    const hasAppointment = todayAppointments.some(
+                        apt => apt.HNCODE === patient.HNCODE
+                    );
+                    return { ...patient, hasAppointment };
+                });
+                setPatientOptions(resultsWithAppointment);
             } else {
                 showSnackbar('ไม่สามารถค้นหาผู้ป่วยได้: ' + response.message, 'error');
                 setPatientOptions([]);
@@ -736,6 +743,14 @@ const PatientReceptionSection = ({
                                     <Box>
                                         <Typography variant="body2" fontWeight="bold">
                                             {option.PRENAME}{option.NAME1} {option.SURNAME}
+                                            {option.hasAppointment && (
+                                                <Chip
+                                                    label="⭐ มีนัดวันนี้"
+                                                    color="primary"
+                                                    size="small"
+                                                    sx={{ ml: 1, height: 20, fontSize: '0.7rem', fontWeight: 'bold' }}
+                                                />
+                                            )}
                                         </Typography>
                                         <Typography variant="caption" color="text.secondary">
                                             HN: {option.HNCODE} • อายุ {option.AGE} ปี • {option.SEX}

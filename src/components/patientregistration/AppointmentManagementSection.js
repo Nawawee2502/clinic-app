@@ -70,16 +70,16 @@ const AppointmentManagementSection = ({ appointments, setAppointments, onRefresh
     // แปลงวันที่เป็น พ.ศ.
     const formatThaiDate = (dateString) => {
         if (!dateString) return '-';
-        
+
         try {
             const date = new Date(dateString);
-            
+
             // ตรวจสอบว่าวันที่ถูกต้องหรือไม่
             if (isNaN(date.getTime())) {
                 console.warn('Invalid date string:', dateString);
                 return '-';
             }
-            
+
             const buddhistYear = date.getFullYear() + 543;
             const monthNames = [
                 'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
@@ -88,7 +88,7 @@ const AppointmentManagementSection = ({ appointments, setAppointments, onRefresh
 
             const day = date.getDate();
             const month = monthNames[date.getMonth()];
-            
+
             if (!day || !month || !buddhistYear) {
                 return '-';
             }
@@ -103,6 +103,28 @@ const AppointmentManagementSection = ({ appointments, setAppointments, onRefresh
     const getTodayDate = () => {
         const today = new Date();
         return today.toISOString().split('T')[0];
+    };
+
+    // ✅ Helper: Calculate default appointment date (Next 7 days)
+    const calculateDefaultAppointment = () => {
+        const today = new Date();
+        const nextWeek = new Date(today);
+        nextWeek.setDate(today.getDate() + 7);
+
+        // Format YYYY-MM-DD (Local Time)
+        const year = nextWeek.getFullYear();
+        const month = String(nextWeek.getMonth() + 1).padStart(2, '0');
+        const day = String(nextWeek.getDate()).padStart(2, '0');
+        const dateStr = `${year}-${month}-${day}`;
+
+        // Check day of week (0 = Sunday, 6 = Saturday)
+        const dayOfWeek = nextWeek.getDay();
+        const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+
+        // Set time based on weekday/weekend
+        const timeStr = isWeekend ? '08:00' : '16:00';
+
+        return { date: dateStr, time: timeStr };
     };
 
     // ✅ โหลดรายการแพทย์จาก database
@@ -126,7 +148,7 @@ const AppointmentManagementSection = ({ appointments, setAppointments, onRefresh
             const response = await EmployeeService.getAllEmployees('หมอ'); // ดึงเฉพาะหมอ
             if (response.success && response.data) {
                 setDoctorList(response.data);
-                
+
                 // ถ้ากำลังแก้ไขนัดหมาย ให้หาแพทย์จาก doctorList
                 if (editingAppointment && editingAppointment.DOCTOR_CODE) {
                     const doctor = response.data.find(d => d.EMP_CODE === editingAppointment.DOCTOR_CODE);
@@ -195,17 +217,18 @@ const AppointmentManagementSection = ({ appointments, setAppointments, onRefresh
                 doctorName: appointment.DOCTOR_NAME || '',
                 notes: appointment.NOTES || ''
             });
-            
+
             // Reset selectedDoctor (จะถูก set อีกครั้งเมื่อ doctorList โหลดเสร็จผ่าน useEffect)
             setSelectedDoctor(null);
         } else {
+            const defaults = calculateDefaultAppointment();
             setEditingAppointment(null);
             setSelectedPatient(null);
             setPatientOptions([]);
             setSelectedDoctor(null);
             setFormData({
-                appointmentDate: getTodayDate(),
-                appointmentTime: '',
+                appointmentDate: defaults.date,
+                appointmentTime: defaults.time,
                 reason: '',
                 doctorName: '',
                 notes: ''
@@ -221,10 +244,18 @@ const AppointmentManagementSection = ({ appointments, setAppointments, onRefresh
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
-        setFormData(prev => ({
-            ...prev,
-            [name]: value
-        }));
+
+        let newData = { ...formData, [name]: value };
+
+        // ✅ Auto-update time if date changes
+        if (name === 'appointmentDate' && value) {
+            const date = new Date(value);
+            const dayOfWeek = date.getDay();
+            const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+            newData.appointmentTime = isWeekend ? '08:00' : '16:00';
+        }
+
+        setFormData(newData);
     };
 
     const handleSaveAppointment = async () => {
@@ -540,8 +571,8 @@ const AppointmentManagementSection = ({ appointments, setAppointments, onRefresh
                                         </FormControl>
                                     </TableCell>
                                     <TableCell>
-                                        <AppointmentPrint 
-                                            appointment={appointment} 
+                                        <AppointmentPrint
+                                            appointment={appointment}
                                             patient={{
                                                 HNCODE: appointment.HNCODE,
                                                 PRENAME: appointment.PRENAME,

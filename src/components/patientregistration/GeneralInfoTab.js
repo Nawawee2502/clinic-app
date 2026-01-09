@@ -205,34 +205,43 @@ const GeneralInfoTab = ({ onNext, patientData, updatePatientData }) => {
     try {
       const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000/api';
 
-      // ดึงข้อมูลผู้ป่วยทั้งหมดเพื่อหา HN ล่าสุด
-      const response = await fetch(`${API_BASE_URL}/patients`);
-      const result = await response.json();
-
       // รับปีปัจจุบัน (พ.ศ.) เอาเฉพาะ 2 หลักท้าย
       const currentYear = new Date().getFullYear() + 543; // แปลงเป็น พ.ศ.
       const yearSuffix = currentYear.toString().slice(-2); // เอา 2 หลักท้าย เช่น 68 จาก 2568
 
+      // ✅ ดึงเฉพาะ HN ของปีนี้ โดยใช้ Pagination หาตัวสุดท้ายจริงๆ
+      const searchUrl = `${API_BASE_URL}/patients/search/HN${yearSuffix}`;
+
+      // 1. Fetch first page with limit 1 to get total count
+      const firstRes = await fetch(`${searchUrl}?limit=1`);
+      const firstData = await firstRes.json();
+
       let nextNumber = 1;
 
-      if (result.success && result.data && result.data.length > 0) {
-        // หา HN ที่เป็นรูปแบบ HN[ปี][####] ของปีปัจจุบัน
-        const currentYearHNs = result.data
-          .map(patient => patient.HNCODE)
-          .filter(hn => {
-            // ตรวจสอบรูปแบบ HN[ปี][4หลัก] เช่น HN680001
-            const pattern = new RegExp(`^HN${yearSuffix}\\d{4}$`);
-            return pattern.test(hn);
-          })
-          .map(hn => parseInt(hn.substring(4))) // เอาเฉพาะ 4 หลักท้าย
-          .filter(num => !isNaN(num));
+      if (firstData.success && firstData.pagination && firstData.pagination.total > 0) {
+        const { total } = firstData.pagination;
 
-        if (currentYearHNs.length > 0) {
-          nextNumber = Math.max(...currentYearHNs) + 1;
+        // 2. Fetch the LAST record directly
+        // total pages = total / 1 = total
+        const lastRes = await fetch(`${searchUrl}?limit=1&page=${total}`);
+        const lastData = await lastRes.json();
+
+        if (lastData.success && lastData.data && lastData.data.length > 0) {
+          const lastPatient = lastData.data[0];
+          const lastHN = lastPatient.HNCODE;
+
+          // Extract number from HN (e.g., HN690213 -> 0213)
+          // Format: HN + YearSuffix (2 chars) + RunNo (4 chars)
+          const currentRunNo = parseInt(lastHN.substring(4));
+
+          if (!isNaN(currentRunNo)) {
+            nextNumber = currentRunNo + 1;
+            console.log(`✅ Found latest HN: ${lastHN}, Next: ${nextNumber}`);
+          }
         }
       }
 
-      // สร้าง HN ใหม่แบบ HN[ปี][runno] เช่น HN680001
+      // สร้าง HN ใหม่แบบ HN[ปี][runno] เช่น HN690001
       const newHN = `HN${yearSuffix}${nextNumber.toString().padStart(4, '0')}`;
       updatePatientData({ HNCODE: newHN });
 
@@ -517,42 +526,7 @@ const GeneralInfoTab = ({ onNext, patientData, updatePatientData }) => {
         <Divider sx={{ borderColor: '#5698E0', borderWidth: 1 }} />
 
         <Grid container spacing={2} sx={{ px: 2, mt: 2 }}>
-          <Grid item xs={12} sm={6}>
-            <Typography sx={{ fontWeight: '400', fontSize: '16px', textAlign: "left" }}>
-              HN <span style={{ color: 'red' }}>*</span>
-            </Typography>
-            <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
-              <TextField
-                placeholder="HN จะสร้างอัตโนมัติ"
-                size="small"
-                fullWidth
-                value={patientData.HNCODE || ''}
-                InputProps={{
-                  readOnly: true,
-                }}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: '10px',
-                    backgroundColor: '#f5f5f5',
-                  },
-                }}
-              />
-              <Tooltip title="สร้าง HN ใหม่">
-                <IconButton
-                  onClick={generateHN}
-                  sx={{
-                    bgcolor: '#70A1E5',
-                    color: 'white',
-                    '&:hover': { bgcolor: '#5698E0' }
-                  }}
-                >
-                  <AutorenewIcon />
-                </IconButton>
-              </Tooltip>
-            </Box>
-          </Grid>
-
-          <Grid item xs={12} sm={6}>
+          <Grid item xs={12} sm={12}>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
               <Typography sx={{ fontWeight: '400', fontSize: '16px' }}>
                 เลขบัตรประจำตัว <span style={{ color: 'red' }}>*</span>

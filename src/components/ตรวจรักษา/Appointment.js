@@ -59,6 +59,35 @@ const Appointment = ({ currentPatient }) => {
     severity: 'success'
   });
 
+  // ✅ Helper: Calculate default appointment date (Next 7 days)
+  const calculateDefaultAppointment = () => {
+    const today = new Date();
+    const nextWeek = new Date(today);
+    nextWeek.setDate(today.getDate() + 7);
+
+    // Format YYYY-MM-DD (Local Time)
+    const year = nextWeek.getFullYear();
+    const month = String(nextWeek.getMonth() + 1).padStart(2, '0');
+    const day = String(nextWeek.getDate()).padStart(2, '0');
+    const dateStr = `${year}-${month}-${day}`;
+
+    // Check day of week (0 = Sunday, 6 = Saturday)
+    const dayOfWeek = nextWeek.getDay();
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+
+    // Set time based on weekday/weekend
+    const timeStr = isWeekend ? '08:00' : '16:00';
+
+    return { date: dateStr, time: timeStr };
+  };
+
+  // Initialize with defaults
+  useEffect(() => {
+    const defaults = calculateDefaultAppointment();
+    setSelectedDate(defaults.date);
+    setAppointmentTime(defaults.time);
+  }, []);
+
   const monthNames = [
     'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
     'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
@@ -111,6 +140,14 @@ const Appointment = ({ currentPatient }) => {
 
   const handleDateSelect = (fullDate) => {
     setSelectedDate(fullDate);
+
+    // ✅ Auto-update time based on selected date
+    if (fullDate) {
+      const date = new Date(fullDate);
+      const dayOfWeek = date.getDay();
+      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+      setAppointmentTime(isWeekend ? '08:00' : '16:00');
+    }
   };
 
   const formatThaiDate = (dateString) => {
@@ -154,8 +191,10 @@ const Appointment = ({ currentPatient }) => {
         showSnackbar(`สร้างนัดหมายสำเร็จ! VN Number: ${response.data.VN_NUMBER}`, 'success');
 
         // Reset form
-        setSelectedDate('');
-        setAppointmentTime('');
+        // Reset form with defaults
+        const defaults = calculateDefaultAppointment();
+        setSelectedDate(defaults.date);
+        setAppointmentTime(defaults.time);
         setReason('');
         setNotes('');
         setSelectedDoctor(null);
@@ -323,8 +362,8 @@ const Appointment = ({ currentPatient }) => {
                             />
                           </TableCell>
                           <TableCell>
-                            <AppointmentPrint 
-                              appointment={appointment} 
+                            <AppointmentPrint
+                              appointment={appointment}
                               patient={currentPatient}
                             />
                           </TableCell>
@@ -474,8 +513,9 @@ const Appointment = ({ currentPatient }) => {
               color="error"
               sx={{ minWidth: 100 }}
               onClick={() => {
-                setSelectedDate('');
-                setAppointmentTime('');
+                const defaults = calculateDefaultAppointment();
+                setSelectedDate(defaults.date);
+                setAppointmentTime(defaults.time);
                 setReason('');
                 setNotes('');
                 setSelectedDoctor(null);
