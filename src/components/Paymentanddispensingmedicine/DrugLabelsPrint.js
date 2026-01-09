@@ -147,23 +147,23 @@ const DrugLabelsPrint = ({ patient, drugs }) => {
                 </div>
 
                 <!-- บรรทัด 3: ข้อบ่งใช้ (สรรพคุณ) -->
-                ${indication && indication !== '-' ? `
+                 ${indication && indication !== '-' ? `
                 <div class="line-field">
                    <span class="label">ข้อบ่งใช้ :</span> 
-                   <span class="value">${indication}</span>
+                   <span class="value" style="font-weight: bold;">${indication}</span>
                 </div>` : ''}
 
                 <!-- บรรทัด 4: วิธีรับประทาน -->
                 <div class="line-field usage-line">
                    <span class="label">วิธีรับประทาน :</span> 
-                   <span class="value">${usage}</span>
+                   <span class="value" style="font-weight: bold;">${usage}</span>
                 </div>
 
                 <!-- บรรทัด 5: คำเตือน (ถ้ามี) -->
                 ${advice ? `
                 <div class="line-field">
                    <span class="label">ข้อควรระวัง :</span> 
-                   <span class="value">${advice}</span>
+                   <span class="value" style="font-weight: bold;">${advice}</span>
                 </div>` : ''}
 
                 <!-- วันหมดอายุ -->

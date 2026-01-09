@@ -272,18 +272,21 @@ const PatientRegistration = () => {
           SEX: patientData.SEX,
           TEL1: patientData.TEL1,
           WEIGHT1: patientData.WEIGHT1,
-          HIGH1: patientData.HIGH1
+          HIGH1: patientData.HIGH1,
+          UCS_CARD: patientData.UCS_CARD, // ✅ ส่งข้อมูลสิทธิ์บัตรทองไปด้วย
+          SOCIAL_CARD: patientData.SOCIAL_CARD
         };
 
         setNewlyRegisteredPatient(newPatientInfo);
-        showSnackbar(`ลงทะเบียนผู้ป่วยสำเร็จ! HN: ${result.data.HNCODE}`, 'success');
+        showSnackbar(`ลงทะเบียนผู้ป่วยสำเร็จ! HN: ${result.data.HNCODE
+          }`, 'success');
 
         resetNewPatientForm();
 
-        // setTimeout(() => {
-        //   setMainView('reception');
-        //   handleRefresh();
-        // }, 1000);
+        setTimeout(() => {
+          setMainView('reception');
+          handleRefresh();
+        }, 1000);
 
       } else {
         showSnackbar(result.message || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล', 'error');

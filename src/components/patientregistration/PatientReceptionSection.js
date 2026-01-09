@@ -57,6 +57,27 @@ const PatientReceptionSection = ({
     // ✅ State สำหรับนับจำนวนครั้งที่ใช้สิทธิ์จากที่อื่น
     const [externalUcsCount, setExternalUcsCount] = useState('');
 
+    // ✅ แยกฟังก์ชันเช็คสิทธิ์บัตรทองออกมา
+    const checkGoldCardAndSetCount = async (patient) => {
+        if (patient.UCS_CARD === 'Y') {
+            try {
+                const ucsUsageCheck = await TreatmentService.checkUCSUsageThisMonth(patient.HNCODE);
+                if (ucsUsageCheck.success && ucsUsageCheck.data) {
+                    const { usageCount } = ucsUsageCheck.data;
+                    // Default to System Usage + 1 (Current Visit)
+                    setExternalUcsCount(usageCount + 1);
+                } else {
+                    setExternalUcsCount('1');
+                }
+            } catch (error) {
+                console.error('Error fetching UCS usage:', error);
+                setExternalUcsCount('1'); // Fallback
+            }
+        } else {
+            setExternalUcsCount('');
+        }
+    };
+
     // ✅ useEffect สำหรับจัดการผู้ป่วยที่เพิ่งลงทะเบียน
     useEffect(() => {
         if (newlyRegisteredPatient) {
@@ -65,6 +86,9 @@ const PatientReceptionSection = ({
             // ตั้งค่าผู้ป่วยที่เพิ่งลงทะเบียนให้เป็นผู้ป่วยที่เลือก
             setSelectedPatient(newlyRegisteredPatient);
             setPatientOptions([newlyRegisteredPatient]);
+
+            // ✅ เช็คสิทธิ์บัตรทองให้ด้วย
+            checkGoldCardAndSetCount(newlyRegisteredPatient);
 
             // โหลด Vital Signs เดิม (ถ้ามี)
             loadPatientVitals(newlyRegisteredPatient.HNCODE);
@@ -135,24 +159,8 @@ const PatientReceptionSection = ({
         if (patient) {
             showSnackbar(`เลือกผู้ป่วย: ${patient.PRENAME} ${patient.NAME1} ${patient.SURNAME}`, 'success');
 
-            // ✅ Pre-fill Gold Card usage count
-            if (patient.UCS_CARD === 'Y') {
-                try {
-                    const ucsUsageCheck = await TreatmentService.checkUCSUsageThisMonth(patient.HNCODE);
-                    if (ucsUsageCheck.success && ucsUsageCheck.data) {
-                        const { usageCount } = ucsUsageCheck.data;
-                        // Default to System Usage + 1 (Current Visit)
-                        setExternalUcsCount(usageCount + 1);
-                    } else {
-                        setExternalUcsCount('1');
-                    }
-                } catch (error) {
-                    console.error('Error fetching UCS usage:', error);
-                    setExternalUcsCount('1'); // Fallback
-                }
-            } else {
-                setExternalUcsCount('');
-            }
+            // ✅ เรียกใช้ฟังก์ชันเช็คสิทธิ์บัตรทอง
+            await checkGoldCardAndSetCount(patient);
 
             // ✅ โหลด Vital Signs เดิมของผู้ป่วย
             await loadPatientVitals(patient.HNCODE);

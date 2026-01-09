@@ -235,7 +235,7 @@ const ตรวจรักษา = () => {
     try {
       // ✅ ถ้าเป็น "รอชำระเงิน" ให้แน่ใจว่าสถานะจะเป็น "รอชำระเงิน" เสมอ
       const finalStatus = newStatus === 'รอชำระเงิน' ? 'รอชำระเงิน' : newStatus;
-      
+
       // ใช้ API ใหม่ที่ปลอดภัยกว่า
       const response = await QueueService.updateQueueStatusSafe(targetPatient.queueId, finalStatus);
 
@@ -308,7 +308,7 @@ const ตรวจรักษา = () => {
         }
 
         loadQueueStats();
-        
+
         // Dispatch event เพื่อแจ้งหน้าอื่นๆ
         window.dispatchEvent(new CustomEvent('queueStatusChanged', {
           detail: { queueId: targetPatient.queueId, newStatus: finalStatus }
@@ -405,12 +405,12 @@ const ตรวจรักษา = () => {
       });
 
       handleCancelQueueClose();
-      
+
       // รีโหลดข้อมูลและสถิติคิว
       setTimeout(() => {
         loadTodayPatients(false); // ไม่แสดง loading spinner
         loadQueueStats();
-        
+
         // Dispatch event เพื่อแจ้งหน้าอื่นๆ
         window.dispatchEvent(new CustomEvent('queueStatusChanged', {
           detail: { queueId: cancelDialog.patient.queueId, action: 'cancelled' }
@@ -457,6 +457,44 @@ const ตรวจรักษา = () => {
     setTabIndex(0);
   };
 
+  // ✅ ดึงข้อมูลผู้ป่วยล่าสุดเมื่อมีการเลือกผู้ป่วย (เพื่ออัพเดทประวัติแพ้ยา/โรคประจำตัว)
+  useEffect(() => {
+    const fetchFreshPatientData = async () => {
+      const currentPatient = patients[selectedPatientIndex];
+      if (currentPatient?.HNCODE) {
+        try {
+          // ไม่ต้องแสดง loading เพราะข้อมูลเดิมมีอยู่แล้ว แค่อัพเดทให้ล่าสุด
+          const response = await PatientService.getPatientByHN(currentPatient.HNCODE);
+          if (response.success && response.data) {
+            setPatients(prevPatients => {
+              const newPatients = [...prevPatients];
+              // ตรวจสอบว่ายังเป็นคนเดิมที่เลือกอยู่ไหม (กัน race condition)
+              if (newPatients[selectedPatientIndex]?.queueId === currentPatient.queueId) {
+                // Merge ข้อมูลใหม่เข้าไป แต่เก็บข้อมูล Queue ไว้เหมือนเดิม
+                newPatients[selectedPatientIndex] = {
+                  ...newPatients[selectedPatientIndex],
+                  ...response.data,
+                  // รักษาค่าที่เกี่ยวกับ Queue ไว้
+                  queueId: currentPatient.queueId,
+                  queueNumber: currentPatient.queueNumber,
+                  queueStatus: currentPatient.queueStatus,
+                  STATUS: currentPatient.STATUS,
+                  STATUS1: currentPatient.STATUS1 || response.data.STATUS1
+                };
+                return newPatients;
+              }
+              return prevPatients;
+            });
+          }
+        } catch (error) {
+          console.error("Error refreshing patient data:", error);
+        }
+      }
+    };
+
+    fetchFreshPatientData();
+  }, [selectedPatientIndex]); // รันเมื่อเปลี่ยนคนไข้ที่เลือก
+
   const handleNextPatient = () => {
     if (selectedPatientIndex < patients.length - 1) {
       setSelectedPatientIndex(selectedPatientIndex + 1);
@@ -487,13 +525,13 @@ const ตรวจรักษา = () => {
     try {
       const date = new Date(dateString);
       if (isNaN(date.getTime())) return dateString; // ถ้าแปลงไม่ได้ ให้แสดง string เดิม
-      
+
       // แปลงเป็น พ.ศ.
       const buddhistYear = date.getFullYear() + 543;
       const monthNames = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
       const day = date.getDate();
       const month = monthNames[date.getMonth()];
-      
+
       return `${day} ${month} ${buddhistYear}`;
     } catch (error) {
       return dateString;
@@ -904,7 +942,7 @@ const ตรวจรักษา = () => {
                     p: 3,
                     textAlign: 'center',
                     bgcolor: 'rgba(241,245,249,0.8)',
-                        borderRadius: '16px',
+                    borderRadius: '16px',
                     margin: 1,
                     border: '1px dashed rgba(148,163,184,0.6)'
                   }}>
@@ -975,70 +1013,70 @@ const ตรวจรักษา = () => {
                               gap: 1,
                               mb: 0.4
                             }}>
-                            <Typography sx={{
-                              fontWeight: 700,
-                              color: isActive ? '#ffffff' : '#0f172a',
-                              fontSize: '15px',
-                              letterSpacing: 0.2,
-                              whiteSpace: 'nowrap',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis'
+                              <Typography sx={{
+                                fontWeight: 700,
+                                color: isActive ? '#ffffff' : '#0f172a',
+                                fontSize: '15px',
+                                letterSpacing: 0.2,
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis'
                               }}>
-                              {patient.PRENAME}{patient.NAME1} {patient.SURNAME}
+                                {patient.PRENAME}{patient.NAME1} {patient.SURNAME}
                               </Typography>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                              <Chip
-                                size="small"
-                                label={patient.queueStatus}
-                                color={getStatusColor(patient.queueStatus)}
-                                sx={{
-                                  fontSize: '10px',
-                                  height: 22,
-                                  fontWeight: 700,
-                                  borderRadius: '999px',
-                                  backgroundColor: isActive ? '#ffffff' : '#f1f5f9',
-                                  color: isActive ? '#0f172a' : '#0f172a',
-                                  border: '1px solid rgba(15,23,42,0.12)',
-                                  boxShadow: '0 4px 10px rgba(15,23,42,0.1)'
-                                }}
-                              />
-                              <Tooltip
-                                title={
-                                  canCancel
-                                    ? 'ยกเลิกคิวนี้'
-                                    : 'ไม่สามารถยกเลิกหลังรอ/ชำระเงินแล้ว'
-                                }
-                              >
-                                <span>
-                                  <IconButton
-                                    size="small"
-                                    color="error"
-                                    disabled={!canCancel}
-                                    onClick={(event) => handleCancelQueueRequest(patient, event)}
-                                    sx={{
-                                      backgroundColor: canCancel
-                                        ? 'rgba(239, 68, 68, 0.08)'
-                                        : 'rgba(148, 163, 184, 0.2)',
-                                      '&:hover': {
-                                        backgroundColor: 'rgba(239, 68, 68, 0.15)'
-                                      }
-                                    }}
-                                  >
-                                    <DeleteIcon fontSize="small" />
-                                  </IconButton>
-                                </span>
-                              </Tooltip>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                <Chip
+                                  size="small"
+                                  label={patient.queueStatus}
+                                  color={getStatusColor(patient.queueStatus)}
+                                  sx={{
+                                    fontSize: '10px',
+                                    height: 22,
+                                    fontWeight: 700,
+                                    borderRadius: '999px',
+                                    backgroundColor: isActive ? '#ffffff' : '#f1f5f9',
+                                    color: isActive ? '#0f172a' : '#0f172a',
+                                    border: '1px solid rgba(15,23,42,0.12)',
+                                    boxShadow: '0 4px 10px rgba(15,23,42,0.1)'
+                                  }}
+                                />
+                                <Tooltip
+                                  title={
+                                    canCancel
+                                      ? 'ยกเลิกคิวนี้'
+                                      : 'ไม่สามารถยกเลิกหลังรอ/ชำระเงินแล้ว'
+                                  }
+                                >
+                                  <span>
+                                    <IconButton
+                                      size="small"
+                                      color="error"
+                                      disabled={!canCancel}
+                                      onClick={(event) => handleCancelQueueRequest(patient, event)}
+                                      sx={{
+                                        backgroundColor: canCancel
+                                          ? 'rgba(239, 68, 68, 0.08)'
+                                          : 'rgba(148, 163, 184, 0.2)',
+                                        '&:hover': {
+                                          backgroundColor: 'rgba(239, 68, 68, 0.15)'
+                                        }
+                                      }}
+                                    >
+                                      <DeleteIcon fontSize="small" />
+                                    </IconButton>
+                                  </span>
+                                </Tooltip>
+                              </Box>
                             </Box>
-                          </Box>
 
                             <Typography sx={{
-                                fontSize: '13px',
+                              fontSize: '13px',
                               color: isActive ? 'rgba(255,255,255,0.95)' : '#334155',
                               fontWeight: 600,
                               mb: 0.2
-                              }}>
+                            }}>
                               HN: {patient.HNCODE || '-'} {patient.VNO && `• VN: ${patient.VNO}`}
-                              </Typography>
+                            </Typography>
 
                             <Box sx={{
                               display: 'flex',
@@ -1047,13 +1085,13 @@ const ตรวจรักษา = () => {
                               fontSize: '12px',
                               color: isActive ? 'rgba(255,255,255,0.85)' : '#64748b',
                               mb: patient.SYMPTOM ? 0.3 : 0
-                              }}>
+                            }}>
                               <span>📅 {formatQueueDate(patient.queueDate)}</span>
                               <span>•</span>
                               <span>⏰ {patient.queueTime || '-'}</span>
                             </Box>
 
-                              {patient.SYMPTOM && (
+                            {patient.SYMPTOM && (
                               <Box sx={{
                                 backgroundColor: isActive ? 'rgba(255,255,255,0.15)' : '#f1f5f9',
                                 borderRadius: '10px',
@@ -1064,13 +1102,13 @@ const ตรวจรักษา = () => {
                                 alignItems: 'center',
                                 gap: 0.4,
                                 border: isActive ? '1px solid rgba(255,255,255,0.3)' : '1px solid rgba(148,163,184,0.4)'
-                                }}>
+                              }}>
                                 <span role="img" aria-label="chat">💬</span>
                                 <span>{patient.SYMPTOM}</span>
                               </Box>
-                              )}
-                            </Box>
-                    </Box>
+                            )}
+                          </Box>
+                        </Box>
                       </ListItemButton>
                     );
                   })

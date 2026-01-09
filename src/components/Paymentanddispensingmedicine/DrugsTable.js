@@ -59,13 +59,18 @@ const DrugsTable = ({
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, justifyContent: 'flex-end' }}>
                 <TextField
                     size="small"
-                    type="number"
+                    type="text"
                     value={tempPrice}
-                    onChange={(e) => setTempPrice(e.target.value)}
-                    inputProps={{ min: 0, step: 0.01 }}
+                    onChange={(e) => {
+                        const val = e.target.value;
+                        // Allow only numbers and one decimal point
+                        if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                            setTempPrice(val);
+                        }
+                    }}
                     sx={{ width: 80 }}
                     autoFocus
-                    onKeyPress={(e) => {
+                    onKeyDown={(e) => {
                         if (e.key === 'Enter') {
                             handleSave();
                         } else if (e.key === 'Escape') {

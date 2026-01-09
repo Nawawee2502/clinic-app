@@ -132,36 +132,58 @@ const Paymentanddispensingmedicine = () => {
   }, [selectedPatientIndex, patients]);
 
   // ✅ แจ้งเตือนแพ้ยาและโรคประจำตัว เมื่อเลือกผู้ป่วย
+  // ✅ แจ้งเตือนแพ้ยาและโรคประจำตัว เมื่อเลือกผู้ป่วย
   useEffect(() => {
-    const currentPatient = patients[selectedPatientIndex];
-    if (currentPatient) {
-      const allergy = currentPatient.DRUG_ALLERGY && currentPatient.DRUG_ALLERGY !== '-' ? currentPatient.DRUG_ALLERGY : null;
-      const disease = currentPatient.DISEASE1 && currentPatient.DISEASE1 !== '-' ? currentPatient.DISEASE1 : null;
+    const checkAllergyAndDisease = async () => {
+      const currentPatient = patients[selectedPatientIndex];
+      if (currentPatient) {
+        let allergy = currentPatient.DRUG_ALLERGY && currentPatient.DRUG_ALLERGY !== '-' ? currentPatient.DRUG_ALLERGY : null;
+        let disease = currentPatient.DISEASE1 && currentPatient.DISEASE1 !== '-' ? currentPatient.DISEASE1 : null;
 
-      if (allergy || disease) {
-        let htmlContent = '<div style="text-align: left;">';
-        if (allergy) {
-          htmlContent += `<p style="color: #d32f2f; font-weight: bold; margin-bottom: 8px;">🚫 ประวัติแพ้ยา: ${allergy}</p>`;
-        }
-        if (disease) {
-          htmlContent += `<p style="color: #1976d2; font-weight: bold;">🏥 โรคประจำตัว: ${disease}</p>`;
-        }
-        htmlContent += '</div>';
+        // ✅ ดึงข้อมูลล่าสุดจาก Server เพื่อป้องกันกรณีมีการแก้ไขที่หน้าเวชระเบียนแล้วข้อมูลในคิวยังไม่อัพเดท
+        if (currentPatient.HNCODE) {
+          try {
+            const response = await PatientService.getPatientByHN(currentPatient.HNCODE);
+            if (response.success && response.data) {
+              const latestData = response.data;
+              allergy = latestData.DRUG_ALLERGY && latestData.DRUG_ALLERGY !== '-' ? latestData.DRUG_ALLERGY : null;
+              disease = latestData.DISEASE1 && latestData.DISEASE1 !== '-' ? latestData.DISEASE1 : null;
 
-        // ใช้ setTimeout เล็กน้อยเพื่อให้แน่ใจว่าไม่ได้ชนกับ alert อื่นๆ
-        setTimeout(() => {
-          Swal.fire({
-            title: '⚠️ แจ้งเตือนข้อมูลสำคัญ',
-            html: htmlContent,
-            icon: 'warning',
-            confirmButtonText: 'รับทราบ',
-            confirmButtonColor: '#d32f2f',
-            timer: 5000,
-            timerProgressBar: true
-          });
-        }, 100);
+              // อัพเดทข้อมูลใน state ด้วยเพื่อให้ UI ส่วนอื่น (ถ้ามี) แสดงผลถูกต้อง
+              // (ระวัง loop: เราจะไม่อัพเดท patients ทั้งก้อนเพื่อเลี่ยง re-render loop ในตอนนี้ เอาแค่ Alert ถูกก่อน)
+            }
+          } catch (err) {
+            console.error('Error fetching latest patient data for alert:', err);
+          }
+        }
+
+        if (allergy || disease) {
+          let htmlContent = '<div style="text-align: left;">';
+          if (allergy) {
+            htmlContent += `<p style="color: #d32f2f; font-weight: bold; margin-bottom: 8px;">🚫 ประวัติแพ้ยา: ${allergy}</p>`;
+          }
+          if (disease) {
+            htmlContent += `<p style="color: #1976d2; font-weight: bold;">🏥 โรคประจำตัว: ${disease}</p>`;
+          }
+          htmlContent += '</div>';
+
+          // ใช้ setTimeout เล็กน้อยเพื่อให้แน่ใจว่าไม่ได้ชนกับ alert อื่นๆ
+          setTimeout(() => {
+            Swal.fire({
+              title: '⚠️ แจ้งเตือนข้อมูลสำคัญ',
+              html: htmlContent,
+              icon: 'warning',
+              confirmButtonText: 'รับทราบ',
+              confirmButtonColor: '#d32f2f',
+              timer: 5000,
+              timerProgressBar: true
+            });
+          }, 500);
+        }
       }
-    }
+    };
+
+    checkAllergyAndDisease();
   }, [selectedPatientIndex, patients]); // เช็คเมื่อเปลี่ยนคนหรือโหลดข้อมูลเสร็จ
 
   const handlePayment = async () => {
@@ -1088,23 +1110,144 @@ const Paymentanddispensingmedicine = () => {
     };
   };
 
-  const handleSavePrice = (type, index, newPrice) => {
+  const handleSavePrice = async (type, index, newPrice) => {
     const price = parseFloat(newPrice) || 0;
+    const currentPatient = patients[selectedPatientIndex];
 
-    setEditablePrices(prev => ({
-      ...prev,
-      [type]: prev[type].map((item, i) =>
+    if (!currentPatient || !currentPatient.VNO) {
+      setSnackbar({
+        open: true,
+        message: 'ไม่พบข้อมูลผู้ป่วยหรือ VNO',
+        severity: 'error'
+      });
+      return;
+    }
+
+    try {
+      // 1. Update Local State (Optimistic Update)
+      const updatedList = editablePrices[type].map((item, i) =>
         i === index ? { ...item, editablePrice: price } : item
-      )
-    }));
+      );
 
-    setEditingItem({ type: null, index: null });
+      setEditablePrices(prev => ({
+        ...prev,
+        [type]: updatedList
+      }));
 
-    setSnackbar({
-      open: true,
-      message: 'บันทึกราคาใหม่เรียบร้อย',
-      severity: 'success'
-    });
+      setEditingItem({ type: null, index: null });
+
+      // 2. Prepare Data for Backend
+      // We need to send the full treatment object to updateTreatment
+      // structure: { ...treatmentInfo, drugs: [...], procedures: [...] }
+
+      // Deep copy treatment info
+      const baseTreatmentData = { ...treatmentData.treatment };
+
+      let payload = {
+        ...baseTreatmentData,
+        drugs: treatmentData.drugs ? [...treatmentData.drugs] : [],
+        procedures: treatmentData.procedures ? [...treatmentData.procedures] : [],
+        labTests: treatmentData.labTests ? [...treatmentData.labTests] : [],
+        radioTests: treatmentData.radiologicalTests ? [...treatmentData.radiologicalTests] : []
+      };
+
+      // Update the specific list in the payload
+      if (type === 'drugs') {
+        // Map editable items back to backend structure
+        // We match by index because editablePrices.drugs was mapped from response.data.drugs
+        // Warning: If sorting changed, index might not match. 
+        // Better to match by ID (DRUG_CODE or unique key).
+        // But editablePrices.drugs has all items.
+        // Let's rely on mapping editablePrices back to payload, 
+        // assuming editablePrices contains all necessary fields from original items.
+
+        payload.drugs = updatedList.map(item => ({
+          ...item,
+          AMT: item.editablePrice, // Update Total Price
+          UNIT_PRICE: item.QTY ? (item.editablePrice / item.QTY) : item.editablePrice // Update Unit Price
+        }));
+      } else if (type === 'procedures') {
+        payload.procedures = updatedList.map(item => ({
+          ...item,
+          AMT: item.editablePrice,
+          UNIT_PRICE: item.editablePrice
+        }));
+      } else if (type === 'labs') {
+        // Filter out 'Note Labs' (LAB_FROM_NOTE, XRAY_FROM_NOTE) as they are not in DB tables
+        // We only update real DB lab tests
+        const dbLabs = updatedList.filter(l => l.LABCODE !== 'LAB_FROM_NOTE' && l.LABCODE !== 'XRAY_FROM_NOTE');
+        // We need to match these with payload.labTests
+        // This is tricky. Simplified approach: 
+        // If we assume editablePrices.labs includes mixed items, 
+        // only those with valid IDs/Codes from DB should be in payload.labTests.
+        // But logic in loadTreatmentData was: labsArray = [...noteLabs, ...oldLabTests, ...oldRadioTests]
+        // So we should split them back.
+
+        // 1. Update LabTests (DB)
+        if (payload.labTests.length > 0) {
+          payload.labTests = payload.labTests.map(dbLab => {
+            const updatedLab = updatedList.find(editLab =>
+              (editLab.LABCODE === dbLab.LABCODE || editLab.id === dbLab.id) && // Try to match
+              editLab.LABCODE !== 'LAB_FROM_NOTE'
+            );
+            if (updatedLab) {
+              return { ...dbLab, PRICE: updatedLab.editablePrice };
+            }
+            return dbLab;
+          });
+        }
+
+        // 2. Update RadiologicalTests (DB)
+        if (payload.radioTests.length > 0) {
+          payload.radioTests = payload.radioTests.map(dbRadio => {
+            const updatedRadio = updatedList.find(editRadio =>
+              (editRadio.LABCODE === dbRadio.RLCODE || editRadio.MEDICAL_PROCEDURE_CODE === dbRadio.MEDICAL_PROCEDURE_CODE) &&
+              editRadio.LABCODE !== 'XRAY_FROM_NOTE'
+            );
+            if (updatedRadio) {
+              return { ...dbRadio, PRICE: updatedRadio.editablePrice };
+            }
+            return dbRadio;
+          });
+        }
+      }
+
+      console.log('💾 Saving updated price to backend...', payload);
+
+      // 3. Call API
+      const response = await TreatmentService.updateTreatment(currentPatient.VNO, payload);
+
+      if (response.success) {
+        console.log('✅ Price saved to backend successfully');
+
+        // 4. Update Local treatmentData to reflect changes (Important for Receipt)
+        setTreatmentData(prev => ({
+          ...prev,
+          treatment: { ...prev.treatment, ...payload }, // Update header info if any
+          drugs: type === 'drugs' ? payload.drugs : prev.drugs,
+          procedures: type === 'procedures' ? payload.procedures : prev.procedures,
+          labTests: type === 'labs' ? payload.labTests : prev.labTests,
+          radiologicalTests: type === 'labs' ? payload.radioTests : prev.radiologicalTests
+        }));
+
+        setSnackbar({
+          open: true,
+          message: 'บันทึกราคาเรียบร้อย',
+          severity: 'success'
+        });
+      } else {
+        throw new Error(response.message || 'Server returned error');
+      }
+
+    } catch (err) {
+      console.error('❌ Error saving price:', err);
+      setSnackbar({
+        open: true,
+        message: 'บันทึกราคาไม่สำเร็จ: ' + err.message,
+        severity: 'error'
+      });
+      // Note: We could revert editablePrices here if we want strict consistency
+    }
   };
 
   const handleCancelEdit = () => {

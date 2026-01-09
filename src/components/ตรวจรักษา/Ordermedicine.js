@@ -103,7 +103,7 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
                 });
             }
         }
-    }, [currentPatient?.VNO]); // เช็คจาก VNO (เมื่อเปลี่ยนเคส)
+    }, [currentPatient?.VNO, currentPatient?.DRUG_ALLERGY, currentPatient?.DISEASE1]); // เช็คเมื่อเปลี่ยนเคส หรือข้อมูลแพ้ยาอัพเดท
 
     useEffect(() => {
         if (currentPatient?.VNO) {
