@@ -427,7 +427,19 @@ const Paymentanddispensingmedicine = () => {
       // Prioritize Treatment-specific status (Visit status) over Patient status
       // ✅ Master Sync Logic (Logic เดียวครอบคลุมทุกเคส):
       // 1. ดึงข้อมูลล่าสุดมา (สิทธิ์ใน Patient และ จำนวนครั้งที่คีย์หน้าเคาน์เตอร์)
-      const livePatientUcs = currentPatient?.PATIENT_UCS_CARD || 'N';
+
+      // 🔄 Option B Fix: ดึงข้อมูลล่าสุดจาก DB ก่อนตัดสินใจ
+      let livePatientUcs = currentPatient?.PATIENT_UCS_CARD || 'N';
+      try {
+        const latestPatientData = await PatientService.getPatientByHN(currentPatient.HNCODE);
+        if (latestPatientData?.success && latestPatientData?.data) {
+          livePatientUcs = latestPatientData.data.UCS_CARD || 'N';
+          console.log('✅ Fetched latest UCS_CARD from DB:', livePatientUcs);
+        }
+      } catch (err) {
+        console.warn('⚠️ Could not fetch latest patient data, using cached:', err.message);
+      }
+
       const manualUcsCount = treatmentData?.treatment?.EXTERNAL_UCS_COUNT || 0;
       const currentUcsCard = treatmentData?.treatment?.UCS_CARD || 'N';
 
@@ -1330,26 +1342,60 @@ const Paymentanddispensingmedicine = () => {
 
   // Prepare data for receipt printing
   const getReceiptItems = () => {
+    // ✅ ใช้ Logic เดียวกันกับ calculateTotalFromEditablePrices
+    const currentPatient = patients[selectedPatientIndex];
+    const isGoldCard = currentPatient?.UCS_CARD === 'Y' ||
+      treatmentData?.treatment?.UCS_CARD === 'Y' ||
+      treatmentData?.patient?.UCS_CARD === 'Y';
+    const isUcsExceeded = ucsUsageInfo.isExceeded;
+
     const allItems = [
+      // Labs
       ...editablePrices.labs.map(item => ({
         name: item.LABNAME || item.LABCODE || "การตรวจ",
         quantity: 1,
         unit: "ครั้ง",
         price: item.editablePrice || 0
       })),
+      // Procedures
       ...editablePrices.procedures.map(item => ({
         name: item.MED_PRO_NAME_THAI || item.PROCEDURE_NAME || item.MEDICAL_PROCEDURE_CODE || "หัตถการ",
         quantity: 1,
         unit: "ครั้ง",
         price: item.editablePrice || 0
       })),
-      ...editablePrices.drugs.map(item => ({
-        name: [item.GENERIC_NAME, item.TRADE_NAME].filter(Boolean).join(' / ') || item.GENERIC_NAME || item.TRADE_NAME || item.DRUG_CODE || "ยา",
-        quantity: item.QTY || 1,
-        unit: item.DISPLAY_UNIT_NAME || item.UNIT_NAME || item.UNIT_CODE || "เม็ด",
-        price: item.editablePrice || 0
-      }))
+      // Drugs - ✅ Filter ตาม Gold Card logic เหมือน calculateTotalFromEditablePrices
+      ...editablePrices.drugs.map(item => {
+        let price = item.editablePrice || 0;
+
+        // ถ้าเป็นบัตรทองและยังใช้สิทธิ์ไม่เกิน 2 ครั้ง: ยาที่ UCS_CARD = 'Y' ราคาเป็น 0
+        if (isGoldCard && !isUcsExceeded) {
+          if (item.DRUG_UCS_CARD === 'Y' && item.editablePrice === 0) {
+            price = 0;
+          }
+        }
+
+        return {
+          name: [item.GENERIC_NAME, item.TRADE_NAME].filter(Boolean).join(' / ') || item.GENERIC_NAME || item.TRADE_NAME || item.DRUG_CODE || "ยา",
+          quantity: item.QTY || 1,
+          unit: item.DISPLAY_UNIT_NAME || item.UNIT_NAME || item.UNIT_CODE || "เม็ด",
+          price: price
+        };
+      })
     ];
+
+    // ✅ เพิ่มค่ารักษา (ถ้าไม่ใช่บัตรทอง หรือใช้สิทธิ์เกิน 2 ครั้ง)
+    const treatmentFee = (isGoldCard && !isUcsExceeded) ? 0 : (paymentData.treatmentFee !== undefined && paymentData.treatmentFee !== null ? parseFloat(paymentData.treatmentFee) : 100.00);
+
+    if (treatmentFee > 0) {
+      allItems.push({
+        name: "ค่ารักษาพยาบาล",
+        quantity: 1,
+        unit: "ครั้ง",
+        price: treatmentFee
+      });
+    }
+
     return allItems;
   };
 

@@ -90,8 +90,34 @@ const Receipt1Management = () => {
         const displayValue = value ? convertDateCEToBE(value) : '';
 
         const handleChange = (e) => {
-            const beValue = e.target.value;
-            const ceValue = beValue ? convertDateBEToCE(beValue) : '';
+            const inputValue = e.target.value;
+            if (!inputValue) {
+                onChange('');
+                return;
+            }
+
+            const [yearStr, month, day] = inputValue.split('-');
+            const inputYear = parseInt(yearStr);
+
+            // ตรวจสอบว่าปีที่ได้มาเป็น ค.ศ. หรือ พ.ศ.
+            // ถ้าปี < 2400 (ค.ศ. ปัจจุบัน + buffer) ถือว่าเป็น ค.ศ. ไม่ต้องแปลง
+            // ถ้าปี >= 2400 ถือว่าเป็น พ.ศ. ต้องลบ 543
+            let ceYear;
+            if (inputYear >= 2400) {
+                // เป็น พ.ศ. → แปลงเป็น ค.ศ.
+                ceYear = inputYear - 543;
+            } else {
+                // เป็น ค.ศ. อยู่แล้ว → ไม่ต้องแปลง
+                ceYear = inputYear;
+            }
+
+            const ceValue = `${ceYear}-${month}-${day}`;
+            console.log('🔍 DateInputBE Debug:', {
+                rawInput: inputValue,
+                inputYear,
+                detectedAs: inputYear >= 2400 ? 'พ.ศ.' : 'ค.ศ.',
+                convertedOutput: ceValue
+            });
             onChange(ceValue);
         };
 
@@ -583,11 +609,11 @@ const Receipt1Management = () => {
 
     const handleEditDetail = (index) => {
         const detail = details[index];
-        
+
         // หา GENERIC_NAME จาก drugList โดยใช้ DRUG_CODE
         const drug = drugList.find(d => d.DRUG_CODE === detail.DRUG_CODE);
         const genericName = drug ? drug.GENERIC_NAME : (detail.GENERIC_NAME || '');
-        
+
         setModalData({
             ...detail,
             GENERIC_NAME: genericName, // ตั้งค่า GENERIC_NAME จาก drugList
@@ -986,7 +1012,7 @@ const Receipt1Management = () => {
                                                 const tradeName = drug?.TRADE_NAME || '';
                                                 const drugCode = drug?.DRUG_CODE || detail.DRUG_CODE || '';
                                                 const drugDisplay = drug ? `${genericName}-${tradeName}-${drugCode}` : (detail.GENERIC_NAME || '-');
-                                                
+
                                                 return (
                                                     <TableRow key={index}>
                                                         <TableCell>{drugDisplay}</TableCell>
@@ -1084,7 +1110,7 @@ const Receipt1Management = () => {
                                         }}
                                         filterOptions={(options, { inputValue }) => {
                                             const searchTerm = inputValue.toLowerCase();
-                                            return options.filter(option => 
+                                            return options.filter(option =>
                                                 (option.GENERIC_NAME || '').toLowerCase().includes(searchTerm) ||
                                                 (option.TRADE_NAME || '').toLowerCase().includes(searchTerm) ||
                                                 (option.DRUG_CODE || '').toLowerCase().includes(searchTerm)
@@ -1164,18 +1190,10 @@ const Receipt1Management = () => {
                                     />
                                 </Grid>
                                 <Grid item xs={12} md={6}>
-                                    <DatePicker
+                                    <DateInputBE
                                         label="วันหมดอายุ"
-                                        value={modalData.EXPIRE_DATE ? dayjs(modalData.EXPIRE_DATE) : null}
-                                        onChange={(newValue) => handleModalChange('EXPIRE_DATE', newValue ? newValue.format('YYYY-MM-DD') : '')}
-                                    renderInput={(params) => (
-                                        <TextField
-                                            {...params}
-                                            fullWidth
-                                            size="small"
-                                            sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
-                                        />
-                                    )}
+                                        value={modalData.EXPIRE_DATE}
+                                        onChange={(value) => handleModalChange('EXPIRE_DATE', value)}
                                     />
                                 </Grid>
                             </Grid>
