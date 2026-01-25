@@ -22,70 +22,10 @@ import { formatThaiDate as formatThaiDateUtil, formatThaiDateShort, getCurrentDa
 
 // Import Components
 import DailyReportButton from '../Dashboard/DailyReportButton';
+import DatePickerBE from '../common/DatePickerBE';
 
 const DailyReport = () => {
-    // Helper functions สำหรับจัดการปี พ.ศ.
-    const toBuddhistYear = (gregorianYear) => {
-        return parseInt(gregorianYear) + 543;
-    };
 
-    const toGregorianYear = (buddhistYear) => {
-        return parseInt(buddhistYear) - 543;
-    };
-
-    // แปลงวันที่จาก input (ค.ศ.) เป็น พ.ศ. สำหรับแสดงผล
-    const convertDateCEToBE = (ceDate) => {
-        if (!ceDate) return '';
-        const [year, month, day] = ceDate.split('-');
-        const beYear = parseInt(year) + 543;
-        return `${beYear}-${month}-${day}`;
-    };
-
-    // แปลงวันที่จาก พ.ศ. กลับเป็น ค.ศ. สำหรับเก็บใน state
-    const convertDateBEToCE = (beDate) => {
-        if (!beDate) return '';
-        const [year, month, day] = beDate.split('-');
-        const ceYear = parseInt(year) - 543;
-        return `${ceYear}-${month}-${day}`;
-    };
-
-    // Component สำหรับ Date Input ที่แสดงเป็น พ.ศ.
-    const DateInputBE = ({ label, value, onChange, disabled, ...props }) => {
-        const displayValue = value ? convertDateCEToBE(value) : '';
-
-        const handleChange = (e) => {
-            const beValue = e.target.value;
-            const ceValue = beValue ? convertDateBEToCE(beValue) : '';
-            if (onChange) {
-                // ถ้า onChange เป็น function ที่รับ event ให้เรียกด้วย event
-                // ถ้าเป็น function ที่รับ value โดยตรง ให้เรียกด้วย value
-                if (typeof onChange === 'function') {
-                    // สร้าง event object ใหม่ที่มี value เป็น ceValue
-                    const syntheticEvent = {
-                        target: { value: ceValue },
-                        currentTarget: { value: ceValue }
-                    };
-                    onChange(syntheticEvent);
-                }
-            }
-        };
-
-        return (
-            <TextField
-                {...props}
-                fullWidth
-                label={label}
-                type="date"
-                value={displayValue}
-                onChange={handleChange}
-                disabled={disabled}
-                InputLabelProps={{ shrink: true }}
-                inputProps={{
-                    max: convertDateCEToBE('9999-12-31') // ปี พ.ศ. สูงสุด
-                }}
-            />
-        );
-    };
 
     // States for filters
     const [startDate, setStartDate] = useState(getCurrentDateForDB());
@@ -175,7 +115,7 @@ const DailyReport = () => {
             const params = {
                 date_from: startDate,
                 date_to: endDate,
-                limit: 100,
+                limit: 100000,
                 status: 'ปิดการรักษา', // ✅ Fetch all closed treatments
                 payment_status: 'all'  // ✅ Ignore payment status (fetch both paid and unpaid)
             };
@@ -189,21 +129,53 @@ const DailyReport = () => {
             }
 
             // ✅ Add New Filters to Params
-            if (rightsType) {
-                params.rights_type = rightsType;
-
-                // Only send UCS date filters if rights_type is gold_card
-                if (rightsType === 'gold_card') {
-                    params.ucs_payment_date_from = ucsStartDate;
-                    params.ucs_payment_date_to = ucsEndDate;
-                }
-            }
+            // if (rightsType) {
+            //     params.rights_type = rightsType;
+            //     // Only send UCS date filters if rights_type is gold_card
+            //     if (rightsType === 'gold_card') {
+            //         params.ucs_payment_date_from = ucsStartDate;
+            //         params.ucs_payment_date_to = ucsEndDate;
+            //     }
+            // }
 
             const treatmentResponse = await TreatmentService.getPaidTreatmentsWithDetails(params);
 
             if (treatmentResponse.success) {
-                setReportData(treatmentResponse.data);
-                calculateSummaryStats(treatmentResponse.data);
+                let data = treatmentResponse.data;
+
+                // ✅ Client-side Filtering for Rights Type
+                if (rightsType) {
+                    if (rightsType === 'gold_card') {
+                        data = data.filter(item =>
+                            item.VISIT_UCS_CARD === 'Y' ||
+                            item.PAYMENT_METHOD === 'บัตรทอง'
+                        );
+
+                        // Also filter by UCS Payment Date if specified
+                        if (ucsStartDate && ucsEndDate) {
+                            // Convert search dates to comparison format if needed, or string compare YYYY-MM-DD
+                            data = data.filter(item => {
+                                if (!item.UCS_PAYMENT_DATE) return false;
+                                return item.UCS_PAYMENT_DATE >= ucsStartDate && item.UCS_PAYMENT_DATE <= ucsEndDate;
+                            });
+                        }
+
+                    } else if (rightsType === 'social_security') {
+                        data = data.filter(item =>
+                            item.VISIT_SOCIAL_CARD === 'Y' ||
+                            item.PAYMENT_METHOD === 'ประกันสังคม'
+                        );
+                    } else if (rightsType === 'cash') { // Self-pay (Cash + Transfer + Others that are NOT Gold/Social)
+                        data = data.filter(item => {
+                            const isGold = item.VISIT_UCS_CARD === 'Y' || item.PAYMENT_METHOD === 'บัตรทอง';
+                            const isSocial = item.VISIT_SOCIAL_CARD === 'Y' || item.PAYMENT_METHOD === 'ประกันสังคม';
+                            return !isGold && !isSocial;
+                        });
+                    }
+                }
+
+                setReportData(data);
+                calculateSummaryStats(data);
             } else {
                 setError('ไม่สามารถดึงข้อมูลได้');
             }
@@ -337,26 +309,27 @@ const DailyReport = () => {
                     <Typography variant="h6" sx={{ mb: 2 }}>ตัวกรองข้อมูล</Typography>
                     <Grid container spacing={2}>
                         <Grid item xs={12} sm={6} md={2}>
-                            <DateInputBE
+                            <DatePickerBE
                                 label="วันที่เริ่มต้น"
                                 value={startDate}
-                                onChange={(e) => setStartDate(e.target.value)}
+                                onChange={(value) => setStartDate(value)}
                             />
                         </Grid>
                         <Grid item xs={12} sm={6} md={2}>
-                            <DateInputBE
+                            <DatePickerBE
                                 label="วันที่สิ้นสุด"
                                 value={endDate}
-                                onChange={(e) => setEndDate(e.target.value)}
+                                onChange={(value) => setEndDate(value)}
                             />
                         </Grid>
                         <Grid item xs={12} sm={6} md={3}>
-                            <FormControl fullWidth>
+                            <FormControl fullWidth size="small">
                                 <InputLabel>เลือกหมอ</InputLabel>
                                 <Select
                                     value={selectedDoctor}
                                     label="เลือกหมอ"
                                     onChange={(e) => setSelectedDoctor(e.target.value)}
+                                    sx={{ borderRadius: "10px", bgcolor: 'white' }}
                                 >
                                     <MenuItem value="">ทั้งหมด</MenuItem>
                                     {doctors.map((doctor) => (
@@ -405,6 +378,13 @@ const DailyReport = () => {
                                             ...params.InputProps,
                                             startAdornment: <SearchIcon sx={{ color: 'action.active', mr: 1 }} />
                                         }}
+                                        sx={{
+                                            "& .MuiOutlinedInput-root": {
+                                                borderRadius: "10px",
+                                                bgcolor: 'white'
+                                            }
+                                        }}
+                                        size="small"
                                     />
                                 )}
                                 renderOption={(props, option) => (
@@ -432,17 +412,17 @@ const DailyReport = () => {
 
                         {/* ✅ Rights Type Filter */}
                         <Grid item xs={12} sm={6} md={3}>
-                            <FormControl fullWidth>
+                            <FormControl fullWidth size="small">
                                 <InputLabel>สิทธิการรักษา</InputLabel>
                                 <Select
                                     value={rightsType}
                                     label="สิทธิการรักษา"
                                     onChange={(e) => setRightsType(e.target.value)}
+                                    sx={{ borderRadius: "10px", bgcolor: 'white' }}
                                 >
                                     <MenuItem value="">ทั้งหมด</MenuItem>
                                     <MenuItem value="gold_card">บัตรทอง (UCS)</MenuItem>
-                                    <MenuItem value="social_security">ประกันสังคม</MenuItem>
-                                    <MenuItem value="cash">เงินสด/ทั่วไป</MenuItem>
+                                    <MenuItem value="cash">จ่ายเอง (เงินสด/เงินโอน)</MenuItem>
                                 </Select>
                             </FormControl>
                         </Grid>
@@ -451,17 +431,17 @@ const DailyReport = () => {
                         {rightsType === 'gold_card' && (
                             <>
                                 <Grid item xs={12} sm={6} md={2}>
-                                    <DateInputBE
+                                    <DatePickerBE
                                         label="วันที่รับเงินตั้วแต่"
                                         value={ucsStartDate}
-                                        onChange={(e) => setUcsStartDate(e.target.value)}
+                                        onChange={(value) => setUcsStartDate(value)}
                                     />
                                 </Grid>
                                 <Grid item xs={12} sm={6} md={2}>
-                                    <DateInputBE
+                                    <DatePickerBE
                                         label="ถึงวันที่"
                                         value={ucsEndDate}
-                                        onChange={(e) => setUcsEndDate(e.target.value)}
+                                        onChange={(value) => setUcsEndDate(value)}
                                     />
                                 </Grid>
                             </>
@@ -472,6 +452,7 @@ const DailyReport = () => {
                                 variant="outlined"
                                 fullWidth
                                 onClick={handleClearFilters}
+                                sx={{ borderRadius: "10px" }}
                             >
                                 ล้างตัวกรอง
                             </Button>
@@ -581,8 +562,11 @@ const DailyReport = () => {
 
             {/* Loading */}
             {loading && (
-                <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 4 }}>
                     <CircularProgress />
+                    <Typography variant="body1" sx={{ mt: 2, color: 'text.secondary' }}>
+                        ระบบมีข้อมูลจำนวนมาก กรุณารอโหลดสักครู่
+                    </Typography>
                 </Box>
             )}
 

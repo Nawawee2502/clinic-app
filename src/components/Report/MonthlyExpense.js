@@ -40,6 +40,7 @@ import {
   formatThaiDateShort,
 } from "../../utils/dateTimeUtils";
 import ExpensePdfButton from "./ExpensePdfButton";
+import MonthYearFilter from "../common/MonthYearFilter";
 
 const formatCurrency = (amount) =>
   new Intl.NumberFormat("th-TH", {
@@ -51,7 +52,7 @@ const formatCurrency = (amount) =>
 const MonthlyExpense = () => {
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth() + 1;
-  
+
   const [startYear, setStartYear] = useState(currentYear.toString());
   const [startMonth, setStartMonth] = useState(currentMonth.toString());
   const [endYear, setEndYear] = useState(currentYear.toString());
@@ -81,7 +82,7 @@ const MonthlyExpense = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await Pay1Service.getAllPay1(1, 500);
+      const response = await Pay1Service.getAllPay1(1, 100000);
       if (response.success) {
         const records = Array.isArray(response.data) ? response.data : [];
         setPayRecords(records);
@@ -195,25 +196,7 @@ const MonthlyExpense = () => {
     return total || parseFloat(detailDialog.data?.header?.TOTAL) || 0;
   }, [detailDialog.data]);
 
-  const monthOptions = [
-    { value: '1', label: 'มกราคม' },
-    { value: '2', label: 'กุมภาพันธ์' },
-    { value: '3', label: 'มีนาคม' },
-    { value: '4', label: 'เมษายน' },
-    { value: '5', label: 'พฤษภาคม' },
-    { value: '6', label: 'มิถุนายน' },
-    { value: '7', label: 'กรกฎาคม' },
-    { value: '8', label: 'สิงหาคม' },
-    { value: '9', label: 'กันยายน' },
-    { value: '10', label: 'ตุลาคม' },
-    { value: '11', label: 'พฤศจิกายน' },
-    { value: '12', label: 'ธันวาคม' },
-  ];
 
-  const yearOptions = Array.from({ length: 5 }, (_, i) => {
-    const year = currentYear - i;
-    return year.toString();
-  });
 
   return (
     <Box sx={{ mt: 2 }}>
@@ -257,77 +240,34 @@ const MonthlyExpense = () => {
             ตัวกรองข้อมูล
           </Typography>
           <Grid container spacing={2}>
-            <Grid item xs={12} sm={6} md={2}>
-              <FormControl fullWidth>
-                <InputLabel>ปีเริ่มต้น</InputLabel>
-                <Select
-                  label="ปีเริ่มต้น"
-                  value={startYear}
-                  onChange={(e) => setStartYear(e.target.value)}
-                >
-                  {yearOptions.map((year) => (
-                    <MenuItem key={year} value={year}>
-                      {year}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+            <Grid item xs={12} sm={12} md={4}>
+              <MonthYearFilter
+                year={startYear}
+                setYear={setStartYear}
+                month={startMonth}
+                setMonth={setStartMonth}
+                yearLabel="ปีเริ่มต้น"
+                monthLabel="เดือนเริ่มต้น"
+              />
+            </Grid>
+            <Grid item xs={12} sm={12} md={4}>
+              <MonthYearFilter
+                year={endYear}
+                setYear={setEndYear}
+                month={endMonth}
+                setMonth={setEndMonth}
+                yearLabel="ปีสิ้นสุด"
+                monthLabel="เดือนสิ้นสุด"
+              />
             </Grid>
             <Grid item xs={12} sm={6} md={2}>
-              <FormControl fullWidth>
-                <InputLabel>เดือนเริ่มต้น</InputLabel>
-                <Select
-                  label="เดือนเริ่มต้น"
-                  value={startMonth}
-                  onChange={(e) => setStartMonth(e.target.value)}
-                >
-                  {monthOptions.map((month) => (
-                    <MenuItem key={month.value} value={month.value}>
-                      {month.label}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} sm={6} md={2}>
-              <FormControl fullWidth>
-                <InputLabel>ปีสิ้นสุด</InputLabel>
-                <Select
-                  label="ปีสิ้นสุด"
-                  value={endYear}
-                  onChange={(e) => setEndYear(e.target.value)}
-                >
-                  {yearOptions.map((year) => (
-                    <MenuItem key={year} value={year}>
-                      {year}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} sm={6} md={2}>
-              <FormControl fullWidth>
-                <InputLabel>เดือนสิ้นสุด</InputLabel>
-                <Select
-                  label="เดือนสิ้นสุด"
-                  value={endMonth}
-                  onChange={(e) => setEndMonth(e.target.value)}
-                >
-                  {monthOptions.map((month) => (
-                    <MenuItem key={month.value} value={month.value}>
-                      {month.label}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} sm={6} md={2}>
-              <FormControl fullWidth>
+              <FormControl fullWidth size="small">
                 <InputLabel>สถานะ</InputLabel>
                 <Select
                   label="สถานะ"
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
+                  sx={{ borderRadius: "10px", bgcolor: 'white' }}
                 >
                   <MenuItem value="">ทั้งหมด</MenuItem>
                   {uniqueStatuses.map((status) => (
@@ -339,12 +279,13 @@ const MonthlyExpense = () => {
               </FormControl>
             </Grid>
             <Grid item xs={12} sm={6} md={2}>
-              <FormControl fullWidth>
+              <FormControl fullWidth size="small">
                 <InputLabel>วิธีจ่าย</InputLabel>
                 <Select
                   label="วิธีจ่าย"
                   value={typeFilter}
                   onChange={(e) => setTypeFilter(e.target.value)}
+                  sx={{ borderRadius: "10px", bgcolor: 'white' }}
                 >
                   <MenuItem value="">ทั้งหมด</MenuItem>
                   {uniqueTypePays.map((type) => (
@@ -368,6 +309,13 @@ const MonthlyExpense = () => {
                     </InputAdornment>
                   ),
                 }}
+                sx={{
+                  "& .MuiOutlinedInput-root": {
+                    borderRadius: "10px",
+                    bgcolor: 'white'
+                  }
+                }}
+                size="small"
               />
             </Grid>
           </Grid>
@@ -435,8 +383,11 @@ const MonthlyExpense = () => {
       )}
 
       {loading && (
-        <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+        <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", py: 4 }}>
           <CircularProgress />
+          <Typography variant="body1" sx={{ mt: 2, color: "text.secondary" }}>
+            ระบบมีข้อมูลจำนวนมาก กรุณารอโหลดสักครู่
+          </Typography>
         </Box>
       )}
 

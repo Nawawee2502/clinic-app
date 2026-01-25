@@ -43,41 +43,7 @@ import {
   getCurrentDateForDB,
 } from "../../utils/dateTimeUtils";
 import SummaryPdfButton from "./SummaryPdfButton";
-
-const convertDateCEToBE = (ceDate) => {
-  if (!ceDate) return "";
-  const [year, month, day] = ceDate.split("-");
-  return `${parseInt(year, 10) + 543}-${month}-${day}`;
-};
-
-const convertDateBEToCE = (beDate) => {
-  if (!beDate) return "";
-  const [year, month, day] = beDate.split("-");
-  return `${parseInt(year, 10) - 543}-${month}-${day}`;
-};
-
-const DateInputBE = ({ label, value, onChange, ...props }) => {
-  const displayValue = value ? convertDateCEToBE(value) : "";
-
-  const handleChange = (event) => {
-    const beValue = event.target.value;
-    const ceValue = beValue ? convertDateBEToCE(beValue) : "";
-    onChange?.({ target: { value: ceValue } });
-  };
-
-  return (
-    <TextField
-      {...props}
-      fullWidth
-      label={label}
-      type="date"
-      value={displayValue}
-      onChange={handleChange}
-      InputLabelProps={{ shrink: true }}
-      inputProps={{ max: convertDateCEToBE("9999-12-31") }}
-    />
-  );
-};
+import DatePickerBE from "../common/DatePickerBE"; // Added import
 
 const formatCurrency = (amount) =>
   new Intl.NumberFormat("th-TH", {
@@ -766,17 +732,17 @@ const SummaryReport = () => {
           </Typography>
           <Grid container spacing={2} alignItems="center">
             <Grid item xs={12} sm={6} md={3}>
-              <DateInputBE
+              <DatePickerBE
                 label="วันที่เริ่มต้น"
                 value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
+                onChange={(value) => setStartDate(value)}
               />
             </Grid>
             <Grid item xs={12} sm={6} md={3}>
-              <DateInputBE
+              <DatePickerBE
                 label="วันที่สิ้นสุด"
                 value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
+                onChange={(value) => setEndDate(value)}
               />
             </Grid>
 
@@ -787,6 +753,7 @@ const SummaryReport = () => {
                   label="วิธีรับเงิน"
                   value={incomeTypeFilter}
                   onChange={(e) => setIncomeTypeFilter(e.target.value)}
+                  sx={{ borderRadius: "10px", bgcolor: 'white' }}
                 >
                   <MenuItem value="">ทั้งหมด</MenuItem>
                   <MenuItem value="เงินสด">เงินสด</MenuItem>
@@ -808,6 +775,13 @@ const SummaryReport = () => {
                     </InputAdornment>
                   ),
                 }}
+                sx={{
+                  "& .MuiOutlinedInput-root": {
+                    borderRadius: "10px",
+                    bgcolor: 'white'
+                  }
+                }}
+                size="small"
               />
             </Grid>
             <Grid item xs={12} sm={6} md={2}>
@@ -817,6 +791,7 @@ const SummaryReport = () => {
                 onClick={loadData}
                 disabled={loading}
                 startIcon={<RefreshIcon />}
+                sx={{ borderRadius: "10px", height: "40px" }} // Align height with inputs
               >
                 โหลดข้อมูล
               </Button>

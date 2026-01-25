@@ -41,6 +41,7 @@ import {
   formatThaiDateShort,
 } from "../../utils/dateTimeUtils";
 import SummaryPdfButton from "./SummaryPdfButton";
+import MonthYearFilter from "../common/MonthYearFilter";
 
 const formatCurrency = (amount) =>
   new Intl.NumberFormat("th-TH", {
@@ -93,7 +94,7 @@ const groupExpensesByType = (records) => {
   records.forEach((item) => {
     const typePayCode = item.TYPE_PAY_CODE || item.type_pay_code || "";
     const typePayName = item.TYPE_PAY_NAME || item.type_pay_name || typePayCode || "ไม่ระบุ";
-    
+
     const amount =
       parseFloat(item.AMT) ||
       parseFloat(item.TOTAL) ||
@@ -125,7 +126,7 @@ const groupExpensesByType = (records) => {
 const MonthlySummary = () => {
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth() + 1;
-  
+
   const [startYear, setStartYear] = useState(currentYear.toString());
   const [startMonth, setStartMonth] = useState(currentMonth.toString());
   const [endYear, setEndYear] = useState(currentYear.toString());
@@ -151,20 +152,20 @@ const MonthlySummary = () => {
     try {
       setLoading(true);
       setError(null);
-      
+
       // ✅ ดึงข้อมูลรายรับจาก TREATMENT1 ที่ชำระเงินแล้ว พร้อมแยกตามประเภท
       const [treatmentIncomeResponse, expenseResponse] = await Promise.all([
-        TreatmentService.getPaidTreatmentsWithDetails({ page: 1, limit: 500 }),
+        TreatmentService.getPaidTreatmentsWithDetails({ page: 1, limit: 100000 }),
         Pay1Service.getExpensesReport(null, null, 'ทำงานอยู่'),
       ]);
-      
+
       // ✅ แปลงข้อมูลรายรับจาก TREATMENT1 เป็นรูปแบบที่ใช้ได้
       if (treatmentIncomeResponse.success && treatmentIncomeResponse.data) {
         const incomeFromTreatments = [];
-        
+
         treatmentIncomeResponse.data.forEach(treatment => {
           const paymentDate = treatment.PAYMENT_DATE || treatment.RDATE;
-          
+
           // ✅ ค่าหัตถการ
           if (treatment.procedures && treatment.procedures.length > 0) {
             treatment.procedures.forEach(proc => {
@@ -185,7 +186,7 @@ const MonthlySummary = () => {
               });
             });
           }
-          
+
           // ✅ ค่า Lab
           if (treatment.labTests && treatment.labTests.length > 0) {
             treatment.labTests.forEach(lab => {
@@ -206,19 +207,19 @@ const MonthlySummary = () => {
               });
             });
           }
-          
+
           // ✅ ค่ายา
           if (treatment.drugs && treatment.drugs.length > 0) {
             treatment.drugs.forEach(drug => {
               // ✅ สำหรับบัตรทอง: คำนวณเฉพาะยาที่ UCS_CARD = 'N'
               const isGoldCard = treatment.UCS_CARD === 'Y';
               const drugUcsCard = drug.UCS_CARD || drug.DRUG_UCS_CARD || 'N';
-              
+
               // ถ้าเป็นบัตรทองและยามี UCS_CARD = 'Y' ให้ข้าม
               if (isGoldCard && drugUcsCard === 'Y') {
                 return;
               }
-              
+
               incomeFromTreatments.push({
                 REFNO: `VN${treatment.VNO}`,
                 RDATE: paymentDate,
@@ -237,11 +238,11 @@ const MonthlySummary = () => {
             });
           }
         });
-        
+
         // ✅ รวมกับข้อมูลรายรับเดิมจาก INCOME1 (ถ้ามี)
         let allIncomeRecords = incomeFromTreatments;
         try {
-          const incomeResponse = await Income1Service.getAllIncome1(1, 500);
+          const incomeResponse = await Income1Service.getAllIncome1(1, 100000);
           if (incomeResponse.success && Array.isArray(incomeResponse.data)) {
             // แปลงข้อมูล INCOME1 ให้เป็นรูปแบบเดียวกัน
             const income1Records = incomeResponse.data.map(item => ({
@@ -261,23 +262,23 @@ const MonthlySummary = () => {
         } catch (err) {
           console.warn('Could not load INCOME1 records:', err);
         }
-        
+
         setIncomeRecords(allIncomeRecords);
       } else {
         // Fallback: ใช้ข้อมูลเดิมจาก INCOME1
-        const incomeResponse = await Income1Service.getAllIncome1(1, 500);
-      if (incomeResponse.success) {
-        setIncomeRecords(Array.isArray(incomeResponse.data) ? incomeResponse.data : []);
-      } else {
-        throw new Error(incomeResponse.message || "โหลดข้อมูลรายรับไม่สำเร็จ");
+        const incomeResponse = await Income1Service.getAllIncome1(1, 100000);
+        if (incomeResponse.success) {
+          setIncomeRecords(Array.isArray(incomeResponse.data) ? incomeResponse.data : []);
+        } else {
+          throw new Error(incomeResponse.message || "โหลดข้อมูลรายรับไม่สำเร็จ");
         }
       }
-      
+
       if (expenseResponse.success) {
         // ข้อมูลที่ได้จาก API เป็น array ของ header ที่มี details ภายใน
         // ต้อง flatten details ออกมาเป็น flat array เพื่อให้มี TYPE_PAY_CODE และ TYPE_PAY_NAME
         const expenseData = Array.isArray(expenseResponse.data) ? expenseResponse.data : [];
-        
+
         // Flatten details ออกมาเป็น flat array
         const flatExpenseData = [];
         expenseData.forEach(item => {
@@ -307,7 +308,7 @@ const MonthlySummary = () => {
             });
           }
         });
-        
+
         setExpenseRecords(flatExpenseData);
       } else {
         throw new Error(expenseResponse.message || "โหลดข้อมูลรายจ่ายไม่สำเร็จ");
@@ -341,10 +342,10 @@ const MonthlySummary = () => {
 
   const filteredIncome = useMemo(() => {
     let result = [...incomeRecords];
-    
+
     // Filter ตามช่วงเดือน
     result = filterByMonth(result, startYear, startMonth, endYear, endMonth);
-    
+
     // ✅ Filter ตามวิธีรับเงิน (เงินสด, เงินโอน, บัตรทอง)
     if (incomeTypeFilter) {
       result = result.filter((item) => {
@@ -370,10 +371,10 @@ const MonthlySummary = () => {
 
   const filteredExpense = useMemo(() => {
     let result = [...expenseRecords];
-    
+
     // Filter ตามช่วงเดือน
     result = filterByMonth(result, startYear, startMonth, endYear, endMonth);
-    
+
     // ✅ ลบการ filter ตาม expenseTypeFilter และ statusFilter
     if (searchTerm) {
       const search = searchTerm.toLowerCase();
@@ -395,11 +396,11 @@ const MonthlySummary = () => {
       ยา: 0,
       อื่นๆ: 0
     };
-    
+
     filteredIncome.forEach(item => {
       const type = item.TYPE_INCOME_NAME || item.TYPE_INCOME || '';
       const amount = parseFloat(item.TOTAL) || 0;
-      
+
       if (type === 'หัตถการ' || type === 'ค่าหัตถการ') {
         incomeByType.หัตถการ += amount;
       } else if (type === 'Lab' || type === 'ค่า Lab') {
@@ -410,7 +411,7 @@ const MonthlySummary = () => {
         incomeByType.อื่นๆ += amount;
       }
     });
-    
+
     const incomeTotal = filteredIncome.reduce((sum, item) => sum + (parseFloat(item.TOTAL) || 0), 0);
     const incomeCash = filteredIncome
       .filter((item) => (item.PAYMENT_METHOD || item.TYPE_PAY) === "เงินสด")
@@ -451,11 +452,11 @@ const MonthlySummary = () => {
       'ค่า Lab': 0,
       'ค่ายา': 0
     };
-    
+
     filteredIncome.forEach(item => {
       const type = item.TYPE_INCOME_NAME || item.TYPE_INCOME || '';
       const amount = parseFloat(item.TOTAL) || 0;
-      
+
       if (type === 'หัตถการ' || type === 'ค่าหัตถการ') {
         incomeByType['ค่าหัตถการ'] += amount;
       } else if (type === 'Lab' || type === 'ค่า Lab') {
@@ -464,7 +465,7 @@ const MonthlySummary = () => {
         incomeByType['ค่ายา'] += amount;
       }
     });
-    
+
     // สร้างรายการรายรับ 3 แถว
     const incomeEntries = [
       {
@@ -688,25 +689,7 @@ const MonthlySummary = () => {
     );
   };
 
-  const monthOptions = [
-    { value: '1', label: 'มกราคม' },
-    { value: '2', label: 'กุมภาพันธ์' },
-    { value: '3', label: 'มีนาคม' },
-    { value: '4', label: 'เมษายน' },
-    { value: '5', label: 'พฤษภาคม' },
-    { value: '6', label: 'มิถุนายน' },
-    { value: '7', label: 'กรกฎาคม' },
-    { value: '8', label: 'สิงหาคม' },
-    { value: '9', label: 'กันยายน' },
-    { value: '10', label: 'ตุลาคม' },
-    { value: '11', label: 'พฤศจิกายน' },
-    { value: '12', label: 'ธันวาคม' },
-  ];
 
-  const yearOptions = Array.from({ length: 5 }, (_, i) => {
-    const year = currentYear - i;
-    return year.toString();
-  });
 
   return (
     <Box sx={{ mt: 2 }}>
@@ -750,77 +733,35 @@ const MonthlySummary = () => {
             ตัวกรองข้อมูล
           </Typography>
           <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} sm={6} md={2}>
-              <FormControl fullWidth>
-                <InputLabel>ปีเริ่มต้น</InputLabel>
-                <Select
-                  label="ปีเริ่มต้น"
-                  value={startYear}
-                  onChange={(e) => setStartYear(e.target.value)}
-                >
-                  {yearOptions.map((year) => (
-                    <MenuItem key={year} value={year}>
-                      {year}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+            <Grid item xs={12} sm={12} md={4}>
+              <MonthYearFilter
+                year={startYear}
+                setYear={setStartYear}
+                month={startMonth}
+                setMonth={setStartMonth}
+                yearLabel="ปีเริ่มต้น"
+                monthLabel="เดือนเริ่มต้น"
+              />
             </Grid>
-            <Grid item xs={12} sm={6} md={2}>
-              <FormControl fullWidth>
-                <InputLabel>เดือนเริ่มต้น</InputLabel>
-                <Select
-                  label="เดือนเริ่มต้น"
-                  value={startMonth}
-                  onChange={(e) => setStartMonth(e.target.value)}
-                >
-                  {monthOptions.map((month) => (
-                    <MenuItem key={month.value} value={month.value}>
-                      {month.label}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+            <Grid item xs={12} sm={12} md={4}>
+              <MonthYearFilter
+                year={endYear}
+                setYear={setEndYear}
+                month={endMonth}
+                setMonth={setEndMonth}
+                yearLabel="ปีสิ้นสุด"
+                monthLabel="เดือนสิ้นสุด"
+              />
             </Grid>
-            <Grid item xs={12} sm={6} md={2}>
-              <FormControl fullWidth>
-                <InputLabel>ปีสิ้นสุด</InputLabel>
-                <Select
-                  label="ปีสิ้นสุด"
-                  value={endYear}
-                  onChange={(e) => setEndYear(e.target.value)}
-                >
-                  {yearOptions.map((year) => (
-                    <MenuItem key={year} value={year}>
-                      {year}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} sm={6} md={2}>
-              <FormControl fullWidth>
-                <InputLabel>เดือนสิ้นสุด</InputLabel>
-                <Select
-                  label="เดือนสิ้นสุด"
-                  value={endMonth}
-                  onChange={(e) => setEndMonth(e.target.value)}
-                >
-                  {monthOptions.map((month) => (
-                    <MenuItem key={month.value} value={month.value}>
-                      {month.label}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
+
             <Grid item xs={12} sm={6} md={3}>
-              <FormControl fullWidth>
+              <FormControl fullWidth size="small">
                 <InputLabel>วิธีรับเงิน</InputLabel>
                 <Select
                   label="วิธีรับเงิน"
                   value={incomeTypeFilter}
                   onChange={(e) => setIncomeTypeFilter(e.target.value)}
+                  sx={{ borderRadius: "10px", bgcolor: 'white' }}
                 >
                   <MenuItem value="">ทั้งหมด</MenuItem>
                   <MenuItem value="เงินสด">เงินสด</MenuItem>
@@ -842,6 +783,13 @@ const MonthlySummary = () => {
                     </InputAdornment>
                   ),
                 }}
+                sx={{
+                  "& .MuiOutlinedInput-root": {
+                    borderRadius: "10px",
+                    bgcolor: 'white'
+                  }
+                }}
+                size="small"
               />
             </Grid>
             <Grid item xs={12} sm={6} md={2}>
@@ -851,6 +799,7 @@ const MonthlySummary = () => {
                 onClick={loadData}
                 disabled={loading}
                 startIcon={<RefreshIcon />}
+                sx={{ borderRadius: "10px", height: "40px" }} // Align height with inputs
               >
                 โหลดข้อมูล
               </Button>
@@ -912,8 +861,11 @@ const MonthlySummary = () => {
       )}
 
       {loading && (
-        <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+        <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", py: 4 }}>
           <CircularProgress />
+          <Typography variant="body1" sx={{ mt: 2, color: "text.secondary" }}>
+            ระบบมีข้อมูลจำนวนมาก กรุณารอโหลดสักครู่
+          </Typography>
         </Box>
       )}
 
@@ -970,26 +922,26 @@ const MonthlySummary = () => {
                             </Box>
                           ) : (
                             // แสดงรายละเอียดรายการ (กรณีไม่ได้ group)
-                          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}>
-                            <Box sx={{ maxWidth: "75%" }}>
-                              <Typography variant="body2" fontWeight="medium" noWrap>
-                                {row.income.name || "-"}
-                              </Typography>
-                              <Typography variant="caption" color="text.secondary" noWrap>
-                                {row.income.refno || "-"} • {row.income.type || "-"}
-                              </Typography>
-                              <Typography variant="caption" color="text.secondary" noWrap>
-                                {formatThaiDateShort(row.income.date)}
-                              </Typography>
+                            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}>
+                              <Box sx={{ maxWidth: "75%" }}>
+                                <Typography variant="body2" fontWeight="medium" noWrap>
+                                  {row.income.name || "-"}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary" noWrap>
+                                  {row.income.refno || "-"} • {row.income.type || "-"}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary" noWrap>
+                                  {formatThaiDateShort(row.income.date)}
+                                </Typography>
+                              </Box>
+                              <IconButton
+                                size="small"
+                                onClick={() => loadIncomeDetail(row.income.refno)}
+                                sx={{ border: "1px solid #2563eb", borderRadius: "7px", color: "#2563eb" }}
+                              >
+                                <VisibilityIcon fontSize="small" />
+                              </IconButton>
                             </Box>
-                            <IconButton
-                              size="small"
-                              onClick={() => loadIncomeDetail(row.income.refno)}
-                              sx={{ border: "1px solid #2563eb", borderRadius: "7px", color: "#2563eb" }}
-                            >
-                              <VisibilityIcon fontSize="small" />
-                            </IconButton>
-                          </Box>
                           )
                         ) : (
                           "-"

@@ -41,6 +41,7 @@ import {
   formatThaiDateShort,
 } from "../../utils/dateTimeUtils";
 import SummaryPdfButton from "./SummaryPdfButton";
+import MonthYearFilter from "../common/MonthYearFilter";
 
 const formatCurrency = (amount) =>
   new Intl.NumberFormat("th-TH", {
@@ -93,7 +94,7 @@ const groupExpensesByType = (records) => {
   records.forEach((item) => {
     const typePayCode = item.TYPE_PAY_CODE || item.type_pay_code || "";
     const typePayName = item.TYPE_PAY_NAME || item.type_pay_name || typePayCode || "ไม่ระบุ";
-    
+
     const amount =
       parseFloat(item.AMT) ||
       parseFloat(item.TOTAL) ||
@@ -124,7 +125,7 @@ const groupExpensesByType = (records) => {
 
 const YearlySummary = () => {
   const currentYear = new Date().getFullYear();
-  
+
   const [startYear, setStartYear] = useState(currentYear.toString());
   const [endYear, setEndYear] = useState(currentYear.toString());
   const [incomeRecords, setIncomeRecords] = useState([]);
@@ -148,21 +149,21 @@ const YearlySummary = () => {
     try {
       setLoading(true);
       setError(null);
-      
+
       // ✅ ดึงข้อมูลรายรับจาก TREATMENT1 ที่ชำระเงินแล้ว พร้อมแยกตามประเภท
       const [treatmentIncomeResponse, expenseResponse] = await Promise.all([
-        TreatmentService.getPaidTreatmentsWithDetails({ page: 1, limit: 500 }),
+        TreatmentService.getPaidTreatmentsWithDetails({ page: 1, limit: 100000 }),
         Pay1Service.getExpensesReport(null, null, 'ทำงานอยู่'),
       ]);
-      
+
       // ✅ แปลงข้อมูลรายรับจาก TREATMENT1 เป็นรูปแบบที่ใช้ได้
       if (treatmentIncomeResponse.success && treatmentIncomeResponse.data) {
         const incomeFromTreatments = [];
-        
+
         treatmentIncomeResponse.data.forEach(treatment => {
           const paymentDate = treatment.PAYMENT_DATE || treatment.RDATE;
           const paymentYear = new Date(paymentDate).getFullYear() + 543; // พ.ศ.
-          
+
           // ✅ ค่าหัตถการ
           if (treatment.procedures && treatment.procedures.length > 0) {
             treatment.procedures.forEach(proc => {
@@ -182,7 +183,7 @@ const YearlySummary = () => {
               });
             });
           }
-          
+
           // ✅ ค่า Lab
           if (treatment.labTests && treatment.labTests.length > 0) {
             treatment.labTests.forEach(lab => {
@@ -202,19 +203,19 @@ const YearlySummary = () => {
               });
             });
           }
-          
+
           // ✅ ค่ายา
           if (treatment.drugs && treatment.drugs.length > 0) {
             treatment.drugs.forEach(drug => {
               // ✅ สำหรับบัตรทอง: คำนวณเฉพาะยาที่ UCS_CARD = 'N'
               const isGoldCard = treatment.UCS_CARD === 'Y';
               const drugUcsCard = drug.UCS_CARD || drug.DRUG_UCS_CARD || 'N';
-              
+
               // ถ้าเป็นบัตรทองและยามี UCS_CARD = 'Y' ให้ข้าม
               if (isGoldCard && drugUcsCard === 'Y') {
                 return;
               }
-              
+
               incomeFromTreatments.push({
                 REFNO: `VN${treatment.VNO}`,
                 RDATE: paymentDate,
@@ -232,11 +233,11 @@ const YearlySummary = () => {
             });
           }
         });
-        
+
         // ✅ รวมกับข้อมูลรายรับเดิมจาก INCOME1 (ถ้ามี)
         let allIncomeRecords = incomeFromTreatments;
         try {
-          const incomeResponse = await Income1Service.getAllIncome1(1, 500);
+          const incomeResponse = await Income1Service.getAllIncome1(1, 100000);
           if (incomeResponse.success && Array.isArray(incomeResponse.data)) {
             // แปลงข้อมูล INCOME1 ให้เป็นรูปแบบเดียวกัน
             const income1Records = incomeResponse.data.map(item => ({
@@ -255,23 +256,23 @@ const YearlySummary = () => {
         } catch (err) {
           console.warn('Could not load INCOME1 records:', err);
         }
-        
+
         setIncomeRecords(allIncomeRecords);
       } else {
         // Fallback: ใช้ข้อมูลเดิมจาก INCOME1
-        const incomeResponse = await Income1Service.getAllIncome1(1, 500);
-      if (incomeResponse.success) {
-        setIncomeRecords(Array.isArray(incomeResponse.data) ? incomeResponse.data : []);
-      } else {
-        throw new Error(incomeResponse.message || "โหลดข้อมูลรายรับไม่สำเร็จ");
+        const incomeResponse = await Income1Service.getAllIncome1(1, 100000);
+        if (incomeResponse.success) {
+          setIncomeRecords(Array.isArray(incomeResponse.data) ? incomeResponse.data : []);
+        } else {
+          throw new Error(incomeResponse.message || "โหลดข้อมูลรายรับไม่สำเร็จ");
         }
       }
-      
+
       if (expenseResponse.success) {
         // ข้อมูลที่ได้จาก API เป็น array ของ header ที่มี details ภายใน
         // ต้อง flatten details ออกมาเป็น flat array เพื่อให้มี TYPE_PAY_CODE และ TYPE_PAY_NAME
         const expenseData = Array.isArray(expenseResponse.data) ? expenseResponse.data : [];
-        
+
         // Flatten details ออกมาเป็น flat array
         const flatExpenseData = [];
         expenseData.forEach(item => {
@@ -301,7 +302,7 @@ const YearlySummary = () => {
             });
           }
         });
-        
+
         setExpenseRecords(flatExpenseData);
       } else {
         throw new Error(expenseResponse.message || "โหลดข้อมูลรายจ่ายไม่สำเร็จ");
@@ -326,10 +327,10 @@ const YearlySummary = () => {
 
   const filteredIncome = useMemo(() => {
     let result = [...incomeRecords];
-    
+
     // Filter ตามช่วงปี
     result = filterByYear(result, startYear, endYear);
-    
+
     // ✅ Filter ตามวิธีรับเงิน (เงินสด, เงินโอน, บัตรทอง)
     if (incomeTypeFilter) {
       result = result.filter((item) => {
@@ -355,10 +356,10 @@ const YearlySummary = () => {
 
   const filteredExpense = useMemo(() => {
     let result = [...expenseRecords];
-    
+
     // Filter ตามช่วงปี
     result = filterByYear(result, startYear, endYear);
-    
+
     // ✅ ลบการ filter ตาม expenseTypeFilter และ statusFilter
     if (searchTerm) {
       const search = searchTerm.toLowerCase();
@@ -380,11 +381,11 @@ const YearlySummary = () => {
       ยา: 0,
       อื่นๆ: 0
     };
-    
+
     filteredIncome.forEach(item => {
       const type = item.TYPE_INCOME_NAME || item.TYPE_INCOME || '';
       const amount = parseFloat(item.TOTAL) || 0;
-      
+
       if (type === 'หัตถการ' || type === 'ค่าหัตถการ') {
         incomeByType.หัตถการ += amount;
       } else if (type === 'Lab' || type === 'ค่า Lab') {
@@ -395,7 +396,7 @@ const YearlySummary = () => {
         incomeByType.อื่นๆ += amount;
       }
     });
-    
+
     const incomeTotal = filteredIncome.reduce((sum, item) => sum + (parseFloat(item.TOTAL) || 0), 0);
     const incomeCash = filteredIncome
       .filter((item) => (item.PAYMENT_METHOD || item.TYPE_PAY) === "เงินสด")
@@ -436,11 +437,11 @@ const YearlySummary = () => {
       'ค่า Lab': 0,
       'ค่ายา': 0
     };
-    
+
     filteredIncome.forEach(item => {
       const type = item.TYPE_INCOME_NAME || item.TYPE_INCOME || '';
       const amount = parseFloat(item.TOTAL) || 0;
-      
+
       if (type === 'หัตถการ' || type === 'ค่าหัตถการ') {
         incomeByType['ค่าหัตถการ'] += amount;
       } else if (type === 'Lab' || type === 'ค่า Lab') {
@@ -449,7 +450,7 @@ const YearlySummary = () => {
         incomeByType['ค่ายา'] += amount;
       }
     });
-    
+
     // สร้างรายการรายรับ 3 แถว
     const incomeEntries = [
       {
@@ -673,10 +674,7 @@ const YearlySummary = () => {
     );
   };
 
-  const yearOptions = Array.from({ length: 10 }, (_, i) => {
-    const year = currentYear - i;
-    return year.toString();
-  });
+
 
   return (
     <Box sx={{ mt: 2 }}>
@@ -721,44 +719,29 @@ const YearlySummary = () => {
           </Typography>
           <Grid container spacing={2} alignItems="center">
             <Grid item xs={12} sm={6} md={2}>
-              <FormControl fullWidth>
-                <InputLabel>ปีเริ่มต้น</InputLabel>
-                <Select
-                  label="ปีเริ่มต้น"
-                  value={startYear}
-                  onChange={(e) => setStartYear(e.target.value)}
-                >
-                  {yearOptions.map((year) => (
-                    <MenuItem key={year} value={year}>
-                      {year}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+              <MonthYearFilter
+                year={startYear}
+                setYear={setStartYear}
+                showMonth={false}
+                yearLabel="ปีเริ่มต้น"
+              />
             </Grid>
             <Grid item xs={12} sm={6} md={2}>
-              <FormControl fullWidth>
-                <InputLabel>ปีสิ้นสุด</InputLabel>
-                <Select
-                  label="ปีสิ้นสุด"
-                  value={endYear}
-                  onChange={(e) => setEndYear(e.target.value)}
-                >
-                  {yearOptions.map((year) => (
-                    <MenuItem key={year} value={year}>
-                      {year}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+              <MonthYearFilter
+                year={endYear}
+                setYear={setEndYear}
+                showMonth={false}
+                yearLabel="ปีสิ้นสุด"
+              />
             </Grid>
             <Grid item xs={12} sm={6} md={3}>
-              <FormControl fullWidth>
+              <FormControl fullWidth size="small">
                 <InputLabel>วิธีรับเงิน</InputLabel>
                 <Select
                   label="วิธีรับเงิน"
                   value={incomeTypeFilter}
                   onChange={(e) => setIncomeTypeFilter(e.target.value)}
+                  sx={{ borderRadius: "10px", bgcolor: 'white' }}
                 >
                   <MenuItem value="">ทั้งหมด</MenuItem>
                   <MenuItem value="เงินสด">เงินสด</MenuItem>
@@ -780,6 +763,13 @@ const YearlySummary = () => {
                     </InputAdornment>
                   ),
                 }}
+                sx={{
+                  "& .MuiOutlinedInput-root": {
+                    borderRadius: "10px",
+                    bgcolor: 'white'
+                  }
+                }}
+                size="small"
               />
             </Grid>
             <Grid item xs={12} sm={6} md={2}>
@@ -789,6 +779,7 @@ const YearlySummary = () => {
                 onClick={loadData}
                 disabled={loading}
                 startIcon={<RefreshIcon />}
+                sx={{ borderRadius: "10px", height: "40px" }} // Align height with inputs
               >
                 โหลดข้อมูล
               </Button>
@@ -850,8 +841,11 @@ const YearlySummary = () => {
       )}
 
       {loading && (
-        <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+        <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", py: 4 }}>
           <CircularProgress />
+          <Typography variant="body1" sx={{ mt: 2, color: "text.secondary" }}>
+            ระบบมีข้อมูลจำนวนมาก กรุณารอโหลดสักครู่
+          </Typography>
         </Box>
       )}
 
@@ -908,26 +902,26 @@ const YearlySummary = () => {
                             </Box>
                           ) : (
                             // แสดงรายละเอียดรายการ (กรณีไม่ได้ group)
-                          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}>
-                            <Box sx={{ maxWidth: "75%" }}>
-                              <Typography variant="body2" fontWeight="medium" noWrap>
-                                {row.income.name || "-"}
-                              </Typography>
-                              <Typography variant="caption" color="text.secondary" noWrap>
-                                {row.income.refno || "-"} • {row.income.type || "-"}
-                              </Typography>
-                              <Typography variant="caption" color="text.secondary" noWrap>
-                                {formatThaiDateShort(row.income.date)}
-                              </Typography>
+                            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}>
+                              <Box sx={{ maxWidth: "75%" }}>
+                                <Typography variant="body2" fontWeight="medium" noWrap>
+                                  {row.income.name || "-"}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary" noWrap>
+                                  {row.income.refno || "-"} • {row.income.type || "-"}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary" noWrap>
+                                  {formatThaiDateShort(row.income.date)}
+                                </Typography>
+                              </Box>
+                              <IconButton
+                                size="small"
+                                onClick={() => loadIncomeDetail(row.income.refno)}
+                                sx={{ border: "1px solid #2563eb", borderRadius: "7px", color: "#2563eb" }}
+                              >
+                                <VisibilityIcon fontSize="small" />
+                              </IconButton>
                             </Box>
-                            <IconButton
-                              size="small"
-                              onClick={() => loadIncomeDetail(row.income.refno)}
-                              sx={{ border: "1px solid #2563eb", borderRadius: "7px", color: "#2563eb" }}
-                            >
-                              <VisibilityIcon fontSize="small" />
-                            </IconButton>
-                          </Box>
                           )
                         ) : (
                           "-"

@@ -44,41 +44,7 @@ import {
   getCurrentDateForDB,
 } from "../../utils/dateTimeUtils";
 import ExpensePdfButton from "./ExpensePdfButton";
-
-const convertDateCEToBE = (ceDate) => {
-  if (!ceDate) return "";
-  const [year, month, day] = ceDate.split("-");
-  return `${parseInt(year, 10) + 543}-${month}-${day}`;
-};
-
-const convertDateBEToCE = (beDate) => {
-  if (!beDate) return "";
-  const [year, month, day] = beDate.split("-");
-  return `${parseInt(year, 10) - 543}-${month}-${day}`;
-};
-
-const DateInputBE = ({ label, value, onChange, ...props }) => {
-  const displayValue = value ? convertDateCEToBE(value) : "";
-
-  const handleChange = (event) => {
-    const beValue = event.target.value;
-    const ceValue = beValue ? convertDateBEToCE(beValue) : "";
-    onChange?.({ target: { value: ceValue } });
-  };
-
-  return (
-    <TextField
-      {...props}
-      fullWidth
-      label={label}
-      type="date"
-      value={displayValue}
-      onChange={handleChange}
-      InputLabelProps={{ shrink: true }}
-      inputProps={{ max: convertDateCEToBE("9999-12-31") }}
-    />
-  );
-};
+import DatePickerBE from "../common/DatePickerBE"; // Added import
 
 const formatCurrency = (amount) =>
   new Intl.NumberFormat("th-TH", {
@@ -269,17 +235,17 @@ const ExpenseReport = () => {
           </Typography>
           <Grid container spacing={2}>
             <Grid item xs={12} sm={6} md={2}>
-              <DateInputBE
+              <DatePickerBE
                 label="วันที่เริ่มต้น"
                 value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
+                onChange={(value) => setStartDate(value)}
               />
             </Grid>
             <Grid item xs={12} sm={6} md={2}>
-              <DateInputBE
+              <DatePickerBE
                 label="วันที่สิ้นสุด"
                 value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
+                onChange={(value) => setEndDate(value)}
               />
             </Grid>
             <Grid item xs={12} sm={6} md={2}>
@@ -289,6 +255,7 @@ const ExpenseReport = () => {
                   label="สถานะ"
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
+                  sx={{ borderRadius: "10px", bgcolor: 'white' }}
                 >
                   <MenuItem value="">ทั้งหมด</MenuItem>
                   {uniqueStatuses.map((status) => (
@@ -306,6 +273,7 @@ const ExpenseReport = () => {
                   label="วิธีจ่าย"
                   value={typeFilter}
                   onChange={(e) => setTypeFilter(e.target.value)}
+                  sx={{ borderRadius: "10px", bgcolor: 'white' }}
                 >
                   <MenuItem value="">ทั้งหมด</MenuItem>
                   {uniqueTypePays.map((type) => (
@@ -329,6 +297,13 @@ const ExpenseReport = () => {
                     </InputAdornment>
                   ),
                 }}
+                sx={{
+                  "& .MuiOutlinedInput-root": {
+                    borderRadius: "10px",
+                    bgcolor: 'white'
+                  }
+                }}
+                size="small"
               />
             </Grid>
           </Grid>

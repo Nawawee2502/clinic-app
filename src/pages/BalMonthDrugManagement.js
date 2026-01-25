@@ -14,13 +14,16 @@ import EditIcon from '@mui/icons-material/Edit';
 import CloseIcon from '@mui/icons-material/Close';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import dayjs from 'dayjs';
 
 import BalMonthDrugService from "../services/balMonthDrugService";
 import DrugService from "../services/drugService";
 import Swal from "sweetalert2";
+
+// ✅ Import Reusable Components
+import DatePickerBE from "../components/common/DatePickerBE";
+import MonthYearFilter from "../components/common/MonthYearFilter";
 
 const BalMonthDrugManagement = () => {
     // Helper functions สำหรับจัดการปี พ.ศ.
@@ -32,69 +35,7 @@ const BalMonthDrugManagement = () => {
         return parseInt(buddhistYear) - 543;
     };
 
-    const getYearOptionsBE = (yearsBack = 5) => {
-        const currentYear = new Date().getFullYear() + 543; // พ.ศ. ปัจจุบัน
-        const options = [];
-        for (let i = 0; i <= yearsBack; i++) {
-            const year = currentYear - i;
-            options.push({ value: year.toString(), label: year.toString() });
-        }
-        return options;
-    };
-
-    const formatDateBE = (dateString) => {
-        if (!dateString) return '-';
-        const date = new Date(dateString);
-        const day = date.getDate().toString().padStart(2, '0');
-        const month = (date.getMonth() + 1).toString().padStart(2, '0');
-        const year = date.getFullYear() + 543; // แปลงเป็น พ.ศ.
-        return `${day}/${month}/${year}`;
-    };
-
-    // แปลงวันที่จาก input (ค.ศ.) เป็น พ.ศ. สำหรับแสดงผล
-    const convertDateCEToBE = (ceDate) => {
-        if (!ceDate) return '';
-        const [year, month, day] = ceDate.split('-');
-        const beYear = parseInt(year) + 543;
-        return `${beYear}-${month}-${day}`;
-    };
-
-    // แปลงวันที่จาก พ.ศ. กลับเป็น ค.ศ. สำหรับเก็บใน state
-    const convertDateBEToCE = (beDate) => {
-        if (!beDate) return '';
-        const [year, month, day] = beDate.split('-');
-        const ceYear = parseInt(year) - 543;
-        return `${ceYear}-${month}-${day}`;
-    };
-
-    // Component สำหรับ Date Input ที่แสดงเป็น พ.ศ.
-    const DateInputBE = ({ label, value, onChange, disabled, ...props }) => {
-        const displayValue = value ? convertDateCEToBE(value) : '';
-
-        const handleChange = (e) => {
-            const beValue = e.target.value;
-            const ceValue = beValue ? convertDateBEToCE(beValue) : '';
-            onChange(ceValue);
-        };
-
-        return (
-            <TextField
-                {...props}
-                fullWidth
-                label={label}
-                type="date"
-                value={displayValue}
-                onChange={handleChange}
-                disabled={disabled}
-                size="small"
-                InputLabelProps={{ shrink: true }}
-                inputProps={{
-                    max: convertDateCEToBE('9999-12-31') // ปี พ.ศ. สูงสุด
-                }}
-                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
-            />
-        );
-    };
+    // ✅ Note: removed getYearOptionsBE/formatDateBE/DateInputBE as they are now handled by common components
 
     const [currentView, setCurrentView] = useState("list");
     const [balanceList, setBalanceList] = useState([]);
@@ -522,38 +463,20 @@ const BalMonthDrugManagement = () => {
                     <Card>
                         <CardContent>
                             <Grid container spacing={3}>
-                                <Grid item xs={12} md={4}>
-                                    <Typography sx={{ fontWeight: 400, fontSize: 16, mb: 1 }}>ปี *</Typography>
-                                    <FormControl fullWidth size="small" error={!!formErrors.MYEAR}>
-                                        <Select
-                                            value={formData.MYEAR}
-                                            onChange={(e) => handleFormChange('MYEAR', e.target.value)}
-                                            disabled={!!editingItem}
-                                            sx={{ borderRadius: "10px", backgroundColor: editingItem ? "#f5f5f5" : "white" }}
-                                        >
-                                            {getYearOptionsBE(5).map(opt => (
-                                                <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
-                                            ))}
-                                        </Select>
-                                        {formErrors.MYEAR && <FormHelperText>{formErrors.MYEAR}</FormHelperText>}
-                                    </FormControl>
-                                </Grid>
-
-                                <Grid item xs={12} md={4}>
-                                    <Typography sx={{ fontWeight: 400, fontSize: 16, mb: 1 }}>เดือน *</Typography>
-                                    <FormControl fullWidth size="small" error={!!formErrors.MONTHH}>
-                                        <Select
-                                            value={formData.MONTHH}
-                                            onChange={(e) => handleFormChange('MONTHH', e.target.value)}
-                                            disabled={!!editingItem}
-                                            sx={{ borderRadius: "10px", backgroundColor: editingItem ? "#f5f5f5" : "white" }}
-                                        >
-                                            {BalMonthDrugService.getMonthOptions().map(opt => (
-                                                <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
-                                            ))}
-                                        </Select>
-                                        {formErrors.MONTHH && <FormHelperText>{formErrors.MONTHH}</FormHelperText>}
-                                    </FormControl>
+                                <Grid item xs={12} md={8}>
+                                    <Typography sx={{ fontWeight: 400, fontSize: 16, mb: 1 }}>ปี / เดือน *</Typography>
+                                    <MonthYearFilter
+                                        year={formData.MYEAR}
+                                        setYear={(val) => handleFormChange('MYEAR', val)}
+                                        month={formData.MONTHH}
+                                        setMonth={(val) => handleFormChange('MONTHH', val)}
+                                    />
+                                    {/* Show errors if any */}
+                                    {(formErrors.MYEAR || formErrors.MONTHH) && (
+                                        <Typography color="error" variant="caption" sx={{ mt: 1, display: 'block' }}>
+                                            {formErrors.MYEAR || formErrors.MONTHH}
+                                        </Typography>
+                                    )}
                                 </Grid>
 
                                 <Grid item xs={12}>
@@ -723,24 +646,14 @@ const BalMonthDrugManagement = () => {
 
                 <Card sx={{ mb: 2 }}>
                     <CardContent>
-                        <Grid container spacing={2} alignItems="center">
-                            <Grid item xs={12} md={3}>
-                                <FormControl fullWidth size="small">
-                                    <Select value={filterYear} onChange={(e) => setFilterYear(e.target.value)} sx={{ borderRadius: "10px" }}>
-                                        {getYearOptionsBE(5).map(opt => (
-                                            <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
-                                        ))}
-                                    </Select>
-                                </FormControl>
-                            </Grid>
-                            <Grid item xs={12} md={3}>
-                                <FormControl fullWidth size="small">
-                                    <Select value={filterMonth} onChange={(e) => setFilterMonth(e.target.value)} sx={{ borderRadius: "10px" }}>
-                                        {BalMonthDrugService.getMonthOptions().map(opt => (
-                                            <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
-                                        ))}
-                                    </Select>
-                                </FormControl>
+                        <Grid container spacing={2}>
+                            <Grid item xs={12} md={6}>
+                                <MonthYearFilter
+                                    year={filterYear}
+                                    setYear={setFilterYear}
+                                    month={filterMonth}
+                                    setMonth={setFilterMonth}
+                                />
                             </Grid>
                             <Grid item xs={12} md={6}>
                                 <TextField
@@ -823,8 +736,7 @@ const BalMonthDrugManagement = () => {
                                                     <TableCell>{(page - 1) * itemsPerPage + index + 1}</TableCell>
                                                     <TableCell>{item.DRUG_CODE}</TableCell>
                                                     <TableCell>{drugName}</TableCell>
-                                                    <TableCell>{item.LOT_NO || '-'}</TableCell>
-                                                    <TableCell>{formatDateBE(item.EXPIRE_DATE)}</TableCell>
+                                                    <TableCell>{BalMonthDrugService.formatDate(item.EXPIRE_DATE)}</TableCell>
                                                     <TableCell>{unitName}</TableCell>
                                                     <TableCell align="right">{item.QTY ? item.QTY.toFixed(2) : '0.00'}</TableCell>
                                                     <TableCell align="right">{BalMonthDrugService.formatCurrency(item.UNIT_PRICE)}</TableCell>
@@ -880,7 +792,7 @@ const BalMonthDrugManagement = () => {
                     </Alert>
                 </Snackbar>
             </Container>
-        </LocalizationProvider>
+        </LocalizationProvider >
     );
 };
 

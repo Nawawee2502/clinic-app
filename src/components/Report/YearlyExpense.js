@@ -40,6 +40,7 @@ import {
   formatThaiDateShort,
 } from "../../utils/dateTimeUtils";
 import ExpensePdfButton from "./ExpensePdfButton";
+import MonthYearFilter from "../common/MonthYearFilter";
 
 const formatCurrency = (amount) =>
   new Intl.NumberFormat("th-TH", {
@@ -50,7 +51,7 @@ const formatCurrency = (amount) =>
 
 const YearlyExpense = () => {
   const currentYear = new Date().getFullYear();
-  
+
   const [startYear, setStartYear] = useState(currentYear.toString());
   const [endYear, setEndYear] = useState(currentYear.toString());
   const [payRecords, setPayRecords] = useState([]);
@@ -78,7 +79,7 @@ const YearlyExpense = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await Pay1Service.getAllPay1(1, 500);
+      const response = await Pay1Service.getAllPay1(1, 100000);
       if (response.success) {
         const records = Array.isArray(response.data) ? response.data : [];
         setPayRecords(records);
@@ -185,10 +186,7 @@ const YearlyExpense = () => {
     return total || parseFloat(detailDialog.data?.header?.TOTAL) || 0;
   }, [detailDialog.data]);
 
-  const yearOptions = Array.from({ length: 10 }, (_, i) => {
-    const year = currentYear - i;
-    return year.toString();
-  });
+
 
   return (
     <Box sx={{ mt: 2 }}>
@@ -233,44 +231,29 @@ const YearlyExpense = () => {
           </Typography>
           <Grid container spacing={2}>
             <Grid item xs={12} sm={6} md={2}>
-              <FormControl fullWidth>
-                <InputLabel>ปีเริ่มต้น</InputLabel>
-                <Select
-                  label="ปีเริ่มต้น"
-                  value={startYear}
-                  onChange={(e) => setStartYear(e.target.value)}
-                >
-                  {yearOptions.map((year) => (
-                    <MenuItem key={year} value={year}>
-                      {year}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+              <MonthYearFilter
+                year={startYear}
+                setYear={setStartYear}
+                showMonth={false}
+                yearLabel="ปีเริ่มต้น"
+              />
             </Grid>
             <Grid item xs={12} sm={6} md={2}>
-              <FormControl fullWidth>
-                <InputLabel>ปีสิ้นสุด</InputLabel>
-                <Select
-                  label="ปีสิ้นสุด"
-                  value={endYear}
-                  onChange={(e) => setEndYear(e.target.value)}
-                >
-                  {yearOptions.map((year) => (
-                    <MenuItem key={year} value={year}>
-                      {year}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+              <MonthYearFilter
+                year={endYear}
+                setYear={setEndYear}
+                showMonth={false}
+                yearLabel="ปีสิ้นสุด"
+              />
             </Grid>
             <Grid item xs={12} sm={6} md={2}>
-              <FormControl fullWidth>
+              <FormControl fullWidth size="small">
                 <InputLabel>สถานะ</InputLabel>
                 <Select
                   label="สถานะ"
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
+                  sx={{ borderRadius: "10px", bgcolor: 'white' }}
                 >
                   <MenuItem value="">ทั้งหมด</MenuItem>
                   {uniqueStatuses.map((status) => (
@@ -282,12 +265,13 @@ const YearlyExpense = () => {
               </FormControl>
             </Grid>
             <Grid item xs={12} sm={6} md={2}>
-              <FormControl fullWidth>
+              <FormControl fullWidth size="small">
                 <InputLabel>วิธีจ่าย</InputLabel>
                 <Select
                   label="วิธีจ่าย"
                   value={typeFilter}
                   onChange={(e) => setTypeFilter(e.target.value)}
+                  sx={{ borderRadius: "10px", bgcolor: 'white' }}
                 >
                   <MenuItem value="">ทั้งหมด</MenuItem>
                   {uniqueTypePays.map((type) => (
@@ -311,6 +295,13 @@ const YearlyExpense = () => {
                     </InputAdornment>
                   ),
                 }}
+                sx={{
+                  "& .MuiOutlinedInput-root": {
+                    borderRadius: "10px",
+                    bgcolor: 'white'
+                  }
+                }}
+                size="small"
               />
             </Grid>
           </Grid>
@@ -378,8 +369,11 @@ const YearlyExpense = () => {
       )}
 
       {loading && (
-        <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+        <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", py: 4 }}>
           <CircularProgress />
+          <Typography variant="body1" sx={{ mt: 2, color: "text.secondary" }}>
+            ระบบมีข้อมูลจำนวนมาก กรุณารอโหลดสักครู่
+          </Typography>
         </Box>
       )}
 

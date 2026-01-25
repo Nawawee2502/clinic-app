@@ -22,9 +22,12 @@ import BookBankService from "../services/bookBankService";
 import BalDrugService from "../services/balDrugService";
 import Swal from "sweetalert2";
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import dayjs from 'dayjs';
+
+// ✅ Import Reusable Components
+import DatePickerBE from "../components/common/DatePickerBE";
+import MonthYearFilter from "../components/common/MonthYearFilter";
 
 const Return1Management = () => {
     // Helper functions สำหรับจัดการปี พ.ศ.
@@ -36,84 +39,6 @@ const Return1Management = () => {
         return parseInt(buddhistYear) - 543;
     };
 
-    const getYearOptionsBE = (yearsBack = 5) => {
-        const currentYear = new Date().getFullYear() + 543;
-        const options = [];
-        for (let i = 0; i <= yearsBack; i++) {
-            const year = currentYear - i;
-            options.push({ value: year.toString(), label: year.toString() });
-        }
-        return options;
-    };
-
-    const monthOptions = [
-        { value: 1, label: 'มกราคม' },
-        { value: 2, label: 'กุมภาพันธ์' },
-        { value: 3, label: 'มีนาคม' },
-        { value: 4, label: 'เมษายน' },
-        { value: 5, label: 'พฤษภาคม' },
-        { value: 6, label: 'มิถุนายน' },
-        { value: 7, label: 'กรกฎาคม' },
-        { value: 8, label: 'สิงหาคม' },
-        { value: 9, label: 'กันยายน' },
-        { value: 10, label: 'ตุลาคม' },
-        { value: 11, label: 'พฤศจิกายน' },
-        { value: 12, label: 'ธันวาคม' }
-    ];
-
-    const formatDateBE = (dateString) => {
-        if (!dateString) return '-';
-        const date = new Date(dateString);
-        const day = date.getDate().toString().padStart(2, '0');
-        const month = (date.getMonth() + 1).toString().padStart(2, '0');
-        const year = date.getFullYear() + 543; // แปลงเป็น พ.ศ.
-        return `${day}/${month}/${year}`;
-    };
-
-    // แปลงวันที่จาก input (ค.ศ.) เป็น พ.ศ. สำหรับแสดงผล
-    const convertDateCEToBE = (ceDate) => {
-        if (!ceDate) return '';
-        const [year, month, day] = ceDate.split('-');
-        const beYear = parseInt(year) + 543;
-        return `${beYear}-${month}-${day}`;
-    };
-
-    // แปลงวันที่จาก พ.ศ. กลับเป็น ค.ศ. สำหรับเก็บใน state
-    const convertDateBEToCE = (beDate) => {
-        if (!beDate) return '';
-        const [year, month, day] = beDate.split('-');
-        const ceYear = parseInt(year) - 543;
-        return `${ceYear}-${month}-${day}`;
-    };
-
-    // Component สำหรับ Date Input ที่แสดงเป็น พ.ศ.
-    const DateInputBE = ({ label, value, onChange, disabled, ...props }) => {
-        const displayValue = value ? convertDateCEToBE(value) : '';
-
-        const handleChange = (e) => {
-            const beValue = e.target.value;
-            const ceValue = beValue ? convertDateBEToCE(beValue) : '';
-            onChange(ceValue);
-        };
-
-        return (
-            <TextField
-                {...props}
-                fullWidth
-                label={label}
-                type="date"
-                value={displayValue}
-                onChange={handleChange}
-                disabled={disabled}
-                size="small"
-                InputLabelProps={{ shrink: true }}
-                inputProps={{
-                    max: convertDateCEToBE('9999-12-31') // ปี พ.ศ. สูงสุด
-                }}
-                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
-            />
-        );
-    };
 
     const [currentView, setCurrentView] = useState("list");
     const [return1List, setReturn1List] = useState([]);
@@ -604,11 +529,11 @@ const Return1Management = () => {
                     lot.LOT_NO === detail.LOT_NO
                 );
                 setSelectedLot(matchedLot || null);
-                
+
                 // ✅ เช็คจำนวนเมื่อโหลดรายการแก้ไข
                 const currentQty = parseFloat(detail.QTY) || 0;
                 const availableQty = matchedLot ? parseFloat(matchedLot.QTY) || 0 : 0;
-                
+
                 if (currentQty > 0 && availableQty > 0 && currentQty > availableQty) {
                     setQtyError(`⚠️ จำนวนเกิน! คงเหลือเพียง ${availableQty} ${detail.UNIT_NAME1 || ''}`);
                 } else {
@@ -627,7 +552,7 @@ const Return1Management = () => {
         // หา GENERIC_NAME จาก drugList โดยใช้ DRUG_CODE
         const drug = drugList.find(d => d.DRUG_CODE === detail.DRUG_CODE);
         const genericName = drug ? drug.GENERIC_NAME : (detail.GENERIC_NAME || '');
-        
+
         setModalData({
             ...detail,
             GENERIC_NAME: genericName, // ตั้งค่า GENERIC_NAME จาก drugList
@@ -661,11 +586,11 @@ const Return1Management = () => {
                 const unitCost = parseFloat(field === 'UNIT_COST' ? value : updated.UNIT_COST) || 0;
                 updated.AMT = (qty * unitCost).toFixed(2);
             }
-            
+
             if (field === 'QTY') {
                 const returnQty = parseFloat(value) || 0;
                 const availableQty = selectedLot ? parseFloat(selectedLot.QTY) || 0 : 0;
-                
+
                 if (returnQty > 0 && availableQty > 0 && returnQty > availableQty) {
                     const message = `⚠️ จำนวนเกิน! คงเหลือเพียง ${availableQty} ${updated.UNIT_NAME1 || ''}`;
                     setQtyError(message);
@@ -679,7 +604,7 @@ const Return1Management = () => {
                     clearModalError('QTY');
                 }
             }
-            
+
             return updated;
         });
     };
@@ -755,11 +680,11 @@ const Return1Management = () => {
                 LOT_NO: value.LOT_NO,
                 EXPIRE_DATE: Return1Service.formatDateForInput(value.EXPIRE_DATE)
             }));
-            
+
             // ✅ เช็คจำนวนอีกครั้งเมื่อเปลี่ยน LOT
             const currentQty = parseFloat(modalData.QTY) || 0;
             const availableQty = parseFloat(value.QTY) || 0;
-            
+
             if (currentQty > 0 && availableQty > 0 && currentQty > availableQty) {
                 const message = `⚠️ จำนวนเกิน! คงเหลือเพียง ${availableQty} ${modalData.UNIT_NAME1 || ''}`;
                 setQtyError(message);
@@ -1007,7 +932,7 @@ const Return1Management = () => {
                                     />
                                 </Grid>
                                 <Grid item xs={12} md={6}>
-                                    <DateInputBE
+                                    <DatePickerBE
                                         label="วันที่"
                                         value={headerData.RDATE}
                                         onChange={(value) => handleHeaderChange('RDATE', value)}
@@ -1027,7 +952,7 @@ const Return1Management = () => {
                                     />
                                 </Grid>
                                 <Grid item xs={12} md={6}>
-                                    <DateInputBE
+                                    <DatePickerBE
                                         label="วันครบกำหนด"
                                         value={headerData.DUEDATE}
                                         onChange={(value) => handleHeaderChange('DUEDATE', value)}
@@ -1110,7 +1035,7 @@ const Return1Management = () => {
                                                 const tradeName = drug?.TRADE_NAME || '';
                                                 const drugCode = drug?.DRUG_CODE || detail.DRUG_CODE || '';
                                                 const drugDisplay = drug ? `${genericName}-${tradeName}-${drugCode}` : (detail.GENERIC_NAME || '-');
-                                                
+
                                                 return (
                                                     <TableRow key={index}>
                                                         <TableCell>{drugDisplay}</TableCell>
@@ -1119,7 +1044,7 @@ const Return1Management = () => {
                                                         <TableCell>{detail.UNIT_NAME1 || detail.UNIT_CODE1 || '-'}</TableCell>
                                                         <TableCell>{Return1Service.formatCurrency(detail.AMT)}</TableCell>
                                                         <TableCell>{detail.LOT_NO}</TableCell>
-                                                        <TableCell>{formatDateBE(detail.EXPIRE_DATE)} </TableCell>
+                                                        <TableCell>{Return1Service.formatDate(detail.EXPIRE_DATE)} </TableCell>
                                                         <TableCell align="center">
                                                             <IconButton size="small" onClick={() => handleEditDetail(index)} sx={{ color: '#5698E0' }}>
                                                                 <EditIcon fontSize="small" />
@@ -1208,7 +1133,7 @@ const Return1Management = () => {
                                         }}
                                         filterOptions={(options, { inputValue }) => {
                                             const searchTerm = inputValue.toLowerCase();
-                                            return options.filter(option => 
+                                            return options.filter(option =>
                                                 (option.GENERIC_NAME || '').toLowerCase().includes(searchTerm) ||
                                                 (option.TRADE_NAME || '').toLowerCase().includes(searchTerm) ||
                                                 (option.DRUG_CODE || '').toLowerCase().includes(searchTerm)
@@ -1256,19 +1181,11 @@ const Return1Management = () => {
                                     />
                                 </Grid>
                                 <Grid item xs={12} md={6}>
-                                    <DatePicker
+                                    <DatePickerBE
                                         label="วันหมดอายุ"
-                                        value={modalData.EXPIRE_DATE ? dayjs(modalData.EXPIRE_DATE) : null}
-                                        onChange={(newValue) => handleModalChange('EXPIRE_DATE', newValue ? newValue.format('YYYY-MM-DD') : '')}
-                                    disabled={!modalData.DRUG_CODE}
-                                    renderInput={(params) => (
-                                        <TextField
-                                            {...params}
-                                            fullWidth
-                                            size="small"
-                                            sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
-                                        />
-                                    )}
+                                        value={modalData.EXPIRE_DATE}
+                                        onChange={(value) => handleModalChange('EXPIRE_DATE', value)}
+                                        disabled={!modalData.DRUG_CODE}
                                     />
                                 </Grid>
                                 <Grid item xs={12} md={6}>
@@ -1280,8 +1197,8 @@ const Return1Management = () => {
                                         onChange={(e) => handleModalChange('QTY', e.target.value)}
                                         size="small"
                                         error={!!qtyFieldError}
-                                        sx={{ 
-                                            "& .MuiOutlinedInput-root": { 
+                                        sx={{
+                                            "& .MuiOutlinedInput-root": {
                                                 borderRadius: "10px",
                                                 ...(qtyFieldError && {
                                                     borderColor: '#d32f2f',
@@ -1300,14 +1217,14 @@ const Return1Management = () => {
                                             }
                                         }}
                                         helperText={
-                                            qtyFieldError 
-                                                ? qtyFieldError 
-                                                : selectedLot 
-                                                    ? `สูงสุด: ${selectedLot.QTY} ${modalData.UNIT_NAME1 || ''}` 
+                                            qtyFieldError
+                                                ? qtyFieldError
+                                                : selectedLot
+                                                    ? `สูงสุด: ${selectedLot.QTY} ${modalData.UNIT_NAME1 || ''}`
                                                     : ''
                                         }
-                                        inputProps={{ 
-                                            step: "1", 
+                                        inputProps={{
+                                            step: "1",
                                             min: "0",
                                             max: selectedLot ? selectedLot.QTY : undefined
                                         }}
@@ -1379,41 +1296,13 @@ const Return1Management = () => {
                                     InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon color="action" /></InputAdornment> }}
                                     sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }} />
                             </Grid>
-                            <Grid item xs={12} md={3}>
-                                <FormControl fullWidth size="small">
-                                    <InputLabel id="return-year-filter-label">ปี (พ.ศ.)</InputLabel>
-                                    <Select
-                                        labelId="return-year-filter-label"
-                                        value={filterYear}
-                                        onChange={(e) => setFilterYear(e.target.value)}
-                                        sx={{ borderRadius: "10px" }}
-                                        label="ปี (พ.ศ.)"
-                                    >
-                                        {getYearOptionsBE().map(option => (
-                                            <MenuItem key={option.value} value={option.value}>
-                                                {option.label}
-                                            </MenuItem>
-                                        ))}
-                                    </Select>
-                                </FormControl>
-                            </Grid>
-                            <Grid item xs={12} md={3}>
-                                <FormControl fullWidth size="small">
-                                    <InputLabel id="return-month-filter-label">เดือน</InputLabel>
-                                    <Select
-                                        labelId="return-month-filter-label"
-                                        value={filterMonth}
-                                        onChange={(e) => setFilterMonth(Number(e.target.value))}
-                                        sx={{ borderRadius: "10px" }}
-                                        label="เดือน"
-                                    >
-                                        {monthOptions.map(option => (
-                                            <MenuItem key={option.value} value={option.value}>
-                                                {option.label}
-                                            </MenuItem>
-                                        ))}
-                                    </Select>
-                                </FormControl>
+                            <Grid item xs={12} md={6}>
+                                <MonthYearFilter
+                                    year={filterYear}
+                                    setYear={setFilterYear}
+                                    month={filterMonth}
+                                    setMonth={setFilterMonth}
+                                />
                             </Grid>
                         </Grid>
                     </CardContent>
@@ -1448,9 +1337,9 @@ const Return1Management = () => {
                                                 <tr key={item.REFNO} style={{ borderTop: '1px solid #e0e0e0' }}>
                                                     <td style={{ padding: '12px 8px' }}>{(page - 1) * itemsPerPage + index + 1}</td>
                                                     <td style={{ padding: '12px 8px', fontWeight: 500 }}>{item.REFNO}</td>
-                                                    <td style={{ padding: '12px 8px' }}>{formatDateBE(item.RDATE)}</td>
+                                                    <td style={{ padding: '12px 8px' }}>{Return1Service.formatDate(item.RDATE)}</td>
                                                     <td style={{ padding: '12px 8px' }}>{item.SUPPLIER_NAME || item.SUPPLIER_CODE}</td>
-                                                    <td style={{ padding: '12px 8px' }}>{formatDateBE(item.DUEDATE)}</td>
+                                                    <td style={{ padding: '12px 8px' }}>{Return1Service.formatDate(item.DUEDATE)}</td>
                                                     <td style={{ padding: '12px 8px', textAlign: 'right', fontWeight: 500 }}>
                                                         {Return1Service.formatCurrency(item.GTOTAL)}
                                                     </td>

@@ -40,6 +40,7 @@ import TreatmentService from "../../services/treatmentService";
 import {
   formatThaiDateShort,
 } from "../../utils/dateTimeUtils";
+import MonthYearFilter from "../common/MonthYearFilter";
 
 const formatCurrency = (amount) =>
   new Intl.NumberFormat("th-TH", {
@@ -62,6 +63,7 @@ const MonthlyIncome = () => {
   const [error, setError] = useState(null);
   const [statusFilter, setStatusFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
+  const [rightsType, setRightsType] = useState(""); // ✅ New Filter
   const [searchTerm, setSearchTerm] = useState("");
   const [detailDialog, setDetailDialog] = useState({
     open: false,
@@ -105,7 +107,7 @@ const MonthlyIncome = () => {
       const response = await TreatmentService.getPaidTreatmentsWithDetails({
         date_from: startDateStr,
         date_to: endDateStr,
-        limit: 1000 // Increase limit for monthly report
+        limit: 100000 // Increase limit for monthly report
       });
 
       if (response.success) {
@@ -133,6 +135,22 @@ const MonthlyIncome = () => {
 
     if (typeFilter) {
       filtered = filtered.filter(item => item.PAYMENT_METHOD === typeFilter);
+    }
+
+    // ✅ Filter by Rights Type
+    if (rightsType) {
+      if (rightsType === 'gold_card') {
+        filtered = filtered.filter(item =>
+          item.UCS_CARD === 'Y' ||
+          item.PAYMENT_METHOD === 'บัตรทอง'
+        );
+      } else if (rightsType === 'cash') {
+        filtered = filtered.filter(item => {
+          const isGold = item.UCS_CARD === 'Y' || item.PAYMENT_METHOD === 'บัตรทอง';
+          const isSocial = item.VISIT_SOCIAL_CARD === 'Y' || item.PAYMENT_METHOD === 'ประกันสังคม';
+          return !isGold && !isSocial;
+        });
+      }
     }
 
     if (searchTerm) {
@@ -215,25 +233,7 @@ const MonthlyIncome = () => {
     return total || parseFloat(detailDialog.data?.header?.TOTAL) || 0;
   }, [detailDialog.data]);
 
-  const monthOptions = [
-    { value: '1', label: 'มกราคม' },
-    { value: '2', label: 'กุมภาพันธ์' },
-    { value: '3', label: 'มีนาคม' },
-    { value: '4', label: 'เมษายน' },
-    { value: '5', label: 'พฤษภาคม' },
-    { value: '6', label: 'มิถุนายน' },
-    { value: '7', label: 'กรกฎาคม' },
-    { value: '8', label: 'สิงหาคม' },
-    { value: '9', label: 'กันยายน' },
-    { value: '10', label: 'ตุลาคม' },
-    { value: '11', label: 'พฤศจิกายน' },
-    { value: '12', label: 'ธันวาคม' },
-  ];
 
-  const yearOptions = Array.from({ length: 5 }, (_, i) => {
-    const year = currentYear - i;
-    return year.toString();
-  });
 
   return (
     <Box sx={{ mt: 2 }}>
@@ -267,77 +267,34 @@ const MonthlyIncome = () => {
             ตัวกรองข้อมูล
           </Typography>
           <Grid container spacing={2}>
-            <Grid item xs={12} sm={6} md={2}>
-              <FormControl fullWidth>
-                <InputLabel>ปีเริ่มต้น</InputLabel>
-                <Select
-                  label="ปีเริ่มต้น"
-                  value={startYear}
-                  onChange={(e) => setStartYear(e.target.value)}
-                >
-                  {yearOptions.map((year) => (
-                    <MenuItem key={year} value={year}>
-                      {year}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+            <Grid item xs={12} sm={12} md={4}>
+              <MonthYearFilter
+                year={startYear}
+                setYear={setStartYear}
+                month={startMonth}
+                setMonth={setStartMonth}
+                yearLabel="ปีเริ่มต้น"
+                monthLabel="เดือนเริ่มต้น"
+              />
+            </Grid>
+            <Grid item xs={12} sm={12} md={4}>
+              <MonthYearFilter
+                year={endYear}
+                setYear={setEndYear}
+                month={endMonth}
+                setMonth={setEndMonth}
+                yearLabel="ปีสิ้นสุด"
+                monthLabel="เดือนสิ้นสุด"
+              />
             </Grid>
             <Grid item xs={12} sm={6} md={2}>
-              <FormControl fullWidth>
-                <InputLabel>เดือนเริ่มต้น</InputLabel>
-                <Select
-                  label="เดือนเริ่มต้น"
-                  value={startMonth}
-                  onChange={(e) => setStartMonth(e.target.value)}
-                >
-                  {monthOptions.map((month) => (
-                    <MenuItem key={month.value} value={month.value}>
-                      {month.label}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} sm={6} md={2}>
-              <FormControl fullWidth>
-                <InputLabel>ปีสิ้นสุด</InputLabel>
-                <Select
-                  label="ปีสิ้นสุด"
-                  value={endYear}
-                  onChange={(e) => setEndYear(e.target.value)}
-                >
-                  {yearOptions.map((year) => (
-                    <MenuItem key={year} value={year}>
-                      {year}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} sm={6} md={2}>
-              <FormControl fullWidth>
-                <InputLabel>เดือนสิ้นสุด</InputLabel>
-                <Select
-                  label="เดือนสิ้นสุด"
-                  value={endMonth}
-                  onChange={(e) => setEndMonth(e.target.value)}
-                >
-                  {monthOptions.map((month) => (
-                    <MenuItem key={month.value} value={month.value}>
-                      {month.label}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} sm={6} md={2}>
-              <FormControl fullWidth>
+              <FormControl fullWidth size="small">
                 <InputLabel>สถานะ</InputLabel>
                 <Select
                   label="สถานะ"
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
+                  sx={{ borderRadius: "10px", bgcolor: 'white' }}
                 >
                   <MenuItem value="">ทั้งหมด</MenuItem>
                   {uniqueStatuses.map((status) => (
@@ -349,12 +306,13 @@ const MonthlyIncome = () => {
               </FormControl>
             </Grid>
             <Grid item xs={12} sm={6} md={2}>
-              <FormControl fullWidth>
+              <FormControl fullWidth size="small">
                 <InputLabel>วิธีรับ</InputLabel>
                 <Select
                   label="วิธีรับ"
                   value={typeFilter}
                   onChange={(e) => setTypeFilter(e.target.value)}
+                  sx={{ borderRadius: "10px", bgcolor: 'white' }}
                 >
                   <MenuItem value="">ทั้งหมด</MenuItem>
                   {uniqueTypePays.map((type) => (
@@ -362,6 +320,21 @@ const MonthlyIncome = () => {
                       {type}
                     </MenuItem>
                   ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={6} md={2}>
+              <FormControl fullWidth size="small">
+                <InputLabel>สิทธิการรักษา</InputLabel>
+                <Select
+                  label="สิทธิการรักษา"
+                  value={rightsType}
+                  onChange={(e) => setRightsType(e.target.value)}
+                  sx={{ borderRadius: "10px", bgcolor: 'white' }}
+                >
+                  <MenuItem value="">ทั้งหมด</MenuItem>
+                  <MenuItem value="gold_card">บัตรทอง (UCS)</MenuItem>
+                  <MenuItem value="cash">จ่ายเอง (เงินสด/เงินโอน)</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
@@ -378,206 +351,226 @@ const MonthlyIncome = () => {
                     </InputAdornment>
                   ),
                 }}
+                sx={{
+                  "& .MuiOutlinedInput-root": {
+                    borderRadius: "10px",
+                    bgcolor: 'white'
+                  }
+                }}
+                size="small"
               />
             </Grid>
           </Grid>
         </CardContent>
-      </Card>
+      </Card >
 
-      {summary.count > 0 && (
-        <Grid container spacing={3} sx={{ mb: 4 }}>
-          <Grid item xs={12} sm={6} md={3}>
-            <Card sx={{ height: "100%", background: "linear-gradient(135deg, #4fb0ff 0%, #4478ff 100%)", color: "white" }}>
-              <CardContent>
-                <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
-                  <Typography variant="h6">รายการทั้งหมด</Typography>
-                </Box>
-                <Typography variant="h3" fontWeight="bold">
-                  {summary.count}
-                </Typography>
-                <Typography variant="body2">ใบสำคัญรับ</Typography>
-              </CardContent>
-            </Card>
+      {
+        summary.count > 0 && (
+          <Grid container spacing={3} sx={{ mb: 4 }}>
+            <Grid item xs={12} sm={6} md={3}>
+              <Card sx={{ height: "100%", background: "linear-gradient(135deg, #4fb0ff 0%, #4478ff 100%)", color: "white" }}>
+                <CardContent>
+                  <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
+                    <Typography variant="h6">รายการทั้งหมด</Typography>
+                  </Box>
+                  <Typography variant="h3" fontWeight="bold">
+                    {summary.count}
+                  </Typography>
+                  <Typography variant="body2">ใบสำคัญรับ</Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <Card sx={{ height: "100%", background: "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)", color: "white" }}>
+                <CardContent>
+                  <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
+                    <Typography variant="h6">ยอดรับรวม</Typography>
+                  </Box>
+                  <Typography variant="h4" fontWeight="bold">
+                    {formatCurrency(summary.totalAmount)}
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <Card sx={{ height: "100%", background: "linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)", color: "white" }}>
+                <CardContent>
+                  <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
+                    <Typography variant="h6">เงินสด</Typography>
+                  </Box>
+                  <Typography variant="h4" fontWeight="bold">
+                    {formatCurrency(summary.cash)}
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <Card sx={{ height: "100%", background: "linear-gradient(135deg, #30cfd0 0%, #330867 100%)", color: "white" }}>
+                <CardContent>
+                  <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
+                    <Typography variant="h6">เงินโอน</Typography>
+                  </Box>
+                  <Typography variant="h4" fontWeight="bold">
+                    {formatCurrency(summary.transfer)}
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
           </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <Card sx={{ height: "100%", background: "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)", color: "white" }}>
-              <CardContent>
-                <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
-                  <Typography variant="h6">ยอดรับรวม</Typography>
-                </Box>
-                <Typography variant="h4" fontWeight="bold">
-                  {formatCurrency(summary.totalAmount)}
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <Card sx={{ height: "100%", background: "linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)", color: "white" }}>
-              <CardContent>
-                <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
-                  <Typography variant="h6">เงินสด</Typography>
-                </Box>
-                <Typography variant="h4" fontWeight="bold">
-                  {formatCurrency(summary.cash)}
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <Card sx={{ height: "100%", background: "linear-gradient(135deg, #30cfd0 0%, #330867 100%)", color: "white" }}>
-              <CardContent>
-                <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
-                  <Typography variant="h6">เงินโอน</Typography>
-                </Box>
-                <Typography variant="h4" fontWeight="bold">
-                  {formatCurrency(summary.transfer)}
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-        </Grid>
-      )}
+        )
+      }
 
-      {error && (
-        <Alert severity="error" sx={{ mb: 3 }}>
-          {error}
-        </Alert>
-      )}
+      {
+        error && (
+          <Alert severity="error" sx={{ mb: 3 }}>
+            {error}
+          </Alert>
+        )
+      }
 
-      {loading && (
-        <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
-          <CircularProgress />
-        </Box>
-      )}
-
-      {!loading && filteredRecords.length > 0 && (
-        <Card>
-          <CardContent>
-            <Typography variant="h6" sx={{ mb: 2 }}>
-              รายละเอียดใบสำคัญรับ ({filteredRecords.length} รายการ)
+      {
+        loading && (
+          <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", py: 4 }}>
+            <CircularProgress />
+            <Typography variant="body1" sx={{ mt: 2, color: "text.secondary" }}>
+              ระบบมีข้อมูลจำนวนมาก กรุณารอโหลดสักครู่
             </Typography>
-            {Object.keys(summary.status).length > 0 && (
-              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mb: 2 }}>
-                {Object.entries(summary.status).map(([status, count]) => (
-                  <Chip key={status} label={`${status}: ${count} รายการ`} color="primary" variant="outlined" />
-                ))}
-              </Box>
-            )}
-            <TableContainer component={Paper} sx={{ maxHeight: 600 }}>
-              <Table stickyHeader size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>ลำดับ</TableCell>
-                    <TableCell>VN</TableCell>
-                    <TableCell>HN</TableCell>
-                    <TableCell>ชื่อคนไข้</TableCell>
-                    <TableCell align="right">ค่ารักษา</TableCell>
-                    <TableCell align="right">ค่าหัตถการ</TableCell>
-                    <TableCell align="right">ค่า LAB</TableCell>
-                    <TableCell align="right">ค่ายา</TableCell>
-                    <TableCell align="right">รวม</TableCell>
-                    <TableCell align="right">เงินสด</TableCell>
-                    <TableCell align="right">เงินโอน</TableCell>
-                    <TableCell align="right">บัตรทอง</TableCell>
-                    <TableCell align="center">จัดการ</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {filteredRecords.map((row, index) => {
-                    // Calculate breakdowns
-                    const drugFee = row.drugs?.reduce((sum, d) => sum + (parseFloat(d.AMT) || 0), 0) || 0;
-                    const procFee = row.procedures?.reduce((sum, p) => sum + (parseFloat(p.AMT) || 0), 0) || 0;
-                    const labFee = (row.labTests?.reduce((sum, l) => sum + (parseFloat(l.PRICE) || 0), 0) || 0) +
-                      (row.radiologicalTests?.reduce((sum, r) => sum + (parseFloat(r.PRICE) || 0), 0) || 0);
-                    const treatmentFee = parseFloat(row.TREATMENT_FEE) || 0;
+          </Box>
+        )
+      }
 
-                    // Calculate total and payment distribution
-                    const total = parseFloat(row.TOTAL_AMOUNT) || 0;
-                    const net = parseFloat(row.NET_AMOUNT) || 0;
-                    const method = row.PAYMENT_METHOD || 'เงินสด';
+      {
+        !loading && filteredRecords.length > 0 && (
+          <Card>
+            <CardContent>
+              <Typography variant="h6" sx={{ mb: 2 }}>
+                รายละเอียดใบสำคัญรับ ({filteredRecords.length} รายการ)
+              </Typography>
+              {Object.keys(summary.status).length > 0 && (
+                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mb: 2 }}>
+                  {Object.entries(summary.status).map(([status, count]) => (
+                    <Chip key={status} label={`${status}: ${count} รายการ`} color="primary" variant="outlined" />
+                  ))}
+                </Box>
+              )}
+              <TableContainer component={Paper} sx={{ maxHeight: 600 }}>
+                <Table stickyHeader size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>ลำดับ</TableCell>
+                      <TableCell>VN</TableCell>
+                      <TableCell>HN</TableCell>
+                      <TableCell>ชื่อคนไข้</TableCell>
+                      <TableCell align="right">ค่ารักษา</TableCell>
+                      <TableCell align="right">ค่าหัตถการ</TableCell>
+                      <TableCell align="right">ค่า LAB</TableCell>
+                      <TableCell align="right">ค่ายา</TableCell>
+                      <TableCell align="right">รวม</TableCell>
+                      <TableCell align="right">เงินสด</TableCell>
+                      <TableCell align="right">เงินโอน</TableCell>
+                      <TableCell align="right">บัตรทอง</TableCell>
+                      <TableCell align="center">จัดการ</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {filteredRecords.map((row, index) => {
+                      // Calculate breakdowns
+                      const drugFee = row.drugs?.reduce((sum, d) => sum + (parseFloat(d.AMT) || 0), 0) || 0;
+                      const procFee = row.procedures?.reduce((sum, p) => sum + (parseFloat(p.AMT) || 0), 0) || 0;
+                      const labFee = (row.labTests?.reduce((sum, l) => sum + (parseFloat(l.PRICE) || 0), 0) || 0) +
+                        (row.radiologicalTests?.reduce((sum, r) => sum + (parseFloat(r.PRICE) || 0), 0) || 0);
+                      const treatmentFee = parseFloat(row.TREATMENT_FEE) || 0;
 
-                    // Payment distribution logic
-                    let cash = 0;
-                    let transfer = 0;
-                    let goldCard = 0;
+                      // Calculate total and payment distribution
+                      const total = parseFloat(row.TOTAL_AMOUNT) || 0;
+                      const net = parseFloat(row.NET_AMOUNT) || 0;
+                      const method = row.PAYMENT_METHOD || 'เงินสด';
 
-                    // Check if this is a Gold Card case (UCS_CARD = 'Y') or Payment Method is 'บัตรทอง'
-                    const isGoldCardCase = row.UCS_CARD === 'Y' || method === 'บัตรทอง';
+                      // Payment distribution logic
+                      let cash = 0;
+                      let transfer = 0;
+                      let goldCard = 0;
 
-                    if (method === 'เงินโอน') {
-                      transfer = net;
-                    } else if (method === 'บัตรทอง') {
-                      goldCard = net;
-                    } else {
-                      // Default to cash for other methods like 'เงินสด'
-                      cash = net;
-                    }
+                      // Check if this is a Gold Card case (UCS_CARD = 'Y') or Payment Method is 'บัตรทอง'
+                      const isGoldCardCase = row.UCS_CARD === 'Y' || method === 'บัตรทอง';
 
-                    return (
-                      <TableRow key={row.VNO || index} hover>
-                        <TableCell>{index + 1}</TableCell>
-                        <TableCell>
-                          <Typography variant="body2" fontWeight="medium">
-                            {row.VNO}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>{row.HNNO}</TableCell>
-                        <TableCell>
-                          <Typography variant="body2" fontWeight="medium">
-                            {`${row.PRENAME || ''}${row.NAME1} ${row.SURNAME || ''}`.trim()}
-                          </Typography>
-                        </TableCell>
-                        <TableCell align="right">{formatCurrency(treatmentFee)}</TableCell>
-                        <TableCell align="right">{formatCurrency(procFee)}</TableCell>
-                        <TableCell align="right">{formatCurrency(labFee)}</TableCell>
-                        <TableCell align="right">{formatCurrency(drugFee)}</TableCell>
-                        <TableCell align="right">
-                          <Typography variant="body2" fontWeight="bold">
-                            {formatCurrency(total)}
-                          </Typography>
-                        </TableCell>
-                        <TableCell align="right" sx={{ color: 'success.main' }}>
-                          {cash > 0 ? formatCurrency(cash) : '-'}
-                        </TableCell>
-                        <TableCell align="right" sx={{ color: 'info.main' }}>
-                          {transfer > 0 ? formatCurrency(transfer) : '-'}
-                        </TableCell>
-                        <TableCell align="right" sx={{ color: 'warning.main' }}>
-                          {goldCard > 0 ? formatCurrency(goldCard) : (isGoldCardCase && net === 0 ? '0' : '-')}
-                        </TableCell>
-                        <TableCell align="center">
-                          <IconButton
-                            size="small"
-                            onClick={() => {
-                              setHistoryDialog({ open: true, vno: row.VNO, treatmentData: row });
-                            }}
-                            sx={{ border: "1px solid #5698E0", borderRadius: "7px", color: "#5698E0" }}
-                          >
-                            <VisibilityIcon fontSize="small" />
-                          </IconButton>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </CardContent>
-        </Card>
-      )}
+                      if (method === 'เงินโอน') {
+                        transfer = net;
+                      } else if (method === 'บัตรทอง') {
+                        goldCard = net;
+                      } else {
+                        // Default to cash for other methods like 'เงินสด'
+                        cash = net;
+                      }
 
-      {!loading && filteredRecords.length === 0 && !error && (
-        <Card>
-          <CardContent sx={{ textAlign: "center", py: 8 }}>
-            <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
-              ไม่มีข้อมูลรายรับในช่วงเดือนที่เลือก
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              ลองปรับช่วงเดือนหรือเงื่อนไขการค้นหาอื่น ๆ
-            </Typography>
-          </CardContent>
-        </Card>
-      )}
+                      return (
+                        <TableRow key={row.VNO || index} hover>
+                          <TableCell>{index + 1}</TableCell>
+                          <TableCell>
+                            <Typography variant="body2" fontWeight="medium">
+                              {row.VNO}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>{row.HNNO}</TableCell>
+                          <TableCell>
+                            <Typography variant="body2" fontWeight="medium">
+                              {`${row.PRENAME || ''}${row.NAME1} ${row.SURNAME || ''}`.trim()}
+                            </Typography>
+                          </TableCell>
+                          <TableCell align="right">{formatCurrency(treatmentFee)}</TableCell>
+                          <TableCell align="right">{formatCurrency(procFee)}</TableCell>
+                          <TableCell align="right">{formatCurrency(labFee)}</TableCell>
+                          <TableCell align="right">{formatCurrency(drugFee)}</TableCell>
+                          <TableCell align="right">
+                            <Typography variant="body2" fontWeight="bold">
+                              {formatCurrency(total)}
+                            </Typography>
+                          </TableCell>
+                          <TableCell align="right" sx={{ color: 'success.main' }}>
+                            {cash > 0 ? formatCurrency(cash) : '-'}
+                          </TableCell>
+                          <TableCell align="right" sx={{ color: 'info.main' }}>
+                            {transfer > 0 ? formatCurrency(transfer) : '-'}
+                          </TableCell>
+                          <TableCell align="right" sx={{ color: 'warning.main' }}>
+                            {goldCard > 0 ? formatCurrency(goldCard) : (isGoldCardCase && net === 0 ? '0' : '-')}
+                          </TableCell>
+                          <TableCell align="center">
+                            <IconButton
+                              size="small"
+                              onClick={() => {
+                                setHistoryDialog({ open: true, vno: row.VNO, treatmentData: row });
+                              }}
+                              sx={{ border: "1px solid #5698E0", borderRadius: "7px", color: "#5698E0" }}
+                            >
+                              <VisibilityIcon fontSize="small" />
+                            </IconButton>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </CardContent>
+          </Card>
+        )
+      }
+
+      {
+        !loading && filteredRecords.length === 0 && !error && (
+          <Card>
+            <CardContent sx={{ textAlign: "center", py: 8 }}>
+              <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
+                ไม่มีข้อมูลรายรับในช่วงเดือนที่เลือก
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                ลองปรับช่วงเดือนหรือเงื่อนไขการค้นหาอื่น ๆ
+              </Typography>
+            </CardContent>
+          </Card>
+        )
+      }
 
       {/* Dialog removed as it depended on Income1Service data structure */}
       <Dialog
