@@ -1296,8 +1296,13 @@ const Paymentanddispensingmedicine = () => {
     }
 
     // ✅ เพิ่มค่ารักษา (ถ้าไม่ใช่บัตรทอง หรือใช้สิทธิ์เกิน 2 ครั้ง)
-    // ✅ ใช้เช็ค undefined/null แทน || เพื่อให้ 0 ถูกยอมรับได้
-    const treatmentFee = (isGoldCard && !isUcsExceeded) ? 0 : (paymentData.treatmentFee !== undefined && paymentData.treatmentFee !== null ? parseFloat(paymentData.treatmentFee) : 100.00);
+    // ✅ Use manual override if available, otherwise apply default rules
+    let treatmentFee;
+    if (paymentData.treatmentFee !== undefined && paymentData.treatmentFee !== null) {
+      treatmentFee = parseFloat(paymentData.treatmentFee);
+    } else {
+      treatmentFee = (isGoldCard && !isUcsExceeded) ? 0 : 100.00;
+    }
 
     return labTotal + procedureTotal + drugTotal + treatmentFee;
   };
@@ -1384,8 +1389,13 @@ const Paymentanddispensingmedicine = () => {
       })
     ];
 
-    // ✅ เพิ่มค่ารักษา (ถ้าไม่ใช่บัตรทอง หรือใช้สิทธิ์เกิน 2 ครั้ง)
-    const treatmentFee = (isGoldCard && !isUcsExceeded) ? 0 : (paymentData.treatmentFee !== undefined && paymentData.treatmentFee !== null ? parseFloat(paymentData.treatmentFee) : 100.00);
+    // ✅ เพิ่มค่ารักษา (Manual Override respected)
+    let treatmentFee;
+    if (paymentData.treatmentFee !== undefined && paymentData.treatmentFee !== null) {
+      treatmentFee = parseFloat(paymentData.treatmentFee);
+    } else {
+      treatmentFee = (isGoldCard && !isUcsExceeded) ? 0 : 100.00;
+    }
 
     if (treatmentFee > 0) {
       allItems.push({
@@ -1925,7 +1935,12 @@ const Paymentanddispensingmedicine = () => {
                                 treatmentData?.treatment?.UCS_CARD === 'Y' ||
                                 treatmentData?.patient?.UCS_CARD === 'Y';
                               const isUcsExceeded = ucsUsageInfo.isExceeded;
-                              const treatmentFee = (isGoldCard && !isUcsExceeded) ? 0.00 : parseFloat(paymentData.treatmentFee || 100.00);
+                              let treatmentFee;
+                              if (paymentData.treatmentFee !== undefined && paymentData.treatmentFee !== null) {
+                                treatmentFee = parseFloat(paymentData.treatmentFee);
+                              } else {
+                                treatmentFee = (isGoldCard && !isUcsExceeded) ? 0.00 : 100.00;
+                              }
 
                               if (treatmentFee > 0) {
                                 return (

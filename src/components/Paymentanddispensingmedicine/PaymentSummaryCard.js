@@ -52,9 +52,13 @@ const PaymentSummaryCard = ({
             drugTotal = editablePrices.drugs.reduce((sum, item) => sum + item.editablePrice, 0);
         }
 
-        // ✅ เพิ่มค่ารักษา (ถ้าไม่ใช่บัตรทอง หรือใช้สิทธิ์เกิน 2 ครั้ง)
-        // ✅ ใช้เช็ค undefined/null แทน || เพื่อให้ 0 ถูกยอมรับได้
-        const treatmentFee = (isGoldCard && !isUcsExceeded) ? 0 : (paymentData.treatmentFee !== undefined && paymentData.treatmentFee !== null ? parseFloat(paymentData.treatmentFee) : 100.00);
+        // ✅ เพิ่มค่ารักษา (Manual Override respected)
+        let treatmentFee;
+        if (paymentData.treatmentFee !== undefined && paymentData.treatmentFee !== null) {
+            treatmentFee = parseFloat(paymentData.treatmentFee);
+        } else {
+            treatmentFee = (isGoldCard && !isUcsExceeded) ? 0 : 100.00;
+        }
 
         return labTotal + procedureTotal + drugTotal + treatmentFee;
     };
@@ -175,9 +179,9 @@ const PaymentSummaryCard = ({
                             }}
                             size="small"
                             inputProps={{ step: "0.01", min: "0" }}
-                            disabled={(patient?.UCS_CARD === 'Y' || patient?.treatment?.UCS_CARD === 'Y') && !ucsUsageInfo?.isExceeded}
+                            disabled={false} // ✅ Fix: Always enable editing
                             helperText={(patient?.UCS_CARD === 'Y' || patient?.treatment?.UCS_CARD === 'Y') && !ucsUsageInfo?.isExceeded
-                                ? 'บัตรทอง: ค่ารักษา = 0.00'
+                                ? 'บัตรทอง: เริ่มต้น 0.00 (แก้ไขได้)'
                                 : 'สามารถแก้ไขได้ (กรอก 0.00 ได้)'}
                             sx={{
                                 '& .MuiOutlinedInput-root': {
@@ -196,8 +200,14 @@ const PaymentSummaryCard = ({
                                 {(() => {
                                     const isGoldCard = patient?.PATIENT_UCS_CARD === 'Y' || patient?.UCS_CARD === 'Y' || patient?.treatment?.UCS_CARD === 'Y';
                                     const isUcsExceeded = ucsUsageInfo?.isExceeded || false;
-                                    // ✅ ใช้เช็ค undefined/null แทน || เพื่อให้ 0 ถูกยอมรับได้
-                                    const treatmentFee = (isGoldCard && !isUcsExceeded) ? 0.00 : (paymentData.treatmentFee !== undefined && paymentData.treatmentFee !== null ? parseFloat(paymentData.treatmentFee) : 100.00);
+
+                                    // ✅ Fix: Manual Override respected
+                                    let treatmentFee;
+                                    if (paymentData.treatmentFee !== undefined && paymentData.treatmentFee !== null) {
+                                        treatmentFee = parseFloat(paymentData.treatmentFee);
+                                    } else {
+                                        treatmentFee = (isGoldCard && !isUcsExceeded) ? 0.00 : 100.00;
+                                    }
                                     return treatmentFee.toFixed(2);
                                 })()} บาท
                             </Typography>
