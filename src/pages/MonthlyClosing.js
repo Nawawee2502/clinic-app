@@ -61,6 +61,28 @@ const MonthlyClosing = () => {
         });
 
         if (result.isConfirmed) {
+            // ✅ Validation: ป้องกันการปิดยอดย้อนหลัง (Past Months)
+            // เพราะการเอายอด "ปัจจุบัน" ไปใส่เป็นยอดยกมา "ในอดีต" จะทำให้ข้อมูลผิดพลาด (Transaction ระหว่างทางหายไป)
+            const isPastMonth = selectedYear < currentYear || (selectedYear === currentYear && selectedMonth < currentMonth);
+
+            if (isPastMonth) {
+                await Swal.fire({
+                    icon: 'error',
+                    title: 'ไม่สามารถปิดยอดย้อนหลังได้',
+                    html: `
+                        <div style="text-align: left;">
+                            <p>ท่านเลือกปิดยอดเดือน: <b>${thaiMonths[selectedMonth - 1]} ${selectedYear + 543}</b> ซึ่งเป็นอดีต</p>
+                            <p>ระบบไม่อนุญาตให้ปิดยอดย้อนหลัง เนื่องจากระบบจะนำ <b>ยอดคงเหลือปัจจุบัน</b> ไปบันทึก</p>
+                            <p style="color: #d32f2f;">หากบันทึกย้อนหลัง จะทำให้ประวัติการรับ/จ่ายสินค้าระหว่างเดือนนั้นถึงปัจจุบัน คลาดเคลื่อนทันที</p>
+                            <hr>
+                            <p><b>คำแนะนำ:</b> กรุณาเลือกปิดยอดเฉพาะ <b>เดือนปัจจุบัน</b> หรือ <b>เดือนถัดไป</b> เท่านั้น</p>
+                        </div>
+                    `,
+                    confirmButtonText: 'เข้าใจแล้ว'
+                });
+                return;
+            }
+
             setLoading(true);
             try {
                 const response = await fetch(`${API_BASE_URL}/bal_month_drug/close-month`, {
