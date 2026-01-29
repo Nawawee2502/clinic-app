@@ -277,8 +277,12 @@ const Paymentanddispensingmedicine = () => {
               receivedAmount,
               changeAmount,
               paymentMethod: paymentData.paymentMethod,
+              paymentMethod: paymentData.paymentMethod,
               paymentDate: getCurrentDateForDB(), // ✅ ใช้ utility สำหรับบันทึก DB (ค.ศ.)
-              paymentTime: getCurrentTimeForDB() // ✅ ใช้ utility สำหรับบันทึก DB (เวลาไทย)
+              paymentTime: getCurrentTimeForDB(), // ✅ ใช้ utility สำหรับบันทึก DB (เวลาไทย)
+              treatmentFee: (paymentData.treatmentFee !== undefined && paymentData.treatmentFee !== null)
+                ? parseFloat(paymentData.treatmentFee)
+                : ((currentPatient.UCS_CARD === 'Y' && !ucsUsageInfo.isExceeded) ? 0.00 : 100.00) // ✅ บันทึกค่ารักษาที่ถูกต้องลงใน State
             }
           };
         }
@@ -992,8 +996,15 @@ const Paymentanddispensingmedicine = () => {
             if (isExceeded) {
               setSnackbar({
                 open: true,
-                message: `⚠️ ผู้ป่วยใช้สิทธิ์บัตรทองเกิน 2 ครั้งในเดือนนี้ (ใช้แล้ว ${usageCount} ครั้ง) - จะคิดเงินตามปกติ`,
+                message: `⚠️ ผู้ป่วยใช้สิทธิ์บัตรทองครบกำหนดแล้ว (ใช้ไป ${usageCount} ครั้ง) - รอบนี้ต้องชำระค่ารักษา`,
                 severity: 'warning'
+              });
+            } else {
+              // แจ้งเตือนจำนวนครั้งที่ใช้
+              setSnackbar({
+                open: true,
+                message: `ℹ️ ผู้ป่วยใช้สิทธิ์บัตรทองไปแล้ว ${usageCount} / 2 ครั้ง - รอบนี้ฟรี`,
+                severity: 'info'
               });
             }
           }
@@ -1390,11 +1401,25 @@ const Paymentanddispensingmedicine = () => {
     ];
 
     // ✅ เพิ่มค่ารักษา (Manual Override respected)
+    // ตรวจสอบจากหลายแหล่งเพื่อความถูกต้อง:
+    // 1. paymentData (ค่าที่กำลังแก้ไข)
+    // 2. currentPatient.paymentData (ค่าที่ชำระไปแล้ว - จาก local state)
+    // 3. treatmentData (ค่าจาก DB)
+    // 4. Default Logic (Safeguard: if usageCount <= 2, default to 0)
     let treatmentFee;
+
+    // Logic: Free if Gold Card AND (Not Exceeded OR Usage <= 2)
+    // Note: use <=2 because limit is 2. 1,2 = Free. 3 = Charge.
+    const shouldBeFree = isGoldCard && (!isUcsExceeded || (ucsUsageInfo && ucsUsageInfo.usageCount <= 2));
+
     if (paymentData.treatmentFee !== undefined && paymentData.treatmentFee !== null) {
       treatmentFee = parseFloat(paymentData.treatmentFee);
+    } else if (currentPatient?.paymentData?.treatmentFee !== undefined && currentPatient?.paymentData?.treatmentFee !== null) {
+      treatmentFee = parseFloat(currentPatient.paymentData.treatmentFee);
+    } else if (treatmentData?.treatment?.TREATMENT_FEE !== undefined && treatmentData?.treatment?.TREATMENT_FEE !== null) {
+      treatmentFee = parseFloat(treatmentData.treatment.TREATMENT_FEE);
     } else {
-      treatmentFee = (isGoldCard && !isUcsExceeded) ? 0 : 100.00;
+      treatmentFee = shouldBeFree ? 0 : 100.00;
     }
 
     if (treatmentFee > 0) {

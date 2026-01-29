@@ -56,8 +56,13 @@ const PaymentSummaryCard = ({
         let treatmentFee;
         if (paymentData.treatmentFee !== undefined && paymentData.treatmentFee !== null) {
             treatmentFee = parseFloat(paymentData.treatmentFee);
+        } else if (patient?.paymentData?.treatmentFee !== undefined && patient?.paymentData?.treatmentFee !== null) {
+            treatmentFee = parseFloat(patient.paymentData.treatmentFee);
         } else {
-            treatmentFee = (isGoldCard && !isUcsExceeded) ? 0 : 100.00;
+            // Logic: Free if Gold Card AND (Usage <= 2 OR Not Exceeded)
+            // Note: use <=2 because limit is 2. 1,2 = Free. 3 = Charge.
+            const shouldBeFree = isGoldCard && (!isUcsExceeded || (ucsUsageInfo && ucsUsageInfo.usageCount <= 2));
+            treatmentFee = shouldBeFree ? 0 : 100.00;
         }
 
         return labTotal + procedureTotal + drugTotal + treatmentFee;
@@ -205,8 +210,12 @@ const PaymentSummaryCard = ({
                                     let treatmentFee;
                                     if (paymentData.treatmentFee !== undefined && paymentData.treatmentFee !== null) {
                                         treatmentFee = parseFloat(paymentData.treatmentFee);
+                                    } else if (patient?.paymentData?.treatmentFee !== undefined && patient?.paymentData?.treatmentFee !== null) {
+                                        treatmentFee = parseFloat(patient.paymentData.treatmentFee);
                                     } else {
-                                        treatmentFee = (isGoldCard && !isUcsExceeded) ? 0.00 : 100.00;
+                                        // Logic: Free if Gold Card AND (Usage <= 2 OR Not Exceeded)
+                                        const shouldBeFree = isGoldCard && (!isUcsExceeded || (ucsUsageInfo && ucsUsageInfo.usageCount <= 2));
+                                        treatmentFee = shouldBeFree ? 0.00 : 100.00;
                                     }
                                     return treatmentFee.toFixed(2);
                                 })()} บาท
