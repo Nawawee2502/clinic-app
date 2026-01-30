@@ -61,6 +61,7 @@ import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import CheckCircle from '@mui/icons-material/CheckCircle';
 import SettingsSuggestIcon from '@mui/icons-material/SettingsSuggest';
+import { version } from '../version';
 
 // กำหนดธีมให้ตรงกับ Design
 const demoTheme = createTheme({
@@ -187,6 +188,11 @@ const CustomAppBar = ({ userName = "Abu Fahim", userEmail = "hello@fahim.com", i
 
             {/* Right: Controls */}
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                {/* Version Display */}
+                <Typography variant="caption" color="text.secondary" sx={{ mr: 1, display: { xs: 'none', sm: 'block' } }}>
+                    v{version}
+                </Typography>
+
                 {/* Notifications */}
                 <Tooltip title="Notifications">
                     <IconButton>

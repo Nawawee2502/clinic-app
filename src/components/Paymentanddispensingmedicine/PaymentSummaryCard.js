@@ -145,7 +145,11 @@ const PaymentSummaryCard = ({
                             {(() => {
                                 // ✅ สำหรับผู้ป่วยบัตรทอง: คำนวณยาที่ UCS_CARD = 'N' หรือยาที่แก้ราคาแล้ว (editablePrice > 0)
                                 const isGoldCard = patient?.PATIENT_UCS_CARD === 'Y' || patient?.UCS_CARD === 'Y' || patient?.treatment?.UCS_CARD === 'Y';
-                                if (isGoldCard) {
+                                const isUcsExceeded = ucsUsageInfo?.isExceeded || false;
+                                // Logic: Free if Gold Card AND (Not Exceeded OR Usage <= 2)
+                                const shouldBeFree = isGoldCard && (!isUcsExceeded || ((ucsUsageInfo?.usageCount || 0) <= 2));
+
+                                if (shouldBeFree) {
                                     return editablePrices.drugs.reduce((sum, item) => {
                                         // ถ้าเป็นยาที่ต้องจ่าย (UCS_CARD = 'N') หรือแก้ราคาแล้ว (editablePrice > 0) ให้นับ
                                         if (item.DRUG_UCS_CARD === 'N' || (item.DRUG_UCS_CARD === 'Y' && item.editablePrice > 0)) {
