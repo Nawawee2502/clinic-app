@@ -268,7 +268,10 @@ const Paymentanddispensingmedicine = () => {
         const treatmentResponse = await TreatmentService.processPayment(
           currentPatient.VNO,
           editablePrices,
-          paymentData
+          {
+            ...paymentData,
+            treatmentFee: finalTreatmentFee // ✅ บังคับส่งค่าที่คำนวณแล้ว (50, 0, etc.) ไปยัง Service ไม่ให้ Service ไปดีดเป็น 100
+          }
         );
 
         if (!treatmentResponse.success) {
@@ -1342,6 +1345,10 @@ const Paymentanddispensingmedicine = () => {
       } else {
         treatmentFee = parseFloat(paymentData.treatmentFee);
       }
+    } else if (currentPatient?.paymentData?.treatmentFee !== undefined && currentPatient?.paymentData?.treatmentFee !== null) {
+      treatmentFee = parseFloat(currentPatient.paymentData.treatmentFee);
+    } else if (currentPatient?.TREATMENT_FEE !== undefined && currentPatient?.TREATMENT_FEE !== null) {
+      treatmentFee = parseFloat(currentPatient.TREATMENT_FEE);
     } else {
       treatmentFee = shouldBeFree ? 0 : 100.00;
     }
@@ -1450,6 +1457,8 @@ const Paymentanddispensingmedicine = () => {
       treatmentFee = parseFloat(paymentData.treatmentFee);
     } else if (currentPatient?.paymentData?.treatmentFee !== undefined && currentPatient?.paymentData?.treatmentFee !== null) {
       treatmentFee = parseFloat(currentPatient.paymentData.treatmentFee);
+    } else if (currentPatient?.TREATMENT_FEE !== undefined && currentPatient?.TREATMENT_FEE !== null) {
+      treatmentFee = parseFloat(currentPatient.TREATMENT_FEE);
     } else {
       treatmentFee = shouldBeFree ? 0 : 100.00;
     }
@@ -1996,6 +2005,10 @@ const Paymentanddispensingmedicine = () => {
                               let treatmentFee;
                               if (paymentData.treatmentFee !== undefined && paymentData.treatmentFee !== null) {
                                 treatmentFee = parseFloat(paymentData.treatmentFee);
+                              } else if (currentPatient?.paymentData?.treatmentFee !== undefined && currentPatient?.paymentData?.treatmentFee !== null) {
+                                treatmentFee = parseFloat(currentPatient.paymentData.treatmentFee);
+                              } else if (currentPatient?.TREATMENT_FEE !== undefined && currentPatient?.TREATMENT_FEE !== null) {
+                                treatmentFee = parseFloat(currentPatient.TREATMENT_FEE);
                               } else {
                                 treatmentFee = (isGoldCard && !isUcsExceeded) ? 0.00 : 100.00;
                               }
