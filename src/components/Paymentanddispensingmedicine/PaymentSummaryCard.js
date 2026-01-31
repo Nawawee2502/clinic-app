@@ -83,6 +83,8 @@ const PaymentSummaryCard = ({
         }
     } else if (patient?.paymentData?.treatmentFee !== undefined && patient?.paymentData?.treatmentFee !== null) {
         treatmentFee = parseFloat(patient.paymentData.treatmentFee);
+    } else if (patient?.TREATMENT_FEE !== undefined && patient?.TREATMENT_FEE !== null) {
+        treatmentFee = parseFloat(patient.TREATMENT_FEE);
     } else {
         // Default Logic (No Manual Override)
         treatmentFee = shouldBeFree ? 0.00 : 100.00;

@@ -227,8 +227,21 @@ const Paymentanddispensingmedicine = () => {
       const manualUcsCount = treatmentData?.treatment?.EXTERNAL_UCS_COUNT || 0;
       const apiUsageCount = ucsUsageInfo?.usageCount || 0;
       const effectiveCount = manualUcsCount > 0 ? manualUcsCount : apiUsageCount;
-      const shouldBeFree = (currentPatient?.UCS_CARD === 'Y') && (effectiveCount <= 2 || !ucsUsageInfo.isExceeded);
+      const shouldBeFree = (currentPatient?.UCS_CARD === 'Y') && (effectiveCount <= 2 || !ucsUsageInfo?.isExceeded);
       const defaultTreatmentFee = shouldBeFree ? 0.00 : 100.00;
+
+      // ✅ Safe Treatment Fee Calculation (Handle "", "0", NaN)
+      let finalTreatmentFee = defaultTreatmentFee;
+      if (paymentData.treatmentFee !== undefined && paymentData.treatmentFee !== null) {
+        if (paymentData.treatmentFee === '') {
+          finalTreatmentFee = 0.00; // Treat empty as 0
+        } else {
+          const parsed = parseFloat(paymentData.treatmentFee);
+          if (!isNaN(parsed)) {
+            finalTreatmentFee = parsed;
+          }
+        }
+      }
 
       // อัปเดตเฉพาะ PAYMENT_STATUS และข้อมูลการชำระเงิน
       try {
@@ -238,7 +251,7 @@ const Paymentanddispensingmedicine = () => {
 
           // ข้อมูลการชำระเงิน
           TOTAL_AMOUNT: totalAmount,
-          TREATMENT_FEE: (paymentData.treatmentFee !== undefined && paymentData.treatmentFee !== null ? parseFloat(paymentData.treatmentFee) : defaultTreatmentFee), // ✅ บันทึกค่ารักษาที่ถูกต้อง (รองรับ auto 0)
+          TREATMENT_FEE: finalTreatmentFee, // ✅ บันทึกค่าที่ถูกต้องแน่นอน (0, 100, หรือค่าที่กรอก)
           DISCOUNT_AMOUNT: discount,
           NET_AMOUNT: netAmount,
           PAYMENT_STATUS: 'ชำระเงินแล้ว', // เปลี่ยนเฉพาะตัวนี้
@@ -278,6 +291,7 @@ const Paymentanddispensingmedicine = () => {
             PAYMENT_STATUS: 'ชำระเงินแล้ว',
             paymentStatus: 'ชำระแล้ว',
             totalAmount: netAmount,
+            TREATMENT_FEE: finalTreatmentFee, // ✅ บันทึกลง Local State เพื่อให้ UI อ่านค่านี้ไปแสดงผล (ไม่ต้องดีดกลับไปคำนวณใหม่)
             paymentData: {
               totalAmount,
               discount,
