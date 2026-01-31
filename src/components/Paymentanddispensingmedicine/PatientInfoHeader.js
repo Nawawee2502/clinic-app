@@ -10,7 +10,8 @@ import {
     DialogTitle,
     DialogContent,
     IconButton,
-    DialogActions
+    DialogActions,
+    Button
 } from "@mui/material";
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
 import LocalHospitalIcon from '@mui/icons-material/LocalHospital';
@@ -25,6 +26,7 @@ const PatientInfoHeader = ({ patient, treatmentData }) => {
     if (!patient) return null;
 
     const [openVitals, setOpenVitals] = React.useState(false);
+    const [openDx, setOpenDx] = React.useState(false);
 
     // ดึงข้อมูลสิทธิ์การรักษา
     const patientRight = TreatmentService.getPatientRight(patient);
@@ -211,32 +213,31 @@ const PatientInfoHeader = ({ patient, treatmentData }) => {
                                 </Box>
                             </Grid>
 
-                            {/* DXCODE */}
+                            {/* DXCODE - Changed to Button -> Modal */}
                             <Grid item xs={12} sm={6} md={1}>
                                 <Box>
                                     <Typography variant="caption" sx={{ opacity: 0.8, fontWeight: 600, display: 'block', mb: 0.5, fontSize: '11px' }}>
                                         🩺 DX:
                                     </Typography>
-                                    {dxCode ? (
-                                        <Chip
-                                            label={dxCode}
-                                            size="small"
-                                            sx={{
-                                                bgcolor: 'rgba(255,255,255,0.25)',
-                                                color: 'white',
-                                                fontWeight: 700,
-                                                fontSize: '13px',
-                                                height: 26,
-                                                '& .MuiChip-label': {
-                                                    px: 1.5
-                                                }
-                                            }}
-                                        />
-                                    ) : (
-                                        <Typography variant="body2" sx={{ lineHeight: 1.4, fontSize: '13px' }}>
-                                            ไม่มี
-                                        </Typography>
-                                    )}
+                                    <Button
+                                        size="small"
+                                        variant="outlined"
+                                        onClick={() => setOpenDx(true)}
+                                        sx={{
+                                            color: 'white',
+                                            borderColor: 'rgba(255,255,255,0.5)',
+                                            fontSize: '11px',
+                                            padding: '2px 8px',
+                                            minWidth: 'auto',
+                                            height: 26,
+                                            '&:hover': {
+                                                borderColor: 'white',
+                                                bgcolor: 'rgba(255,255,255,0.1)'
+                                            }
+                                        }}
+                                    >
+                                        ดูผล
+                                    </Button>
                                 </Box>
                             </Grid>
 
@@ -348,6 +349,58 @@ const PatientInfoHeader = ({ patient, treatmentData }) => {
                         </Grid>
                     </Grid>
                 </DialogContent>
+            </Dialog>
+            {/* ✅ Dialog แสดงผลวินิจฉัย (Diagnosis) */}
+            <Dialog
+                open={openDx}
+                onClose={() => setOpenDx(false)}
+                maxWidth="sm"
+                fullWidth
+                PaperProps={{
+                    sx: { borderRadius: 3 }
+                }}
+            >
+                <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', bgcolor: '#f5f5f5', py: 1.5 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Typography variant="h6" fontWeight="bold">🩺 ผลการวินิจฉัย (Diagnosis)</Typography>
+                    </Box>
+                    <IconButton onClick={() => setOpenDx(false)} size="small">
+                        <CloseIcon />
+                    </IconButton>
+                </DialogTitle>
+                <DialogContent dividers sx={{ p: 4 }}>
+                    <Box sx={{ textAlign: 'center', mb: 3 }}>
+                        <Avatar
+                            sx={{
+                                width: 64, height: 64, bgcolor: '#e3f2fd', color: '#1976d2',
+                                mx: 'auto', mb: 2, fontSize: 32
+                            }}
+                        >
+                            Dx
+                        </Avatar>
+                        <Typography variant="h5" fontWeight="bold" color="primary">
+                            {dxCode || 'ไม่ระบุ'}
+                        </Typography>
+                        <Typography variant="h6" color="text.secondary" sx={{ mt: 1 }}>
+                            {dxName || 'ไม่มีชื่อโรคระบุ'}
+                        </Typography>
+                    </Box>
+                    <Grid container spacing={2}>
+                        <Grid item xs={12}>
+                            <Box sx={{ p: 2, bgcolor: '#f8fafc', borderRadius: 2, border: '1px solid #e2e8f0' }}>
+                                <Typography variant="caption" color="text.secondary" display="block" gutterBottom>รายละเอียดเพิ่มเติม</Typography>
+                                <Typography variant="body1">
+                                    {treatment.DIAGNOSIS_NOTE || '-'}
+                                </Typography>
+                            </Box>
+                        </Grid>
+                    </Grid>
+                </DialogContent>
+                <DialogActions sx={{ p: 2, bgcolor: '#f9fafb' }}>
+                    <Button onClick={() => setOpenDx(false)} variant="contained" disableElevation>
+                        ปิดหน้าต่าง
+                    </Button>
+                </DialogActions>
             </Dialog>
         </Card>
     );

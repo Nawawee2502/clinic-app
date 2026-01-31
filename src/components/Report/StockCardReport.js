@@ -113,11 +113,11 @@ const StockCardReport = () => {
 
                 sortedData.forEach((item, index) => {
                     const drugKey = `${item.DRUG_CODE || ''}_${item.LOTNO || '-'}`;
-                    
+
                     // ดึงยอดยกมาจากแถวก่อนหน้า (หรือใช้ BEG1 ถ้าเป็นแถวแรกของยาและ LOT นี้)
                     let begQty = 0;
                     let begAmt = 0;
-                    
+
                     if (balanceMap[drugKey] !== undefined) {
                         // ใช้ยอดคงเหลือจากแถวก่อนหน้าเป็นยอดยกมา
                         begQty = balanceMap[drugKey].endingQty;
@@ -131,14 +131,14 @@ const StockCardReport = () => {
                     const inQty = parseFloat(item.IN1) || 0;
                     const outQty = parseFloat(item.OUT1) || 0;
                     const updQty = parseFloat(item.UPD1) || 0;
-                    
+
                     // คำนวณยอดคงเหลือ: ยอดยกมา + รับ - จ่าย + ปรับปรุง
                     const endingQty = begQty + inQty - outQty + updQty;
 
                     const inAmt = parseFloat(item.IN1_AMT) || 0;
                     const outAmt = parseFloat(item.OUT1_AMT) || 0;
                     const updAmt = parseFloat(item.UPD1_AMT) || 0;
-                    
+
                     // คำนวณยอดคงเหลือเงิน: ยอดยกมา + รับ - จ่าย + ปรับปรุง
                     const endingAmt = begAmt + inAmt - outAmt + updAmt;
 
@@ -444,13 +444,21 @@ const StockCardReport = () => {
                     <td class="text-left">${item.REFNO || '-'}</td>
                     <td>${item.LOTNO || '-'}</td>
                     <td>${formatDateBEForExpire(item.EXPIRE_DATE)}</td>
-                    <td class="text-right">${(item.calculatedBEG1 || 0).toFixed(2)}</td>
+                    <td class="text-right">
+                        ${(index === 0 || item.DRUG_CODE !== stockCardData[index - 1].DRUG_CODE || item.LOTNO !== stockCardData[index - 1].LOTNO)
+                ? (item.calculatedBEG1 || 0).toFixed(2)
+                : '0.00'}
+                    </td>
                     <td class="text-right">${(parseFloat(item.IN1) || 0).toFixed(2)}</td>
                     <td class="text-right">${(parseFloat(item.OUT1) || 0).toFixed(2)}</td>
                     <td class="text-right">${(parseFloat(item.UPD1) || 0).toFixed(2)}</td>
                     <td class="text-right">${(item.endingQty || 0).toFixed(2)}</td>
                     <td class="text-right">${(parseFloat(item.UNIT_COST) || 0).toFixed(2)}</td>
-                    <td class="text-right">${(item.calculatedBEG1_AMT || 0).toFixed(2)}</td>
+                    <td class="text-right">
+                        ${(index === 0 || item.DRUG_CODE !== stockCardData[index - 1].DRUG_CODE || item.LOTNO !== stockCardData[index - 1].LOTNO)
+                ? (item.calculatedBEG1_AMT || 0).toFixed(2)
+                : '0.00'}
+                    </td>
                     <td class="text-right">${(parseFloat(item.IN1_AMT) || 0).toFixed(2)}</td>
                     <td class="text-right">${(parseFloat(item.OUT1_AMT) || 0).toFixed(2)}</td>
                     <td class="text-right">${(parseFloat(item.UPD1_AMT) || 0).toFixed(2)}</td>
@@ -719,13 +727,21 @@ const StockCardReport = () => {
                                             <TableCell align="left" sx={{ border: '1px solid #ddd' }}>{item.REFNO || '-'}</TableCell>
                                             <TableCell align="center" sx={{ border: '1px solid #ddd' }}>{item.LOTNO || '-'}</TableCell>
                                             <TableCell align="center" sx={{ border: '1px solid #ddd' }}>{formatDateBEForExpire(item.EXPIRE_DATE)}</TableCell>
-                                            <TableCell align="right" sx={{ border: '1px solid #ddd' }}>{(item.calculatedBEG1 || 0).toFixed(2)}</TableCell>
+                                            <TableCell align="right" sx={{ border: '1px solid #ddd' }}>
+                                                {(index === 0 || item.DRUG_CODE !== stockCardData[index - 1].DRUG_CODE || item.LOTNO !== stockCardData[index - 1].LOTNO)
+                                                    ? (item.calculatedBEG1 || 0).toFixed(2)
+                                                    : '0.00'}
+                                            </TableCell>
                                             <TableCell align="right" sx={{ border: '1px solid #ddd' }}>{(parseFloat(item.IN1) || 0).toFixed(2)}</TableCell>
                                             <TableCell align="right" sx={{ border: '1px solid #ddd' }}>{(parseFloat(item.OUT1) || 0).toFixed(2)}</TableCell>
                                             <TableCell align="right" sx={{ border: '1px solid #ddd' }}>{(parseFloat(item.UPD1) || 0).toFixed(2)}</TableCell>
                                             <TableCell align="right" sx={{ border: '1px solid #ddd', fontWeight: 'bold' }}>{(item.endingQty || 0).toFixed(2)}</TableCell>
                                             <TableCell align="right" sx={{ border: '1px solid #ddd' }}>{(parseFloat(item.UNIT_COST) || 0).toFixed(2)}</TableCell>
-                                            <TableCell align="right" sx={{ border: '1px solid #ddd' }}>{(item.calculatedBEG1_AMT || 0).toFixed(2)}</TableCell>
+                                            <TableCell align="right" sx={{ border: '1px solid #ddd' }}>
+                                                {(index === 0 || item.DRUG_CODE !== stockCardData[index - 1].DRUG_CODE || item.LOTNO !== stockCardData[index - 1].LOTNO)
+                                                    ? (item.calculatedBEG1_AMT || 0).toFixed(2)
+                                                    : '0.00'}
+                                            </TableCell>
                                             <TableCell align="right" sx={{ border: '1px solid #ddd' }}>{(parseFloat(item.IN1_AMT) || 0).toFixed(2)}</TableCell>
                                             <TableCell align="right" sx={{ border: '1px solid #ddd' }}>{(parseFloat(item.OUT1_AMT) || 0).toFixed(2)}</TableCell>
                                             <TableCell align="right" sx={{ border: '1px solid #ddd' }}>{(parseFloat(item.UPD1_AMT) || 0).toFixed(2)}</TableCell>

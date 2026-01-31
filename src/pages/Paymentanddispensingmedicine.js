@@ -223,6 +223,13 @@ const Paymentanddispensingmedicine = () => {
         changeAmount
       });
 
+      // ✅ Calculate Strict Gold Card Status (Moved up for Payload)
+      const manualUcsCount = treatmentData?.treatment?.EXTERNAL_UCS_COUNT || 0;
+      const apiUsageCount = ucsUsageInfo?.usageCount || 0;
+      const effectiveCount = manualUcsCount > 0 ? manualUcsCount : apiUsageCount;
+      const shouldBeFree = (currentPatient?.UCS_CARD === 'Y') && (effectiveCount <= 2 || !ucsUsageInfo.isExceeded);
+      const defaultTreatmentFee = shouldBeFree ? 0.00 : 100.00;
+
       // อัปเดตเฉพาะ PAYMENT_STATUS และข้อมูลการชำระเงิน
       try {
         const treatmentUpdateData = {
@@ -231,7 +238,7 @@ const Paymentanddispensingmedicine = () => {
 
           // ข้อมูลการชำระเงิน
           TOTAL_AMOUNT: totalAmount,
-          TREATMENT_FEE: (paymentData.treatmentFee !== undefined && paymentData.treatmentFee !== null ? parseFloat(paymentData.treatmentFee) : 100.00), // ✅ บันทึกค่ารักษาแยก (รองรับ 0)
+          TREATMENT_FEE: (paymentData.treatmentFee !== undefined && paymentData.treatmentFee !== null ? parseFloat(paymentData.treatmentFee) : defaultTreatmentFee), // ✅ บันทึกค่ารักษาที่ถูกต้อง (รองรับ auto 0)
           DISCOUNT_AMOUNT: discount,
           NET_AMOUNT: netAmount,
           PAYMENT_STATUS: 'ชำระเงินแล้ว', // เปลี่ยนเฉพาะตัวนี้
@@ -262,6 +269,7 @@ const Paymentanddispensingmedicine = () => {
         throw treatmentError;
       }
 
+
       // อัปเดต local state - เปลี่ยนสถานะการชำระเงินในตัวแปร patients
       const updatedPatients = patients.map((patient, index) => {
         if (index === selectedPatientIndex) {
@@ -277,12 +285,12 @@ const Paymentanddispensingmedicine = () => {
               receivedAmount,
               changeAmount,
               paymentMethod: paymentData.paymentMethod,
-              paymentMethod: paymentData.paymentMethod,
+              paymentMethod: paymentData.paymentMethod, // Duplicate key in original, keeping for consistent replace
               paymentDate: getCurrentDateForDB(), // ✅ ใช้ utility สำหรับบันทึก DB (ค.ศ.)
               paymentTime: getCurrentTimeForDB(), // ✅ ใช้ utility สำหรับบันทึก DB (เวลาไทย)
               treatmentFee: (paymentData.treatmentFee !== undefined && paymentData.treatmentFee !== null)
                 ? parseFloat(paymentData.treatmentFee)
-                : ((currentPatient.UCS_CARD === 'Y' && !ucsUsageInfo.isExceeded) ? 0.00 : 100.00) // ✅ บันทึกค่ารักษาที่ถูกต้องลงใน State
+                : defaultTreatmentFee // ✅ ใช้ Logic ใหม่ที่ถูกต้อง
             }
           };
         }
@@ -1288,12 +1296,16 @@ const Paymentanddispensingmedicine = () => {
       treatmentData?.treatment?.UCS_CARD === 'Y' ||
       treatmentData?.patient?.UCS_CARD === 'Y';
 
-    // ✅ เช็คว่าใช้สิทธิ์บัตรทองเกิน 2 ครั้งหรือไม่
-    const isUcsExceeded = ucsUsageInfo.isExceeded;
+    // ✅ Logic: Free if Gold Card AND (Usage <= 2 OR Not Exceeded)
+    // Note: use <=2 because limit is 2. 1,2 = Free. 3 = Charge.
+    const manualUcsCount = treatmentData?.treatment?.EXTERNAL_UCS_COUNT || 0;
+    const apiUsageCount = ucsUsageInfo?.usageCount || 0;
+    const effectiveCount = manualUcsCount > 0 ? manualUcsCount : apiUsageCount;
+    const shouldBeFree = isGoldCard && (effectiveCount <= 2 || !isUcsExceeded);
 
     let drugTotal = 0;
-    if (isGoldCard && !isUcsExceeded) {
-      // ถ้าเป็นบัตรทองและยังใช้สิทธิ์ไม่เกิน 2 ครั้ง: คำนวณยาที่ UCS_CARD = 'N' หรือยาที่แก้ราคาแล้ว (editablePrice > 0)
+    if (shouldBeFree) {
+      // ถ้าเป็นบัตรทองและควรฟรี: คำนวณยาที่ UCS_CARD = 'N' หรือยาที่แก้ราคาแล้ว (editablePrice > 0)
       drugTotal = editablePrices.drugs.reduce((sum, item) => {
         // ถ้าเป็นยาที่ต้องจ่าย (UCS_CARD = 'N') หรือแก้ราคาแล้ว (editablePrice > 0) ให้นับ
         if (item.DRUG_UCS_CARD === 'N' || (item.DRUG_UCS_CARD === 'Y' && item.editablePrice > 0)) {
@@ -1310,9 +1322,14 @@ const Paymentanddispensingmedicine = () => {
     // ✅ Use manual override if available, otherwise apply default rules
     let treatmentFee;
     if (paymentData.treatmentFee !== undefined && paymentData.treatmentFee !== null) {
-      treatmentFee = parseFloat(paymentData.treatmentFee);
+      // Check if it's currently being edited (string) or saved (number)
+      if (paymentData.treatmentFee === '') {
+        treatmentFee = 0;
+      } else {
+        treatmentFee = parseFloat(paymentData.treatmentFee);
+      }
     } else {
-      treatmentFee = (isGoldCard && !isUcsExceeded) ? 0 : 100.00;
+      treatmentFee = shouldBeFree ? 0 : 100.00;
     }
 
     return labTotal + procedureTotal + drugTotal + treatmentFee;
@@ -1365,9 +1382,15 @@ const Paymentanddispensingmedicine = () => {
       treatmentData?.patient?.UCS_CARD === 'Y';
     const isUcsExceeded = ucsUsageInfo.isExceeded;
 
-    // Logic: Free if Gold Card AND (Not Exceeded OR Usage <= 2)
-    // Note: use <=2 because limit is 2. 1,2 = Free. 3 = Charge.
-    const shouldBeFree = isGoldCard && (!isUcsExceeded || (ucsUsageInfo && ucsUsageInfo.usageCount <= 2));
+    // ✅ Check Manual Count (Displayed in Header) from treatmentData
+    const manualUcsCount = treatmentData?.treatment?.EXTERNAL_UCS_COUNT || 0;
+    const apiUsageCount = ucsUsageInfo?.usageCount || 0;
+
+    // ✅ Critical Fix: Trust the displayed count if available (Matches PaymentSummaryCard logic)
+    const effectiveCount = manualUcsCount > 0 ? manualUcsCount : apiUsageCount;
+
+    // Logic: Free if Gold Card AND (Usage <= 2 OR Not Exceeded)
+    const shouldBeFree = isGoldCard && (effectiveCount <= 2 || !isUcsExceeded);
 
     const allItems = [
       ...editablePrices.labs.map(item => ({
@@ -1838,6 +1861,7 @@ const Paymentanddispensingmedicine = () => {
                               <PaymentSummaryCard
                                 editablePrices={editablePrices}
                                 paymentData={paymentData}
+                                treatmentData={treatmentData} // ✅ Pass treatmentData
                                 onPaymentDataChange={setPaymentData}
                                 onPayment={handlePayment}
                                 onCloseCase={handleCloseCase} // เพิ่ม prop ใหม่

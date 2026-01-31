@@ -27,20 +27,36 @@ const PaymentSummaryCard = ({
     onCloseCase,
     patient,
     ucsUsageInfo = { isExceeded: false }, // ✅ รับข้อมูลการใช้งานสิทธิ์บัตรทอง
+    treatmentData, // ✅ รับข้อมูลการรักษา (เพื่อดึง EXTERNAL_UCS_COUNT)
     loading
 }) => {
-    const calculateTotalFromEditablePrices = () => {
-        const labTotal = editablePrices.labs.reduce((sum, item) => sum + item.editablePrice, 0);
-        const procedureTotal = editablePrices.procedures.reduce((sum, item) => sum + item.editablePrice, 0);
 
-        // ✅ สำหรับผู้ป่วยบัตรทอง: คำนวณยาที่ UCS_CARD = 'N' หรือยาที่แก้ราคาแล้ว (editablePrice > 0)
-        const isGoldCard = patient?.PATIENT_UCS_CARD === 'Y' || patient?.UCS_CARD === 'Y' || patient?.treatment?.UCS_CARD === 'Y';
-        const isUcsExceeded = ucsUsageInfo?.isExceeded || false;
+    // ✅ Helper Function for Gold Card Logic
+    const getGoldCardStatus = () => {
+        const isGoldCard = patient?.UCS_CARD === 'Y';
+        // Check API Flag
+        const isUcsExceeded = ucsUsageInfo?.isExceeded;
+        // Check Manual Count (Displayed in Header)
+        const manualUcsCount = treatmentData?.treatment?.EXTERNAL_UCS_COUNT || 0;
+        const apiUsageCount = ucsUsageInfo?.usageCount || 0;
 
-        let drugTotal = 0;
-        if (isGoldCard && !isUcsExceeded) {
-            // คำนวณยาที่ UCS_CARD = 'N' หรือยาที่แก้ราคาแล้ว (editablePrice > 0)
-            drugTotal = editablePrices.drugs.reduce((sum, item) => {
+        // ✅ Critical Fix: Trust the displayed count (manualUcsCount) if available
+        // If Manual Count is 2, it implies "2nd Visit" -> Free.
+        const effectiveCount = manualUcsCount > 0 ? manualUcsCount : apiUsageCount;
+
+        // Free if: Gold Card AND (Usage <= 2 OR Not Exceeded)
+        // This 'effectiveCount <= 2' safeguard fixes the issue where API might say Exceeded/3 but record says 2.
+        const shouldBeFree = isGoldCard && (effectiveCount <= 2 || !isUcsExceeded);
+
+        return { isGoldCard, shouldBeFree, effectiveCount };
+    };
+
+    const { isGoldCard, shouldBeFree, effectiveCount } = getGoldCardStatus();
+
+    // คำนวณราคายา
+    const calculateDrugTotal = () => {
+        if (shouldBeFree) {
+            return editablePrices.drugs.reduce((sum, item) => {
                 // ถ้าเป็นยาที่ต้องจ่าย (UCS_CARD = 'N') หรือแก้ราคาแล้ว (editablePrice > 0) ให้นับ
                 if (item.DRUG_UCS_CARD === 'N' || (item.DRUG_UCS_CARD === 'Y' && item.editablePrice > 0)) {
                     return sum + item.editablePrice;
@@ -48,31 +64,42 @@ const PaymentSummaryCard = ({
                 return sum;
             }, 0);
         } else {
-            // ผู้ป่วยไม่ใช่บัตรทอง หรือใช้สิทธิ์บัตรทองเกิน 2 ครั้งแล้ว: คำนวณยาทั้งหมด
-            drugTotal = editablePrices.drugs.reduce((sum, item) => sum + item.editablePrice, 0);
+            return editablePrices.drugs.reduce((sum, item) => sum + item.editablePrice, 0);
         }
+    };
 
-        // ✅ เพิ่มค่ารักษา (Manual Override respected)
-        let treatmentFee;
-        if (paymentData.treatmentFee !== undefined && paymentData.treatmentFee !== null) {
-            treatmentFee = parseFloat(paymentData.treatmentFee);
-        } else if (patient?.paymentData?.treatmentFee !== undefined && patient?.paymentData?.treatmentFee !== null) {
-            treatmentFee = parseFloat(patient.paymentData.treatmentFee);
+    const drugTotal = parseFloat(calculateDrugTotal());
+    const labTotal = editablePrices.labs.reduce((sum, item) => sum + item.editablePrice, 0);
+    const procedureTotal = editablePrices.procedures.reduce((sum, item) => sum + item.editablePrice, 0);
+
+    // คำนวณค่ารักษา
+    let treatmentFee;
+    // ✅ Fix: Manual Override respected
+    if (paymentData.treatmentFee !== undefined && paymentData.treatmentFee !== null) {
+        if (paymentData.treatmentFee === '') {
+            treatmentFee = 0;
         } else {
-            // Logic: Free if Gold Card AND (Usage <= 2 OR Not Exceeded)
-            // Note: use <=2 because limit is 2. 1,2 = Free. 3 = Charge.
-            const shouldBeFree = isGoldCard && (!isUcsExceeded || (ucsUsageInfo && ucsUsageInfo.usageCount <= 2));
-            treatmentFee = shouldBeFree ? 0 : 100.00;
+            treatmentFee = parseFloat(paymentData.treatmentFee);
         }
+    } else if (patient?.paymentData?.treatmentFee !== undefined && patient?.paymentData?.treatmentFee !== null) {
+        treatmentFee = parseFloat(patient.paymentData.treatmentFee);
+    } else {
+        // Default Logic (No Manual Override)
+        treatmentFee = shouldBeFree ? 0.00 : 100.00;
+    }
 
-        return labTotal + procedureTotal + drugTotal + treatmentFee;
+    const subtotal = drugTotal + labTotal + procedureTotal + treatmentFee;
+    const discount = parseFloat(paymentData.discount || 0);
+
+    // Prevent negative total
+    const total = Math.max(0, subtotal - discount);
+
+    const calculateTotalFromEditablePrices = () => {
+        return subtotal;
     };
 
     const calculateTotal = () => {
-        const totalCost = calculateTotalFromEditablePrices();
-        const discount = parseFloat(paymentData.discount || 0);
-
-        return Math.max(0, totalCost - discount);
+        return total;
     };
 
     const calculateChange = () => {
@@ -174,17 +201,18 @@ const PaymentSummaryCard = ({
                             value={paymentData.treatmentFee !== undefined && paymentData.treatmentFee !== null ? paymentData.treatmentFee : ''}
                             onChange={(e) => {
                                 const value = e.target.value;
-                                // ✅ อนุญาตให้กรอก 0.00 ได้ - ถ้าค่าว่างให้เป็น 0
-                                let treatmentFeeValue;
-                                if (value === '' || value === null || value === undefined) {
-                                    treatmentFeeValue = 0; // เปลี่ยนจาก undefined (default) เป็น 0 เพื่อให้ตรงกับที่ตาเห็น
+                                // ✅ Allow empty string during editing
+                                if (value === '' || value === null) {
+                                    onPaymentDataChange({ ...paymentData, treatmentFee: '' });
                                 } else {
                                     const parsed = parseFloat(value);
-                                    // ✅ ป้องกันทศนิยมเพี้ยน (Floating Point Issue) โดยปัดเศษ 2 ตำแหน่ง
-                                    const rounded = Math.round(parsed * 100) / 100;
-                                    treatmentFeeValue = isNaN(parsed) ? 0 : rounded; // ถ้า parse ไม่ได้ให้เป็น 0
+                                    // Keep raw value if it ends with decimal point to allow typing "10."
+                                    if (value.endsWith('.')) {
+                                        onPaymentDataChange({ ...paymentData, treatmentFee: value });
+                                    } else {
+                                        onPaymentDataChange({ ...paymentData, treatmentFee: isNaN(parsed) ? 0 : value });
+                                    }
                                 }
-                                onPaymentDataChange({ ...paymentData, treatmentFee: treatmentFeeValue });
                             }}
                             size="small"
                             inputProps={{ step: "0.01", min: "0" }}
@@ -246,9 +274,15 @@ const PaymentSummaryCard = ({
                         type="number"
                         value={paymentData.discount || ''}
                         onChange={(e) => {
-                            const discountValue = parseFloat(e.target.value) || 0;
-                            onPaymentDataChange({ ...paymentData, discount: discountValue });
+                            const value = e.target.value;
+                            // ✅ Fix: Allow empty value to prevent 0 snapping
+                            if (value === '') {
+                                onPaymentDataChange({ ...paymentData, discount: '' });
+                            } else {
+                                onPaymentDataChange({ ...paymentData, discount: value });
+                            }
                         }}
+
                         size="small"
                         inputProps={{ step: "0.01", min: "0" }}
                         sx={{
