@@ -1301,7 +1301,7 @@ const Paymentanddispensingmedicine = () => {
     const manualUcsCount = treatmentData?.treatment?.EXTERNAL_UCS_COUNT || 0;
     const apiUsageCount = ucsUsageInfo?.usageCount || 0;
     const effectiveCount = manualUcsCount > 0 ? manualUcsCount : apiUsageCount;
-    const shouldBeFree = isGoldCard && (effectiveCount <= 2 || !isUcsExceeded);
+    const shouldBeFree = isGoldCard && (effectiveCount <= 2 || !ucsUsageInfo?.isExceeded);
 
     let drugTotal = 0;
     if (shouldBeFree) {
