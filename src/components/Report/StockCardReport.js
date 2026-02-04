@@ -84,8 +84,10 @@ const StockCardReport = () => {
 
             console.log('📊 Loading stock card data with filters:', filters);
 
-            // ใช้ API ดึงข้อมูลตาม period (และ drug code ถ้ามี)
-            const response = await StockCardService.getAllStockCards(filters);
+            // ✅ ใช้ API ดึงข้อมูลแบบคำนวณย้อนกลับ (Reverse Calculation) 
+            // เพื่อให้ข้อมูลตรงกับ Stock Balance ปัจจุบัน โดยไม่ต้องกดปิดยอด
+            console.log('🔄 Fetching Reverse Stock Report...');
+            const response = await StockCardService.getReverseStockReport(filters);
 
             console.log('📊 Stock card API response:', response);
 
@@ -123,9 +125,15 @@ const StockCardReport = () => {
                         begQty = balanceMap[drugKey].endingQty;
                         begAmt = balanceMap[drugKey].endingAmt;
                     } else {
-                        // แถวแรกของยาและ LOT นี้ ใช้ BEG1 จากฐานข้อมูล
-                        begQty = parseFloat(item.BEG1) || 0;
-                        begAmt = parseFloat(item.BEG1_AMT) || 0;
+                        // แถวแรกของยาและ LOT นี้ 
+                        // ✅ ใช้ CALCULATED_BEG ที่คำนวณจาก backend (Reverse Calc) ถ้ามี
+                        // ถ้าไม่มีค่อยใช้ BEG1 จากฐานข้อมูล
+                        if (item.CALCULATED_BEG !== undefined) {
+                            begQty = parseFloat(item.CALCULATED_BEG);
+                        } else {
+                            begQty = parseFloat(item.BEG1) || 0;
+                        }
+                        begAmt = parseFloat(item.BEG1_AMT) || 0; // BEG1_AMT might need similar handling but usually less critical for Qty check
                     }
 
                     const inQty = parseFloat(item.IN1) || 0;

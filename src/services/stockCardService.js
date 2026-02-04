@@ -372,6 +372,32 @@ class StockCardService {
             totalUPD1_AMT
         };
     }
+
+    // ✅ ดึงรายงานสต็อกการ์ดแบบคำนวณย้อนกลับ (Reverse Calculation)
+    static async getReverseStockReport(filters = {}) {
+        try {
+            const params = new URLSearchParams();
+            if (filters.year) params.append('year', filters.year);
+            if (filters.month) params.append('month', filters.month);
+            if (filters.drugCode) params.append('drugCode', filters.drugCode);
+            if (filters.lotNo) params.append('lotNo', filters.lotNo);
+
+            const url = `${this.BASE_URL}/reverse-report?${params.toString()}`;
+            console.log('🔗 Calling API (Reverse):', url);
+
+            const response = await fetch(url);
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('Error fetching reverse stock report:', error);
+            throw error;
+        }
+    }
 }
 
 export default StockCardService;
