@@ -2,7 +2,7 @@
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
 
 class QueueService {
-    
+
     // ดึงคิววันนี้
     static async getTodayQueue() {
         try {
@@ -33,6 +33,23 @@ class QueueService {
             return await response.json();
         } catch (error) {
             console.error('Error fetching all queue:', error);
+            throw error;
+        }
+    }
+
+    // ✅ ดึงคิวทั้งหมดพร้อมสถานะการชำระเงิน (Optimized for Payment Page)
+    static async getAllQueueWithPaymentStatus() {
+        try {
+            console.log('🔗 Calling API:', `${API_BASE_URL}/queue/all-with-payment-status`);
+            const response = await fetch(`${API_BASE_URL}/queue/all-with-payment-status`);
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('Error fetching all queue with payment status:', error);
             throw error;
         }
     }

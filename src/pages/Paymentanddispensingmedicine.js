@@ -344,42 +344,30 @@ const Paymentanddispensingmedicine = () => {
     }
   };
 
+  // โหลดรายชื่อผู้ป่วยที่รอชำระเงิน (Optimized Version)
   const loadCompletedPatients = async (showLoading = true) => {
-    try {
-      if (showLoading) {
-        setLoading(true);
-        setError(null);
-      }
+    if (showLoading) {
+      setLoading(true);
+      setError(null);
+    }
 
-      // ✅ ใช้ getAllPatientsFromQueue แทน getTodayPatientsFromQueue เพื่อไม่ล็อควันที่
-      const response = await PatientService.getAllPatientsFromQueue();
+    try {
+      console.log('🔄 Loading payment queue (Optimized)...');
+      // ✅ ใช้ Method ใหม่ที่เรียก Endpoint เดียวจบ (ไม่ต้องวนลูปยิง 100+ requests)
+      const response = await PatientService.getPaymentQueue();
 
       if (response.success) {
         console.log('Raw queue data:', response.data.length, 'patients');
 
-        const patientsWithTreatmentStatus = await Promise.all(
-          response.data.map(async (patient) => {
-            try {
-              if (patient.VNO) {
-                const treatmentResponse = await TreatmentService.getTreatmentByVNO(patient.VNO);
-                if (treatmentResponse.success && treatmentResponse.data.treatment) {
-                  patient.STATUS1 = treatmentResponse.data.treatment.STATUS1;
-                  patient.PAYMENT_STATUS = treatmentResponse.data.treatment.PAYMENT_STATUS; // เพิ่มบรรทัดนี้
-                }
-              }
-              return patient;
-            } catch (error) {
-              console.warn(`Failed to get treatment status for VNO ${patient.VNO}:`, error);
-              return patient;
-            }
-          })
-        );
+        // ไม่ต้องวนลูป Promise.all แล้ว เพราะได้ข้อมูลมาครบแล้ว
+        const patientsWithTreatmentStatus = response.data;
 
         // ✅ กรองผู้ป่วย: แสดงเฉพาะผู้ป่วยที่มี STATUS1 === 'รอชำระเงิน' หรือ 'ชำระเงินแล้ว'
         const filteredPatients = patientsWithTreatmentStatus.filter(patient => {
           const treatmentStatus = patient.STATUS1 || 'กำลังตรวจ';
 
-          console.log(`Patient ${patient.HNCODE}: STATUS1="${treatmentStatus}"`);
+          // Debug (Sample first 5 to reduce noise)
+          // if (Math.random() < 0.05) console.log(`Patient ${patient.HNCODE}: STATUS1="${treatmentStatus}"`);
 
           // ✅ แสดงเฉพาะผู้ป่วยที่มี STATUS1 === 'รอชำระเงิน' หรือ 'ชำระเงินแล้ว'
           return treatmentStatus === 'รอชำระเงิน' || treatmentStatus === 'ชำระเงินแล้ว';
@@ -412,15 +400,8 @@ const Paymentanddispensingmedicine = () => {
         });
 
         console.log(`Found ${sortedPatients.length} patients (รอชำระเงิน + ชำระเงินแล้ว)`);
-        console.log('Sorted patients:', sortedPatients.map(p => ({
-          HN: p.HNCODE,
-          queueNum: p.QUEUE_NUMBER || p.queueNumber,
-          paymentStatus: p.PAYMENT_STATUS || 'null/undefined',
-          treatmentStatus: p.STATUS1 || 'null/undefined'
-        })));
 
         setPatients(sortedPatients);
-
 
       } else {
         if (showLoading) {

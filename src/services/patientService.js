@@ -302,6 +302,91 @@ class PatientService {
             console.error('Error fetching all patients from queue:', error);
             throw error;
         }
+        // ดึงข้อมูลผู้ป่วยสำหรับหน้าชำระเงิน (Optimized: No N+1 Loop)
+    }
+    static async getPaymentQueue() {
+        try {
+            // Import QueueService dynamically
+            const QueueService = await import('./queueService');
+            // ✅ ใช้ endpoint ใหม่ที่ดึงข้อมูลครบจบใน query เดียว (JOIN TREATMENT1 มาให้แล้ว)
+            const queueResponse = await QueueService.default.getAllQueueWithPaymentStatus();
+
+            if (!queueResponse.success) {
+                throw new Error('Failed to fetch payment queue');
+            }
+
+            // แปลงข้อมูลจากคิวให้เป็นรูปแบบที่ component ใช้งานได้
+            const patientsWithQueue = queueResponse.data.map(queueItem => {
+                // Debug: ตรวจสอบ STATUS
+                // console.log(`🔍 Payment Queue Item ${queueItem.QUEUE_ID}: STATUS="${queueItem.STATUS}"`);
+
+                // ✅ ใช้ STATUS1 จาก TREATMENT1 เป็นหลัก (ซึ่ง Backend endpoint ใหม่ join มาให้แล้วในชื่อ TREATMENT_STATUS)
+                const finalStatus = queueItem.TREATMENT_STATUS || queueItem.STATUS || 'รอตรวจ';
+
+                return {
+                    // ข้อมูลคิว
+                    queueNumber: queueItem.QUEUE_NUMBER,
+                    queueTime: queueItem.QUEUE_TIME,
+                    queueStatus: finalStatus,
+                    STATUS: queueItem.STATUS || 'รอตรวจ',
+                    queueType: queueItem.TYPE,
+                    queueId: queueItem.QUEUE_ID,
+                    queueDate: queueItem.QUEUE_DATE,
+
+                    // ข้อมูลผู้ป่วย
+                    HNCODE: queueItem.HNCODE,
+                    PRENAME: queueItem.PRENAME,
+                    NAME1: queueItem.NAME1,
+                    SURNAME: queueItem.SURNAME,
+                    AGE: queueItem.AGE,
+                    SEX: queueItem.SEX,
+                    TEL1: queueItem.TEL1,
+
+                    // ข้อมูล VN (มีค่าแล้วเพราะ join มาให้)
+                    VNO: queueItem.VNO,
+                    TREATMENT_STATUS: queueItem.TREATMENT_STATUS,
+                    STATUS1: queueItem.TREATMENT_STATUS, // มีค่าแน่นอนถ้ามี Treatment
+
+                    // ✅ ข้อมูลการชำระเงิน (จาก TREATMENT1 โดยตรง ไม่ต้องยิงแยก)
+                    PAYMENT_STATUS: queueItem.PAYMENT_STATUS,
+                    TOTAL_AMOUNT: queueItem.TOTAL_AMOUNT,
+                    TREATMENT_FEE: queueItem.TREATMENT_FEE,
+
+                    // อาการเบื้องต้น
+                    SYMPTOM: queueItem.CHIEF_COMPLAINT,
+
+                    // Avatar placeholder
+                    avatar: this.generateAvatarUrl(queueItem.SEX, queueItem.NAME1),
+
+                    // ✅ ข้อมูลบัตร (Priority: Treatment > Patient > Queue)
+                    // Note: Backend endpoint sends:
+                    // - UCS_CARD (from Queue)
+                    // - PATIENT_UCS_CARD (from Patient)
+                    // - TREATMENT_UCS_CARD (from Treatment)
+                    SOCIAL_CARD: queueItem.TREATMENT_UCS_CARD || queueItem.PATIENT_SOCIAL_CARD || queueItem.SOCIAL_CARD,
+                    UCS_CARD: queueItem.TREATMENT_UCS_CARD || queueItem.PATIENT_UCS_CARD || queueItem.UCS_CARD,
+                    PATIENT_UCS_CARD: queueItem.PATIENT_UCS_CARD,
+                    EXTERNAL_UCS_COUNT: queueItem.EXTERNAL_UCS_COUNT,
+
+                    // ✅ ข้อมูลประวัติแพ้ยาและโรคประจำตัว
+                    DRUG_ALLERGY: queueItem.DRUG_ALLERGY || null,
+                    DISEASE1: queueItem.DISEASE1 || null,
+
+                    // ข้อมูลสำหรับ Vital Signs (ยังไม่มีใน endpoint นี้ แต่หน้า Payment ไม่ได้ใช้ vitals ใน list)
+                    WEIGHT1: queueItem.WEIGHT1 || null,
+                };
+            });
+
+            return {
+                success: true,
+                data: patientsWithQueue,
+                count: patientsWithQueue.length
+            };
+
+        } catch (error) {
+            console.error('Error fetching payment queue:', error);
+            throw error;
+        }
     }
 
     // ดึงข้อมูลนัดหมายวันนี้
