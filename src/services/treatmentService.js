@@ -1253,51 +1253,53 @@ class TreatmentService {
     }
 
     // ✅ ดึงข้อมูลผู้ป่วยที่ชำระเงินในช่วงวันที่กำหนด พร้อมรายละเอียดครบถ้วน
+    // ✅ ดึงข้อมูลผู้ป่วยที่ชำระเงินในช่วงวันที่กำหนด พร้อมรายละเอียดครบถ้วน (Optimized Bulk Fetch)
     static async getPaidTreatmentsWithDetails(params = {}) {
         try {
-            console.log('📊 Fetching paid treatments with full details:', params);
+            console.log('📊 Fetching paid treatments with full details (Bulk Optimized):', params);
 
-            // ดึงข้อมูลพื้นฐานก่อน
-            const treatmentsResponse = await this.getPaidTreatments(params);
+            const queryParams = new URLSearchParams();
+            if (params.page) queryParams.append('page', params.page);
+            if (params.limit) queryParams.append('limit', params.limit);
+            if (params.date_from) queryParams.append('date_from', params.date_from);
+            if (params.date_to) queryParams.append('date_to', params.date_to);
+            if (params.status) queryParams.append('status', params.status);
+            if (params.emp_code) queryParams.append('emp_code', params.emp_code);
+            if (params.hnno) queryParams.append('hnno', params.hnno);
 
-            if (!treatmentsResponse.success || !treatmentsResponse.data) {
-                return treatmentsResponse;
-            }
-
-            // ดึงรายละเอียดแต่ละ treatment
-            const detailedTreatments = [];
-
-            for (const treatment of treatmentsResponse.data) {
-                try {
-                    const detailResponse = await this.getTreatmentByVNO(treatment.VNO);
-                    if (detailResponse.success && detailResponse.data) {
-                        detailedTreatments.push({
-                            ...treatment,
-                            ...detailResponse.data.treatment,
-                            drugs: detailResponse.data.drugs || [],
-                            procedures: detailResponse.data.procedures || [],
-                            labTests: detailResponse.data.labTests || [],
-                            radiologicalTests: detailResponse.data.radiologicalTests || [],
-                            summary: detailResponse.data.summary || {}
-                        });
-                    } else {
-                        // ถ้าดึงรายละเอียดไม่ได้ ใช้ข้อมูลพื้นฐาน
-                        detailedTreatments.push(treatment);
-                    }
-                } catch (error) {
-                    console.warn(`⚠️ Could not get details for VNO ${treatment.VNO}:`, error);
-                    detailedTreatments.push(treatment);
+            // Allow overriding payment_status (default to 'ชำระเงินแล้ว')
+            if (params.payment_status !== undefined) {
+                if (params.payment_status !== 'all' && params.payment_status !== '') {
+                    queryParams.append('payment_status', params.payment_status);
                 }
+            } else {
+                queryParams.append('payment_status', 'ชำระเงินแล้ว');
             }
 
-            console.log(`✅ Retrieved ${detailedTreatments.length} detailed paid treatments`);
+            // Call the new optimized endpoint
+            const url = `${API_BASE_URL}/treatments/reports/bulk-details?${queryParams.toString()}`;
+            console.log('🔗 Calling Optimized API:', url);
+
+            const response = await fetch(url);
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+            }
+
+            const result = await response.json();
+
+            console.log(`✅ Retrieved ${result.count} detailed paid treatments (Bulk)`);
 
             return {
                 success: true,
-                data: detailedTreatments,
-                pagination: treatmentsResponse.pagination
+                data: result.data || [],
+                pagination: {
+                    page: parseInt(params.page) || 1,
+                    limit: parseInt(params.limit) || 100000,
+                    total: result.count || 0
+                }
             };
-
         } catch (error) {
             console.error('❌ Error fetching paid treatments with details:', error);
             throw error;
