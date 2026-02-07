@@ -66,21 +66,28 @@ const MonthlyClosing = () => {
             const isPastMonth = selectedYear < currentYear || (selectedYear === currentYear && selectedMonth < currentMonth);
 
             if (isPastMonth) {
-                await Swal.fire({
-                    icon: 'error',
-                    title: 'ไม่สามารถปิดยอดย้อนหลังได้',
+                const confirmPast = await Swal.fire({
+                    icon: 'warning',
+                    title: 'ยืนยันปิดยอดย้อนหลัง?',
                     html: `
                         <div style="text-align: left;">
                             <p>ท่านเลือกปิดยอดเดือน: <b>${thaiMonths[selectedMonth - 1]} ${selectedYear + 543}</b> ซึ่งเป็นอดีต</p>
-                            <p>ระบบไม่อนุญาตให้ปิดยอดย้อนหลัง เนื่องจากระบบจะนำ <b>ยอดคงเหลือปัจจุบัน</b> ไปบันทึก</p>
-                            <p style="color: #d32f2f;">หากบันทึกย้อนหลัง จะทำให้ประวัติการรับ/จ่ายสินค้าระหว่างเดือนนั้นถึงปัจจุบัน คลาดเคลื่อนทันที</p>
-                            <hr>
-                            <p><b>คำแนะนำ:</b> กรุณาเลือกปิดยอดเฉพาะ <b>เดือนปัจจุบัน</b> หรือ <b>เดือนถัดไป</b> เท่านั้น</p>
+                            <p>ระบบจะทำการ <b>"คำนวณย้อนกลับ" (Reverse Calculation)</b> โดย:</p>
+                            <ul style="color: #555;">
+                                <li>ตั้งต้นจากยอดคงเหลือปัจจุบัน</li>
+                                <li>ลบยอดรับ/จ่าย ที่เกิดขึ้นหลังจากเดือนนั้นออก</li>
+                            </ul>
+                            <p style="color: #d32f2f;">⚠️ ผลลัพธ์จะแสดงยอดคงเหลือ ณ สิ้นเดือนที่เลือก ไม่ใช่ยอดปัจจุบัน</p>
+                            <p>ต้องการดำเนินการต่อหรือไม่?</p>
                         </div>
                     `,
-                    confirmButtonText: 'เข้าใจแล้ว'
+                    showCancelButton: true,
+                    confirmButtonColor: '#ed6c02',
+                    confirmButtonText: 'ยืนยันปิดย้อนหลัง',
+                    cancelButtonText: 'ยกเลิก'
                 });
-                return;
+
+                if (!confirmPast.isConfirmed) return;
             }
 
             setLoading(true);
