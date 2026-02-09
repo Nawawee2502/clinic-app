@@ -229,46 +229,25 @@ export default function MedicalHistory({ currentPatient, onSaveSuccess }) {
     }
   };
 
-  // โหลดประวัติการรักษา - วิธีใหม่ที่โหลดรายละเอียดทุก treatment เลย
+  // โหลดประวัติการรักษา - Optimized: Uses backend bulk fetch
   const loadTreatmentHistory = async () => {
     if (!currentPatient?.HNCODE) return;
 
     try {
       console.log('Loading treatment history for HN:', currentPatient.HNCODE);
 
+      // Now fetches full details in one go
       const response = await TreatmentService.getTreatmentsByPatient(currentPatient.HNCODE, {
         page: 1,
         limit: 20
       });
 
       if (response.success) {
-        console.log('==== FULL API RESPONSE ====');
-        console.log('Treatment history response:', response);
+        console.log('==== FULL API RESPONSE (Optimized) ====');
         console.log('Treatment history data:', response.data);
 
-        // โหลดรายละเอียดของแต่ละ treatment เพื่อให้ได้ DXCODE
-        const treatmentsWithDetails = await Promise.all(
-          response.data.map(async (treatment) => {
-            try {
-              const detailResponse = await TreatmentService.getTreatmentByVNO(treatment.VNO);
-              if (detailResponse.success && detailResponse.data?.treatment) {
-                console.log(`Got DXCODE for ${treatment.VNO}:`, detailResponse.data.treatment.DXCODE);
-                return {
-                  ...treatment,
-                  DXCODE: detailResponse.data.treatment.DXCODE,
-                  DXNAME_THAI: detailResponse.data.treatment.DXNAME_THAI || treatment.DXNAME_THAI
-                };
-              }
-              return treatment;
-            } catch (error) {
-              console.error(`Error loading details for ${treatment.VNO}:`, error);
-              return treatment;
-            }
-          })
-        );
-
-        console.log('Treatments with DXCODE details:', treatmentsWithDetails);
-        setTreatmentHistory(treatmentsWithDetails);
+        // No need for loop! Backend returns full details.
+        setTreatmentHistory(response.data);
       } else {
         console.log('No treatment history found');
         setTreatmentHistory([]);
@@ -279,145 +258,36 @@ export default function MedicalHistory({ currentPatient, onSaveSuccess }) {
     }
   };
 
-  // เมื่อคลิกเลือกประวัติการรักษา
-  const handleHistoryClick = async (treatment) => {
+  // เมื่อคลิกเลือกประวัติการรักษา - Optimized: Uses passed data directly
+  const handleHistoryClick = (treatment) => {
     try {
       setLoading(true);
       setSelectedHistoryVNO(treatment.VNO);
 
-      // โหลดข้อมูลรายละเอียดของการรักษาที่เลือก
-      const response = await TreatmentService.getTreatmentByVNO(treatment.VNO);
-      if (response.success) {
-        // ✅ ดึงข้อมูลยาเพิ่มเติมจาก DrugService เพื่อให้ได้ GENERIC_NAME และ TRADE_NAME ที่ถูกต้อง
-        let drugs = response.data.drugs || [];
+      console.log('Selected history (Cached):', treatment);
 
-        // ✅ Deduplicate ยาโดยใช้ DRUG_CODE
-        const drugMap = new Map();
-        drugs.forEach(drug => {
-          const drugCode = drug.DRUG_CODE;
-          if (drugCode) {
-            if (drugMap.has(drugCode)) {
-              // ถ้ามียาตัวนี้อยู่แล้ว ให้รวม QTY
-              const existingDrug = drugMap.get(drugCode);
-              const existingQty = parseFloat(existingDrug.QTY || 0);
-              const newQty = parseFloat(drug.QTY || 0);
-              existingDrug.QTY = existingQty + newQty;
-            } else {
-              drugMap.set(drugCode, { ...drug });
-            }
-          }
-        });
+      // ✅ Use data directly from the list (it's already enriched)
+      // No need to call API again!
+      setSelectedTreatmentData(treatment);
 
-        const uniqueDrugs = Array.from(drugMap.values());
-
-        // ✅ ดึงข้อมูลเพิ่มเติมจาก DrugService เพื่อให้ได้ GENERIC_NAME และ TRADE_NAME ที่ถูกต้อง
-        const drugsWithCorrectNames = await Promise.all(
-          uniqueDrugs.map(async (drug) => {
-            let genericName = drug.GENERIC_NAME || '';
-            let tradeName = drug.TRADE_NAME || '';
-            const drugCode = drug.DRUG_CODE || '';
-
-            // ✅ เช็คว่าข้อมูลปัจจุบันดูเหมือนมีปัญหา (เช่น GENERIC_NAME เป็น "ยา D0109" หรือเป็น DRUG_CODE เหมือนกัน)
-            const needsUpdate =
-              !genericName ||
-              !tradeName ||
-              genericName.toLowerCase().startsWith('ยา ') ||
-              tradeName.toLowerCase().startsWith('ยา ') ||
-              genericName === drugCode ||
-              tradeName === drugCode;
-
-            if (needsUpdate && drugCode) {
-              try {
-                const drugResponse = await DrugService.getDrugByCode(drugCode);
-                if (drugResponse.success && drugResponse.data) {
-                  const fetchedGenericName = drugResponse.data.GENERIC_NAME || '';
-                  const fetchedTradeName = drugResponse.data.TRADE_NAME || '';
-
-                  // ✅ อัปเดต GENERIC_NAME ถ้ายังไม่มีหรือดูเหมือนมีปัญหา
-                  if (!genericName || genericName.toLowerCase().startsWith('ยา ') || genericName === drugCode) {
-                    // ใช้ชื่อจาก DrugService ถ้ามีและถูกต้อง
-                    if (fetchedGenericName &&
-                      fetchedGenericName !== drugCode &&
-                      !fetchedGenericName.toLowerCase().startsWith('ยา ')) {
-                      genericName = fetchedGenericName;
-                    } else {
-                      genericName = '';
-                    }
-                  } else {
-                    // ถ้ามี genericName แล้ว แต่เป็น drugCode หรือขึ้นต้นด้วย "ยา " ให้ล้าง
-                    if (genericName === drugCode || genericName.toLowerCase().startsWith('ยา ')) {
-                      genericName = '';
-                    }
-                  }
-
-                  // ✅ อัปเดต TRADE_NAME ถ้ายังไม่มีหรือดูเหมือนมีปัญหา
-                  if (!tradeName || tradeName.toLowerCase().startsWith('ยา ') || tradeName === drugCode) {
-                    // ใช้ชื่อจาก DrugService ถ้ามีและถูกต้อง
-                    if (fetchedTradeName &&
-                      fetchedTradeName !== drugCode &&
-                      !fetchedTradeName.toLowerCase().startsWith('ยา ')) {
-                      tradeName = fetchedTradeName;
-                    } else {
-                      tradeName = '';
-                    }
-                  } else {
-                    // ถ้ามี tradeName แล้ว แต่เป็น drugCode หรือขึ้นต้นด้วย "ยา " ให้ล้าง
-                    if (tradeName === drugCode || tradeName.toLowerCase().startsWith('ยา ')) {
-                      tradeName = '';
-                    }
-                  }
-                }
-              } catch (error) {
-                // ถ้าไม่พบยาในระบบ หรือ error อื่นๆ
-                console.warn(`Could not fetch drug details for ${drugCode}:`, error);
-                // ไม่ต้องตั้งค่าใหม่ ให้ใช้ค่าปัจจุบันหรือค่าว่าง
-                if (genericName === drugCode || genericName.toLowerCase().startsWith('ยา ')) {
-                  genericName = '';
-                }
-                if (tradeName === drugCode || tradeName.toLowerCase().startsWith('ยา ')) {
-                  tradeName = '';
-                }
-              }
-            }
-
-            // ✅ ทำความสะอาดข้อมูล - ถ้า GENERIC_NAME หรือ TRADE_NAME เป็น DRUG_CODE ให้เป็นค่าว่าง
-            if (genericName === drugCode) genericName = '';
-            if (tradeName === drugCode) tradeName = '';
-            if (genericName.toLowerCase().startsWith('ยา ')) genericName = '';
-            if (tradeName.toLowerCase().startsWith('ยา ')) tradeName = '';
-
-            return {
-              ...drug,
-              GENERIC_NAME: genericName,
-              TRADE_NAME: tradeName
-            };
-          })
-        );
-
-        setSelectedTreatmentData({
-          ...response.data,
-          drugs: drugsWithCorrectNames
-        });
-        console.log('Selected treatment data:', response.data);
-
-        // อัปเดต vitals จากข้อมูลการรักษาที่เลือก
-        if (response.data.treatment) {
-          const historyVitals = {
-            WEIGHT1: response.data.treatment.WEIGHT1 || '',
-            HIGHT1: response.data.treatment.HIGHT1 || '',
-            BT1: response.data.treatment.BT1 || '',
-            BP1: response.data.treatment.BP1 || '',
-            BP2: response.data.treatment.BP2 || '',
-            RR1: response.data.treatment.RR1 || '',
-            PR1: response.data.treatment.PR1 || '',
-            SPO2: response.data.treatment.SPO2 || ''
-          };
-          setVitals(historyVitals);
-        }
+      // อัปเดต vitals จากข้อมูลการรักษาที่เลือก
+      if (treatment.treatment) {
+        const historyVitals = {
+          WEIGHT1: treatment.treatment.WEIGHT1 || '',
+          HIGHT1: treatment.treatment.HIGHT1 || '',
+          BT1: treatment.treatment.BT1 || '',
+          BP1: treatment.treatment.BP1 || '',
+          BP2: treatment.treatment.BP2 || '',
+          RR1: treatment.treatment.RR1 || '',
+          PR1: treatment.treatment.PR1 || '',
+          SPO2: treatment.treatment.SPO2 || ''
+        };
+        setVitals(historyVitals);
       }
+
+      setLoading(false);
     } catch (error) {
-      console.error('Error loading selected treatment:', error);
-    } finally {
+      console.error('Error selecting treatment:', error);
       setLoading(false);
     }
   };

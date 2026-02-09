@@ -1994,103 +1994,52 @@ const PatientManagement = () => {
                     const uniqueDrugs = Array.from(drugMap.values());
                     console.log('✅ After deduplicate by DRUG_CODE:', uniqueDrugs.length, 'unique drugs');
 
-                    // ✅ ดึงชื่อยาที่ถูกต้องจาก DrugService
-                    const drugsWithCorrectNames = await Promise.all(
-                        uniqueDrugs.map(async (drug) => {
-                            const drugCode = drug.DRUG_CODE || '';
-                            // เก็บค่าจาก drug เดิมไว้ก่อน (fallback)
-                            let genericName = drug.GENERIC_NAME || '';
-                            let tradeName = drug.TRADE_NAME || '';
+                    // ✅ ดึงชื่อยาที่ถูกต้องจาก Backend โดยตรง ไม่ต้องวนลูปเรียก API
+                    const drugsWithCorrectNames = uniqueDrugs.map((drug) => {
+                        const drugCode = drug.DRUG_CODE || '';
+                        let genericName = drug.GENERIC_NAME || '';
+                        let tradeName = drug.TRADE_NAME || '';
 
-                            // ✅ ดึงชื่อยาที่ถูกต้องจาก DrugService - ดึงทุกครั้ง
-                            if (drugCode) {
-                                try {
-                                    console.log(`🔍 Fetching drug details for ${drugCode}...`);
-                                    const drugResponse = await DrugService.getDrugByCode(drugCode);
-                                    console.log(`📦 DrugService response for ${drugCode}:`, drugResponse);
+                        // ✅ Final cleanup: ล้างชื่อที่เท่ากับ DRUG_CODE หรือขึ้นต้นด้วย "ยา "
+                        // แต่ไม่ล้างถ้าเป็น empty string ธรรมดา (เพราะอาจจะมีใน DB แต่เป็น empty จริงๆ)
+                        if (genericName && (
+                            genericName.trim() === '' ||
+                            genericName === drugCode ||
+                            genericName === 'ยาไม่ระบุ' ||
+                            genericName.toLowerCase().startsWith('ยา '))) {
+                            genericName = '';
+                        }
+                        if (tradeName && (
+                            tradeName.trim() === '' ||
+                            tradeName === drugCode ||
+                            tradeName.toLowerCase().startsWith('ยา '))) {
+                            tradeName = '';
+                        }
 
-                                    if (drugResponse && drugResponse.success && drugResponse.data) {
-                                        const fetchedDrug = drugResponse.data;
-                                        console.log(`✅ Fetched drug data for ${drugCode}:`, {
-                                            GENERIC_NAME: fetchedDrug.GENERIC_NAME,
-                                            TRADE_NAME: fetchedDrug.TRADE_NAME,
-                                            fullData: fetchedDrug
-                                        });
+                        // ✅ Priority for Usage: TIME1 (from treatment) > eat1 (from drug master)
+                        const usage = drug.TIME1 || drug.eat1 || '';
 
-                                        // ✅ ถ้า DrugService มีชื่อ ใช้ชื่อจาก DrugService (แม้จะเป็น empty string)
-                                        // แต่ถ้าเป็น null/undefined ให้ใช้ค่าจาก drug เดิม
-                                        if (fetchedDrug.GENERIC_NAME !== null && fetchedDrug.GENERIC_NAME !== undefined) {
-                                            genericName = fetchedDrug.GENERIC_NAME;
-                                        }
-                                        if (fetchedDrug.TRADE_NAME !== null && fetchedDrug.TRADE_NAME !== undefined) {
-                                            tradeName = fetchedDrug.TRADE_NAME;
-                                        }
-                                    } else {
-                                        console.warn(`⚠️ DrugService.getDrugByCode(${drugCode}) failed:`, drugResponse);
-                                        // ถ้า failed ก็ใช้ค่าจาก drug เดิม
-                                    }
-                                } catch (error) {
-                                    console.error(`❌ Error fetching drug details for ${drugCode}:`, error);
-                                    // ถ้า error ก็ใช้ค่าจาก drug เดิม
-                                }
-                            }
+                        // Debug: log สำหรับ D0155
+                        if (drugCode === 'D0155') {
+                            console.log(`🔍 D0155 Final values (Optimized):`, {
+                                genericName,
+                                tradeName,
+                                originalGeneric: drug.GENERIC_NAME,
+                                originalTrade: drug.TRADE_NAME,
+                                usage
+                            });
+                        }
 
-                            // ✅ Final cleanup: ล้างชื่อที่เท่ากับ DRUG_CODE หรือขึ้นต้นด้วย "ยา "
-                            // แต่ไม่ล้างถ้าเป็น empty string ธรรมดา (เพราะอาจจะมีใน DB แต่เป็น empty จริงๆ)
-                            if (genericName && (
-                                genericName.trim() === '' ||
-                                genericName === drugCode ||
-                                genericName.toLowerCase().startsWith('ยา '))) {
-                                genericName = '';
-                            }
-                            if (tradeName && (
-                                tradeName.trim() === '' ||
-                                tradeName === drugCode ||
-                                tradeName.toLowerCase().startsWith('ยา '))) {
-                                tradeName = '';
-                            }
-
-                            // ✅ Priority for Usage: TIME1 (from treatment) > eat1 (from drug master)
-                            const usage = drug.TIME1 || drug.eat1 || '';
-
-                            // Debug: log สำหรับ D0155
-                            if (drugCode === 'D0155') {
-                                console.log(`🔍 D0155 Final values:`, {
-                                    genericName,
-                                    tradeName,
-                                    originalGeneric: drug.GENERIC_NAME,
-                                    originalTrade: drug.TRADE_NAME,
-                                    usage
-                                });
-                            }
-
-                            return {
-                                ...drug,
-                                GENERIC_NAME: genericName,
-                                TRADE_NAME: tradeName,
-                                TIME1: usage // Ensure TIME1 is set with fallback
-                            };
-                        })
-                    );
+                        return {
+                            ...drug,
+                            GENERIC_NAME: genericName,
+                            TRADE_NAME: tradeName,
+                            TIME1: usage // Ensure TIME1 is set with fallback
+                        };
+                    });
 
                     // Debug: เช็คข้อมูลก่อน set
                     console.log('✅ Final drugs before setSummaryDrugs:', drugsWithCorrectNames.length, 'items');
-                    console.log('📊 Final drugs with names:', drugsWithCorrectNames.map(d => ({
-                        DRUG_CODE: d.DRUG_CODE,
-                        GENERIC_NAME: d.GENERIC_NAME || '(empty)',
-                        TRADE_NAME: d.TRADE_NAME || '(empty)',
-                        QTY: d.QTY
-                    })));
-
-                    // เช็คยาที่ไม่มีชื่อ
-                    const drugsWithoutNames = drugsWithCorrectNames.filter(d =>
-                        (!d.GENERIC_NAME || d.GENERIC_NAME.trim() === '') &&
-                        (!d.TRADE_NAME || d.TRADE_NAME.trim() === '')
-                    );
-                    if (drugsWithoutNames.length > 0) {
-                        console.warn('⚠️ Drugs without names (will show as DRUG_CODE):',
-                            drugsWithoutNames.map(d => d.DRUG_CODE));
-                    }
 
                     setSummaryDrugs(drugsWithCorrectNames);
 

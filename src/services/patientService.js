@@ -359,11 +359,10 @@ class PatientService {
                     avatar: this.generateAvatarUrl(queueItem.SEX, queueItem.NAME1),
 
                     // ✅ ข้อมูลบัตร (Priority: Treatment > Patient > Queue)
-                    // Note: Backend endpoint sends:
                     // - UCS_CARD (from Queue)
                     // - PATIENT_UCS_CARD (from Patient)
                     // - TREATMENT_UCS_CARD (from Treatment)
-                    SOCIAL_CARD: queueItem.TREATMENT_UCS_CARD || queueItem.PATIENT_SOCIAL_CARD || queueItem.SOCIAL_CARD,
+                    SOCIAL_CARD: queueItem.PATIENT_SOCIAL_CARD || queueItem.SOCIAL_CARD,
                     UCS_CARD: queueItem.TREATMENT_UCS_CARD || queueItem.PATIENT_UCS_CARD || queueItem.UCS_CARD,
                     PATIENT_UCS_CARD: queueItem.PATIENT_UCS_CARD,
                     EXTERNAL_UCS_COUNT: queueItem.EXTERNAL_UCS_COUNT,

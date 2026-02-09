@@ -171,64 +171,34 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
           });
 
           // ✅ โหลดข้อมูลเพิ่มเติมสำหรับยาที่ไม่ซ้ำ - ดึง GENERIC_NAME, TRADE_NAME และ Type1 ที่ถูกต้อง
-          const uniqueMedicines = await Promise.all(
-            uniqueDrugs.map(async (drug, index) => {
-              // ✅ ตั้งค่าเริ่มต้นจากข้อมูลที่มี
+          // ✅ ไม่ต้องวนลูปเรียก API ทีละตัวแล้ว เพราะ Backend ส่งชื่อยามาให้แล้ว
+          // ✅ กรองเฉพาะยาฉีด (Type1 = 'TD002') โดยใช้ข้อมูลจาก Backend โดยตรง
+          const injectionMedicines = [];
+
+          uniqueDrugs.forEach((drug, index) => {
+            // Check Type1 directly from backend data
+            if (drug.Type1 === 'TD002') {
               let genericName = drug.GENERIC_NAME || '';
               let tradeName = drug.TRADE_NAME || '';
-              let drugType = drug.Type1 || '';
 
-              // ✅ ดึงข้อมูลจาก DrugService เพื่อให้ได้ GENERIC_NAME, TRADE_NAME และ Type1 ที่ถูกต้อง
-              // และตรวจสอบว่าเป็นยาฉีดหรือไม่
-              const needsUpdate =
-                !genericName ||
-                !tradeName ||
-                genericName.toLowerCase().startsWith('ยา ') ||
-                tradeName.toLowerCase().startsWith('ยา ') ||
-                !drugType;
+              // Cleanup names
+              if (genericName === drug.DRUG_CODE) genericName = '';
+              if (tradeName === drug.DRUG_CODE) tradeName = '';
+              if (genericName === 'ยาไม่ระบุ') genericName = '';
 
-              // ✅ ต้องดึงข้อมูลจาก DrugService เสมอเพื่อตรวจสอบ Type1
-              try {
-                const drugResponse = await DrugService.getDrugByCode(drug.DRUG_CODE);
-                if (drugResponse.success && drugResponse.data) {
-                  // ✅ อัปเดต GENERIC_NAME ถ้ายังไม่มีหรือดูเหมือนมีปัญหา
-                  if (!genericName || genericName.toLowerCase().startsWith('ยา ')) {
-                    genericName = drugResponse.data.GENERIC_NAME || genericName || '';
-                  }
-                  // ✅ อัปเดต TRADE_NAME ถ้ายังไม่มีหรือดูเหมือนมีปัญหา
-                  if (!tradeName || tradeName.toLowerCase().startsWith('ยา ')) {
-                    tradeName = drugResponse.data.TRADE_NAME || tradeName || '';
-                  }
-                  // ✅ อัปเดต Type1 จาก DrugService (สำคัญ!)
-                  drugType = drugResponse.data.Type1 || drugType || '';
-                }
-              } catch (error) {
-                console.warn(`Could not fetch drug details for ${drug.DRUG_CODE}:`, error);
-              }
-
-              // ✅ กรองเฉพาะยาฉีด (Type1 = 'TD002')
-              // ถ้าไม่ใช่ยาฉีด ให้ return null และ filter ออกภายหลัง
-              if (drugType !== 'TD002') {
-                console.log(`⚠️ Skipping non-injection drug: ${drug.DRUG_CODE} (Type1: ${drugType})`);
-                return null;
-              }
-
-              return {
-                id: index + 1,
-                drugName: genericName || drug.DRUG_CODE, // ✅ ใช้ genericName ที่ถูกต้อง
-                genericName: genericName, // ✅ เก็บ GENERIC_NAME ที่ถูกต้อง
-                tradeName: tradeName, // ✅ เก็บ TRADE_NAME ที่ถูกต้อง
+              injectionMedicines.push({
+                id: injectionMedicines.length + 1,
+                drugName: genericName || drug.DRUG_CODE,
+                genericName: genericName,
+                tradeName: tradeName,
                 drugCode: drug.DRUG_CODE,
                 quantity: drug.QTY,
                 unit: drug.UNIT_CODE || 'AMP',
                 unitName: drug.UNIT_NAME || getUnitName(drug.UNIT_CODE || 'AMP'),
                 unitPrice: drug.UNIT_PRICE || 0
-              };
-            })
-          );
-
-          // ✅ กรองเฉพาะยาฉีด (filter out null values)
-          const injectionMedicines = uniqueMedicines.filter(medicine => medicine !== null);
+              });
+            }
+          });
 
           console.log(`💉 Loaded ${injectionMedicines.length} injection drugs from ${uniqueDrugs.length} total drugs`);
 
@@ -448,62 +418,52 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
       if (response.success && response.data) {
         console.log('Drug API available, loaded', response.data.length, 'drugs');
         // ✅ กรองเฉพาะยาที่มี Type1 = 'TD002' (ยาฉีด)
-        const injectionDrugs = response.data.filter(drug =>
+        const uniqueDrugs = response.data.filter(drug =>
           drug.Type1 === 'TD002'
         );
 
-        console.log('Filtered injection drugs (TD002):', injectionDrugs.length);
+        console.log('Filtered injection drugs (TD002):', uniqueDrugs.length);
 
-        // ✅ ดึงข้อมูลเพิ่มเติมจาก DrugService เพื่อให้ได้ GENERIC_NAME และ TRADE_NAME ที่ถูกต้อง
-        const formattedDrugs = await Promise.all(
-          injectionDrugs.map(async (drug) => {
-            let genericName = drug.GENERIC_NAME || '';
-            let tradeName = drug.TRADE_NAME || '';
+        // ✅ กรองเฉพาะยาฉีด (Type1 = 'TD002') โดยใช้ข้อมูลจาก Backend โดยตรง
+        // ไม่ต้องวนลูปเรียก API ทีละตัวแล้ว
+        const injectionMedicines = [];
 
-            // ✅ เช็คว่าข้อมูลปัจจุบันดูเหมือนมีปัญหา (เช่น GENERIC_NAME เป็น "ยา D0001")
-            const needsUpdate =
-              !genericName ||
-              !tradeName ||
-              genericName.toLowerCase().startsWith('ยา ') ||
-              tradeName.toLowerCase().startsWith('ยา ');
+        if (uniqueDrugs.length > 0) {
+          uniqueDrugs.forEach((drug, index) => {
+            // Check Type1 directly from backend data
+            // Note: Backend ensures Type1 is returned now.
+            if (drug.Type1 === 'TD002') {
+              let genericName = drug.GENERIC_NAME || '';
+              let tradeName = drug.TRADE_NAME || '';
 
-            if (needsUpdate) {
-              try {
-                const drugResponse = await DrugService.getDrugByCode(drug.DRUG_CODE);
-                if (drugResponse.success && drugResponse.data) {
-                  // ✅ อัปเดต GENERIC_NAME ถ้ายังไม่มีหรือดูเหมือนมีปัญหา
-                  if (!genericName || genericName.toLowerCase().startsWith('ยา ')) {
-                    genericName = drugResponse.data.GENERIC_NAME || genericName || '';
-                  }
-                  // ✅ อัปเดต TRADE_NAME ถ้ายังไม่มีหรือดูเหมือนมีปัญหา
-                  if (!tradeName || tradeName.toLowerCase().startsWith('ยา ')) {
-                    tradeName = drugResponse.data.TRADE_NAME || tradeName || '';
-                  }
-                }
-              } catch (error) {
-                console.warn(`Could not fetch drug details for ${drug.DRUG_CODE}:`, error);
-              }
+              // Cleanup names if they look like placeholders
+              if (genericName === drug.DRUG_CODE) genericName = '';
+              if (tradeName === drug.DRUG_CODE) tradeName = '';
+              if (genericName === 'ยาไม่ระบุ') genericName = '';
+
+              injectionMedicines.push({
+                id: injectionMedicines.length + 1,
+                drugName: genericName || drug.DRUG_CODE,
+                genericName: genericName,
+                tradeName: tradeName,
+                drugCode: drug.DRUG_CODE,
+                quantity: drug.QTY,
+                unit: drug.UNIT_CODE || 'AMP',
+                unitName: drug.UNIT_NAME || drug.UNIT_NAME1 || getUnitName(drug.UNIT_CODE || 'AMP'),
+                unitPrice: drug.UNIT_PRICE || 0,
+                Type1: drug.Type1 || '',
+                Dose1: drug.Dose1 || '',
+                Indication1: drug.Indication1 || '',
+                Comment1: drug.Comment1 || '',
+                eat1: drug.eat1 || ''
+              });
             }
+          });
+        }
 
-            return {
-              DRUG_CODE: drug.DRUG_CODE,
-              GENERIC_NAME: genericName,
-              TRADE_NAME: tradeName,
-              UNIT_CODE: drug.UNIT_CODE || 'AMP',
-              UNIT_NAME: drug.UNIT_NAME || drug.UNIT_NAME1 || '',
-              UNIT_PRICE: drug.UNIT_PRICE || 0,
-              Type1: drug.Type1 || '',
-              Dose1: drug.Dose1 || '',
-              Indication1: drug.Indication1 || '',
-              Comment1: drug.Comment1 || '',
-              eat1: drug.eat1 || ''
-            };
-          })
-        );
-
-        setDrugOptions(formattedDrugs);
+        setDrugOptions(injectionMedicines); // Use injectionMedicines here
         setApiStatus('connected');
-        console.log('Formatted injection drugs:', formattedDrugs.slice(0, 3));
+        console.log('Formatted injection drugs:', injectionMedicines.slice(0, 3));
         return;
       } else {
         throw new Error('Drug API not available');

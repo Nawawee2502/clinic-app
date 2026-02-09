@@ -135,59 +135,39 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
                     }
                 });
 
-                // โหลดข้อมูลเพิ่มเติมสำหรับยาที่ไม่ซ้ำ - ดึง GENERIC_NAME และ TRADE_NAME ที่ถูกต้องจาก DrugService
-                const medicines = await Promise.all(
-                    uniqueDrugs.map(async (drug, index) => {
-                        // ✅ ตั้งค่าเริ่มต้นจากข้อมูลที่มี
-                        let genericName = drug.GENERIC_NAME || '';
-                        let tradeName = drug.TRADE_NAME || '';
-                        let indication1 = drug.NOTE1 || '';
+                // ✅ ไม่ต้องวนลูปเรียก API ทีละตัวแล้ว เพราะ Backend ส่งชื่อยามาให้แล้ว
+                const medicines = uniqueDrugs.map((drug, index) => {
+                    // ใช้ชื่อจาก Backend หรือ Fallback เป็น DRUG_CODE
+                    // Backend sends: GENERIC_NAME (or 'ยาไม่ระบุ'), TRADE_NAME (or '')
+                    let genericName = drug.GENERIC_NAME || '';
+                    let tradeName = drug.TRADE_NAME || '';
+                    const indication1 = drug.NOTE1 || drug.Indication1 || '';
 
-                        // ✅ ดึงข้อมูลจาก DrugService เพื่อให้ได้ GENERIC_NAME และ TRADE_NAME ที่ถูกต้อง
-                        // เช็คว่าข้อมูลปัจจุบันดูเหมือนมีปัญหา (เช่น GENERIC_NAME เป็น "ยา D0001")
-                        const needsUpdate =
-                            !genericName ||
-                            !tradeName ||
-                            genericName.toLowerCase().startsWith('ยา ') ||
-                            tradeName.toLowerCase().startsWith('ยา ');
+                    // Cleanup names if they look like placeholders or codes
+                    if (genericName === drug.DRUG_CODE) genericName = '';
+                    if (tradeName === drug.DRUG_CODE) tradeName = '';
+                    if (genericName.toLowerCase().startsWith('ยา ') && !tradeName) {
+                        // If generic name is just "ยา ..." and no trade name, maybe keep it? 
+                        // But usually we want real names. 
+                        // Backend 'ยาไม่ระบุ' is default fallback.
+                        if (genericName === 'ยาไม่ระบุ') genericName = '';
+                    }
 
-                        if (needsUpdate || !indication1) {
-                            try {
-                                const drugResponse = await DrugService.getDrugByCode(drug.DRUG_CODE);
-                                if (drugResponse.success && drugResponse.data) {
-                                    // ✅ อัปเดต GENERIC_NAME ถ้ายังไม่มีหรือดูเหมือนมีปัญหา
-                                    if (!genericName || genericName.toLowerCase().startsWith('ยา ')) {
-                                        genericName = drugResponse.data.GENERIC_NAME || genericName || '';
-                                    }
-                                    // ✅ อัปเดต TRADE_NAME ถ้ายังไม่มีหรือดูเหมือนมีปัญหา
-                                    if (!tradeName || tradeName.toLowerCase().startsWith('ยา ')) {
-                                        tradeName = drugResponse.data.TRADE_NAME || tradeName || '';
-                                    }
-                                    // ✅ อัปเดต Indication1 ถ้ายังไม่มี
-                                    if (!indication1) {
-                                        indication1 = drugResponse.data.Indication1 || '';
-                                    }
-                                }
-                            } catch (error) {
-                                console.warn(`Could not fetch drug details for ${drug.DRUG_CODE}:`, error);
-                            }
-                        }
+                    return {
+                        id: index + 1,
+                        drugName: genericName || drug.DRUG_CODE,
+                        genericName: genericName,
+                        tradeName: tradeName,
+                        drugCode: drug.DRUG_CODE,
+                        quantity: drug.QTY,
+                        unit: drug.UNIT_CODE || 'TAB',
+                        unitName: drug.UNIT_NAME || getUnitName(drug.UNIT_CODE || 'TAB'),
+                        indication1: indication1,
+                        time: drug.TIME1 || '',
+                        unitPrice: drug.UNIT_PRICE || 0
+                    };
+                });
 
-                        return {
-                            id: index + 1,
-                            drugName: genericName || drug.DRUG_CODE, // ✅ ใช้ genericName ที่ถูกต้อง
-                            genericName: genericName, // ✅ เก็บ GENERIC_NAME ที่ถูกต้อง
-                            tradeName: tradeName, // ✅ เก็บ TRADE_NAME ที่ถูกต้อง
-                            drugCode: drug.DRUG_CODE,
-                            quantity: drug.QTY,
-                            unit: drug.UNIT_CODE || 'TAB', // ✅ เก็บ UNIT_CODE สำหรับบันทึก
-                            unitName: drug.UNIT_NAME || getUnitName(drug.UNIT_CODE || 'TAB'), // ✅ เก็บ UNIT_NAME สำหรับแสดงผล
-                            indication1: indication1, // ✅ โหลด Indication1 จาก NOTE1 หรือ DrugService
-                            time: drug.TIME1 || '',
-                            unitPrice: drug.UNIT_PRICE || 0
-                        };
-                    })
-                );
                 setSavedMedicines(medicines);
             }
         } catch (error) {
