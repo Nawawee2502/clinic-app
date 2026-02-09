@@ -685,7 +685,7 @@ const Ordermedicine = ({ currentPatient, onSaveSuccess, onCompletePatient }) => 
                                     </Typography>
                                     <Autocomplete
                                         options={availableDrugs}
-                                        disablePortal
+                                        // disablePortal // ❌ เอาออกเพื่อให้ Dropdown เด้งออกมานอก Box ได้
                                         filterSelectedOptions
                                         getOptionLabel={(option) => {
                                             const genericName = option.GENERIC_NAME || '';

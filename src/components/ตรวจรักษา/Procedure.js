@@ -162,22 +162,24 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
             if (drugCode && !seenDrugs.has(drugCode)) {
               seenDrugs.set(drugCode, true);
 
-              // ✅ ตรวจสอบว่าเป็นยาฉีดหรือไม่
-              // ถ้ามี Type1 = 'TD002' หรือยังไม่มี Type1 ให้เพิ่มเข้าไปก่อน (จะตรวจสอบอีกทีตอนดึงข้อมูล)
-              if (!drug.Type1 || drug.Type1 === 'TD002') {
+              // ✅ ตรวจสอบว่าเป็นยาฉีดหรือไม่ - Relaxed Check
+              // ถ้ามี Type1 = 'TD002' (ตัดช่องว่าง/upper) หรือยังไม่มี Type1 ให้เพิ่มเข้าไปก่อน
+              const type = drug.Type1 || drug.type1 || '';
+              const isInjection = type.toString().trim().toUpperCase() === 'TD002';
+
+              if (!type || isInjection) {
                 uniqueDrugs.push(drug);
               }
             }
           });
 
-          // ✅ โหลดข้อมูลเพิ่มเติมสำหรับยาที่ไม่ซ้ำ - ดึง GENERIC_NAME, TRADE_NAME และ Type1 ที่ถูกต้อง
-          // ✅ ไม่ต้องวนลูปเรียก API ทีละตัวแล้ว เพราะ Backend ส่งชื่อยามาให้แล้ว
-          // ✅ กรองเฉพาะยาฉีด (Type1 = 'TD002') โดยใช้ข้อมูลจาก Backend โดยตรง
+          // ✅ โหลดข้อมูลเพิ่มเติมสำหรับยาที่ไม่ซ้ำ
           const injectionMedicines = [];
 
           uniqueDrugs.forEach((drug, index) => {
-            // Check Type1 directly from backend data
-            if (drug.Type1 === 'TD002') {
+            // Check Type1 directly from backend data - Relaxed Check
+            const type = drug.Type1 || drug.type1 || '';
+            if (type.toString().trim().toUpperCase() === 'TD002') {
               let genericName = drug.GENERIC_NAME || '';
               let tradeName = drug.TRADE_NAME || '';
 
@@ -410,17 +412,26 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
       console.log('Loading drug options (ยาฉีด only - TD002)...');
       setApiStatus('checking');
       // ✅ กรองเฉพาะยาที่มี Type1 = 'TD002' (ยาฉีด)
+      // เปลี่ยนมาโหลดทั้งหมดแล้ว Filter ฝั่ง Client เพื่อความชัวร์ (เหมือน Ordermedicine.js)
       const response = await DrugService.getAllDrugs({
-        limit: 10000,
-        type: 'TD002'
+        limit: 10000
+        // type: 'TD002' // ❌ เอาออกเพื่อให้โหลดมาทั้งหมดก่อน
       });
 
       if (response.success && response.data) {
         console.log('Drug API available, loaded', response.data.length, 'drugs');
-        // ✅ กรองเฉพาะยาที่มี Type1 = 'TD002' (ยาฉีด)
-        const uniqueDrugs = response.data.filter(drug =>
-          drug.Type1 === 'TD002'
-        );
+
+        // DEBUG: Check first item structure
+        if (response.data.length > 0) {
+          console.log('🔍 First drug sample:', response.data[0]);
+          console.log('🔍 Type1 value:', response.data[0].Type1, typeof response.data[0].Type1);
+        }
+
+        // ✅ กรองเฉพาะยาที่มี Type1 = 'TD002' (ยาฉีด) - Relaxed check
+        const uniqueDrugs = response.data.filter(drug => {
+          const type = drug.Type1 || drug.type1 || '';
+          return type.toString().trim().toUpperCase() === 'TD002';
+        });
 
         console.log('Filtered injection drugs (TD002):', uniqueDrugs.length);
 
@@ -430,34 +441,46 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
 
         if (uniqueDrugs.length > 0) {
           uniqueDrugs.forEach((drug, index) => {
-            // Check Type1 directly from backend data
-            // Note: Backend ensures Type1 is returned now.
-            if (drug.Type1 === 'TD002') {
-              let genericName = drug.GENERIC_NAME || '';
-              let tradeName = drug.TRADE_NAME || '';
+            // ไไม่ต้องเช็ค Type1 ซ้ำแล้ว เพราะ uniqueDrugs กรองมาแล้วแบบ Relaxed
+            // แต่เพื่อให้แน่ใจ ใช้ logic เดียวกันถ้าจำเป็น แต่จริงๆ ไม่ต้องก็ได้
+            // Just push directly
 
-              // Cleanup names if they look like placeholders
-              if (genericName === drug.DRUG_CODE) genericName = '';
-              if (tradeName === drug.DRUG_CODE) tradeName = '';
-              if (genericName === 'ยาไม่ระบุ') genericName = '';
+            let genericName = drug.GENERIC_NAME || '';
+            let tradeName = drug.TRADE_NAME || '';
 
-              injectionMedicines.push({
-                id: injectionMedicines.length + 1,
-                drugName: genericName || drug.DRUG_CODE,
-                genericName: genericName,
-                tradeName: tradeName,
-                drugCode: drug.DRUG_CODE,
-                quantity: drug.QTY,
-                unit: drug.UNIT_CODE || 'AMP',
-                unitName: drug.UNIT_NAME || drug.UNIT_NAME1 || getUnitName(drug.UNIT_CODE || 'AMP'),
-                unitPrice: drug.UNIT_PRICE || 0,
-                Type1: drug.Type1 || '',
-                Dose1: drug.Dose1 || '',
-                Indication1: drug.Indication1 || '',
-                Comment1: drug.Comment1 || '',
-                eat1: drug.eat1 || ''
-              });
-            }
+            // Cleanup names if they look like placeholders
+            if (genericName === drug.DRUG_CODE) genericName = '';
+            if (tradeName === drug.DRUG_CODE) tradeName = '';
+            if (genericName === 'ยาไม่ระบุ') genericName = '';
+
+            injectionMedicines.push({
+              id: injectionMedicines.length + 1,
+              // Required for displaying in Table (camelCase)
+              drugName: genericName || drug.DRUG_CODE,
+              genericName: genericName,
+              tradeName: tradeName,
+              drugCode: drug.DRUG_CODE,
+
+              // Required for Autocomplete/Dropdown (UPPERCASE)
+              GENERIC_NAME: genericName,
+              TRADE_NAME: tradeName,
+              DRUG_CODE: drug.DRUG_CODE,
+              UNIT_NAME: drug.UNIT_NAME || drug.UNIT_NAME1 || '',
+
+              quantity: drug.QTY,
+              unit: drug.UNIT_CODE || 'AMP',
+              UNIT_CODE: drug.UNIT_CODE || 'AMP', // UPPERCASE for consistency
+
+              unitName: drug.UNIT_NAME || drug.UNIT_NAME1 || getUnitName(drug.UNIT_CODE || 'AMP'),
+              unitPrice: drug.UNIT_PRICE || 0,
+              UNIT_PRICE: drug.UNIT_PRICE || 0, // UPPERCASE for consistency
+
+              Type1: drug.Type1 || '',
+              Dose1: drug.Dose1 || '',
+              Indication1: drug.Indication1 || '',
+              Comment1: drug.Comment1 || '',
+              eat1: drug.eat1 || ''
+            });
           });
         }
 
@@ -1136,7 +1159,7 @@ const Procedure = ({ currentPatient, onSaveSuccess }) => {
                   <Autocomplete
                     disabled={!hasProcedures || isLocked} // ✅ Disable input
                     options={getAvailableDrugs()}
-                    disablePortal
+                    // disablePortal // ❌ เอาออกเพื่อให้ Dropdown เด้งออกมานอก Box ได้ (แก้ปัญหาจม)
                     filterSelectedOptions
                     getOptionLabel={(option) => {
                       const genericName = option.GENERIC_NAME || '';
