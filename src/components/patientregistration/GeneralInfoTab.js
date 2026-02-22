@@ -179,8 +179,8 @@ const GeneralInfoTab = ({ onNext, patientData, updatePatientData }) => {
       // Thai ID: Allow only numbers, max 13
       value = value.replace(/[^0-9]/g, '').slice(0, 13);
     } else {
-      // Passport: Allow alphanumeric, max 20
-      value = value.replace(/[^A-Za-z0-9]/g, '').slice(0, 20);
+      // Passport: Allow alphanumeric, max 13
+      value = value.replace(/[^A-Za-z0-9]/g, '').slice(0, 13);
     }
 
     updatePatientData({ IDNO: value });
