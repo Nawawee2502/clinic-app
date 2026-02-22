@@ -882,6 +882,7 @@ const PatientDetailPanel = React.memo(({
                                 {[
                                     { label: 'รหัส HN', field: 'HNCODE', readOnly: true },
                                     { label: 'เลขบัตรประชาชน', field: 'IDNO' },
+                                    { label: 'วันที่ลงทะเบียน', field: 'REGDATE', type: 'date', readOnly: true },
                                     { label: 'วันเกิด', field: 'BDATE', type: 'date' },
                                     { label: 'คำนำหน้า', field: 'PRENAME', selectOptions: PRENAME_OPTIONS },
                                     { label: 'ชื่อ', field: 'NAME1' },

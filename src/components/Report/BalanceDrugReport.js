@@ -189,9 +189,14 @@ const BalanceDrugReport = () => {
         <Box sx={{ width: '100%', mt: 2 }}>
             {/* Header */}
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                <Typography variant="h5" fontWeight="bold">
-                    รายงานสินค้าคงเหลือ
-                </Typography>
+                <Box>
+                    <Typography variant="h5" fontWeight="bold">
+                        รายงานสินค้าคงเหลือ
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                        คงเหลือ ณ เดือน {new Date().toLocaleDateString('th-TH', { month: 'long' })} ปี {new Date().getFullYear()} ({new Date().getFullYear() + 543} พ.ศ.)
+                    </Typography>
+                </Box>
                 <Box sx={{ display: 'flex', gap: 2 }}>
                     <Button
                         variant="outlined"

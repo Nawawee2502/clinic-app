@@ -198,13 +198,13 @@ class BalDrugService {
         });
     }
 
-    // จัดรูปแบบวันที่
+    // จัดรูปแบบวันที่ (ค.ศ. - Gregorian)
     static formatDate(dateString) {
         if (!dateString) return '-';
         const date = new Date(dateString);
         const day = date.getDate().toString().padStart(2, '0');
         const month = (date.getMonth() + 1).toString().padStart(2, '0');
-        const year = date.getFullYear() + 543;
+        const year = date.getFullYear(); // ✅ ใช้ปี ค.ศ. ไม่ต้องบวก 543
         return `${day}/${month}/${year}`;
     }
 
@@ -319,7 +319,7 @@ class BalDrugService {
             const result = await response.json();
             console.log('📦 API Response for getLotsByDrugCode:', result);
             console.log('📦 Response structure:', JSON.stringify(result, null, 2));
-            
+
             // ตรวจสอบ structure ของ data
             if (result.data && Array.isArray(result.data)) {
                 console.log('📦 First lot item:', result.data[0]);

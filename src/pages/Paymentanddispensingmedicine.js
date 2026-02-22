@@ -204,10 +204,12 @@ const Paymentanddispensingmedicine = () => {
       const netAmount = Math.max(0, totalAmount - discount);
 
       // ✅ Validation: ใช้ netAmount ที่คำนวณจาก paymentData.discount โดยตรง
-      if (!paymentData.receivedAmount || parseFloat(paymentData.receivedAmount) < netAmount) {
+      // ✅ Fix: ใช้ isNaN แทน !receivedAmount เพื่อให้ 0 บาทผ่านได้เมื่อ netAmount = 0
+      const receivedAmountParsed = parseFloat(paymentData.receivedAmount);
+      if (isNaN(receivedAmountParsed) || receivedAmountParsed < netAmount) {
         setSnackbar({
           open: true,
-          message: `จำนวนเงินที่รับไม่เพียงพอ (ยอดชำระ: ${netAmount.toFixed(2)} บาท, รับมา: ${parseFloat(paymentData.receivedAmount || 0).toFixed(2)} บาท)`,
+          message: `จำนวนเงินที่รับไม่เพียงพอ (ยอดชำระ: ${netAmount.toFixed(2)} บาท, รับมา: ${(isNaN(receivedAmountParsed) ? 0 : receivedAmountParsed).toFixed(2)} บาท)`,
           severity: 'error'
         });
         return;
@@ -1330,6 +1332,8 @@ const Paymentanddispensingmedicine = () => {
       treatmentFee = parseFloat(currentPatient.paymentData.treatmentFee);
     } else if (currentPatient?.TREATMENT_FEE !== undefined && currentPatient?.TREATMENT_FEE !== null) {
       treatmentFee = parseFloat(currentPatient.TREATMENT_FEE);
+    } else if (treatmentData?.treatment?.TREATMENT_FEE !== undefined && treatmentData?.treatment?.TREATMENT_FEE !== null) {
+      treatmentFee = parseFloat(treatmentData.treatment.TREATMENT_FEE);
     } else {
       treatmentFee = shouldBeFree ? 0 : 100.00;
     }
@@ -1440,6 +1444,8 @@ const Paymentanddispensingmedicine = () => {
       treatmentFee = parseFloat(currentPatient.paymentData.treatmentFee);
     } else if (currentPatient?.TREATMENT_FEE !== undefined && currentPatient?.TREATMENT_FEE !== null) {
       treatmentFee = parseFloat(currentPatient.TREATMENT_FEE);
+    } else if (treatmentData?.treatment?.TREATMENT_FEE !== undefined && treatmentData?.treatment?.TREATMENT_FEE !== null) {
+      treatmentFee = parseFloat(treatmentData.treatment.TREATMENT_FEE);
     } else {
       treatmentFee = shouldBeFree ? 0 : 100.00;
     }

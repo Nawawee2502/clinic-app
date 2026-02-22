@@ -57,6 +57,16 @@ const CheckStockManagement = () => {
         return `${day}/${month}/${year}`;
     };
 
+    // ✅ แสดงวันที่เป็น ค.ศ. (Gregorian) สำหรับวันหมดอายุ
+    const formatDateGregorian = (dateString) => {
+        if (!dateString) return '-';
+        const date = new Date(dateString);
+        const day = date.getDate().toString().padStart(2, '0');
+        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+        const year = date.getFullYear(); // ใช้ปี ค.ศ. ไม่บวก 543
+        return `${day}/${month}/${year}`;
+    };
+
     // แปลงวันที่จาก input (ค.ศ.) เป็น พ.ศ. สำหรับแสดงผล
     const convertDateCEToBE = (ceDate) => {
         if (!ceDate) return '';
@@ -349,13 +359,13 @@ const CheckStockManagement = () => {
 
     const handleEditDetail = async (index) => {
         const detail = details[index];
-        
+
         // โหลด LOT list ของยานี้
         try {
             const lotsResponse = await BalDrugService.getLotsByDrugCode(detail.DRUG_CODE);
             if (lotsResponse.success && lotsResponse.data) {
                 setLotList(lotsResponse.data);
-                
+
                 // หา lot ที่ตรงกับที่บันทึกไว้
                 const savedLot = lotsResponse.data.find(lot => lot.LOT_NO === detail.LOT_NO);
                 setSelectedLot(savedLot || null);
@@ -368,11 +378,11 @@ const CheckStockManagement = () => {
             setLotList([]);
             setSelectedLot(null);
         }
-        
+
         // หา GENERIC_NAME จาก drugList โดยใช้ DRUG_CODE
         const drug = drugList.find(d => d.DRUG_CODE === detail.DRUG_CODE);
         const genericName = drug ? drug.GENERIC_NAME : (detail.GENERIC_NAME || '');
-        
+
         setModalData({
             ...detail,
             GENERIC_NAME: genericName, // ตั้งค่า GENERIC_NAME จาก drugList
@@ -461,10 +471,10 @@ const CheckStockManagement = () => {
                 if (drug) {
                     // ดึงรายการ LOT_NO จาก bal_drug
                     const lotsResponse = await BalDrugService.getLotsByDrugCode(drug.DRUG_CODE);
-                    
+
                     console.log('🔍 CheckStockManagement - lotsResponse:', lotsResponse);
                     console.log('🔍 CheckStockManagement - lotsResponse.data:', lotsResponse.data);
-                    
+
                     if (lotsResponse.success && lotsResponse.data) {
                         console.log('🔍 CheckStockManagement - lotList before setting:', lotsResponse.data);
                         // Debug: ดูว่าแต่ละ lot มี QTY เป็นเท่าไหร่
@@ -537,17 +547,17 @@ const CheckStockManagement = () => {
                     EXPIRE_DATE: CheckStockService.formatDateForInput(value.EXPIRE_DATE),
                     QTY_PROGRAM: lotQty // อัปเดต QTY_PROGRAM ตาม LOT ที่เลือก
                 };
-                
+
                 // คำนวณจำนวนปรับปรุงใหม่ (ถ้ามี QTY_BAL)
                 if (prev.QTY_BAL) {
                     const qtyBal = parseFloat(prev.QTY_BAL) || 0;
                     updated.QTY = qtyBal - lotQty;
-                    
+
                     // คำนวณจำนวนเงินใหม่
                     const unitCost = parseFloat(prev.UNIT_COST) || 0;
                     updated.AMT = (updated.QTY * unitCost).toFixed(2);
                 }
-                
+
                 return updated;
             });
         } else {
@@ -843,12 +853,12 @@ const CheckStockManagement = () => {
                                                 const drugCode = drug?.DRUG_CODE || detail.DRUG_CODE || '';
                                                 const drugDisplay = drug ? `${genericName}-${tradeName}-${drugCode}` : (detail.GENERIC_NAME || '-');
                                                 const qtyAdjust = CheckStockService.calculateAdjustment(detail.QTY_BAL, detail.QTY_PROGRAM);
-                                                
+
                                                 return (
                                                     <TableRow key={index}>
                                                         <TableCell>{drugDisplay}</TableCell>
                                                         <TableCell>{detail.LOT_NO || '-'}</TableCell>
-                                                        <TableCell>{detail.EXPIRE_DATE ? formatDateBE(detail.EXPIRE_DATE) : '-'}</TableCell>
+                                                        <TableCell>{detail.EXPIRE_DATE ? formatDateGregorian(detail.EXPIRE_DATE) : '-'}</TableCell>
                                                         <TableCell align="right">{detail.QTY_PROGRAM || 0}</TableCell>
                                                         <TableCell align="right">{detail.QTY_BAL || 0}</TableCell>
                                                         <TableCell align="right" sx={{
@@ -924,7 +934,7 @@ const CheckStockManagement = () => {
                                         }}
                                         filterOptions={(options, { inputValue }) => {
                                             const searchTerm = inputValue.toLowerCase();
-                                            return options.filter(option => 
+                                            return options.filter(option =>
                                                 (option.GENERIC_NAME || '').toLowerCase().includes(searchTerm) ||
                                                 (option.TRADE_NAME || '').toLowerCase().includes(searchTerm) ||
                                                 (option.DRUG_CODE || '').toLowerCase().includes(searchTerm)
@@ -977,16 +987,16 @@ const CheckStockManagement = () => {
                                     <DatePicker
                                         label="วันหมดอายุ"
                                         value={modalData.EXPIRE_DATE ? dayjs(modalData.EXPIRE_DATE) : null}
-                                    onChange={() => {}}
-                                    disabled
-                                    renderInput={(params) => (
-                                        <TextField
-                                            {...params}
-                                            fullWidth
-                                            size="small"
-                                            sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
-                                        />
-                                    )}
+                                        onChange={() => { }}
+                                        disabled
+                                        renderInput={(params) => (
+                                            <TextField
+                                                {...params}
+                                                fullWidth
+                                                size="small"
+                                                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
+                                            />
+                                        )}
                                     />
                                 </Grid>
 

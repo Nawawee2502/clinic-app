@@ -322,7 +322,7 @@ const Receipt1Management = () => {
                     SUPPLIER_CODE: header.SUPPLIER_CODE,
                     DUEDATE: Receipt1Service.formatDateForInput(header.DUEDATE),
                     STATUS: header.STATUS,
-                    VAT1: header.VAT1 || 7,
+                    VAT1: (header.VAT1 !== null && header.VAT1 !== undefined) ? header.VAT1 : 7,
                     TYPE_PAY: header.TYPE_PAY,
                     BANK_NO: header.BANK_NO || '-',
                     TYPE_VAT: header.TYPE_VAT || 'exclude'
