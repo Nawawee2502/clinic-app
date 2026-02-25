@@ -33,7 +33,9 @@ const PaymentSummaryCard = ({
 
     // ✅ Helper Function for Gold Card Logic
     const getGoldCardStatus = () => {
-        const isGoldCard = patient?.UCS_CARD === 'Y';
+        // ✅ Fix: ใช้ PATIENT_UCS_CARD (จาก patient1 table) เป็นลำดับแรก
+        // เชื่อถือได้กว่า TREATMENT_UCS_CARD ซึ่งอาจถูกบันทึกผิดพลาดเป็น 'N'
+        const isGoldCard = patient?.PATIENT_UCS_CARD === 'Y' || patient?.UCS_CARD === 'Y';
         // Check API Flag
         const isUcsExceeded = ucsUsageInfo?.isExceeded;
         // Check Manual Count (Displayed in Header)
@@ -173,6 +175,7 @@ const PaymentSummaryCard = ({
                         <Typography variant="body2" fontWeight="bold">
                             {(() => {
                                 // ✅ สำหรับผู้ป่วยบัตรทอง: คำนวณยาที่ UCS_CARD = 'N' หรือยาที่แก้ราคาแล้ว (editablePrice > 0)
+                                // ✅ Fix: ใช้ PATIENT_UCS_CARD เป็นลำดับแรก
                                 const isGoldCard = patient?.PATIENT_UCS_CARD === 'Y' || patient?.UCS_CARD === 'Y' || patient?.treatment?.UCS_CARD === 'Y';
                                 const isUcsExceeded = ucsUsageInfo?.isExceeded || false;
                                 // Logic: Free if Gold Card AND (Not Exceeded OR Usage <= 2)
@@ -219,7 +222,7 @@ const PaymentSummaryCard = ({
                             size="small"
                             inputProps={{ step: "0.01", min: "0" }}
                             disabled={false} // ✅ Fix: Always enable editing
-                            helperText={(patient?.UCS_CARD === 'Y' || patient?.treatment?.UCS_CARD === 'Y') && !ucsUsageInfo?.isExceeded
+                            helperText={(patient?.PATIENT_UCS_CARD === 'Y' || patient?.UCS_CARD === 'Y' || patient?.treatment?.UCS_CARD === 'Y') && !ucsUsageInfo?.isExceeded
                                 ? 'บัตรทอง: เริ่มต้น 0.00 (แก้ไขได้)'
                                 : 'สามารถแก้ไขได้ (กรอก 0.00 ได้)'}
                             sx={{
@@ -237,6 +240,7 @@ const PaymentSummaryCard = ({
                             <Typography variant="body2">ค่ารักษา:</Typography>
                             <Typography variant="body2" fontWeight="bold">
                                 {(() => {
+                                    // ✅ Fix: ใช้ PATIENT_UCS_CARD เป็นลำดับแรก
                                     const isGoldCard = patient?.PATIENT_UCS_CARD === 'Y' || patient?.UCS_CARD === 'Y' || patient?.treatment?.UCS_CARD === 'Y';
                                     const isUcsExceeded = ucsUsageInfo?.isExceeded || false;
 

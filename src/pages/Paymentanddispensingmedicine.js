@@ -977,9 +977,10 @@ const Paymentanddispensingmedicine = () => {
         }
 
         // ✅ เช็คบัตรทอง (UCS_CARD) จาก patient หรือ treatment
+        // ✅ Fix: ใช้ PATIENT_UCS_CARD (จาก patient1 table) เป็นลำดับแรก เชื่อถือได้กว่า TREATMENT_UCS_CARD
         const currentPatient = patients[selectedPatientIndex];
-        const isGoldCard = currentPatient?.UCS_CARD === 'Y' ||
-          response.data.treatment?.UCS_CARD === 'Y' ||
+        const isGoldCard = currentPatient?.PATIENT_UCS_CARD === 'Y' ||
+          currentPatient?.UCS_CARD === 'Y' ||
           response.data.patient?.UCS_CARD === 'Y';
 
         // ✅ เช็คจำนวนครั้งที่ใช้สิทธิ์บัตรทองในเดือนนี้
@@ -1291,9 +1292,10 @@ const Paymentanddispensingmedicine = () => {
     const procedureTotal = editablePrices.procedures.reduce((sum, item) => sum + item.editablePrice, 0);
 
     // ✅ สำหรับผู้ป่วยบัตรทอง: คำนวณยาที่ UCS_CARD = 'N' หรือยาที่แก้ราคาแล้ว (editablePrice > 0)
+    // ✅ Fix: ใช้ PATIENT_UCS_CARD เป็นลำดับแรก เชื่อถือได้กว่า TREATMENT_UCS_CARD
     const currentPatient = patients[selectedPatientIndex];
-    const isGoldCard = currentPatient?.UCS_CARD === 'Y' ||
-      treatmentData?.treatment?.UCS_CARD === 'Y' ||
+    const isGoldCard = currentPatient?.PATIENT_UCS_CARD === 'Y' ||
+      currentPatient?.UCS_CARD === 'Y' ||
       treatmentData?.patient?.UCS_CARD === 'Y';
 
     // ✅ Logic: Free if Gold Card AND (Usage <= 2 OR Not Exceeded)
@@ -1383,8 +1385,9 @@ const Paymentanddispensingmedicine = () => {
   const getReceiptItems = () => {
     // ✅ ใช้ Logic เดียวกันกับ calculateTotalFromEditablePrices
     const currentPatient = patients[selectedPatientIndex];
-    const isGoldCard = currentPatient?.UCS_CARD === 'Y' ||
-      treatmentData?.treatment?.UCS_CARD === 'Y' ||
+    // ✅ Fix: ใช้ PATIENT_UCS_CARD เป็นลำดับแรก
+    const isGoldCard = currentPatient?.PATIENT_UCS_CARD === 'Y' ||
+      currentPatient?.UCS_CARD === 'Y' ||
       treatmentData?.patient?.UCS_CARD === 'Y';
     const isUcsExceeded = ucsUsageInfo.isExceeded;
 
@@ -2048,16 +2051,21 @@ const Paymentanddispensingmedicine = () => {
                           <ReceiptPrint
                             patient={currentPatient}
                             items={getReceiptItems()}
-                            paymentData={{
-                              ...paymentData,
-                              // ✅ ส่งส่วนลดจาก paymentData ก่อน (เพราะ user อาจแก้ไขใน UI) แล้วค่อย fallback ไปที่อื่น
-                              discount: parseFloat(
-                                (paymentData.discount !== undefined && paymentData.discount !== null) ? paymentData.discount :
-                                  treatmentData?.treatment?.DISCOUNT_AMOUNT ||
-                                  currentPatient?.paymentData?.discount ||
-                                  0
-                              )
-                            }}
+                            paymentData={
+                              // ✅ Fix Bug: ใช้ patient.paymentData (ที่บันทึกค่าจริง) เมื่อชำระแล้ว
+                              // เพราะ paymentData state ถูก reset หลังจาก handlePayment สำเร็จ
+                              (currentPatient?.PAYMENT_STATUS === 'ชำระเงินแล้ว' && currentPatient?.paymentData)
+                                ? currentPatient.paymentData
+                                : {
+                                  ...paymentData,
+                                  discount: parseFloat(
+                                    (paymentData.discount !== undefined && paymentData.discount !== null) ? paymentData.discount :
+                                      treatmentData?.treatment?.DISCOUNT_AMOUNT ||
+                                      currentPatient?.paymentData?.discount ||
+                                      0
+                                  )
+                                }
+                            }
                           />
 
                           {/* ปุ่มปิดการรักษา */}
