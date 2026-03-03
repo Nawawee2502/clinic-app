@@ -1,65 +1,87 @@
-import React from 'react';
-import { TextField } from '@mui/material';
+import React, { useRef } from 'react';
+import { Box, TextField, InputAdornment, IconButton } from '@mui/material';
+import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 
 /**
- * Reusable Date Picker component supporting Thai Buddhist Year (BE).
- * 
- * @param {Object} props
- * @param {string} props.label - Label for the input
- * @param {string} props.value - Date value in AD format (YYYY-MM-DD)
- * @param {function} props.onChange - Function called with new date string (YYYY-MM-DD AD)
- * @param {boolean} props.disabled - Whether the input is disabled
+ * DatePickerBE — แสดงวันที่เป็น พ.ศ. (DD/MM/2569) แต่ calendar วันถูกต้อง
+ * คลิกที่ช่อง หรือไอคอน calendar → เปิด native date picker (CE) → แปลงเป็น พ.ศ.
  */
 const DatePickerBE = ({ label, value, onChange, disabled, ...props }) => {
-    // Helper: Convert AD date string (YYYY-MM-DD) to BE date string for display
-    const convertDateCEToBE = (ceDate) => {
+    const hiddenInputRef = useRef(null);
+
+    // ค.ศ. YYYY-MM-DD → พ.ศ. DD/MM/YYYY+543
+    const formatDisplayBE = (ceDate) => {
         if (!ceDate) return '';
         const parts = ceDate.split('-');
         if (parts.length !== 3) return ceDate;
         const [year, month, day] = parts;
         const beYear = parseInt(year) + 543;
-        return `${beYear}-${month}-${day}`;
+        return `${day}/${month}/${beYear}`;
     };
 
-    // Helper: Convert BE date string input back to AD date string for state
-    const convertDateBEToCE = (beDate) => {
-        if (!beDate) return '';
-        const parts = beDate.split('-');
-        if (parts.length !== 3) return beDate;
-        const [year, month, day] = parts;
-        const ceYear = parseInt(year) - 543;
-        return `${ceYear}-${month}-${day}`;
-    };
-
-    const displayValue = value ? convertDateCEToBE(value) : '';
-
-    const handleChange = (e) => {
-        const beValue = e.target.value;
-        const ceValue = beValue ? convertDateBEToCE(beValue) : '';
-        onChange(ceValue);
+    const openPicker = () => {
+        if (disabled || !hiddenInputRef.current) return;
+        try {
+            hiddenInputRef.current.showPicker(); // Modern browsers
+        } catch {
+            hiddenInputRef.current.click();      // Fallback
+        }
     };
 
     return (
-        <TextField
-            {...props}
-            type="date"
-            label={label}
-            value={displayValue}
-            onChange={handleChange}
-            disabled={disabled}
-            size="small"
-            InputLabelProps={{ shrink: true }}
-            inputProps={{
-                // Prevent creating dates way too far in the future
-                max: convertDateCEToBE('9999-12-31')
-            }}
-            sx={{
-                "& .MuiOutlinedInput-root": {
-                    borderRadius: "10px",
+        <Box sx={{ position: 'relative' }}>
+            {/* TextField แสดง พ.ศ. */}
+            <TextField
+                label={label}
+                value={formatDisplayBE(value)}
+                size="small"
+                fullWidth
+                disabled={disabled}
+                InputLabelProps={{ shrink: true }}
+                inputProps={{ readOnly: true, style: { cursor: disabled ? 'default' : 'pointer' } }}
+                onClick={openPicker}
+                InputProps={{
+                    endAdornment: (
+                        <InputAdornment position="end">
+                            <IconButton
+                                size="small"
+                                onClick={openPicker}
+                                disabled={disabled}
+                                tabIndex={-1}
+                            >
+                                <CalendarTodayIcon fontSize="small" />
+                            </IconButton>
+                        </InputAdornment>
+                    )
+                }}
+                sx={{
+                    '& .MuiOutlinedInput-root': {
+                        borderRadius: '10px',
+                        cursor: disabled ? 'default' : 'pointer',
+                        bgcolor: disabled ? undefined : 'white',
+                    },
                     ...props.sx
-                }
-            }}
-        />
+                }}
+            />
+
+            {/* native input ซ่อน — ใช้เปิด calendar เท่านั้น */}
+            <input
+                ref={hiddenInputRef}
+                type="date"
+                value={value || ''}
+                onChange={(e) => onChange(e.target.value)}
+                disabled={disabled}
+                style={{
+                    position: 'absolute',
+                    opacity: 0,
+                    pointerEvents: 'none',
+                    width: 0,
+                    height: 0,
+                    top: 0,
+                    left: 0,
+                }}
+            />
+        </Box>
     );
 };
 
