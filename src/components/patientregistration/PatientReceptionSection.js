@@ -981,7 +981,6 @@ const PatientReceptionSection = ({
                                                 size="small"
                                                 inputProps={{ min: 1, max: 10 }}
                                                 sx={{ bgcolor: 'white' }}
-                                                helperText="ระบบคำนวณให้อัตโนมัติ แก้ไขได้ถ้าจำเป็น"
                                             />
                                         </Grid>
                                     </Grid>
