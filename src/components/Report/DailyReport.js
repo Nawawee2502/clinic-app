@@ -22,7 +22,7 @@ import { formatThaiDate as formatThaiDateUtil, formatThaiDateShort, getCurrentDa
 
 // Import Components
 import DailyReportButton from '../Dashboard/DailyReportButton';
-import DatePickerBE from '../common/DatePickerBE';
+
 
 const DailyReport = () => {
 
@@ -309,17 +309,27 @@ const DailyReport = () => {
                     <Typography variant="h6" sx={{ mb: 2 }}>ตัวกรองข้อมูล</Typography>
                     <Grid container spacing={2}>
                         <Grid item xs={12} sm={6} md={2}>
-                            <DatePickerBE
+                            <TextField
                                 label="วันที่เริ่มต้น"
+                                type="date"
                                 value={startDate}
-                                onChange={(value) => setStartDate(value)}
+                                onChange={(e) => setStartDate(e.target.value)}
+                                size="small"
+                                fullWidth
+                                InputLabelProps={{ shrink: true }}
+                                sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
                             />
                         </Grid>
                         <Grid item xs={12} sm={6} md={2}>
-                            <DatePickerBE
+                            <TextField
                                 label="วันที่สิ้นสุด"
+                                type="date"
                                 value={endDate}
-                                onChange={(value) => setEndDate(value)}
+                                onChange={(e) => setEndDate(e.target.value)}
+                                size="small"
+                                fullWidth
+                                InputLabelProps={{ shrink: true }}
+                                sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
                             />
                         </Grid>
                         <Grid item xs={12} sm={6} md={3}>
