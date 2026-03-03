@@ -19,6 +19,7 @@ import DrugService from "../services/drugService";
 import EmployeeService from "../services/employeeService";
 import BalDrugService from "../services/balDrugService";
 import Swal from "sweetalert2";
+import DatePickerBE from "../components/common/DatePickerBE";
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
@@ -819,7 +820,7 @@ const Borrow1Management = () => {
                                     />
                                 </Grid>
                                 <Grid item xs={12} md={6}>
-                                    <DateInputBE
+                                    <DatePickerBE
                                         label="วันที่"
                                         value={headerData.RDATE}
                                         onChange={(value) => handleHeaderChange('RDATE', value)}

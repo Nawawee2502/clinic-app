@@ -586,15 +586,16 @@ class TreatmentService {
             INVESTIGATION_NOTES: toNull(data.INVESTIGATION_NOTES?.trim()),
 
             // ✅ เพิ่มฟิลด์การชำระเงิน
-            TOTAL_AMOUNT: data.TOTAL_AMOUNT ? parseFloat(data.TOTAL_AMOUNT) : null,
-            DISCOUNT_AMOUNT: data.DISCOUNT_AMOUNT ? parseFloat(data.DISCOUNT_AMOUNT) : null,
-            NET_AMOUNT: data.NET_AMOUNT ? parseFloat(data.NET_AMOUNT) : null,
+            TOTAL_AMOUNT: data.TOTAL_AMOUNT !== undefined && data.TOTAL_AMOUNT !== null ? parseFloat(data.TOTAL_AMOUNT) : null,
+            TREATMENT_FEE: data.TREATMENT_FEE !== undefined && data.TREATMENT_FEE !== null ? parseFloat(data.TREATMENT_FEE) : null, // ✅ ต้องบันทึก 0 ได้ ห้ามใช้ truthy check
+            DISCOUNT_AMOUNT: data.DISCOUNT_AMOUNT !== undefined && data.DISCOUNT_AMOUNT !== null ? parseFloat(data.DISCOUNT_AMOUNT) : null,
+            NET_AMOUNT: data.NET_AMOUNT !== undefined && data.NET_AMOUNT !== null ? parseFloat(data.NET_AMOUNT) : null,
             PAYMENT_STATUS: toNull(data.PAYMENT_STATUS),
             PAYMENT_DATE: toNull(data.PAYMENT_DATE),
             PAYMENT_TIME: toNull(data.PAYMENT_TIME),
             PAYMENT_METHOD: toNull(data.PAYMENT_METHOD),
-            RECEIVED_AMOUNT: data.RECEIVED_AMOUNT ? parseFloat(data.RECEIVED_AMOUNT) : null,
-            CHANGE_AMOUNT: data.CHANGE_AMOUNT ? parseFloat(data.CHANGE_AMOUNT) : null,
+            RECEIVED_AMOUNT: data.RECEIVED_AMOUNT !== undefined && data.RECEIVED_AMOUNT !== null ? parseFloat(data.RECEIVED_AMOUNT) : null,
+            CHANGE_AMOUNT: data.CHANGE_AMOUNT !== undefined && data.CHANGE_AMOUNT !== null ? parseFloat(data.CHANGE_AMOUNT) : null,
             CASHIER: toNull(data.CASHIER),
             EXTERNAL_UCS_COUNT: data.EXTERNAL_UCS_COUNT !== undefined ? parseInt(data.EXTERNAL_UCS_COUNT) : undefined, // ✅ เพิ่ม EXTERNAL_UCS_COUNT (ใช้ undefined ถ้าไม่มีค่า เพื่อให้ backend ตัดสินใจ)
 

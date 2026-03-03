@@ -129,7 +129,7 @@ const Paymentanddispensingmedicine = () => {
     if (patients[selectedPatientIndex]) {
       loadTreatmentData(patients[selectedPatientIndex].VNO);
     }
-  }, [selectedPatientIndex, patients]);
+  }, [selectedPatientIndex]); // ✅ ไม่ใส่ patients เพื่อป้องกัน loadTreatmentData ยิงซ้ำหลัง setPatients() ใน handlePayment
 
   // ✅ แจ้งเตือนแพ้ยาและโรคประจำตัว เมื่อเลือกผู้ป่วย
   // ✅ แจ้งเตือนแพ้ยาและโรคประจำตัว เมื่อเลือกผู้ป่วย
@@ -325,14 +325,18 @@ const Paymentanddispensingmedicine = () => {
         severity: 'success'
       });
 
-      // รีเซ็ตข้อมูลการชำระเงิน
-      setPaymentData({
+      // ✅ โหลด treatmentData ใหม่จาก DB หลัง save เสร็จ → จะได้ TREATMENT_FEE ที่ถูก save ไปล่าสุด (0, 100, etc.)
+      // ต้องทำก่อน reset paymentData เพื่อให้ไม่มี race condition
+      await loadTreatmentData(currentPatient.VNO);
+
+      // รีเซ็ตเฉพาะ field อื่นๆ แต่ treatmentFee ให้ loadTreatmentData จัดการ
+      setPaymentData(prev => ({
         paymentMethod: 'เงินสด',
         receivedAmount: '',
         discount: 0,
-        treatmentFee: undefined, // ✅ ไม่ force เป็น 100, ให้ใช้ค่า default จาก loadTreatmentData
+        treatmentFee: prev.treatmentFee, // ✅ คงค่าเดิมไว้ก่อน จนกว่า loadTreatmentData จะ set ค่าใหม่
         remarks: ''
-      });
+      }));
 
       setTabIndex(1); // ไปหน้าใบเสร็จ
 
@@ -1441,28 +1445,34 @@ const Paymentanddispensingmedicine = () => {
     // 1. paymentData
     // 2. currentPatient.paymentData
     // 3. Default Logic
-    let treatmentFee;
+    // ✅ ลำดับความสำคัญ:
+    // 1. paymentData (state ปัจจุบัน — ยังไม่บันทึก)
+    // 2. currentPatient.paymentData.treatmentFee (หลัง handlePayment reset paymentData แล้ว)
+    // 3. treatmentData.treatment.TREATMENT_FEE (จาก DB)
+    // 4. currentPatient.TREATMENT_FEE (old server field — อ่านท้ายสุด)
+    let resolvedTreatmentFee;
 
     if (paymentData.treatmentFee !== undefined && paymentData.treatmentFee !== null) {
-      treatmentFee = parseFloat(paymentData.treatmentFee);
+      resolvedTreatmentFee = parseFloat(paymentData.treatmentFee);
     } else if (currentPatient?.paymentData?.treatmentFee !== undefined && currentPatient?.paymentData?.treatmentFee !== null) {
-      treatmentFee = parseFloat(currentPatient.paymentData.treatmentFee);
-    } else if (currentPatient?.TREATMENT_FEE !== undefined && currentPatient?.TREATMENT_FEE !== null) {
-      treatmentFee = parseFloat(currentPatient.TREATMENT_FEE);
+      // ✅ อ่านจาก paymentData ที่ handlePayment บันทึกไว้ (ค่าที่ user จ่ายจริง)
+      resolvedTreatmentFee = parseFloat(currentPatient.paymentData.treatmentFee);
     } else if (treatmentData?.treatment?.TREATMENT_FEE !== undefined && treatmentData?.treatment?.TREATMENT_FEE !== null) {
-      treatmentFee = parseFloat(treatmentData.treatment.TREATMENT_FEE);
+      resolvedTreatmentFee = parseFloat(treatmentData.treatment.TREATMENT_FEE);
+    } else if (currentPatient?.TREATMENT_FEE !== undefined && currentPatient?.TREATMENT_FEE !== null) {
+      resolvedTreatmentFee = parseFloat(currentPatient.TREATMENT_FEE);
     } else {
-      treatmentFee = shouldBeFree ? 0 : 100.00;
+      resolvedTreatmentFee = shouldBeFree ? 0 : 100.00;
     }
 
-    if (treatmentFee > 0) {
-      allItems.push({
-        name: "ค่ารักษาพยาบาล",
-        quantity: 1,
-        unit: "ครั้ง",
-        price: treatmentFee
-      });
-    }
+    // ✅ แสดงเสมอ (รวม 0 บาท) เพื่อให้ใบเสร็จตรงกับที่หน้าชำระเงินแสดง
+    const treatmentFee = isNaN(resolvedTreatmentFee) ? 0 : resolvedTreatmentFee;
+    allItems.push({
+      name: "ค่ารักษาพยาบาล",
+      quantity: 1,
+      unit: "ครั้ง",
+      price: treatmentFee
+    });
 
     return allItems;
   };
@@ -1999,25 +2009,25 @@ const Paymentanddispensingmedicine = () => {
                               if (paymentData.treatmentFee !== undefined && paymentData.treatmentFee !== null) {
                                 treatmentFee = parseFloat(paymentData.treatmentFee);
                               } else if (currentPatient?.paymentData?.treatmentFee !== undefined && currentPatient?.paymentData?.treatmentFee !== null) {
+                                // ✅ อ่านจาก paymentData ที่ handlePayment บันทึกไว้ (ค่าที่ user จ่ายจริง)
                                 treatmentFee = parseFloat(currentPatient.paymentData.treatmentFee);
-                              } else if (currentPatient?.TREATMENT_FEE !== undefined && currentPatient?.TREATMENT_FEE !== null) {
-                                treatmentFee = parseFloat(currentPatient.TREATMENT_FEE);
                               } else if (treatmentData?.treatment?.TREATMENT_FEE !== undefined && treatmentData?.treatment?.TREATMENT_FEE !== null) {
                                 // ✅ อ่านจาก DB ที่บันทึกไว้
                                 treatmentFee = parseFloat(treatmentData.treatment.TREATMENT_FEE);
+                              } else if (currentPatient?.TREATMENT_FEE !== undefined && currentPatient?.TREATMENT_FEE !== null) {
+                                treatmentFee = parseFloat(currentPatient.TREATMENT_FEE);
                               } else {
                                 treatmentFee = (isGoldCard && !isUcsExceeded) ? 0.00 : 100.00;
                               }
+                              if (isNaN(treatmentFee)) treatmentFee = 0;
 
-                              if (treatmentFee > 0) {
-                                return (
-                                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                                    <Typography>ค่ารักษา:</Typography>
-                                    <Typography>{treatmentFee.toFixed(2)} บาท</Typography>
-                                  </Box>
-                                );
-                              }
-                              return null;
+                              // ✅ แสดงเสมอ รวม 0 บาท
+                              return (
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                                  <Typography>ค่ารักษา:</Typography>
+                                  <Typography>{treatmentFee.toFixed(2)} บาท</Typography>
+                                </Box>
+                              );
                             })()}
 
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>

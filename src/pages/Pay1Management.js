@@ -18,6 +18,7 @@ import PrintIcon from '@mui/icons-material/Print';
 import Pay1Service from "../services/pay1Service";
 import TypePayService from "../services/typePayService";
 import BookBankService from "../services/bookBankService";
+import DatePickerBE from "../components/common/DatePickerBE";
 
 const Pay1Management = () => {
     // Helper functions สำหรับจัดการปี พ.ศ.
@@ -43,35 +44,6 @@ const Pay1Management = () => {
         const [year, month, day] = beDate.split('-');
         const ceYear = parseInt(year) - 543;
         return `${ceYear}-${month}-${day}`;
-    };
-
-    // Component สำหรับ Date Input ที่แสดงเป็น พ.ศ.
-    const DateInputBE = ({ label, value, onChange, disabled, ...props }) => {
-        const displayValue = value ? convertDateCEToBE(value) : '';
-
-        const handleChange = (e) => {
-            const beValue = e.target.value;
-            const ceValue = beValue ? convertDateBEToCE(beValue) : '';
-            onChange(ceValue);
-        };
-
-        return (
-            <TextField
-                {...props}
-                fullWidth
-                label={label}
-                type="date"
-                value={displayValue}
-                onChange={handleChange}
-                disabled={disabled}
-                size="small"
-                InputLabelProps={{ shrink: true }}
-                inputProps={{
-                    max: convertDateCEToBE('9999-12-31') // ปี พ.ศ. สูงสุด
-                }}
-                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
-            />
-        );
     };
 
     const [currentView, setCurrentView] = useState("list");
@@ -131,22 +103,22 @@ const Pay1Management = () => {
 
             if (response.success && response.data) {
                 console.log(`✅ โหลดข้อมูลใบสำคัญจ่าย ${response.data.length} รายการ`);
-                
+
                 // ✅ กรองข้อมูลตาม filterYear และ filterMonth (client-side filtering)
                 // ✅ filterYear เป็น พ.ศ. แต่ MYEAR ใน DB เก็บเป็น ค.ศ. ต้องแปลงก่อนกรอง
                 let filtered = response.data;
-                
+
                 // กรองตามปี - แปลง filterYear (พ.ศ.) เป็น ค.ศ. ก่อนกรอง
                 if (filterYear) {
                     const filterYearCE = toGregorianYear(filterYear); // แปลง พ.ศ. เป็น ค.ศ.
                     filtered = filtered.filter(item => item.MYEAR === filterYearCE.toString());
                 }
-                
+
                 // กรองตามเดือน
                 if (filterMonth) {
                     filtered = filtered.filter(item => item.MONTHH === parseInt(filterMonth));
                 }
-                
+
                 console.log(`✅ กรองข้อมูลแล้ว ${filtered.length} รายการ (ปี: ${filterYear} พ.ศ. / ${toGregorianYear(filterYear)} ค.ศ., เดือน: ${filterMonth})`);
                 setPay1List(filtered);
                 setFilteredList(filtered);
@@ -241,7 +213,7 @@ const Pay1Management = () => {
     const handleDetailChange = (index, field, value) => {
         const newDetails = [...details];
         newDetails[index][field] = value;
-        
+
         // ✅ ถ้าเลือกประเภท ให้เอาชื่อประเภทไปใส่ในรายการอัตโนมัติ
         if (field === 'TYPE_PAY_CODE' && value) {
             const selectedType = typePayList.find(type => type.TYPE_PAY_CODE === value);
@@ -257,7 +229,7 @@ const Pay1Management = () => {
                 }
             }
         }
-        
+
         setDetails(newDetails);
     };
 
@@ -503,7 +475,7 @@ const Pay1Management = () => {
                                 <Typography sx={{ fontWeight: 400, fontSize: 14, mb: 1 }}>
                                     วันที่ * (พ.ศ.)
                                 </Typography>
-                                <DateInputBE
+                                <DatePickerBE
                                     value={headerData.RDATE}
                                     onChange={(value) => handleHeaderChange('RDATE', value)}
                                 />

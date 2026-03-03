@@ -18,6 +18,7 @@ import CheckStockService from "../services/checkStockService";
 import DrugService from "../services/drugService";
 import BalDrugService from "../services/balDrugService";
 import Swal from "sweetalert2";
+import DatePickerBE from "../components/common/DatePickerBE";
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
@@ -81,35 +82,6 @@ const CheckStockManagement = () => {
         const [year, month, day] = beDate.split('-');
         const ceYear = parseInt(year) - 543;
         return `${ceYear}-${month}-${day}`;
-    };
-
-    // Component สำหรับ Date Input ที่แสดงเป็น พ.ศ.
-    const DateInputBE = ({ label, value, onChange, disabled, ...props }) => {
-        const displayValue = value ? convertDateCEToBE(value) : '';
-
-        const handleChange = (e) => {
-            const beValue = e.target.value;
-            const ceValue = beValue ? convertDateBEToCE(beValue) : '';
-            onChange(ceValue);
-        };
-
-        return (
-            <TextField
-                {...props}
-                fullWidth
-                label={label}
-                type="date"
-                value={displayValue}
-                onChange={handleChange}
-                disabled={disabled}
-                size="small"
-                InputLabelProps={{ shrink: true }}
-                inputProps={{
-                    max: convertDateCEToBE('9999-12-31') // ปี พ.ศ. สูงสุด
-                }}
-                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
-            />
-        );
     };
 
     const [currentView, setCurrentView] = useState("list");
@@ -787,7 +759,7 @@ const CheckStockManagement = () => {
                                     />
                                 </Grid>
                                 <Grid item xs={12} md={6}>
-                                    <DateInputBE
+                                    <DatePickerBE
                                         label="วันที่"
                                         value={headerData.RDATE}
                                         onChange={(value) => handleHeaderChange('RDATE', value)}
