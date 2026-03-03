@@ -34,8 +34,8 @@ const Borrow1Management = () => {
         return parseInt(buddhistYear) - 543;
     };
 
-    const getYearOptionsBE = (yearsBack = 5) => {
-        const currentYear = new Date().getFullYear() + 543;
+    const getYearOptionsCE = (yearsBack = 5) => {
+        const currentYear = new Date().getFullYear();
         const options = [];
         for (let i = 0; i <= yearsBack; i++) {
             const year = currentYear - i;
@@ -61,63 +61,16 @@ const Borrow1Management = () => {
 
     const formatDateBE = (dateString) => {
         if (!dateString) return '-';
-        const date = new Date(dateString);
-        const day = date.getDate().toString().padStart(2, '0');
-        const month = (date.getMonth() + 1).toString().padStart(2, '0');
-        const year = date.getFullYear() + 543; // แปลงเป็น พ.ศ.
-        return `${day}/${month}/${year}`;
-    };
-
-    // แปลงวันที่จาก input (ค.ศ.) เป็น พ.ศ. สำหรับแสดงผล
-    const convertDateCEToBE = (ceDate) => {
-        if (!ceDate) return '';
-        const [year, month, day] = ceDate.split('-');
-        const beYear = parseInt(year) + 543;
-        return `${beYear}-${month}-${day}`;
-    };
-
-    // แปลงวันที่จาก พ.ศ. กลับเป็น ค.ศ. สำหรับเก็บใน state
-    const convertDateBEToCE = (beDate) => {
-        if (!beDate) return '';
-        const [year, month, day] = beDate.split('-');
-        const ceYear = parseInt(year) - 543;
-        return `${ceYear}-${month}-${day}`;
-    };
-
-    // Component สำหรับ Date Input ที่แสดงเป็น พ.ศ.
-    const DateInputBE = ({ label, value, onChange, disabled, ...props }) => {
-        const displayValue = value ? convertDateCEToBE(value) : '';
-
-        const handleChange = (e) => {
-            const beValue = e.target.value;
-            const ceValue = beValue ? convertDateBEToCE(beValue) : '';
-            onChange(ceValue);
-        };
-
-        return (
-            <TextField
-                {...props}
-                fullWidth
-                label={label}
-                type="date"
-                value={displayValue}
-                onChange={handleChange}
-                disabled={disabled}
-                size="small"
-                InputLabelProps={{ shrink: true }}
-                inputProps={{
-                    max: convertDateCEToBE('9999-12-31') // ปี พ.ศ. สูงสุด
-                }}
-                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
-            />
-        );
+        const [year, month, day] = String(dateString).substring(0, 10).split('-').map(Number);
+        if (!year || !month || !day) return '-';
+        return `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}/${year + 543}`;
     };
 
     const [currentView, setCurrentView] = useState("list");
     const [borrow1List, setBorrow1List] = useState([]);
     const [filteredList, setFilteredList] = useState([]);
     const [searchTerm, setSearchTerm] = useState("");
-    const [filterYear, setFilterYear] = useState((new Date().getFullYear() + 543).toString());
+    const [filterYear, setFilterYear] = useState(new Date().getFullYear().toString());
     const [filterMonth, setFilterMonth] = useState(new Date().getMonth() + 1);
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
@@ -138,7 +91,7 @@ const Borrow1Management = () => {
         REFNO: '',
         RDATE: new Date().toISOString().slice(0, 10),
         TRDATE: new Date().toISOString().slice(0, 10),
-        MYEAR: (new Date().getFullYear() + 543).toString(), // เปลี่ยนเป็น พ.ศ.
+        MYEAR: new Date().getFullYear().toString(), // ค.ศ.
         MONTHH: new Date().getMonth() + 1,
         EMP_CODE: '',
         STATUS: 'ทำงานอยู่'
@@ -318,7 +271,7 @@ const Borrow1Management = () => {
 
         // Filter by month/year
         if (filterYear && filterMonth) {
-            const targetYear = toGregorianYear(filterYear);
+            const targetYear = parseInt(filterYear); // ค.ศ. โดยตรง
             const targetMonth = Number(filterMonth);
 
             filtered = filtered.filter(item => {
@@ -461,7 +414,7 @@ const Borrow1Management = () => {
         // หา GENERIC_NAME จาก drugList โดยใช้ DRUG_CODE
         const drug = drugList.find(d => d.DRUG_CODE === detail.DRUG_CODE);
         const genericName = drug ? drug.GENERIC_NAME : (detail.GENERIC_NAME || '');
-        
+
         setModalData({
             ...detail,
             GENERIC_NAME: genericName, // ตั้งค่า GENERIC_NAME จาก drugList
@@ -942,7 +895,7 @@ const Borrow1Management = () => {
                                                 const tradeName = drug?.TRADE_NAME || '';
                                                 const drugCode = drug?.DRUG_CODE || detail.DRUG_CODE || '';
                                                 const drugDisplay = drug ? `${genericName}-${tradeName}-${drugCode}` : (detail.GENERIC_NAME || '-');
-                                                
+
                                                 return (
                                                     <TableRow key={index}>
                                                         <TableCell>{drugDisplay}</TableCell>
@@ -1012,7 +965,7 @@ const Borrow1Management = () => {
                                         }}
                                         filterOptions={(options, { inputValue }) => {
                                             const searchTerm = inputValue.toLowerCase();
-                                            return options.filter(option => 
+                                            return options.filter(option =>
                                                 (option.GENERIC_NAME || '').toLowerCase().includes(searchTerm) ||
                                                 (option.TRADE_NAME || '').toLowerCase().includes(searchTerm) ||
                                                 (option.DRUG_CODE || '').toLowerCase().includes(searchTerm)
@@ -1064,14 +1017,14 @@ const Borrow1Management = () => {
                                         label="วันหมดอายุ"
                                         value={modalData.EXPIRE_DATE ? dayjs(modalData.EXPIRE_DATE) : null}
                                         onChange={(newValue) => handleModalChange('EXPIRE_DATE', newValue ? newValue.format('YYYY-MM-DD') : '')}
-                                    renderInput={(params) => (
-                                        <TextField
-                                            {...params}
-                                            fullWidth
-                                            size="small"
-                                            sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
-                                        />
-                                    )}
+                                        renderInput={(params) => (
+                                            <TextField
+                                                {...params}
+                                                fullWidth
+                                                size="small"
+                                                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
+                                            />
+                                        )}
                                     />
                                 </Grid>
                                 <Grid item xs={12} md={6}>
@@ -1166,15 +1119,15 @@ const Borrow1Management = () => {
                             </Grid>
                             <Grid item xs={12} md={3}>
                                 <FormControl fullWidth size="small">
-                                    <InputLabel id="borrow-year-filter-label">ปี (พ.ศ.)</InputLabel>
+                                    <InputLabel id="borrow-year-filter-label">ปี (ค.ศ.)</InputLabel>
                                     <Select
                                         labelId="borrow-year-filter-label"
                                         value={filterYear}
                                         onChange={(e) => setFilterYear(e.target.value)}
                                         sx={{ borderRadius: "10px" }}
-                                        label="ปี (พ.ศ.)"
+                                        label="ปี (ค.ศ.)"
                                     >
-                                        {getYearOptionsBE().map(option => (
+                                        {getYearOptionsCE().map(option => (
                                             <MenuItem key={option.value} value={option.value}>
                                                 {option.label}
                                             </MenuItem>

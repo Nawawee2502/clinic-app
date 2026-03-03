@@ -22,7 +22,6 @@ import DrugService from "../services/drugService";
 import Swal from "sweetalert2";
 
 // ✅ Import Reusable Components
-import DatePickerBE from "../components/common/DatePickerBE";
 import MonthYearFilter from "../components/common/MonthYearFilter";
 
 const BalMonthDrugManagement = () => {
@@ -539,18 +538,14 @@ const BalMonthDrugManagement = () => {
 
                                 <Grid item xs={12} md={6}>
                                     <Typography sx={{ fontWeight: 400, fontSize: 16, mb: 1 }}>วันหมดอายุ</Typography>
-                                    <DatePicker
-                                        value={formData.EXPIRE_DATE ? dayjs(formData.EXPIRE_DATE) : null}
-                                        onChange={(newValue) => handleFormChange('EXPIRE_DATE', newValue ? newValue.format('YYYY-MM-DD') : '')}
-                                        inputFormat="DD/MM/YYYY"
-                                        renderInput={(params) => (
-                                            <TextField
-                                                {...params}
-                                                fullWidth
-                                                size="small"
-                                                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
-                                            />
-                                        )}
+                                    <TextField
+                                        fullWidth
+                                        type="date"
+                                        value={formData.EXPIRE_DATE}
+                                        onChange={(e) => handleFormChange('EXPIRE_DATE', e.target.value)}
+                                        size="small"
+                                        InputLabelProps={{ shrink: true }}
+                                        sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
                                     />
                                 </Grid>
 

@@ -26,7 +26,6 @@ import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import dayjs from 'dayjs';
 
 // ✅ Import Reusable Components
-import DatePickerBE from "../components/common/DatePickerBE";
 import MonthYearFilter from "../components/common/MonthYearFilter";
 
 const Return1Management = () => {
@@ -932,10 +931,15 @@ const Return1Management = () => {
                                     />
                                 </Grid>
                                 <Grid item xs={12} md={6}>
-                                    <DatePickerBE
+                                    <TextField
+                                        fullWidth
                                         label="วันที่"
+                                        type="date"
                                         value={headerData.RDATE}
-                                        onChange={(value) => handleHeaderChange('RDATE', value)}
+                                        onChange={(e) => handleHeaderChange('RDATE', e.target.value)}
+                                        size="small"
+                                        InputLabelProps={{ shrink: true }}
+                                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
                                     />
                                 </Grid>
                                 <Grid item xs={12} md={6}>
@@ -952,10 +956,15 @@ const Return1Management = () => {
                                     />
                                 </Grid>
                                 <Grid item xs={12} md={6}>
-                                    <DatePickerBE
+                                    <TextField
+                                        fullWidth
                                         label="วันครบกำหนด"
+                                        type="date"
                                         value={headerData.DUEDATE}
-                                        onChange={(value) => handleHeaderChange('DUEDATE', value)}
+                                        onChange={(e) => handleHeaderChange('DUEDATE', e.target.value)}
+                                        size="small"
+                                        InputLabelProps={{ shrink: true }}
+                                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
                                     />
                                 </Grid>
                                 <Grid item xs={12} md={6}>
@@ -1181,11 +1190,16 @@ const Return1Management = () => {
                                     />
                                 </Grid>
                                 <Grid item xs={12} md={6}>
-                                    <DatePickerBE
+                                    <TextField
+                                        fullWidth
                                         label="วันหมดอายุ"
+                                        type="date"
                                         value={modalData.EXPIRE_DATE}
-                                        onChange={(value) => handleModalChange('EXPIRE_DATE', value)}
+                                        onChange={(e) => handleModalChange('EXPIRE_DATE', e.target.value)}
+                                        size="small"
                                         disabled={!modalData.DRUG_CODE}
+                                        InputLabelProps={{ shrink: true }}
+                                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
                                     />
                                 </Grid>
                                 <Grid item xs={12} md={6}>

@@ -11,13 +11,18 @@ import {
     Box,
     Alert,
     CircularProgress,
-    Autocomplete
+    Autocomplete,
+    FormControl,
+    InputLabel,
+    Select,
+    MenuItem
 } from "@mui/material";
 import {
     Queue as QueueIcon,
     History as HistoryIcon,
     CheckCircle as CheckIcon,
-    PersonAdd as PersonAddIcon
+    PersonAdd as PersonAddIcon,
+    Save as SaveIcon
 } from "@mui/icons-material";
 
 // Import Services
@@ -56,6 +61,47 @@ const PatientReceptionSection = ({
 
     // ✅ State สำหรับนับจำนวนครั้งที่ใช้สิทธิ์จากที่อื่น
     const [externalUcsCount, setExternalUcsCount] = useState('');
+
+    // ✅ State สำหรับแก้สิทธิ์ผู้ป่วย
+    const [rightsValue, setRightsValue] = useState('cash'); // 'ucs' | 'social' | 'cash'
+    const [savingRights, setSavingRights] = useState(false);
+
+    // helper: แปลง patient flags → rightsValue
+    const getRightsFromPatient = (patient) => {
+        if (!patient) return 'cash';
+        if (patient.UCS_CARD === 'Y') return 'ucs';
+        if (patient.SOCIAL_CARD === 'Y') return 'social';
+        return 'cash';
+    };
+
+    // บันทึกสิทธิ์ใหม่ลง DB และ update local state
+    const handleSaveRights = async () => {
+        if (!selectedPatient) return;
+        setSavingRights(true);
+        try {
+            const newUCS = rightsValue === 'ucs' ? 'Y' : 'N';
+            const newSocial = rightsValue === 'social' ? 'Y' : 'N';
+            await PatientService.updatePatient(selectedPatient.HNCODE, {
+                UCS_CARD: newUCS,
+                SOCIAL_CARD: newSocial
+            });
+            // update local selectedPatient ให้ logic คิวใช้ค่าใหม่ได้ทันที
+            const updated = { ...selectedPatient, UCS_CARD: newUCS, SOCIAL_CARD: newSocial };
+            setSelectedPatient(updated);
+            // ถ้าเปลี่ยนเป็นบัตรทอง ให้โหลดจำนวนครั้ง
+            if (newUCS === 'Y') {
+                await checkGoldCardAndSetCount(updated);
+            } else {
+                setExternalUcsCount('');
+            }
+            showSnackbar('✅ บันทึกสิทธิ์เรียบร้อยแล้ว', 'success');
+        } catch (err) {
+            console.error('Error saving rights:', err);
+            showSnackbar('❌ ไม่สามารถบันทึกสิทธิ์ได้: ' + err.message, 'error');
+        } finally {
+            setSavingRights(false);
+        }
+    };
 
     // ✅ แยกฟังก์ชันเช็คสิทธิ์บัตรทองออกมา
     const checkGoldCardAndSetCount = async (patient) => {
@@ -166,6 +212,9 @@ const PatientReceptionSection = ({
         if (patient) {
             showSnackbar(`เลือกผู้ป่วย: ${patient.PRENAME} ${patient.NAME1} ${patient.SURNAME}`, 'success');
 
+            // ✅ โหลดสิทธิ์ปัจจุบันของผู้ป่วย
+            setRightsValue(getRightsFromPatient(patient));
+
             // ✅ เรียกใช้ฟังก์ชันเช็คสิทธิ์บัตรทอง
             await checkGoldCardAndSetCount(patient);
 
@@ -184,8 +233,9 @@ const PatientReceptionSection = ({
                 SPO2: '',
                 SYMPTOM: ''
             });
-            // Reset external count
+            // Reset
             setExternalUcsCount('');
+            setRightsValue('cash');
         }
     };
 
@@ -813,6 +863,71 @@ const PatientReceptionSection = ({
                                         </Typography>
                                     </Grid>
                                 </Grid>
+
+                                {/* ✅ ส่วนแก้สิทธิ์ผู้ป่วย */}
+                                <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid #bbdefb' }}>
+                                    <Typography variant="body2" fontWeight="bold" sx={{ mb: 1, color: '#1565c0' }}>
+                                        🏥 สิทธิการรักษา
+                                    </Typography>
+                                    <Grid container spacing={1.5} alignItems="center">
+                                        <Grid item xs={12} sm={7}>
+                                            <FormControl fullWidth size="small">
+                                                <InputLabel>สิทธิปัจจุบัน</InputLabel>
+                                                <Select
+                                                    value={rightsValue}
+                                                    label="สิทธิปัจจุบัน"
+                                                    onChange={(e) => setRightsValue(e.target.value)}
+                                                    sx={{ bgcolor: 'white', borderRadius: '8px' }}
+                                                >
+                                                    <MenuItem value="ucs">💳 บัตรทอง (UCS)</MenuItem>
+                                                    <MenuItem value="social">🔵 ประกันสังคม</MenuItem>
+                                                    <MenuItem value="cash">💵 จ่ายเอง (ชำระเงิน)</MenuItem>
+                                                </Select>
+                                            </FormControl>
+                                        </Grid>
+                                        <Grid item xs={12} sm={5}>
+                                            <Button
+                                                variant="contained"
+                                                size="small"
+                                                fullWidth
+                                                startIcon={savingRights ? <CircularProgress size={14} color="inherit" /> : <SaveIcon />}
+                                                onClick={handleSaveRights}
+                                                disabled={savingRights || getRightsFromPatient(selectedPatient) === rightsValue}
+                                                sx={{
+                                                    borderRadius: '8px',
+                                                    bgcolor: '#1565c0',
+                                                    '&:hover': { bgcolor: '#0d47a1' },
+                                                    '&.Mui-disabled': { bgcolor: '#e0e0e0' }
+                                                }}
+                                            >
+                                                {savingRights ? 'กำลังบันทึก...' : 'บันทึกสิทธิ์'}
+                                            </Button>
+                                        </Grid>
+                                        {/* แสดงสถานะสิทธิ์ปัจจุบัน */}
+                                        <Grid item xs={12}>
+                                            <Typography variant="caption" color="text.secondary">
+                                                สิทธิ์ในระบบ:{' '}
+                                                <Chip
+                                                    label={
+                                                        selectedPatient.UCS_CARD === 'Y' ? '💳 บัตรทอง' :
+                                                            selectedPatient.SOCIAL_CARD === 'Y' ? '🔵 ประกันสังคม' : '💵 จ่ายเอง'
+                                                    }
+                                                    size="small"
+                                                    color={
+                                                        selectedPatient.UCS_CARD === 'Y' ? 'warning' :
+                                                            selectedPatient.SOCIAL_CARD === 'Y' ? 'info' : 'default'
+                                                    }
+                                                    sx={{ height: 18, fontSize: '0.65rem' }}
+                                                />
+                                                {getRightsFromPatient(selectedPatient) !== rightsValue && (
+                                                    <Typography component="span" variant="caption" sx={{ ml: 1, color: 'error.main', fontWeight: 'bold' }}>
+                                                        ⚠️ มีการเปลี่ยนแปลง กรุณากด "บันทึกสิทธิ์"
+                                                    </Typography>
+                                                )}
+                                            </Typography>
+                                        </Grid>
+                                    </Grid>
+                                </Box>
                             </Box>
 
                             {/* คำแนะนำสำคัญ */}

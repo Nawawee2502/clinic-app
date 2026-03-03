@@ -8,19 +8,26 @@ export const formatThaiDate = (dateString) => {
     if (!dateString) return '';
 
     try {
-        const date = new Date(dateString);
-        if (isNaN(date.getTime())) return dateString;
-
         const thaiMonths = [
             'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
             'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
         ];
 
-        const day = date.getDate();
-        const month = thaiMonths[date.getMonth()];
-        const year = date.getFullYear() + 543; // ✅ แปลงเป็น พ.ศ.
+        // ✅ แยก string โดยตรง ป้องกัน timezone shift (new Date('YYYY-MM-DD') = UTC midnight)
+        const str = String(dateString);
+        if (/^\d{4}-\d{2}-\d{2}/.test(str)) {
+            const [year, month, day] = str.substring(0, 10).split('-').map(Number);
+            const beYear = year + 543;
+            return `${day} ${thaiMonths[month - 1]} ${beYear}`;
+        }
 
-        return `${day} ${month} ${year}`;
+        // fallback: datetime string ที่มี time component (ใช้ local time ได้เพราะไม่ใช่ date-only)
+        const date = new Date(dateString);
+        if (isNaN(date.getTime())) return dateString;
+        const day2 = date.getDate();
+        const month2 = thaiMonths[date.getMonth()];
+        const year2 = date.getFullYear() + 543;
+        return `${day2} ${month2} ${year2}`;
     } catch (error) {
         console.error('Error formatting Thai date:', error);
         return dateString;
@@ -32,14 +39,21 @@ export const formatThaiDateShort = (dateString) => {
     if (!dateString) return '';
 
     try {
+        // ✅ แยก string โดยตรง ป้องกัน timezone shift (new Date('YYYY-MM-DD') = UTC midnight)
+        const str = String(dateString);
+        if (/^\d{4}-\d{2}-\d{2}/.test(str)) {
+            const [year, month, day] = str.substring(0, 10).split('-').map(Number);
+            const beYear = year + 543;
+            return `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}/${beYear}`;
+        }
+
+        // fallback: datetime string ที่มี time component
         const date = new Date(dateString);
         if (isNaN(date.getTime())) return dateString;
-
-        const day = date.getDate().toString().padStart(2, '0');
-        const month = (date.getMonth() + 1).toString().padStart(2, '0');
-        const year = (date.getFullYear() + 543).toString(); // ✅ แปลงเป็น พ.ศ.
-
-        return `${day}/${month}/${year}`;
+        const day2 = date.getDate().toString().padStart(2, '0');
+        const month2 = (date.getMonth() + 1).toString().padStart(2, '0');
+        const year2 = (date.getFullYear() + 543).toString();
+        return `${day2}/${month2}/${year2}`;
     } catch (error) {
         console.error('Error formatting Thai date short:', error);
         return dateString;
@@ -57,7 +71,7 @@ export const formatThaiDateTime = (dateString) => {
         const day = date.getDate().toString().padStart(2, '0');
         const month = (date.getMonth() + 1).toString().padStart(2, '0');
         const year = (date.getFullYear() + 543).toString(); // ✅ แปลงเป็น พ.ศ.
-        
+
         // ✅ ใช้เวลาไทย (Asia/Bangkok timezone)
         const hours = date.getHours().toString().padStart(2, '0');
         const minutes = date.getMinutes().toString().padStart(2, '0');
@@ -171,12 +185,12 @@ export const getCurrentDateTimeForDisplay = () => {
 // ✅ ฟังก์ชันแปลงวันที่จาก input (th-TH) เป็น ค.ศ. สำหรับบันทึก DB
 export const convertInputDateToDB = (inputDateString) => {
     if (!inputDateString) return '';
-    
+
     // ถ้าเป็น YYYY-MM-DD format (จาก input type="date") ให้ใช้เลย
     if (/^\d{4}-\d{2}-\d{2}$/.test(inputDateString)) {
         return inputDateString;
     }
-    
+
     // ถ้าเป็น DD/MM/YYYY format (จาก input th-TH) ให้แปลง
     try {
         const [day, month, year] = inputDateString.split('/');
@@ -191,16 +205,16 @@ export const convertInputDateToDB = (inputDateString) => {
 // ✅ ฟังก์ชันแปลงวันที่จาก DB (ค.ศ.) เป็น format สำหรับ input (YYYY-MM-DD)
 export const convertDBDateToInput = (dbDateString) => {
     if (!dbDateString) return '';
-    
+
     // ถ้าเป็น YYYY-MM-DD format ให้ใช้เลย
     if (/^\d{4}-\d{2}-\d{2}$/.test(dbDateString)) {
         return dbDateString;
     }
-    
+
     try {
         const date = new Date(dbDateString);
         if (isNaN(date.getTime())) return dbDateString;
-        
+
         return date.toISOString().split('T')[0];
     } catch (error) {
         console.error('Error converting DB date to input:', error);
