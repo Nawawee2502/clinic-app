@@ -859,7 +859,8 @@ const Paymentanddispensingmedicine = () => {
           proceduresArray = uniqueProcedures.map(item => ({
             ...item,
             editablePrice: parseFloat(item.AMT || item.UNIT_PRICE || 200),
-            originalPrice: parseFloat(item.AMT || item.UNIT_PRICE || 200)
+            originalPrice: parseFloat(item.AMT || item.UNIT_PRICE || 200),
+            PROC_UCS_CARD: item.UCS_CARD || 'N' // ✅ เก็บ UCS_CARD ของหัตถการแต่ละตัว (N = ต้องจ่าย, Y = บัตรทองครอบคลุม)
           }));
           console.log('✅ Mapped procedures array (deduplicated):', proceduresArray);
         } else {
@@ -1040,12 +1041,13 @@ const Paymentanddispensingmedicine = () => {
         if (isGoldCard && !ucsUsageExceeded) {
           labsArray = labsArray.map(item => ({
             ...item,
-            editablePrice: 0, // ตั้งราคาเริ่มต้นเป็น 0
-            originalPrice: item.originalPrice // เก็บราคาเดิมไว้
+            editablePrice: 0, // lab ทุกตัว = 0 สำหรับบัตรทอง
+            originalPrice: item.originalPrice
           }));
+          // ✅ สำหรับหัตถการ: ถ้า UCS_CARD = 'N' ให้เก็บราคาไว้, ถ้า = 'Y' ให้เป็น 0 (เหมือนยา)
           proceduresArray = proceduresArray.map(item => ({
             ...item,
-            editablePrice: 0,
+            editablePrice: item.PROC_UCS_CARD === 'N' ? item.originalPrice : 0,
             originalPrice: item.originalPrice
           }));
           // ✅ สำหรับยา: ถ้า UCS_CARD = 'N' ให้เก็บราคาไว้, ถ้า = 'Y' ให้เป็น 0

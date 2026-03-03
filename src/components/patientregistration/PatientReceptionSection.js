@@ -959,7 +959,7 @@ const PatientReceptionSection = ({
                                 </Button>
                             </Box>
 
-                            {/* ✅ Input จำนวนครั้งที่ใช้สิทธิ์จากที่อื่น (เฉพาะบัตรทอง) */}
+                            {/* ✅ แสดงครั้งที่ของบัตรทองเดือนนี้ (เฉพาะบัตรทอง) */}
                             {selectedPatient.UCS_CARD === 'Y' && (
                                 <Box sx={{ mb: 2, p: 2, bgcolor: '#fff7ed', borderRadius: '10px', border: '1px solid #ffcc80' }}>
                                     <Grid container spacing={2} alignItems="center">
@@ -968,24 +968,26 @@ const PatientReceptionSection = ({
                                                 💳 ผู้ป่วยมีสิทธิ์บัตรทอง
                                             </Typography>
                                             <Typography variant="caption" sx={{ color: '#e65100' }}>
-                                                กรุณาสอบถามผู้ป่วยว่าเดือนนี้ใช้สิทธิ์ที่คลินิกอื่นมาแล้วกี่ครั้ง
+                                                ครั้งที่ — นับจากการมารับบริการที่คลินิกนี้เดือนนี้ (reset ทุกต้นเดือน)
                                             </Typography>
                                         </Grid>
                                         <Grid item xs={12} md={4}>
                                             <TextField
-                                                label="ครั้งที่"
+                                                label="ครั้งที่ (เดือนนี้)"
                                                 type="number"
                                                 value={externalUcsCount}
                                                 onChange={(e) => setExternalUcsCount(e.target.value)}
                                                 fullWidth
                                                 size="small"
-                                                inputProps={{ min: 0, max: 10 }}
+                                                inputProps={{ min: 1, max: 10 }}
                                                 sx={{ bgcolor: 'white' }}
+                                                helperText="ระบบคำนวณให้อัตโนมัติ แก้ไขได้ถ้าจำเป็น"
                                             />
                                         </Grid>
                                     </Grid>
                                 </Box>
                             )}
+
 
                             <Grid container spacing={2}>
                                 <Grid item xs={6} md={3}>
