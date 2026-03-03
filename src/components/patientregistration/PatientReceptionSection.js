@@ -82,6 +82,7 @@ const PatientReceptionSection = ({
             const newUCS = rightsValue === 'ucs' ? 'Y' : 'N';
             const newSocial = rightsValue === 'social' ? 'Y' : 'N';
             await PatientService.updatePatient(selectedPatient.HNCODE, {
+                ...selectedPatient,      // ✅ ส่งข้อมูลผู้ป่วยทั้งหมดก่อน เพื่อให้ backend ผ่าน validation
                 UCS_CARD: newUCS,
                 SOCIAL_CARD: newSocial
             });
