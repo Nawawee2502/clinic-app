@@ -124,12 +124,15 @@ const Paymentanddispensingmedicine = () => {
     };
   }, []);
 
-  // โหลดข้อมูลการรักษาเมื่อเปลี่ยนผู้ป่วย
+  // โหลดข้อมูลการรักษาเมื่อเปลี่ยนผู้ป่วย หรือโหลดผู้ป่วยใหม่เข้ามา
+  // ✅ Track เฉพาะ VNO ของผู้ป่วยปัจจุบัน ไม่ track ทั้ง patients array
+  // → โหลดเมื่อ VNO เปลี่ยน (เปลี่ยนคน, โหลดคิวใหม่) แต่ไม่โหลดซ้ำหลัง setPatients() ใน handlePayment (VNO เดิม)
+  const currentPatientVNO = patients[selectedPatientIndex]?.VNO;
   useEffect(() => {
-    if (patients[selectedPatientIndex]) {
-      loadTreatmentData(patients[selectedPatientIndex].VNO);
+    if (currentPatientVNO) {
+      loadTreatmentData(currentPatientVNO);
     }
-  }, [selectedPatientIndex]); // ✅ ไม่ใส่ patients เพื่อป้องกัน loadTreatmentData ยิงซ้ำหลัง setPatients() ใน handlePayment
+  }, [selectedPatientIndex, currentPatientVNO]); // ✅ reload เมื่อ VNO จริงๆ เปลี่ยน ไม่ใช่เมื่อ patients object เปลี่ยน
 
   // ✅ แจ้งเตือนแพ้ยาและโรคประจำตัว เมื่อเลือกผู้ป่วย
   // ✅ แจ้งเตือนแพ้ยาและโรคประจำตัว เมื่อเลือกผู้ป่วย
