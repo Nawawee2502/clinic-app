@@ -1991,6 +1991,7 @@ const Paymentanddispensingmedicine = () => {
                             {(() => {
                               const currentPatient = patients[selectedPatientIndex];
                               const isGoldCard = currentPatient?.UCS_CARD === 'Y' ||
+                                currentPatient?.PATIENT_UCS_CARD === 'Y' ||
                                 treatmentData?.treatment?.UCS_CARD === 'Y' ||
                                 treatmentData?.patient?.UCS_CARD === 'Y';
                               const isUcsExceeded = ucsUsageInfo.isExceeded;
@@ -2001,6 +2002,9 @@ const Paymentanddispensingmedicine = () => {
                                 treatmentFee = parseFloat(currentPatient.paymentData.treatmentFee);
                               } else if (currentPatient?.TREATMENT_FEE !== undefined && currentPatient?.TREATMENT_FEE !== null) {
                                 treatmentFee = parseFloat(currentPatient.TREATMENT_FEE);
+                              } else if (treatmentData?.treatment?.TREATMENT_FEE !== undefined && treatmentData?.treatment?.TREATMENT_FEE !== null) {
+                                // ✅ อ่านจาก DB ที่บันทึกไว้
+                                treatmentFee = parseFloat(treatmentData.treatment.TREATMENT_FEE);
                               } else {
                                 treatmentFee = (isGoldCard && !isUcsExceeded) ? 0.00 : 100.00;
                               }
