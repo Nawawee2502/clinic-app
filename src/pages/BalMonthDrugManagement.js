@@ -15,6 +15,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import dayjs from 'dayjs';
 
 import BalMonthDrugService from "../services/balMonthDrugService";
@@ -538,15 +539,28 @@ const BalMonthDrugManagement = () => {
 
                                 <Grid item xs={12} md={6}>
                                     <Typography sx={{ fontWeight: 400, fontSize: 16, mb: 1 }}>วันหมดอายุ</Typography>
-                                    <TextField
-                                        fullWidth
-                                        type="date"
-                                        value={formData.EXPIRE_DATE}
-                                        onChange={(e) => handleFormChange('EXPIRE_DATE', e.target.value)}
-                                        size="small"
-                                        InputLabelProps={{ shrink: true }}
-                                        sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
-                                    />
+                                    <LocalizationProvider dateAdapter={AdapterDayjs}>
+                                        <DatePicker
+                                            format="DD/MM/YYYY"
+                                            value={formData.EXPIRE_DATE ? dayjs(formData.EXPIRE_DATE) : null}
+                                            onChange={(newValue) => handleFormChange('EXPIRE_DATE', newValue ? newValue.format('YYYY-MM-DD') : '')}
+                                            renderInput={(params) => (
+                                                <TextField
+                                                    {...params}
+                                                    fullWidth
+                                                    size="small"
+                                                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px", bgcolor: "#fff" } }}
+                                                />
+                                            )}
+                                            slotProps={{
+                                                textField: {
+                                                    fullWidth: true,
+                                                    size: "small",
+                                                    sx: { "& .MuiOutlinedInput-root": { borderRadius: "10px", bgcolor: "#fff" } }
+                                                }
+                                            }}
+                                        />
+                                    </LocalizationProvider>
                                 </Grid>
 
                                 <Grid item xs={12} md={6}>

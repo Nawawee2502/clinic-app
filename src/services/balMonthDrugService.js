@@ -330,7 +330,7 @@ class BalMonthDrugService {
         const date = new Date(dateString);
         const day = date.getDate().toString().padStart(2, '0');
         const month = (date.getMonth() + 1).toString().padStart(2, '0');
-        const year = date.getFullYear() + 543;
+        const year = date.getFullYear(); // ใช้ ค.ศ. ตามที่ user ขอ
         return `${day}/${month}/${year}`;
     }
 

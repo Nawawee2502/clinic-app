@@ -322,7 +322,19 @@ class Receipt1Service {
         if (!dateString) return '';
 
         const date = new Date(dateString);
-        const year = date.getFullYear() + 543; // แปลงเป็น พ.ศ.
+        const year = date.getFullYear() + 543; // BE format
+        const month = date.toLocaleDateString('th-TH', { month: 'long' });
+        const day = date.getDate();
+
+        return `${day} ${month} ${year}`;
+    }
+
+    // จัดรูปแบบวันที่ (แสดงเป็น ค.ศ.) สำหรับ EXPIRE_DATE
+    static formatDateCE(dateString) {
+        if (!dateString) return '';
+
+        const date = new Date(dateString);
+        const year = date.getFullYear(); // CE format
         const month = date.toLocaleDateString('th-TH', { month: 'long' });
         const day = date.getDate();
 

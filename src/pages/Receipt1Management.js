@@ -14,8 +14,8 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import CloseIcon from '@mui/icons-material/Close';
 import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutline';
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import dayjs from 'dayjs';
 
 import Receipt1Service from "../services/receipt1Service";
@@ -807,16 +807,29 @@ const Receipt1Management = () => {
                                     />
                                 </Grid>
                                 <Grid item xs={12} md={6}>
-                                    <TextField
-                                        fullWidth
-                                        label="วันที่"
-                                        type="date"
-                                        value={headerData.RDATE}
-                                        onChange={(e) => handleHeaderChange('RDATE', e.target.value)}
-                                        size="small"
-                                        InputLabelProps={{ shrink: true }}
-                                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
-                                    />
+                                    <LocalizationProvider dateAdapter={AdapterDayjs}>
+                                        <DatePicker
+                                            label="วันที่"
+                                            format="DD/MM/YYYY"
+                                            value={headerData.RDATE ? dayjs(headerData.RDATE) : null}
+                                            onChange={(newValue) => handleHeaderChange('RDATE', newValue ? newValue.format('YYYY-MM-DD') : '')}
+                                            renderInput={(params) => (
+                                                <TextField
+                                                    {...params}
+                                                    fullWidth
+                                                    size="small"
+                                                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
+                                                />
+                                            )}
+                                            slotProps={{
+                                                textField: {
+                                                    fullWidth: true,
+                                                    size: "small",
+                                                    sx: { '& .MuiOutlinedInput-root': { borderRadius: '10px' } }
+                                                }
+                                            }}
+                                        />
+                                    </LocalizationProvider>
                                 </Grid>
                                 <Grid item xs={12} md={6}>
                                     <Autocomplete
@@ -832,16 +845,29 @@ const Receipt1Management = () => {
                                     />
                                 </Grid>
                                 <Grid item xs={12} md={6}>
-                                    <TextField
-                                        fullWidth
-                                        label="วันครบกำหนด"
-                                        type="date"
-                                        value={headerData.DUEDATE}
-                                        onChange={(e) => handleHeaderChange('DUEDATE', e.target.value)}
-                                        size="small"
-                                        InputLabelProps={{ shrink: true }}
-                                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
-                                    />
+                                    <LocalizationProvider dateAdapter={AdapterDayjs}>
+                                        <DatePicker
+                                            label="วันครบกำหนด"
+                                            format="DD/MM/YYYY"
+                                            value={headerData.DUEDATE ? dayjs(headerData.DUEDATE) : null}
+                                            onChange={(newValue) => handleHeaderChange('DUEDATE', newValue ? newValue.format('YYYY-MM-DD') : '')}
+                                            renderInput={(params) => (
+                                                <TextField
+                                                    {...params}
+                                                    fullWidth
+                                                    size="small"
+                                                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
+                                                />
+                                            )}
+                                            slotProps={{
+                                                textField: {
+                                                    fullWidth: true,
+                                                    size: "small",
+                                                    sx: { '& .MuiOutlinedInput-root': { borderRadius: '10px' } }
+                                                }
+                                            }}
+                                        />
+                                    </LocalizationProvider>
                                 </Grid>
                                 <Grid item xs={12} md={6}>
                                     <FormControl fullWidth size="small">
@@ -929,7 +955,7 @@ const Receipt1Management = () => {
                                                         <TableCell>{detail.UNIT_NAME1 || detail.UNIT_CODE1 || '-'}</TableCell>
                                                         <TableCell>{Receipt1Service.formatCurrency(detail.AMT)}</TableCell>
                                                         <TableCell>{detail.LOT_NO}</TableCell>
-                                                        <TableCell>{Receipt1Service.formatDate(detail.EXPIRE_DATE)} </TableCell>
+                                                        <TableCell>{Receipt1Service.formatDateCE(detail.EXPIRE_DATE)} </TableCell>
                                                         <TableCell align="center">
                                                             <IconButton size="small" onClick={() => handleEditDetail(index)} sx={{ color: '#5698E0' }}>
                                                                 <EditIcon fontSize="small" />
@@ -1098,16 +1124,29 @@ const Receipt1Management = () => {
                                     />
                                 </Grid>
                                 <Grid item xs={12} md={6}>
-                                    <TextField
-                                        fullWidth
-                                        label="วันหมดอายุ"
-                                        type="date"
-                                        value={modalData.EXPIRE_DATE}
-                                        onChange={(e) => handleModalChange('EXPIRE_DATE', e.target.value)}
-                                        size="small"
-                                        InputLabelProps={{ shrink: true }}
-                                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
-                                    />
+                                    <LocalizationProvider dateAdapter={AdapterDayjs}>
+                                        <DatePicker
+                                            label="วันหมดอายุ"
+                                            format="DD/MM/YYYY"
+                                            value={modalData.EXPIRE_DATE ? dayjs(modalData.EXPIRE_DATE) : null}
+                                            onChange={(newValue) => handleModalChange('EXPIRE_DATE', newValue ? newValue.format('YYYY-MM-DD') : '')}
+                                            renderInput={(params) => (
+                                                <TextField
+                                                    {...params}
+                                                    fullWidth
+                                                    size="small"
+                                                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
+                                                />
+                                            )}
+                                            slotProps={{
+                                                textField: {
+                                                    fullWidth: true,
+                                                    size: "small",
+                                                    sx: { '& .MuiOutlinedInput-root': { borderRadius: '10px' } }
+                                                }
+                                            }}
+                                        />
+                                    </LocalizationProvider>
                                 </Grid>
                             </Grid>
                         </DialogContent>

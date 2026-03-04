@@ -230,13 +230,13 @@ const StockCardReport = () => {
         }
     };
 
-    const formatDateBEForExpire = (dateString) => {
+    const formatDateCEForExpire = (dateString) => {
         if (!dateString || dateString === '-') return '-';
         try {
             const date = new Date(dateString);
             const day = date.getDate().toString().padStart(2, '0');
             const month = (date.getMonth() + 1).toString().padStart(2, '0');
-            const year = date.getFullYear() + 543;
+            const year = date.getFullYear(); // CE form
             return `${day}/${month}/${year}`;
         } catch (error) {
             return dateString;
@@ -451,7 +451,7 @@ const StockCardReport = () => {
                     <td>${formatDateBE(item.RDATE)}</td>
                     <td class="text-left">${item.REFNO || '-'}</td>
                     <td>${item.LOTNO || '-'}</td>
-                    <td>${formatDateBEForExpire(item.EXPIRE_DATE)}</td>
+                    <td>${formatDateCEForExpire(item.EXPIRE_DATE)}</td>
                     <td class="text-right">
                         ${(index === 0 || item.DRUG_CODE !== stockCardData[index - 1].DRUG_CODE || item.LOTNO !== stockCardData[index - 1].LOTNO)
                 ? (item.calculatedBEG1 || 0).toFixed(2)
@@ -734,7 +734,7 @@ const StockCardReport = () => {
                                             <TableCell align="center" sx={{ border: '1px solid #ddd' }}>{formatDateBE(item.RDATE)}</TableCell>
                                             <TableCell align="left" sx={{ border: '1px solid #ddd' }}>{item.REFNO || '-'}</TableCell>
                                             <TableCell align="center" sx={{ border: '1px solid #ddd' }}>{item.LOTNO || '-'}</TableCell>
-                                            <TableCell align="center" sx={{ border: '1px solid #ddd' }}>{formatDateBEForExpire(item.EXPIRE_DATE)}</TableCell>
+                                            <TableCell align="center" sx={{ border: '1px solid #ddd' }}>{formatDateCEForExpire(item.EXPIRE_DATE)}</TableCell>
                                             <TableCell align="right" sx={{ border: '1px solid #ddd' }}>
                                                 {(index === 0 || item.DRUG_CODE !== stockCardData[index - 1].DRUG_CODE || item.LOTNO !== stockCardData[index - 1].LOTNO)
                                                     ? (item.calculatedBEG1 || 0).toFixed(2)

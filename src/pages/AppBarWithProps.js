@@ -190,7 +190,7 @@ const CustomAppBar = ({ userName = "Abu Fahim", userEmail = "hello@fahim.com", i
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                 {/* Version Display */}
                 <Typography variant="caption" color="text.secondary" sx={{ mr: 1, display: { xs: 'none', sm: 'block' } }}>
-                    v 1.0.5
+                    v 1.0.6
                 </Typography>
 
                 {/* Notifications */}

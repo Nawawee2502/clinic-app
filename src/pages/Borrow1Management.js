@@ -67,6 +67,13 @@ const Borrow1Management = () => {
         return `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}/${year + 543}`;
     };
 
+    const formatDateCE = (dateString) => {
+        if (!dateString) return '-';
+        const [year, month, day] = String(dateString).substring(0, 10).split('-').map(Number);
+        if (!year || !month || !day) return '-';
+        return `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}/${year}`;
+    };
+
     const [currentView, setCurrentView] = useState("list");
     const [borrow1List, setBorrow1List] = useState([]);
     const [filteredList, setFilteredList] = useState([]);
@@ -905,7 +912,7 @@ const Borrow1Management = () => {
                                                         <TableCell align="right">{Borrow1Service.formatCurrency(detail.UNIT_COST)}</TableCell>
                                                         <TableCell align="right">{Borrow1Service.formatCurrency(detail.AMT)}</TableCell>
                                                         <TableCell>{detail.LOT_NO || '-'}</TableCell>
-                                                        <TableCell>{formatDateBE(detail.EXPIRE_DATE)}</TableCell>
+                                                        <TableCell>{formatDateCE(detail.EXPIRE_DATE)}</TableCell>
                                                         <TableCell align="center">
                                                             <IconButton size="small" onClick={() => handleEditDetail(index)} sx={{ color: '#5698E0' }}>
                                                                 <EditIcon fontSize="small" />
@@ -1014,19 +1021,29 @@ const Borrow1Management = () => {
                                     />
                                 </Grid>
                                 <Grid item xs={12} md={6}>
-                                    <DatePicker
-                                        label="วันหมดอายุ"
-                                        value={modalData.EXPIRE_DATE ? dayjs(modalData.EXPIRE_DATE) : null}
-                                        onChange={(newValue) => handleModalChange('EXPIRE_DATE', newValue ? newValue.format('YYYY-MM-DD') : '')}
-                                        renderInput={(params) => (
-                                            <TextField
-                                                {...params}
-                                                fullWidth
-                                                size="small"
-                                                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
-                                            />
-                                        )}
-                                    />
+                                    <LocalizationProvider dateAdapter={AdapterDayjs}>
+                                        <DatePicker
+                                            label="วันหมดอายุ"
+                                            format="DD/MM/YYYY"
+                                            value={modalData.EXPIRE_DATE ? dayjs(modalData.EXPIRE_DATE) : null}
+                                            onChange={(newValue) => handleModalChange('EXPIRE_DATE', newValue ? newValue.format('YYYY-MM-DD') : '')}
+                                            renderInput={(params) => (
+                                                <TextField
+                                                    {...params}
+                                                    fullWidth
+                                                    size="small"
+                                                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
+                                                />
+                                            )}
+                                            slotProps={{
+                                                textField: {
+                                                    fullWidth: true,
+                                                    size: "small",
+                                                    sx: { "& .MuiOutlinedInput-root": { borderRadius: "10px" } }
+                                                }
+                                            }}
+                                        />
+                                    </LocalizationProvider>
                                 </Grid>
                                 <Grid item xs={12} md={6}>
                                     <TextField

@@ -178,10 +178,8 @@ const GeneralInfoTab = ({ onNext, patientData, updatePatientData }) => {
     if (isThaiID) {
       // Thai ID: Allow only numbers, max 13
       value = value.replace(/[^0-9]/g, '').slice(0, 13);
-    } else {
-      // Passport: Allow alphanumeric, max 13
-      value = value.replace(/[^A-Za-z0-9]/g, '').slice(0, 13);
     }
+    // PASSPORT: ไม่ validate อะไรเลย รับค่าอะไรก็ได้
 
     updatePatientData({ IDNO: value });
 
@@ -192,12 +190,8 @@ const GeneralInfoTab = ({ onNext, patientData, updatePatientData }) => {
         setIdCardError('');
       }
     } else {
-      // Passport: Check duplicate if length > 3 to avoid spam
-      if (value.length > 5) {
-        await checkDuplicateIdCard(value);
-      } else {
-        setIdCardError('');
-      }
+      // PASSPORT: ไม่ต้อง check duplicate
+      setIdCardError('');
     }
   };
 

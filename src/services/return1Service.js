@@ -288,11 +288,23 @@ class Return1Service {
         if (!dateString) return '';
 
         const date = new Date(dateString);
-        return date.toLocaleDateString('th-TH', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
-        });
+        const day = date.getDate();
+        const month = date.toLocaleDateString('th-TH', { month: 'long' });
+        const year = date.getFullYear() + 543; // BE format
+
+        return `${day} ${month} ${year}`;
+    }
+
+    // จัดรูปแบบวันที่ (CE) สำหรับวันหมดอายุ
+    static formatDateCE(dateString) {
+        if (!dateString) return '';
+
+        const date = new Date(dateString);
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const year = date.getFullYear(); // CE format
+
+        return `${day}/${month}/${year}`;
     }
 
     // จัดรูปแบบวันที่สำหรับ input

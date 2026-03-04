@@ -956,20 +956,30 @@ const CheckStockManagement = () => {
                                 </Grid>
 
                                 <Grid item xs={12} md={6}>
-                                    <DatePicker
-                                        label="วันหมดอายุ"
-                                        value={modalData.EXPIRE_DATE ? dayjs(modalData.EXPIRE_DATE) : null}
-                                        onChange={() => { }}
-                                        disabled
-                                        renderInput={(params) => (
-                                            <TextField
-                                                {...params}
-                                                fullWidth
-                                                size="small"
-                                                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
-                                            />
-                                        )}
-                                    />
+                                    <LocalizationProvider dateAdapter={AdapterDayjs}>
+                                        <DatePicker
+                                            label="วันหมดอายุ"
+                                            format="DD/MM/YYYY"
+                                            value={modalData.EXPIRE_DATE ? dayjs(modalData.EXPIRE_DATE) : null}
+                                            onChange={() => { }}
+                                            disabled
+                                            renderInput={(params) => (
+                                                <TextField
+                                                    {...params}
+                                                    fullWidth
+                                                    size="small"
+                                                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "10px" } }}
+                                                />
+                                            )}
+                                            slotProps={{
+                                                textField: {
+                                                    fullWidth: true,
+                                                    size: "small",
+                                                    sx: { "& .MuiOutlinedInput-root": { borderRadius: "10px" } }
+                                                }
+                                            }}
+                                        />
+                                    </LocalizationProvider>
                                 </Grid>
 
                                 <Grid item xs={12} md={4}>

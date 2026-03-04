@@ -111,8 +111,8 @@ const PatientReceptionSection = ({
                 const ucsUsageCheck = await TreatmentService.checkUCSUsageThisMonth(patient.HNCODE);
                 if (ucsUsageCheck.success && ucsUsageCheck.data) {
                     const { usageCount } = ucsUsageCheck.data;
-                    // Default to System Usage + 1 (Current Visit)
-                    setExternalUcsCount(usageCount + 1);
+                    // MAX(EXTERNAL_UCS_COUNT) ของเดือนนี้ + 1 = ครั้งถัดไป
+                    setExternalUcsCount(parseInt(usageCount || 0) + 1);
                 } else {
                     setExternalUcsCount('1');
                 }
