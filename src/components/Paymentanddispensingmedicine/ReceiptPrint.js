@@ -347,15 +347,15 @@ const ReceiptPrint = ({ patient, items, paymentData }) => {
                             <div class="info-row">
                                 <span class="info-label">วันที่:</span>
                                 <span class="info-value">${new Date().toLocaleDateString('th-TH', {
-                                    year: 'numeric',
-                                    month: 'long',
-                                    day: 'numeric'
-                                })}</span>
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        })}</span>
                                 <span class="info-label">เวลา:</span>
                                 <span class="info-value">${new Date().toLocaleTimeString('th-TH', {
-                                    hour: '2-digit',
-                                    minute: '2-digit'
-                                })}</span>
+            hour: '2-digit',
+            minute: '2-digit'
+        })}</span>
                             </div>
                         </div>
                         
@@ -392,12 +392,10 @@ const ReceiptPrint = ({ patient, items, paymentData }) => {
                                 <span class="summary-value">${totalAmount.toFixed(2)} บาท</span>
                             </div>
                             
-                            ${discount > 0 ? `
                             <div class="summary-row">
-                                <span class="summary-label">หักส่วนลด:</span>
-                                <span class="summary-value">-${discount.toFixed(2)} บาท</span>
+                                <span class="summary-label">ส่วนลด:</span>
+                                <span class="summary-value" style="color: #d32f2f;">-${discount.toFixed(2)} บาท</span>
                             </div>
-                            ` : ''}
                             
                             <div class="summary-row total-row">
                                 <span class="summary-label">ยอดชำระสุทธิ:</span>
@@ -432,12 +430,12 @@ const ReceiptPrint = ({ patient, items, paymentData }) => {
     };
 
     return (
-        <button 
+        <button
             onClick={handlePrint}
-            style={{ 
-                padding: "10px 20px", 
-                background: "#1976d2", 
-                color: "white", 
+            style={{
+                padding: "10px 20px",
+                background: "#1976d2",
+                color: "white",
                 borderRadius: "6px",
                 border: "none",
                 cursor: "pointer",

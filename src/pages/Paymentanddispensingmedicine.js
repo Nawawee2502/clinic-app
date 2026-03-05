@@ -2039,20 +2039,21 @@ const Paymentanddispensingmedicine = () => {
                               <Typography>รวมค่ารักษา:</Typography>
                               <Typography>{calculateTotalFromEditablePrices().toFixed(2)} บาท</Typography>
                             </Box>
+                            {/* ส่วนลด - แสดงเสมอ */}
                             {(() => {
-                              // ✅ ดึงส่วนลดจาก paymentData ก่อน (เพราะ user อาจแก้ไขใน UI) แล้วค่อย fallback ไปที่อื่น
                               const discount = parseFloat(
-                                (paymentData.discount !== undefined && paymentData.discount !== null) ? paymentData.discount :
-                                  treatmentData?.treatment?.DISCOUNT_AMOUNT ||
-                                  currentPatient?.paymentData?.discount ||
-                                  0
+                                (currentPatient?.PAYMENT_STATUS === 'ชำระเงินแล้ว' && currentPatient?.paymentData?.discount > 0)
+                                  ? currentPatient.paymentData.discount
+                                  : paymentData.discount > 0
+                                    ? paymentData.discount
+                                    : treatmentData?.treatment?.DISCOUNT_AMOUNT || 0
                               );
-                              return discount > 0 ? (
+                              return (
                                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                                   <Typography>ส่วนลด:</Typography>
                                   <Typography color="error">-{discount.toFixed(2)} บาท</Typography>
                                 </Box>
-                              ) : null;
+                              );
                             })()}
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2, fontSize: '1.2rem', fontWeight: 'bold' }}>
                               <Typography variant="h6">ยอดชำระ:</Typography>
@@ -2076,14 +2077,21 @@ const Paymentanddispensingmedicine = () => {
                               // ✅ Fix Bug: ใช้ patient.paymentData (ที่บันทึกค่าจริง) เมื่อชำระแล้ว
                               // เพราะ paymentData state ถูก reset หลังจาก handlePayment สำเร็จ
                               (currentPatient?.PAYMENT_STATUS === 'ชำระเงินแล้ว' && currentPatient?.paymentData)
-                                ? currentPatient.paymentData
+                                ? {
+                                  ...currentPatient.paymentData,
+                                  // ✅ เพิ่ม fallback จาก DB เผื่อ session reload แล้ว snapshot หาย
+                                  discount: parseFloat(
+                                    currentPatient.paymentData.discount > 0
+                                      ? currentPatient.paymentData.discount
+                                      : treatmentData?.treatment?.DISCOUNT_AMOUNT || 0
+                                  )
+                                }
                                 : {
                                   ...paymentData,
                                   discount: parseFloat(
-                                    (paymentData.discount !== undefined && paymentData.discount !== null) ? paymentData.discount :
-                                      treatmentData?.treatment?.DISCOUNT_AMOUNT ||
-                                      currentPatient?.paymentData?.discount ||
-                                      0
+                                    paymentData.discount > 0
+                                      ? paymentData.discount
+                                      : treatmentData?.treatment?.DISCOUNT_AMOUNT || 0
                                   )
                                 }
                             }

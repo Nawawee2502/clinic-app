@@ -316,17 +316,16 @@ class Receipt1Service {
         }).format(amount || 0);
     }
 
-    // จัดรูปแบบวันที่
-    // จัดรูปแบบวันที่ (แสดงเป็น พ.ศ.)
+    // จัดรูปแบบวันที่ (แสดงเป็น ค.ศ.)
     static formatDate(dateString) {
         if (!dateString) return '';
 
         const date = new Date(dateString);
-        const year = date.getFullYear() + 543; // BE format
-        const month = date.toLocaleDateString('th-TH', { month: 'long' });
-        const day = date.getDate();
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const year = date.getFullYear(); // CE format
 
-        return `${day} ${month} ${year}`;
+        return `${day}/${month}/${year}`;
     }
 
     // จัดรูปแบบวันที่ (แสดงเป็น ค.ศ.) สำหรับ EXPIRE_DATE
@@ -334,11 +333,11 @@ class Receipt1Service {
         if (!dateString) return '';
 
         const date = new Date(dateString);
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
         const year = date.getFullYear(); // CE format
-        const month = date.toLocaleDateString('th-TH', { month: 'long' });
-        const day = date.getDate();
 
-        return `${day} ${month} ${year}`;
+        return `${day}/${month}/${year}`;
     }
 
     // จัดรูปแบบวันที่สำหรับ input

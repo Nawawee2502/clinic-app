@@ -283,16 +283,16 @@ class Return1Service {
         }).format(amount || 0);
     }
 
-    // จัดรูปแบบวันที่
+    // จัดรูปแบบวันที่ (CE)
     static formatDate(dateString) {
         if (!dateString) return '';
 
         const date = new Date(dateString);
-        const day = date.getDate();
-        const month = date.toLocaleDateString('th-TH', { month: 'long' });
-        const year = date.getFullYear() + 543; // BE format
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const year = date.getFullYear(); // CE format
 
-        return `${day} ${month} ${year}`;
+        return `${day}/${month}/${year}`;
     }
 
     // จัดรูปแบบวันที่ (CE) สำหรับวันหมดอายุ

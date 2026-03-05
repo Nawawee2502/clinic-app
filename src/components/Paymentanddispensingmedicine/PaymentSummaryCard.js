@@ -301,14 +301,21 @@ const PaymentSummaryCard = ({
                 )}
 
                 {/* ✅ แสดงส่วนลดเมื่อชำระแล้ว หรือเมื่อกรอกส่วนลด */}
-                {(isPaymentCompleted || (paymentData.discount && parseFloat(paymentData.discount) > 0)) && (
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                        <Typography variant="body2" fontWeight="bold">ส่วนลด:</Typography>
-                        <Typography variant="body2" fontWeight="bold" color="error">
-                            -{parseFloat(paymentData.discount || 0).toFixed(2)} บาท
-                        </Typography>
-                    </Box>
-                )}
+                {(() => {
+                    // ✅ เมื่อชำระแล้ว ให้ดึงจาก patient.paymentData.discount
+                    // เพราะ paymentData state ถูก reset เป็น 0 หลังชำระเสร็จ
+                    const displayDiscount = isPaymentCompleted
+                        ? parseFloat(patient?.paymentData?.discount || treatmentData?.treatment?.DISCOUNT_AMOUNT || 0)
+                        : parseFloat(paymentData.discount || 0);
+                    return displayDiscount > 0 ? (
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+                            <Typography variant="body2" fontWeight="bold">ส่วนลด:</Typography>
+                            <Typography variant="body2" fontWeight="bold" color="error">
+                                -{displayDiscount.toFixed(2)} บาท
+                            </Typography>
+                        </Box>
+                    ) : null;
+                })()}
 
                 {/* ยอดชำระสุทธิ */}
                 <Box sx={{
