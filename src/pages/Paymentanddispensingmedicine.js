@@ -1093,19 +1093,27 @@ const Paymentanddispensingmedicine = () => {
         // ✅ ดึงค่ารักษาที่บันทึกไว้ใน DB มาก่อน
         const savedTreatmentFee = response.data.treatment?.TREATMENT_FEE;
         const hasSavedFee = savedTreatmentFee !== undefined && savedTreatmentFee !== null && savedTreatmentFee !== '';
+        // ✅ เช็คว่าชำระเงินแล้วหรือยัง - ถ้าชำระแล้วให้ใช้ค่าจาก DB ตรงๆ
+        const isAlreadyPaid = response.data.treatment?.PAYMENT_STATUS === 'ชำระเงินแล้ว';
 
-        // ✅ ตั้งค่ารักษา: ใช้ลำดับความสำคัญ:
-        // 1. ค่าที่บันทึกใน DB (TREATMENT_FEE) -- สำคัญที่สุด ใช้เสมอถ้ามี
-        // 2. ถ้าเป็นบัตรทองและยังใช้สิทธิ์ไม่เกิน 2 ครั้ง ให้เป็น 0
-        // 3. Default = 100
+        // ✅ ตั้งค่ารักษา: ลำดับความสำคัญ:
+        // 1. ถ้าชำระแล้ว → ใช้ค่า DB เสมอ (แสดงยอดที่จ่ายไปจริง)
+        // 2. ถ้าบัตรทองและยังไม่เกินสิทธิ์ → 0 (ฟรี) -- ต้องอยู่ก่อน hasSavedFee เพราะ DB มักมีค่า 100 อยู่แล้วตั้งแต่สร้าง treatment
+        // 3. ถ้า DB มีค่า (แต่ยังไม่ชำระ) → ใช้ค่า DB
+        // 4. Default → 100
         setPaymentData(prev => {
           let treatmentFee;
-          if (hasSavedFee) {
-            // ✅ อ่านค่าจาก DB โดยตรง (ค่าที่ user จ่ายจริง หรือที่กรอกไว้ล่าสุด)
+          if (isAlreadyPaid && hasSavedFee) {
+            // ✅ ชำระแล้ว: แสดงยอดจริงจาก DB
             treatmentFee = parseFloat(savedTreatmentFee);
           } else if (isGoldCard && !ucsUsageExceeded) {
+            // ✅ บัตรทองและยังไม่เกินสิทธิ์: ฟรีเสมอ (override ค่า DB ที่อาจเป็น 100 default)
             treatmentFee = 0.00;
+          } else if (hasSavedFee) {
+            // ✅ ไม่ใช่บัตรทอง (หรือเกินสิทธิ์แล้ว): ใช้ค่าจาก DB
+            treatmentFee = parseFloat(savedTreatmentFee);
           } else {
+            // ✅ Default
             treatmentFee = 100.00;
           }
 
@@ -1331,16 +1339,20 @@ const Paymentanddispensingmedicine = () => {
       drugTotal = editablePrices.drugs.reduce((sum, item) => sum + item.editablePrice, 0);
     }
 
-    // ✅ เพิ่มค่ารักษา (ถ้าไม่ใช่บัตรทอง หรือใช้สิทธิ์เกิน 2 ครั้ง)
-    // ✅ Use manual override if available, otherwise apply default rules
+    // ✅ เพิ่มค่ารักษา
+    // ลำดับความสำคัญ:
+    // 1. paymentData.treatmentFee (manual override จาก UI หรือที่ set ไว้แล้ว)
+    // 2. ถ้าบัตรทองและยังไม่เกินสิทธิ์ → ฟรี (ต้องอยู่ก่อน DB fallback)
+    // 3. currentPatient.paymentData.treatmentFee (snapshot หลังชำระ)
+    // 4. DB fallback (TREATMENT_FEE)
+    // 5. Default
     let treatmentFee;
     if (paymentData.treatmentFee !== undefined && paymentData.treatmentFee !== null) {
-      // Check if it's currently being edited (string) or saved (number)
-      if (paymentData.treatmentFee === '') {
-        treatmentFee = 0;
-      } else {
-        treatmentFee = parseFloat(paymentData.treatmentFee);
-      }
+      // มี manual set ใน UI (รวมถึงค่า 0 ก็ถูกต้อง)
+      treatmentFee = paymentData.treatmentFee === '' ? 0 : parseFloat(paymentData.treatmentFee);
+    } else if (shouldBeFree) {
+      // ✅ บัตรทองและยังไม่เกินสิทธิ์: ฟรีเสมอ (override DB ที่อาจเก็บ 100 ไว้)
+      treatmentFee = 0;
     } else if (currentPatient?.paymentData?.treatmentFee !== undefined && currentPatient?.paymentData?.treatmentFee !== null) {
       treatmentFee = parseFloat(currentPatient.paymentData.treatmentFee);
     } else if (currentPatient?.TREATMENT_FEE !== undefined && currentPatient?.TREATMENT_FEE !== null) {
@@ -1348,7 +1360,7 @@ const Paymentanddispensingmedicine = () => {
     } else if (treatmentData?.treatment?.TREATMENT_FEE !== undefined && treatmentData?.treatment?.TREATMENT_FEE !== null) {
       treatmentFee = parseFloat(treatmentData.treatment.TREATMENT_FEE);
     } else {
-      treatmentFee = shouldBeFree ? 0 : 100.00;
+      treatmentFee = 100.00;
     }
 
     return labTotal + procedureTotal + drugTotal + treatmentFee;
