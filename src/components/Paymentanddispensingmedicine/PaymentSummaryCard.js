@@ -33,24 +33,15 @@ const PaymentSummaryCard = ({
 
     // ✅ Helper Function for Gold Card Logic
     const getGoldCardStatus = () => {
-        // ✅ Fix: ใช้ PATIENT_UCS_CARD (จาก patient1 table) เป็นลำดับแรก
-        // เชื่อถือได้กว่า TREATMENT_UCS_CARD ซึ่งอาจถูกบันทึกผิดพลาดเป็น 'N'
         const isGoldCard = patient?.PATIENT_UCS_CARD === 'Y' || patient?.UCS_CARD === 'Y';
-        // Check API Flag
+        // ✅ เชื่อ API (isExceeded) เป็นหลักเสมอ — นับจาก DB จริง (เฉพาะ paid visits)
         const isUcsExceeded = ucsUsageInfo?.isExceeded;
-        // Check Manual Count (Displayed in Header)
-        const manualUcsCount = treatmentData?.treatment?.EXTERNAL_UCS_COUNT || 0;
         const apiUsageCount = ucsUsageInfo?.usageCount || 0;
 
-        // ✅ Critical Fix: Trust the displayed count (manualUcsCount) if available
-        // If Manual Count is 2, it implies "2nd Visit" -> Free.
-        const effectiveCount = manualUcsCount > 0 ? manualUcsCount : apiUsageCount;
+        // ✅ ฟรีถ้า: บัตรทอง AND API บอกว่ายังไม่เกินสิทธิ์
+        const shouldBeFree = isGoldCard && !isUcsExceeded;
 
-        // Free if: Gold Card AND (Usage <= 2 OR Not Exceeded)
-        // This 'effectiveCount <= 2' safeguard fixes the issue where API might say Exceeded/3 but record says 2.
-        const shouldBeFree = isGoldCard && (effectiveCount <= 2 || !isUcsExceeded);
-
-        return { isGoldCard, shouldBeFree, effectiveCount };
+        return { isGoldCard, shouldBeFree, effectiveCount: apiUsageCount };
     };
 
     const { isGoldCard, shouldBeFree, effectiveCount } = getGoldCardStatus();
@@ -74,22 +65,18 @@ const PaymentSummaryCard = ({
     const labTotal = editablePrices.labs.reduce((sum, item) => sum + item.editablePrice, 0);
     const procedureTotal = editablePrices.procedures.reduce((sum, item) => sum + item.editablePrice, 0);
 
-    // คำนวณค่ารักษา
+    // คำนวณค่ารักษา: ลำดับความสำคัญที่ถูกต้อง
     let treatmentFee;
-    // ✅ Fix: Manual Override respected
-    if (paymentData.treatmentFee !== undefined && paymentData.treatmentFee !== null) {
-        if (paymentData.treatmentFee === '') {
-            treatmentFee = 0;
-        } else {
-            treatmentFee = parseFloat(paymentData.treatmentFee);
-        }
+    if (shouldBeFree) {
+        // ✅ บัตรทองและยังไม่เกินสิทธิ์: ฟรีเสมอ — override paymentData และ DB
+        treatmentFee = 0;
+    } else if (paymentData.treatmentFee !== undefined && paymentData.treatmentFee !== null) {
+        treatmentFee = paymentData.treatmentFee === '' ? 0 : parseFloat(paymentData.treatmentFee);
     } else if (patient?.paymentData?.treatmentFee !== undefined && patient?.paymentData?.treatmentFee !== null) {
         treatmentFee = parseFloat(patient.paymentData.treatmentFee);
-    } else if (patient?.TREATMENT_FEE !== undefined && patient?.TREATMENT_FEE !== null) {
-        treatmentFee = parseFloat(patient.TREATMENT_FEE);
     } else {
-        // Default Logic (No Manual Override)
-        treatmentFee = shouldBeFree ? 0.00 : 100.00;
+        // Default
+        treatmentFee = 100.00;
     }
 
     const subtotal = drugTotal + labTotal + procedureTotal + treatmentFee;
@@ -178,8 +165,8 @@ const PaymentSummaryCard = ({
                                 // ✅ Fix: ใช้ PATIENT_UCS_CARD เป็นลำดับแรก
                                 const isGoldCard = patient?.PATIENT_UCS_CARD === 'Y' || patient?.UCS_CARD === 'Y' || patient?.treatment?.UCS_CARD === 'Y';
                                 const isUcsExceeded = ucsUsageInfo?.isExceeded || false;
-                                // Logic: Free if Gold Card AND (Not Exceeded OR Usage <= 2)
-                                const shouldBeFree = isGoldCard && (!isUcsExceeded || ((ucsUsageInfo?.usageCount || 0) <= 2));
+                                // ✅ เชื่อ API (isExceeded) เป็นหลักเสมอ
+                                const shouldBeFree = isGoldCard && !isUcsExceeded;
 
                                 if (shouldBeFree) {
                                     return editablePrices.drugs.reduce((sum, item) => {
@@ -244,16 +231,17 @@ const PaymentSummaryCard = ({
                                     const isGoldCard = patient?.PATIENT_UCS_CARD === 'Y' || patient?.UCS_CARD === 'Y' || patient?.treatment?.UCS_CARD === 'Y';
                                     const isUcsExceeded = ucsUsageInfo?.isExceeded || false;
 
-                                    // ✅ Fix: Manual Override respected
+                                    // ✅ ค่ารักษา display: Gold Card ต้องอยู่ก่อนเสมอ
                                     let treatmentFee;
-                                    if (paymentData.treatmentFee !== undefined && paymentData.treatmentFee !== null) {
+                                    const shouldBeFree = isGoldCard && !isUcsExceeded;
+                                    if (shouldBeFree) {
+                                        treatmentFee = 0.00;
+                                    } else if (paymentData.treatmentFee !== undefined && paymentData.treatmentFee !== null) {
                                         treatmentFee = parseFloat(paymentData.treatmentFee);
                                     } else if (patient?.paymentData?.treatmentFee !== undefined && patient?.paymentData?.treatmentFee !== null) {
                                         treatmentFee = parseFloat(patient.paymentData.treatmentFee);
                                     } else {
-                                        // Logic: Free if Gold Card AND (Usage <= 2 OR Not Exceeded)
-                                        const shouldBeFree = isGoldCard && (!isUcsExceeded || (ucsUsageInfo && ucsUsageInfo.usageCount <= 2));
-                                        treatmentFee = shouldBeFree ? 0.00 : 100.00;
+                                        treatmentFee = 100.00;
                                     }
                                     return treatmentFee.toFixed(2);
                                 })()} บาท

@@ -228,11 +228,9 @@ const Paymentanddispensingmedicine = () => {
         changeAmount
       });
 
-      // ✅ Calculate Strict Gold Card Status (Moved up for Payload)
-      const manualUcsCount = treatmentData?.treatment?.EXTERNAL_UCS_COUNT || 0;
-      const apiUsageCount = ucsUsageInfo?.usageCount || 0;
-      const effectiveCount = manualUcsCount > 0 ? manualUcsCount : apiUsageCount;
-      const shouldBeFree = (currentPatient?.UCS_CARD === 'Y') && (effectiveCount <= 2 || !ucsUsageInfo?.isExceeded);
+      // ✅ shouldBeFree เชื่อ API (isExceeded) เป็นหลักเสมอ — นับจาก DB จริง
+      const isGoldCardPatient = currentPatient?.PATIENT_UCS_CARD === 'Y' || currentPatient?.UCS_CARD === 'Y';
+      const shouldBeFree = isGoldCardPatient && !ucsUsageInfo?.isExceeded;
       const defaultTreatmentFee = shouldBeFree ? 0.00 : 100.00;
 
       // ✅ Safe Treatment Fee Calculation (Handle "", "0", NaN)
@@ -1317,12 +1315,8 @@ const Paymentanddispensingmedicine = () => {
       currentPatient?.UCS_CARD === 'Y' ||
       treatmentData?.patient?.UCS_CARD === 'Y';
 
-    // ✅ Logic: Free if Gold Card AND (Usage <= 2 OR Not Exceeded)
-    // Note: use <=2 because limit is 2. 1,2 = Free. 3 = Charge.
-    const manualUcsCount = treatmentData?.treatment?.EXTERNAL_UCS_COUNT || 0;
-    const apiUsageCount = ucsUsageInfo?.usageCount || 0;
-    const effectiveCount = manualUcsCount > 0 ? manualUcsCount : apiUsageCount;
-    const shouldBeFree = isGoldCard && (effectiveCount <= 2 || !ucsUsageInfo?.isExceeded);
+    // ✅ shouldBeFree เชื่อ API (isExceeded) เป็นหลักเสมอ
+    const shouldBeFree = isGoldCard && !ucsUsageInfo?.isExceeded;
 
     let drugTotal = 0;
     if (shouldBeFree) {
@@ -1368,12 +1362,14 @@ const Paymentanddispensingmedicine = () => {
 
   const calculateTotal = () => {
     const totalCost = calculateTotalFromEditablePrices();
-    // ✅ ดึงส่วนลดจาก paymentData ก่อน (เพราะ user อาจแก้ไขใน UI) แล้วค่อย fallback ไปที่อื่น
+    // ✅ ดึงส่วนลดถูก priority:
+    // หลังชำระ paymentData.discount ถูก reset เป็น 0 → ต้องอ่านจาก snapshot แทน
     const discount = parseFloat(
-      (paymentData.discount !== undefined && paymentData.discount !== null) ? paymentData.discount :
-        treatmentData?.treatment?.DISCOUNT_AMOUNT ||
-        currentPatient?.paymentData?.discount ||
-        0
+      (currentPatient?.PAYMENT_STATUS === 'ชำระเงินแล้ว' && currentPatient?.paymentData?.discount > 0)
+        ? currentPatient.paymentData.discount
+        : paymentData.discount > 0
+          ? paymentData.discount
+          : treatmentData?.treatment?.DISCOUNT_AMOUNT || 0
     );
     return Math.max(0, totalCost - discount);
   };
@@ -1416,13 +1412,8 @@ const Paymentanddispensingmedicine = () => {
 
     // ✅ Check Manual Count (Displayed in Header) from treatmentData
     const manualUcsCount = treatmentData?.treatment?.EXTERNAL_UCS_COUNT || 0;
-    const apiUsageCount = ucsUsageInfo?.usageCount || 0;
-
-    // ✅ Critical Fix: Trust the displayed count if available (Matches PaymentSummaryCard logic)
-    const effectiveCount = manualUcsCount > 0 ? manualUcsCount : apiUsageCount;
-
-    // Logic: Free if Gold Card AND (Usage <= 2 OR Not Exceeded)
-    const shouldBeFree = isGoldCard && (effectiveCount <= 2 || !isUcsExceeded);
+    // ✅ shouldBeFree เชื่อ API (isExceeded) เป็นหลักเสมอ
+    const shouldBeFree = isGoldCard && !isUcsExceeded;
 
     const allItems = [
       ...editablePrices.labs.map(item => ({
@@ -1457,29 +1448,23 @@ const Paymentanddispensingmedicine = () => {
       })
     ];
 
-    // ✅ เพิ่มค่ารักษา (Manual Override respected)
-    // ตรวจสอบจากหลายแหล่งเพื่อความถูกต้อง:
-    // 1. paymentData
-    // 2. currentPatient.paymentData
-    // 3. Default Logic
-    // ✅ ลำดับความสำคัญ:
-    // 1. paymentData (state ปัจจุบัน — ยังไม่บันทึก)
-    // 2. currentPatient.paymentData.treatmentFee (หลัง handlePayment reset paymentData แล้ว)
-    // 3. treatmentData.treatment.TREATMENT_FEE (จาก DB)
-    // 4. currentPatient.TREATMENT_FEE (old server field — อ่านท้ายสุด)
+    // ✅ ค่ารักษา: ลำดับความสำคัญที่ถูกต้อง
+    // 1. shouldBeFree (Gold Card + ไม่เกินสิทธิ์) → 0 ก่อนเสมอ
+    // 2. paymentData.treatmentFee (manual override / ค่าที่ set จาก loadTreatmentData)
+    // 3. currentPatient.paymentData.treatmentFee (snapshot หลังชำระ)
+    // 4. Default 100 (ไม่ fallback ไป DB เพราะ DB default = 100 ซึ่งผิดสำหรับ Gold Card)
     let resolvedTreatmentFee;
 
-    if (paymentData.treatmentFee !== undefined && paymentData.treatmentFee !== null) {
-      resolvedTreatmentFee = parseFloat(paymentData.treatmentFee);
+    if (shouldBeFree) {
+      // ✅ บัตรทองและยังไม่เกินสิทธิ์: ฟรีเสมอ — override ทุกค่า
+      resolvedTreatmentFee = 0;
+    } else if (paymentData.treatmentFee !== undefined && paymentData.treatmentFee !== null) {
+      resolvedTreatmentFee = paymentData.treatmentFee === '' ? 0 : parseFloat(paymentData.treatmentFee);
     } else if (currentPatient?.paymentData?.treatmentFee !== undefined && currentPatient?.paymentData?.treatmentFee !== null) {
       // ✅ อ่านจาก paymentData ที่ handlePayment บันทึกไว้ (ค่าที่ user จ่ายจริง)
       resolvedTreatmentFee = parseFloat(currentPatient.paymentData.treatmentFee);
-    } else if (treatmentData?.treatment?.TREATMENT_FEE !== undefined && treatmentData?.treatment?.TREATMENT_FEE !== null) {
-      resolvedTreatmentFee = parseFloat(treatmentData.treatment.TREATMENT_FEE);
-    } else if (currentPatient?.TREATMENT_FEE !== undefined && currentPatient?.TREATMENT_FEE !== null) {
-      resolvedTreatmentFee = parseFloat(currentPatient.TREATMENT_FEE);
     } else {
-      resolvedTreatmentFee = shouldBeFree ? 0 : 100.00;
+      resolvedTreatmentFee = 100.00;
     }
 
     // ✅ แสดงเสมอ (รวม 0 บาท) เพื่อให้ใบเสร็จตรงกับที่หน้าชำระเงินแสดง

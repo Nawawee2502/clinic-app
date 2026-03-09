@@ -340,15 +340,18 @@ class Receipt1Service {
         return `${day}/${month}/${year}`;
     }
 
-    // จัดรูปแบบวันที่สำหรับ input
+    // จัดรูปแบบวันที่สำหรับ input (YYYY-MM-DD) — timezone-safe
     static formatDateForInput(dateString) {
         if (!dateString) return '';
-
+        // ถ้าเป็น ISO string ให้ตัดแค่ส่วน date โดยตรง ไม่ผ่าน new Date() เพื่อหลีกปัญหา timezone
+        if (typeof dateString === 'string' && dateString.length >= 10) {
+            return dateString.substring(0, 10); // YYYY-MM-DD
+        }
+        // fallback กรณี Date object
         const date = new Date(dateString);
         const year = date.getFullYear();
         const month = String(date.getMonth() + 1).padStart(2, '0');
         const day = String(date.getDate()).padStart(2, '0');
-
         return `${year}-${month}-${day}`;
     }
 
