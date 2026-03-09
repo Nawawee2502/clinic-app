@@ -419,6 +419,11 @@ const CustomSidebar = ({ activeMenu, onMenuClick, isOpen, role }) => {
             path: '/clinic/report/yearly',
             icon: <EventIcon />
         },
+        {
+            title: 'ยาวัตถุออกฤทธิ์',
+            path: '/clinic/report/psychotropic',
+            icon: <LocalPharmacyIcon />
+        },
     ];
 
     // เมนูย่อยสำหรับอรรถประโยชน์

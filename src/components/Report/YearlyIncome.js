@@ -439,14 +439,18 @@ const YearlyIncome = () => {
                   <TableHead>
                     <TableRow>
                       <TableCell>ลำดับ</TableCell>
+                      <TableCell>วันที่</TableCell>
                       <TableCell>VN</TableCell>
                       <TableCell>HN</TableCell>
                       <TableCell>ชื่อคนไข้</TableCell>
+                      <TableCell>สิทธิการรักษา</TableCell>
                       <TableCell align="right">ค่ารักษา</TableCell>
                       <TableCell align="right">ค่าหัตถการ</TableCell>
                       <TableCell align="right">ค่า LAB</TableCell>
                       <TableCell align="right">ค่ายา</TableCell>
                       <TableCell align="right">รวม</TableCell>
+                      <TableCell align="right">ส่วนลด</TableCell>
+                      <TableCell align="right">ยอดชำระ</TableCell>
                       <TableCell align="right">เงินสด</TableCell>
                       <TableCell align="right">เงินโอน</TableCell>
                       <TableCell align="right">บัตรทอง</TableCell>
@@ -482,6 +486,7 @@ const YearlyIncome = () => {
                       return (
                         <TableRow key={row.VNO || index} hover>
                           <TableCell>{index + 1}</TableCell>
+                          <TableCell>{formatThaiDateShort(row.RDATE)}</TableCell>
                           <TableCell>
                             <Typography variant="body2" fontWeight="medium">
                               {row.VNO}
@@ -493,6 +498,14 @@ const YearlyIncome = () => {
                               {`${row.PRENAME || ''}${row.NAME1} ${row.SURNAME || ''}`.trim()}
                             </Typography>
                           </TableCell>
+                          <TableCell>
+                            <Typography variant="body2" sx={{
+                              color: isGoldCardCase ? 'warning.main' : 'text.primary',
+                              fontWeight: isGoldCardCase ? 'bold' : 'normal'
+                            }}>
+                              {isGoldCardCase ? 'บัตรทอง' : 'เงินสด'}
+                            </Typography>
+                          </TableCell>
                           <TableCell align="right">{formatCurrency(treatmentFee)}</TableCell>
                           <TableCell align="right">{formatCurrency(procFee)}</TableCell>
                           <TableCell align="right">{formatCurrency(labFee)}</TableCell>
@@ -501,6 +514,12 @@ const YearlyIncome = () => {
                             <Typography variant="body2" fontWeight="bold">
                               {formatCurrency(total)}
                             </Typography>
+                          </TableCell>
+                          <TableCell align="right" sx={{ color: 'error.main' }}>
+                            {(parseFloat(row.DISCOUNT_AMOUNT) || 0) > 0 ? formatCurrency(parseFloat(row.DISCOUNT_AMOUNT)) : '-'}
+                          </TableCell>
+                          <TableCell align="right" sx={{ color: 'success.dark', fontWeight: 'bold' }}>
+                            {formatCurrency(net)}
                           </TableCell>
                           <TableCell align="right" sx={{ color: 'success.main' }}>
                             {cash > 0 ? formatCurrency(cash) : '-'}

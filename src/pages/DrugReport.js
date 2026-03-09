@@ -3,6 +3,7 @@ import { Container, Tabs, Tab, Card, CardContent, Typography } from "@mui/materi
 import BalanceDrugReport from "../components/Report/BalanceDrugReport";
 import StockCardReport from "../components/Report/StockCardReport";
 import ExpiringDrugsReport from "../components/Report/ExpiringDrugsReport";
+import PsychotropicDrugReport from "../components/Report/PsychotropicDrugReport";
 
 function DrugReport() {
     const [tabIndex, setTabIndex] = React.useState(0);
@@ -49,6 +50,7 @@ function DrugReport() {
                 <Tab label="สินค้าคงเหลือ" />
                 <Tab label="สต็อกการ์ด" />
                 <Tab label="รายงานยาเวชภัณฑ์ใกล้หมดอายุ" />
+                <Tab label="ยาวัตถุออกฤทธิ์ (TD004)" />
             </Tabs>
 
             <Card sx={{ mt: 2 }}>
@@ -56,6 +58,7 @@ function DrugReport() {
                     {tabIndex === 0 && <BalanceDrugReport />}
                     {tabIndex === 1 && <StockCardReport />}
                     {tabIndex === 2 && <ExpiringDrugsReport />}
+                    {tabIndex === 3 && <PsychotropicDrugReport />}
                 </CardContent>
             </Card>
         </Container>

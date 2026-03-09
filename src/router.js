@@ -26,6 +26,7 @@ import GeneralIncomes from "./pages/GeneralIncomes";
 import Pay1Management from "./pages/Pay1Management";
 import Income1Management from "./pages/Income1Management";
 import DrugReport from "./pages/DrugReport";
+import PsychotropicReportPage from "./pages/PsychotropicReportPage";
 
 // Import หน้าใหม่ (Lazy loading)
 const UserManagement = lazy(() => import("./pages/UserManagement"));
@@ -134,6 +135,7 @@ const Router = () => {
               <Route path="report/daily" element={<Report />} />
               <Route path="report/monthly" element={<ReportMonthly />} />
               <Route path="report/yearly" element={<ReportYearly />} />
+              <Route path="report/psychotropic" element={<PsychotropicReportPage />} />
 
               {/* Utility Routes */}
               <Route path="utilities/monthly-closing" element={<MonthlyClosing />} />

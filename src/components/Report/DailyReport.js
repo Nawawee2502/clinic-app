@@ -593,7 +593,8 @@ const DailyReport = () => {
                                         <TableCell align="right">ค่า LAB</TableCell>
                                         <TableCell align="right">ค่ายา</TableCell>
                                         <TableCell align="right">รวม</TableCell>
-                                        <TableCell align="right">เงินสด</TableCell>
+                                        <TableCell align="right">ส่วนลด</TableCell>
+                                        <TableCell align="right">ยอดชำระ</TableCell>
                                         <TableCell align="right">เงินโอน</TableCell>
                                         <TableCell align="right">บัตรทอง</TableCell>
                                         <TableCell align="center">วันรับเงินบัตรทอง</TableCell> {/* ✅ Re-added Gold Card Date */}
@@ -681,8 +682,11 @@ const DailyReport = () => {
                                                         {formatCurrency(total)}
                                                     </Typography>
                                                 </TableCell>
-                                                <TableCell align="right" sx={{ color: 'success.main' }}>
-                                                    {cash > 0 ? formatCurrency(cash) : '-'}
+                                                <TableCell align="right" sx={{ color: 'error.main' }}>
+                                                    {(parseFloat(row.DISCOUNT_AMOUNT) || 0) > 0 ? formatCurrency(parseFloat(row.DISCOUNT_AMOUNT)) : '-'}
+                                                </TableCell>
+                                                <TableCell align="right" sx={{ color: 'success.dark', fontWeight: 'bold' }}>
+                                                    {formatCurrency(net)}
                                                 </TableCell>
                                                 <TableCell align="right" sx={{ color: 'info.main' }}>
                                                     {transfer > 0 ? formatCurrency(transfer) : '-'}
