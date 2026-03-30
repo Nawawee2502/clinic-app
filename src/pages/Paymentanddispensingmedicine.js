@@ -189,6 +189,21 @@ const Paymentanddispensingmedicine = () => {
     checkAllergyAndDisease();
   }, [selectedPatientIndex, patients]); // เช็คเมื่อเปลี่ยนคนหรือโหลดข้อมูลเสร็จ
 
+  /** ส่วนลดที่ใช้กับยอดสุทธิ / ใบเสร็จ / การ์ดสรุป (ให้ตรงกันทุกจุด) — ประกาศก่อน handlePayment เพื่อใช้ตอนบันทึกชำระเงิน */
+  const getEffectiveDiscount = () => {
+    const cp = patients[selectedPatientIndex];
+    if (cp?.PAYMENT_STATUS === 'ชำระเงินแล้ว' && cp?.paymentData) {
+      const d = parseFloat(cp.paymentData.discount);
+      return Number.isFinite(d) ? Math.max(0, d) : Math.max(0, parseFloat(treatmentData?.treatment?.DISCOUNT_AMOUNT || 0));
+    }
+    const raw = paymentData.discount;
+    if (raw !== '' && raw !== null && raw !== undefined) {
+      const d = parseFloat(raw);
+      if (Number.isFinite(d)) return Math.max(0, d);
+    }
+    return Math.max(0, parseFloat(treatmentData?.treatment?.DISCOUNT_AMOUNT || 0));
+  };
+
   const handlePayment = async () => {
     try {
       if (!treatmentData) {
@@ -202,8 +217,7 @@ const Paymentanddispensingmedicine = () => {
 
       const currentPatient = patients[selectedPatientIndex];
       const totalAmount = calculateTotalFromEditablePrices();
-      const discount = parseFloat(paymentData.discount || 0);
-      // ✅ คำนวณยอดชำระสุทธิโดยใช้ส่วนลดจาก paymentData โดยตรง (ไม่ใช่จาก treatmentData)
+      const discount = getEffectiveDiscount();
       const netAmount = Math.max(0, totalAmount - discount);
 
       // ✅ Validation: ใช้ netAmount ที่คำนวณจาก paymentData.discount โดยตรง
@@ -305,12 +319,9 @@ const Paymentanddispensingmedicine = () => {
               receivedAmount,
               changeAmount,
               paymentMethod: paymentData.paymentMethod,
-              paymentMethod: paymentData.paymentMethod, // Duplicate key in original, keeping for consistent replace
               paymentDate: getCurrentDateForDB(), // ✅ ใช้ utility สำหรับบันทึก DB (ค.ศ.)
               paymentTime: getCurrentTimeForDB(), // ✅ ใช้ utility สำหรับบันทึก DB (เวลาไทย)
-              treatmentFee: (paymentData.treatmentFee !== undefined && paymentData.treatmentFee !== null)
-                ? parseFloat(paymentData.treatmentFee)
-                : defaultTreatmentFee // ✅ ใช้ Logic ใหม่ที่ถูกต้อง
+              treatmentFee: finalTreatmentFee
             }
           };
         }
@@ -1362,15 +1373,7 @@ const Paymentanddispensingmedicine = () => {
 
   const calculateTotal = () => {
     const totalCost = calculateTotalFromEditablePrices();
-    // ✅ ดึงส่วนลดถูก priority:
-    // หลังชำระ paymentData.discount ถูก reset เป็น 0 → ต้องอ่านจาก snapshot แทน
-    const discount = parseFloat(
-      (currentPatient?.PAYMENT_STATUS === 'ชำระเงินแล้ว' && currentPatient?.paymentData?.discount > 0)
-        ? currentPatient.paymentData.discount
-        : paymentData.discount > 0
-          ? paymentData.discount
-          : treatmentData?.treatment?.DISCOUNT_AMOUNT || 0
-    );
+    const discount = getEffectiveDiscount();
     return Math.max(0, totalCost - discount);
   };
 
@@ -1408,10 +1411,8 @@ const Paymentanddispensingmedicine = () => {
     const isGoldCard = currentPatient?.PATIENT_UCS_CARD === 'Y' ||
       currentPatient?.UCS_CARD === 'Y' ||
       treatmentData?.patient?.UCS_CARD === 'Y';
-    const isUcsExceeded = ucsUsageInfo.isExceeded;
+    const isUcsExceeded = ucsUsageInfo?.isExceeded;
 
-    // ✅ Check Manual Count (Displayed in Header) from treatmentData
-    const manualUcsCount = treatmentData?.treatment?.EXTERNAL_UCS_COUNT || 0;
     // ✅ shouldBeFree เชื่อ API (isExceeded) เป็นหลักเสมอ
     const shouldBeFree = isGoldCard && !isUcsExceeded;
 
@@ -1430,11 +1431,12 @@ const Paymentanddispensingmedicine = () => {
       })),
       // Drugs - ✅ Filter ตาม Gold Card logic (Safeguarded)
       ...editablePrices.drugs.map(item => {
-        let price = item.editablePrice || 0;
+        const ep = parseFloat(item.editablePrice) || 0;
+        let price = ep;
 
-        // ถ้าเป็นบัตรทองและควรฟรี: ยาที่ UCS_CARD = 'Y' ราคาเป็น 0
+        // บัตรทอง (ยังอยู่ในสิทธิ์): ยา UCS=Y ที่ยังไม่ได้ตั้งราคา → 0; ถ้าแก้ราคาแล้วใช้ราคาที่แก้
         if (shouldBeFree) {
-          if (item.DRUG_UCS_CARD === 'Y' && item.editablePrice === 0) {
+          if (item.DRUG_UCS_CARD === 'Y' && !(ep > 0)) {
             price = 0;
           }
         }
@@ -1448,21 +1450,18 @@ const Paymentanddispensingmedicine = () => {
       })
     ];
 
-    // ✅ ค่ารักษา: ลำดับความสำคัญที่ถูกต้อง
-    // 1. shouldBeFree (Gold Card + ไม่เกินสิทธิ์) → 0 ก่อนเสมอ
-    // 2. paymentData.treatmentFee (manual override / ค่าที่ set จาก loadTreatmentData)
-    // 3. currentPatient.paymentData.treatmentFee (snapshot หลังชำระ)
-    // 4. Default 100 (ไม่ fallback ไป DB เพราะ DB default = 100 ซึ่งผิดสำหรับ Gold Card)
+    // ✅ ค่ารักษา: ให้ตรงกับ calculateTotalFromEditablePrices (รวมบัตรทองที่แก้ค่ารักษาเองได้)
     let resolvedTreatmentFee;
-
-    if (shouldBeFree) {
-      // ✅ บัตรทองและยังไม่เกินสิทธิ์: ฟรีเสมอ — override ทุกค่า
-      resolvedTreatmentFee = 0;
-    } else if (paymentData.treatmentFee !== undefined && paymentData.treatmentFee !== null) {
+    if (paymentData.treatmentFee !== undefined && paymentData.treatmentFee !== null) {
       resolvedTreatmentFee = paymentData.treatmentFee === '' ? 0 : parseFloat(paymentData.treatmentFee);
+    } else if (shouldBeFree) {
+      resolvedTreatmentFee = 0;
     } else if (currentPatient?.paymentData?.treatmentFee !== undefined && currentPatient?.paymentData?.treatmentFee !== null) {
-      // ✅ อ่านจาก paymentData ที่ handlePayment บันทึกไว้ (ค่าที่ user จ่ายจริง)
       resolvedTreatmentFee = parseFloat(currentPatient.paymentData.treatmentFee);
+    } else if (currentPatient?.TREATMENT_FEE !== undefined && currentPatient?.TREATMENT_FEE !== null) {
+      resolvedTreatmentFee = parseFloat(currentPatient.TREATMENT_FEE);
+    } else if (treatmentData?.treatment?.TREATMENT_FEE !== undefined && treatmentData?.treatment?.TREATMENT_FEE !== null) {
+      resolvedTreatmentFee = parseFloat(treatmentData.treatment.TREATMENT_FEE);
     } else {
       resolvedTreatmentFee = 100.00;
     }
@@ -1889,6 +1888,7 @@ const Paymentanddispensingmedicine = () => {
                                 editablePrices={editablePrices}
                                 paymentData={paymentData}
                                 treatmentData={treatmentData} // ✅ Pass treatmentData
+                                effectiveDiscount={getEffectiveDiscount()}
                                 onPaymentDataChange={setPaymentData}
                                 onPayment={handlePayment}
                                 onCloseCase={handleCloseCase} // เพิ่ม prop ใหม่
@@ -2009,7 +2009,7 @@ const Paymentanddispensingmedicine = () => {
                               const isUcsExceeded = ucsUsageInfo.isExceeded;
                               let treatmentFee;
                               if (paymentData.treatmentFee !== undefined && paymentData.treatmentFee !== null) {
-                                treatmentFee = parseFloat(paymentData.treatmentFee);
+                                treatmentFee = paymentData.treatmentFee === '' ? 0 : parseFloat(paymentData.treatmentFee);
                               } else if (currentPatient?.paymentData?.treatmentFee !== undefined && currentPatient?.paymentData?.treatmentFee !== null) {
                                 // ✅ อ่านจาก paymentData ที่ handlePayment บันทึกไว้ (ค่าที่ user จ่ายจริง)
                                 treatmentFee = parseFloat(currentPatient.paymentData.treatmentFee);
@@ -2036,15 +2036,9 @@ const Paymentanddispensingmedicine = () => {
                               <Typography>รวมค่ารักษา:</Typography>
                               <Typography>{calculateTotalFromEditablePrices().toFixed(2)} บาท</Typography>
                             </Box>
-                            {/* ส่วนลด - แสดงเสมอ */}
+                            {/* ส่วนลด — ค่าเดียวกับยอดสุทธิ / ใบเสร็จ */}
                             {(() => {
-                              const discount = parseFloat(
-                                (currentPatient?.PAYMENT_STATUS === 'ชำระเงินแล้ว' && currentPatient?.paymentData?.discount > 0)
-                                  ? currentPatient.paymentData.discount
-                                  : paymentData.discount > 0
-                                    ? paymentData.discount
-                                    : treatmentData?.treatment?.DISCOUNT_AMOUNT || 0
-                              );
+                              const discount = getEffectiveDiscount();
                               return (
                                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                                   <Typography>ส่วนลด:</Typography>
@@ -2070,28 +2064,12 @@ const Paymentanddispensingmedicine = () => {
                           <ReceiptPrint
                             patient={currentPatient}
                             items={getReceiptItems()}
-                            paymentData={
-                              // ✅ Fix Bug: ใช้ patient.paymentData (ที่บันทึกค่าจริง) เมื่อชำระแล้ว
-                              // เพราะ paymentData state ถูก reset หลังจาก handlePayment สำเร็จ
-                              (currentPatient?.PAYMENT_STATUS === 'ชำระเงินแล้ว' && currentPatient?.paymentData)
-                                ? {
-                                  ...currentPatient.paymentData,
-                                  // ✅ เพิ่ม fallback จาก DB เผื่อ session reload แล้ว snapshot หาย
-                                  discount: parseFloat(
-                                    currentPatient.paymentData.discount > 0
-                                      ? currentPatient.paymentData.discount
-                                      : treatmentData?.treatment?.DISCOUNT_AMOUNT || 0
-                                  )
-                                }
-                                : {
-                                  ...paymentData,
-                                  discount: parseFloat(
-                                    paymentData.discount > 0
-                                      ? paymentData.discount
-                                      : treatmentData?.treatment?.DISCOUNT_AMOUNT || 0
-                                  )
-                                }
-                            }
+                            paymentData={{
+                              ...(currentPatient?.PAYMENT_STATUS === 'ชำระเงินแล้ว' && currentPatient?.paymentData
+                                ? currentPatient.paymentData
+                                : paymentData),
+                              discount: getEffectiveDiscount()
+                            }}
                           />
 
                           {/* ปุ่มปิดการรักษา */}

@@ -28,6 +28,8 @@ const PaymentSummaryCard = ({
     patient,
     ucsUsageInfo = { isExceeded: false }, // ✅ รับข้อมูลการใช้งานสิทธิ์บัตรทอง
     treatmentData, // ✅ รับข้อมูลการรักษา (เพื่อดึง EXTERNAL_UCS_COUNT)
+    /** ส่วนลดที่ใช้คำนวณจริง (ให้ตรงกับ calculateTotal ในหน้า Payment) */
+    effectiveDiscount = 0,
     loading
 }) => {
 
@@ -65,22 +67,25 @@ const PaymentSummaryCard = ({
     const labTotal = editablePrices.labs.reduce((sum, item) => sum + item.editablePrice, 0);
     const procedureTotal = editablePrices.procedures.reduce((sum, item) => sum + item.editablePrice, 0);
 
-    // คำนวณค่ารักษา: ลำดับความสำคัญที่ถูกต้อง
+    // คำนวณค่ารักษา: ค่าที่ผู้ใช้กรอก/โหลดใน paymentData ก่อน แล้วค่อย default บัตรทองฟรี
     let treatmentFee;
-    if (shouldBeFree) {
-        // ✅ บัตรทองและยังไม่เกินสิทธิ์: ฟรีเสมอ — override paymentData และ DB
-        treatmentFee = 0;
-    } else if (paymentData.treatmentFee !== undefined && paymentData.treatmentFee !== null) {
+    if (paymentData.treatmentFee !== undefined && paymentData.treatmentFee !== null) {
         treatmentFee = paymentData.treatmentFee === '' ? 0 : parseFloat(paymentData.treatmentFee);
+        if (Number.isNaN(treatmentFee)) treatmentFee = 0;
+    } else if (shouldBeFree) {
+        treatmentFee = 0;
     } else if (patient?.paymentData?.treatmentFee !== undefined && patient?.paymentData?.treatmentFee !== null) {
         treatmentFee = parseFloat(patient.paymentData.treatmentFee);
+    } else if (patient?.TREATMENT_FEE !== undefined && patient?.TREATMENT_FEE !== null) {
+        treatmentFee = parseFloat(patient.TREATMENT_FEE);
+    } else if (treatmentData?.treatment?.TREATMENT_FEE !== undefined && treatmentData?.treatment?.TREATMENT_FEE !== null) {
+        treatmentFee = parseFloat(treatmentData.treatment.TREATMENT_FEE);
     } else {
-        // Default
         treatmentFee = 100.00;
     }
 
     const subtotal = drugTotal + labTotal + procedureTotal + treatmentFee;
-    const discount = parseFloat(paymentData.discount || 0);
+    const discount = Math.max(0, parseFloat(effectiveDiscount) || 0);
 
     // Prevent negative total
     const total = Math.max(0, subtotal - discount);
@@ -234,12 +239,15 @@ const PaymentSummaryCard = ({
                                     // ✅ ค่ารักษา display: Gold Card ต้องอยู่ก่อนเสมอ
                                     let treatmentFee;
                                     const shouldBeFree = isGoldCard && !isUcsExceeded;
-                                    if (shouldBeFree) {
+                                    if (paymentData.treatmentFee !== undefined && paymentData.treatmentFee !== null) {
+                                        treatmentFee = paymentData.treatmentFee === '' ? 0 : parseFloat(paymentData.treatmentFee);
+                                        if (Number.isNaN(treatmentFee)) treatmentFee = 0;
+                                    } else if (shouldBeFree) {
                                         treatmentFee = 0.00;
-                                    } else if (paymentData.treatmentFee !== undefined && paymentData.treatmentFee !== null) {
-                                        treatmentFee = parseFloat(paymentData.treatmentFee);
                                     } else if (patient?.paymentData?.treatmentFee !== undefined && patient?.paymentData?.treatmentFee !== null) {
                                         treatmentFee = parseFloat(patient.paymentData.treatmentFee);
+                                    } else if (treatmentData?.treatment?.TREATMENT_FEE !== undefined && treatmentData?.treatment?.TREATMENT_FEE !== null) {
+                                        treatmentFee = parseFloat(treatmentData.treatment.TREATMENT_FEE);
                                     } else {
                                         treatmentFee = 100.00;
                                     }
@@ -290,11 +298,7 @@ const PaymentSummaryCard = ({
 
                 {/* ✅ แสดงส่วนลดเมื่อชำระแล้ว หรือเมื่อกรอกส่วนลด */}
                 {(() => {
-                    // ✅ เมื่อชำระแล้ว ให้ดึงจาก patient.paymentData.discount
-                    // เพราะ paymentData state ถูก reset เป็น 0 หลังชำระเสร็จ
-                    const displayDiscount = isPaymentCompleted
-                        ? parseFloat(patient?.paymentData?.discount || treatmentData?.treatment?.DISCOUNT_AMOUNT || 0)
-                        : parseFloat(paymentData.discount || 0);
+                    const displayDiscount = Math.max(0, parseFloat(effectiveDiscount) || 0);
                     return displayDiscount > 0 ? (
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
                             <Typography variant="body2" fontWeight="bold">ส่วนลด:</Typography>

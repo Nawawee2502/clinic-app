@@ -164,13 +164,18 @@ class PatientService {
             }
 
             // แปลงข้อมูลจากคิวให้เป็นรูปแบบที่ component ใช้งานได้
-            const patientsWithQueue = queueResponse.data.map(queueItem => ({
+            const patientsWithQueue = queueResponse.data.map(queueItem => {
+                // ✅ สถานะจริงจาก TREATMENT1.STATUS1 ก่อน แล้วจึง STATUS ของ DAILY_QUEUE (ให้ตรงหน้าตรวจรักษา / getAllPatientsFromQueue)
+                const effectiveStatus = queueItem.TREATMENT_STATUS || queueItem.STATUS || 'รอตรวจ';
+                return {
                 // ข้อมูลคิว
                 queueNumber: queueItem.QUEUE_NUMBER,
                 queueTime: queueItem.QUEUE_TIME,
-                queueStatus: queueItem.STATUS,
+                queueStatus: effectiveStatus,
+                QUEUE_STATUS: effectiveStatus,
                 queueType: queueItem.TYPE,
                 queueId: queueItem.QUEUE_ID,
+                QUEUE_ID: queueItem.QUEUE_ID,
 
                 // ข้อมูลผู้ป่วย
                 HNCODE: queueItem.HNCODE,
@@ -208,7 +213,8 @@ class PatientService {
                 RR1: null,
                 PR1: null,
                 SPO2: null
-            }));
+            };
+            });
 
             return {
                 success: true,

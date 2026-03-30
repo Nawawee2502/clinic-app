@@ -92,6 +92,16 @@ const PatientRegistration = () => {
     checkDuplicateVNOs(); // ✅ เช็ค VN ซ้ำตอนเปิดหน้า
   }, []);
 
+  // ✅ รีเฟรชคิว/สถิติเป็นระยะ ให้สถานะในคิวตรงกับห้องตรวจโดยไม่ต้องกดรีเฟรช
+  useEffect(() => {
+    const intervalMs = 25000;
+    const id = setInterval(() => {
+      loadTodayQueue();
+      loadQueueStats();
+    }, intervalMs);
+    return () => clearInterval(id);
+  }, []);
+
   // ✅ เช็ค VN ซ้ำในวันนี้
   const checkDuplicateVNOs = async () => {
     try {

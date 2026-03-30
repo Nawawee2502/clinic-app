@@ -4,8 +4,8 @@ import React from "react";
 const ReceiptPrint = ({ patient, items, paymentData }) => {
     if (!patient) return null;
 
-    const totalAmount = items.reduce((sum, i) => sum + i.price, 0);
-    const discount = parseFloat(paymentData?.discount || 0);
+    const totalAmount = items.reduce((sum, i) => sum + (Number(i.price) || 0), 0);
+    const discount = Math.max(0, parseFloat(paymentData?.discount) || 0);
     const finalAmount = Math.max(0, totalAmount - discount);
 
     const handlePrint = () => {
@@ -392,10 +392,12 @@ const ReceiptPrint = ({ patient, items, paymentData }) => {
                                 <span class="summary-value">${totalAmount.toFixed(2)} บาท</span>
                             </div>
                             
+                            ${discount > 0 ? `
                             <div class="summary-row">
                                 <span class="summary-label">ส่วนลด:</span>
                                 <span class="summary-value" style="color: #d32f2f;">-${discount.toFixed(2)} บาท</span>
                             </div>
+                            ` : ''}
                             
                             <div class="summary-row total-row">
                                 <span class="summary-label">ยอดชำระสุทธิ:</span>

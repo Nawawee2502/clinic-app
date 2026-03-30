@@ -134,6 +134,9 @@ const PatientReceptionSection = ({
             setSelectedPatient(newlyRegisteredPatient);
             setPatientOptions([newlyRegisteredPatient]);
 
+            // ✅ ให้ dropdown สิทธิตรงกับที่ลงทะเบียน (ไม่ค้างที่จ่ายเอง)
+            setRightsValue(getRightsFromPatient(newlyRegisteredPatient));
+
             // ✅ เช็คสิทธิ์บัตรทองให้ด้วย
             checkGoldCardAndSetCount(newlyRegisteredPatient);
 
