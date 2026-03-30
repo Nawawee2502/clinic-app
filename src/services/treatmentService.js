@@ -1119,12 +1119,24 @@ class TreatmentService {
         // ✅ คำนวณยอดรวมจาก editablePrices (ยังไม่รวม TREATMENT_FEE)
         const baseTotal = this.calculateTotalFromEditablePrices(editablePrices);
 
-        // ✅ เพิ่ม TREATMENT_FEE เข้าไปในยอดรวมก่อนหักส่วนลด
-        const treatmentFee = parseFloat(paymentInfo.treatmentFee !== undefined && paymentInfo.treatmentFee !== null ? paymentInfo.treatmentFee : 100.00);
-        const totalAmount = baseTotal + treatmentFee;
+        // ✅ เพิ่ม TREATMENT_FEE (รวม 0 ได้ — ห้ามใช้ truthy check กับตัวเลข)
+        const rawTf = paymentInfo.treatmentFee;
+        let treatmentFeeSafe;
+        if (rawTf === '') {
+            treatmentFeeSafe = 0;
+        } else if (rawTf === undefined || rawTf === null) {
+            treatmentFeeSafe = 100.0;
+        } else {
+            const p = parseFloat(rawTf);
+            treatmentFeeSafe = Number.isFinite(p) ? p : 0;
+        }
+        const totalAmount = baseTotal + treatmentFeeSafe;
 
         // ✅ หักส่วนลดจากยอดรวมที่รวม TREATMENT_FEE แล้ว
-        const discount = parseFloat(paymentInfo.discount || 0);
+        const rawDisc = paymentInfo.discount;
+        const discount = rawDisc === '' || rawDisc === null || rawDisc === undefined
+          ? 0
+          : Math.max(0, parseFloat(rawDisc) || 0);
         const netAmount = Math.max(0, totalAmount - discount);
 
         const receivedAmount = parseFloat(paymentInfo.receivedAmount || 0);
@@ -1132,7 +1144,7 @@ class TreatmentService {
 
         return {
             TOTAL_AMOUNT: totalAmount, // ✅ รวม TREATMENT_FEE แล้ว
-            TREATMENT_FEE: treatmentFee, // ✅ บันทึกค่ารักษาแยก
+            TREATMENT_FEE: treatmentFeeSafe,
             DISCOUNT_AMOUNT: discount,
             NET_AMOUNT: netAmount, // ✅ ยอดชำระสุทธิหลังหักส่วนลด
             PAYMENT_STATUS: 'ชำระเงินแล้ว',

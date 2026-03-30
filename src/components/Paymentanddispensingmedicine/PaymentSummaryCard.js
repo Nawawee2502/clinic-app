@@ -52,20 +52,20 @@ const PaymentSummaryCard = ({
     const calculateDrugTotal = () => {
         if (shouldBeFree) {
             return editablePrices.drugs.reduce((sum, item) => {
-                // ถ้าเป็นยาที่ต้องจ่าย (UCS_CARD = 'N') หรือแก้ราคาแล้ว (editablePrice > 0) ให้นับ
-                if (item.DRUG_UCS_CARD === 'N' || (item.DRUG_UCS_CARD === 'Y' && item.editablePrice > 0)) {
-                    return sum + item.editablePrice;
+                const ep = Number(item.editablePrice) || 0;
+                if (item.DRUG_UCS_CARD === 'N' || (item.DRUG_UCS_CARD === 'Y' && ep > 0)) {
+                    return sum + ep;
                 }
                 return sum;
             }, 0);
         } else {
-            return editablePrices.drugs.reduce((sum, item) => sum + item.editablePrice, 0);
+            return editablePrices.drugs.reduce((sum, item) => sum + (Number(item.editablePrice) || 0), 0);
         }
     };
 
-    const drugTotal = parseFloat(calculateDrugTotal());
-    const labTotal = editablePrices.labs.reduce((sum, item) => sum + item.editablePrice, 0);
-    const procedureTotal = editablePrices.procedures.reduce((sum, item) => sum + item.editablePrice, 0);
+    const drugTotal = Number(calculateDrugTotal()) || 0;
+    const labTotal = editablePrices.labs.reduce((sum, item) => sum + (Number(item.editablePrice) || 0), 0);
+    const procedureTotal = editablePrices.procedures.reduce((sum, item) => sum + (Number(item.editablePrice) || 0), 0);
 
     // คำนวณค่ารักษา: ค่าที่ผู้ใช้กรอก/โหลดใน paymentData ก่อน แล้วค่อย default บัตรทองฟรี
     let treatmentFee;
@@ -84,7 +84,7 @@ const PaymentSummaryCard = ({
         treatmentFee = 100.00;
     }
 
-    const subtotal = drugTotal + labTotal + procedureTotal + treatmentFee;
+    const subtotal = drugTotal + labTotal + procedureTotal + (Number(treatmentFee) || 0);
     const discount = Math.max(0, parseFloat(effectiveDiscount) || 0);
 
     // Prevent negative total
@@ -151,14 +151,14 @@ const PaymentSummaryCard = ({
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                         <Typography variant="body2">ค่า Lab/X-ray:</Typography>
                         <Typography variant="body2" fontWeight="bold">
-                            {editablePrices.labs.reduce((sum, item) => sum + item.editablePrice, 0).toFixed(2)} บาท
+                            {editablePrices.labs.reduce((sum, item) => sum + (Number(item.editablePrice) || 0), 0).toFixed(2)} บาท
                         </Typography>
                     </Box>
 
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                         <Typography variant="body2">ค่าหัตถการ:</Typography>
                         <Typography variant="body2" fontWeight="bold">
-                            {editablePrices.procedures.reduce((sum, item) => sum + item.editablePrice, 0).toFixed(2)} บาท
+                            {editablePrices.procedures.reduce((sum, item) => sum + (Number(item.editablePrice) || 0), 0).toFixed(2)} บาท
                         </Typography>
                     </Box>
 
@@ -215,7 +215,7 @@ const PaymentSummaryCard = ({
                             inputProps={{ step: "0.01", min: "0" }}
                             disabled={false} // ✅ Fix: Always enable editing
                             helperText={(patient?.PATIENT_UCS_CARD === 'Y' || patient?.UCS_CARD === 'Y' || patient?.treatment?.UCS_CARD === 'Y') && !ucsUsageInfo?.isExceeded
-                                ? 'บัตรทอง: เริ่มต้น 0.00 (แก้ไขได้)'
+                                ? 'บัตรทอง: เริ่มต้น 0 — แก้เป็นตัวเลขใดก็ได้ (เช่น 100) ยอดชำระและบันทึกจะตามค่าที่กรอก'
                                 : 'สามารถแก้ไขได้ (กรอก 0.00 ได้)'}
                             sx={{
                                 '& .MuiOutlinedInput-root': {
@@ -426,7 +426,7 @@ const PaymentSummaryCard = ({
                                     backgroundColor: "#2B69AC",
                                 }
                             }}
-                            disabled={loading || calculateTotalFromEditablePrices() === 0}
+                            disabled={loading || !Number.isFinite(subtotal) || subtotal <= 0}
                         >
                             {loading ? 'กำลังบันทึก...' : 'บันทึกการชำระเงิน'}
                         </Button>

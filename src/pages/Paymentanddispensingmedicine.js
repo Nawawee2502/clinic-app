@@ -197,7 +197,9 @@ const Paymentanddispensingmedicine = () => {
       return Number.isFinite(d) ? Math.max(0, d) : Math.max(0, parseFloat(treatmentData?.treatment?.DISCOUNT_AMOUNT || 0));
     }
     const raw = paymentData.discount;
-    if (raw !== '' && raw !== null && raw !== undefined) {
+    // ผู้ใช้ล้างช่องส่วนลด → ต้องเป็น 0 ไม่ต้อง fallback ไป DISCOUNT_AMOUNT ใน DB (อันนั้นทำให้ยอดสุทธิเป็น 0 แม้แก้ค่ารักษาเป็น 100)
+    if (raw === '') return 0;
+    if (raw !== null && raw !== undefined) {
       const d = parseFloat(raw);
       if (Number.isFinite(d)) return Math.max(0, d);
     }
@@ -242,19 +244,18 @@ const Paymentanddispensingmedicine = () => {
         changeAmount
       });
 
-      // ✅ shouldBeFree เชื่อ API (isExceeded) เป็นหลักเสมอ — นับจาก DB จริง
+      // ✅ ค่ารักษาที่กรอกในหน้าจอมีความสำคัญสูงสุด (รวมบัตรทองที่แก้เป็น 100 แล้วบันทึกเป็น 100)
       const isGoldCardPatient = currentPatient?.PATIENT_UCS_CARD === 'Y' || currentPatient?.UCS_CARD === 'Y';
       const shouldBeFree = isGoldCardPatient && !ucsUsageInfo?.isExceeded;
       const defaultTreatmentFee = shouldBeFree ? 0.00 : 100.00;
 
-      // ✅ Safe Treatment Fee Calculation (Handle "", "0", NaN)
       let finalTreatmentFee = defaultTreatmentFee;
       if (paymentData.treatmentFee !== undefined && paymentData.treatmentFee !== null) {
         if (paymentData.treatmentFee === '') {
-          finalTreatmentFee = 0.00; // Treat empty as 0
+          finalTreatmentFee = 0.0;
         } else {
           const parsed = parseFloat(paymentData.treatmentFee);
-          if (!isNaN(parsed)) {
+          if (!Number.isNaN(parsed)) {
             finalTreatmentFee = parsed;
           }
         }
@@ -287,7 +288,9 @@ const Paymentanddispensingmedicine = () => {
           editablePrices,
           {
             ...paymentData,
-            treatmentFee: finalTreatmentFee // ✅ บังคับส่งค่าที่คำนวณแล้ว (50, 0, etc.) ไปยัง Service ไม่ให้ Service ไปดีดเป็น 100
+            treatmentFee: finalTreatmentFee,
+            // ✅ บังคับส่วนลดให้ตรงกับ netAmount / หน้าจอ (กัน paymentData.discount เป็น '' หรือคนละค่ากับ getEffectiveDiscount)
+            discount
           }
         );
 
@@ -1107,7 +1110,7 @@ const Paymentanddispensingmedicine = () => {
 
         // ✅ ตั้งค่ารักษา: ลำดับความสำคัญ:
         // 1. ถ้าชำระแล้ว → ใช้ค่า DB เสมอ (แสดงยอดที่จ่ายไปจริง)
-        // 2. ถ้าบัตรทองและยังไม่เกินสิทธิ์ → 0 (ฟรี) -- ต้องอยู่ก่อน hasSavedFee เพราะ DB มักมีค่า 100 อยู่แล้วตั้งแต่สร้าง treatment
+        // 2. ถ้าบัตรทองและยังไม่เกินสิทธิ์ → เริ่ม 0 (ฟรี) แต่ถ้าผู้ใช้กรอกค่าเอง (เช่น 100) ต้องเก็บค่านั้น — ไม่ทับด้วย 0 ทุกครั้งที่โหลดซ้ำ
         // 3. ถ้า DB มีค่า (แต่ยังไม่ชำระ) → ใช้ค่า DB
         // 4. Default → 100
         setPaymentData(prev => {
@@ -1116,8 +1119,13 @@ const Paymentanddispensingmedicine = () => {
             // ✅ ชำระแล้ว: แสดงยอดจริงจาก DB
             treatmentFee = parseFloat(savedTreatmentFee);
           } else if (isGoldCard && !ucsUsageExceeded) {
-            // ✅ บัตรทองและยังไม่เกินสิทธิ์: ฟรีเสมอ (override ค่า DB ที่อาจเป็น 100 default)
-            treatmentFee = 0.00;
+            const prevTf = prev.treatmentFee;
+            if (prevTf !== undefined && prevTf !== null && prevTf !== '') {
+              const p = parseFloat(prevTf);
+              treatmentFee = Number.isNaN(p) ? 0 : p;
+            } else {
+              treatmentFee = 0.0;
+            }
           } else if (hasSavedFee) {
             // ✅ ไม่ใช่บัตรทอง (หรือเกินสิทธิ์แล้ว): ใช้ค่าจาก DB
             treatmentFee = parseFloat(savedTreatmentFee);
@@ -1316,8 +1324,8 @@ const Paymentanddispensingmedicine = () => {
 
   // คำนวณยอดรวม
   const calculateTotalFromEditablePrices = () => {
-    const labTotal = editablePrices.labs.reduce((sum, item) => sum + item.editablePrice, 0);
-    const procedureTotal = editablePrices.procedures.reduce((sum, item) => sum + item.editablePrice, 0);
+    const labTotal = editablePrices.labs.reduce((sum, item) => sum + (Number(item.editablePrice) || 0), 0);
+    const procedureTotal = editablePrices.procedures.reduce((sum, item) => sum + (Number(item.editablePrice) || 0), 0);
 
     // ✅ สำหรับผู้ป่วยบัตรทอง: คำนวณยาที่ UCS_CARD = 'N' หรือยาที่แก้ราคาแล้ว (editablePrice > 0)
     // ✅ Fix: ใช้ PATIENT_UCS_CARD เป็นลำดับแรก เชื่อถือได้กว่า TREATMENT_UCS_CARD
@@ -1333,15 +1341,16 @@ const Paymentanddispensingmedicine = () => {
     if (shouldBeFree) {
       // ถ้าเป็นบัตรทองและควรฟรี: คำนวณยาที่ UCS_CARD = 'N' หรือยาที่แก้ราคาแล้ว (editablePrice > 0)
       drugTotal = editablePrices.drugs.reduce((sum, item) => {
+        const ep = Number(item.editablePrice) || 0;
         // ถ้าเป็นยาที่ต้องจ่าย (UCS_CARD = 'N') หรือแก้ราคาแล้ว (editablePrice > 0) ให้นับ
-        if (item.DRUG_UCS_CARD === 'N' || (item.DRUG_UCS_CARD === 'Y' && item.editablePrice > 0)) {
-          return sum + item.editablePrice;
+        if (item.DRUG_UCS_CARD === 'N' || (item.DRUG_UCS_CARD === 'Y' && ep > 0)) {
+          return sum + ep;
         }
         return sum;
       }, 0);
     } else {
       // ผู้ป่วยไม่ใช่บัตรทอง หรือใช้สิทธิ์บัตรทองเกิน 2 ครั้งแล้ว: คำนวณยาทั้งหมด
-      drugTotal = editablePrices.drugs.reduce((sum, item) => sum + item.editablePrice, 0);
+      drugTotal = editablePrices.drugs.reduce((sum, item) => sum + (Number(item.editablePrice) || 0), 0);
     }
 
     // ✅ เพิ่มค่ารักษา
@@ -1355,6 +1364,7 @@ const Paymentanddispensingmedicine = () => {
     if (paymentData.treatmentFee !== undefined && paymentData.treatmentFee !== null) {
       // มี manual set ใน UI (รวมถึงค่า 0 ก็ถูกต้อง)
       treatmentFee = paymentData.treatmentFee === '' ? 0 : parseFloat(paymentData.treatmentFee);
+      if (Number.isNaN(treatmentFee)) treatmentFee = 0;
     } else if (shouldBeFree) {
       // ✅ บัตรทองและยังไม่เกินสิทธิ์: ฟรีเสมอ (override DB ที่อาจเก็บ 100 ไว้)
       treatmentFee = 0;
