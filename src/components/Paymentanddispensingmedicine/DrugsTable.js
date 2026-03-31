@@ -10,7 +10,7 @@ import {
     TableHead,
     TableRow,
     Box,
-    Checkbox,
+    Chip,
     IconButton,
     TextField
 } from "@mui/material";
@@ -20,12 +20,17 @@ import {
     Close as CloseIcon
 } from "@mui/icons-material";
 
+const ucsLabel = (ucs) =>
+    ucs === 'Y' ? 'บัตรทอง (สปสช.)' : 'เก็บเงิน';
+
 const DrugsTable = ({
     editablePrices,
     editingItem,
     onEditPrice,
     onSavePrice,
-    onCancelEdit
+    onCancelEdit,
+    /** ยอดยาที่ใช้ในยอดชำระ (ตามสิทธิ์บัตรทอง + ราคาที่แก้) — ต้องตรงกับการ์ดสรุป */
+    payableDrugTotal
 }) => {
     const [tempPrice, setTempPrice] = React.useState('');
 
@@ -118,6 +123,7 @@ const DrugsTable = ({
                                 <TableCell sx={{ fontWeight: 'bold' }}>ลำดับ</TableCell>
                                 <TableCell sx={{ fontWeight: 'bold' }}>ชื่อยา/รายละเอียด</TableCell>
                                 <TableCell sx={{ fontWeight: 'bold' }}>ประเภท</TableCell>
+                                <TableCell align="center" sx={{ fontWeight: 'bold' }}>สิทธิ์ยา</TableCell>
                                 <TableCell align="center" sx={{ fontWeight: 'bold' }}>จำนวน</TableCell>
                                 <TableCell align="right" sx={{ fontWeight: 'bold' }}>ราคา/หน่วย</TableCell>
                                 <TableCell align="right" sx={{ fontWeight: 'bold' }}>ราคารวม</TableCell>
@@ -165,6 +171,15 @@ const DrugsTable = ({
                                             </Typography>
                                         </TableCell>
                                         <TableCell align="center">
+                                            <Chip
+                                                size="small"
+                                                label={ucsLabel(drug.DRUG_UCS_CARD)}
+                                                color={drug.DRUG_UCS_CARD === 'Y' ? 'success' : 'default'}
+                                                variant={drug.DRUG_UCS_CARD === 'Y' ? 'filled' : 'outlined'}
+                                                sx={{ fontWeight: 600, maxWidth: '100%' }}
+                                            />
+                                        </TableCell>
+                                        <TableCell align="center">
                                             <Box sx={{
                                                 bgcolor: '#E3F2FD',
                                                 color: '#2B69AC',
@@ -193,7 +208,7 @@ const DrugsTable = ({
                                 ))
                             ) : (
                                 <TableRow>
-                                    <TableCell colSpan={6} align="center" sx={{ py: 6 }}>
+                                    <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
                                         <Box sx={{ textAlign: 'center' }}>
                                             <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
                                                 ไม่มีรายการยา
@@ -208,11 +223,11 @@ const DrugsTable = ({
                             {/* แถวยอดรวมยา */}
                             {editablePrices.drugs.length > 0 && (
                                 <TableRow sx={{ bgcolor: '#fff3e0' }}>
-                                    <TableCell colSpan={5} sx={{ fontWeight: 'bold', textAlign: 'right' }}>
-                                        รวมค่ายาทั้งหมด:
+                                    <TableCell colSpan={6} sx={{ fontWeight: 'bold', textAlign: 'right' }}>
+                                        รวมค่ายา (นับในยอดชำระ):
                                     </TableCell>
                                     <TableCell align="right" sx={{ fontWeight: 'bold', color: '#f57c00', fontSize: '1.1rem' }}>
-                                        ฿{editablePrices.drugs.reduce((sum, item) => sum + item.editablePrice, 0).toFixed(2)}
+                                        ฿{(typeof payableDrugTotal === 'number' ? payableDrugTotal : editablePrices.drugs.reduce((sum, item) => sum + (Number(item.editablePrice) || 0), 0)).toFixed(2)}
                                     </TableCell>
                                 </TableRow>
                             )}

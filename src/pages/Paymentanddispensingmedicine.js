@@ -1322,36 +1322,43 @@ const Paymentanddispensingmedicine = () => {
     setEditingItem({ type: null, index: null });
   };
 
-  // คำนวณยอดรวม
-  const calculateTotalFromEditablePrices = () => {
-    const labTotal = editablePrices.labs.reduce((sum, item) => sum + (Number(item.editablePrice) || 0), 0);
-    const procedureTotal = editablePrices.procedures.reduce((sum, item) => sum + (Number(item.editablePrice) || 0), 0);
-
-    // ✅ สำหรับผู้ป่วยบัตรทอง: คำนวณยาที่ UCS_CARD = 'N' หรือยาที่แก้ราคาแล้ว (editablePrice > 0)
-    // ✅ Fix: ใช้ PATIENT_UCS_CARD เป็นลำดับแรก เชื่อถือได้กว่า TREATMENT_UCS_CARD
+  /** บัตรทอง + ยังไม่เกิน 2 ครั้ง/เดือน (ครั้งที่ 1–2) → ค่าเริ่มค่ารักษา 0, ยา/หัตถการตามสิทธิ์รายตัว */
+  const getGoldCardShouldBeFree = () => {
     const currentPatient = patients[selectedPatientIndex];
     const isGoldCard = currentPatient?.PATIENT_UCS_CARD === 'Y' ||
       currentPatient?.UCS_CARD === 'Y' ||
       treatmentData?.patient?.UCS_CARD === 'Y';
+    return isGoldCard && !ucsUsageInfo?.isExceeded;
+  };
 
-    // ✅ shouldBeFree เชื่อ API (isExceeded) เป็นหลักเสมอ
-    const shouldBeFree = isGoldCard && !ucsUsageInfo?.isExceeded;
-
-    let drugTotal = 0;
+  /** ยอดยาที่ใช้ในยอดชำระ/ใบเสร็จ — ต้องใช้ฟังก์ชันเดียวกันทุกจุด */
+  const calculateDrugTotalForPayment = () => {
+    const shouldBeFree = getGoldCardShouldBeFree();
     if (shouldBeFree) {
-      // ถ้าเป็นบัตรทองและควรฟรี: คำนวณยาที่ UCS_CARD = 'N' หรือยาที่แก้ราคาแล้ว (editablePrice > 0)
-      drugTotal = editablePrices.drugs.reduce((sum, item) => {
+      return editablePrices.drugs.reduce((sum, item) => {
         const ep = Number(item.editablePrice) || 0;
-        // ถ้าเป็นยาที่ต้องจ่าย (UCS_CARD = 'N') หรือแก้ราคาแล้ว (editablePrice > 0) ให้นับ
         if (item.DRUG_UCS_CARD === 'N' || (item.DRUG_UCS_CARD === 'Y' && ep > 0)) {
           return sum + ep;
         }
         return sum;
       }, 0);
-    } else {
-      // ผู้ป่วยไม่ใช่บัตรทอง หรือใช้สิทธิ์บัตรทองเกิน 2 ครั้งแล้ว: คำนวณยาทั้งหมด
-      drugTotal = editablePrices.drugs.reduce((sum, item) => sum + (Number(item.editablePrice) || 0), 0);
     }
+    return editablePrices.drugs.reduce((sum, item) => sum + (Number(item.editablePrice) || 0), 0);
+  };
+
+  // คำนวณยอดรวม
+  const calculateTotalFromEditablePrices = () => {
+    const labTotal = editablePrices.labs.reduce((sum, item) => sum + (Number(item.editablePrice) || 0), 0);
+    const procedureTotal = editablePrices.procedures.reduce((sum, item) => sum + (Number(item.editablePrice) || 0), 0);
+
+    const currentPatient = patients[selectedPatientIndex];
+    const isGoldCard = currentPatient?.PATIENT_UCS_CARD === 'Y' ||
+      currentPatient?.UCS_CARD === 'Y' ||
+      treatmentData?.patient?.UCS_CARD === 'Y';
+
+    const shouldBeFree = isGoldCard && !ucsUsageInfo?.isExceeded;
+
+    const drugTotal = calculateDrugTotalForPayment();
 
     // ✅ เพิ่มค่ารักษา
     // ลำดับความสำคัญ:
@@ -1415,47 +1422,43 @@ const Paymentanddispensingmedicine = () => {
 
   // Prepare data for receipt printing
   const getReceiptItems = () => {
-    // ✅ ใช้ Logic เดียวกันกับ calculateTotalFromEditablePrices
     const currentPatient = patients[selectedPatientIndex];
-    // ✅ Fix: ใช้ PATIENT_UCS_CARD เป็นลำดับแรก
-    const isGoldCard = currentPatient?.PATIENT_UCS_CARD === 'Y' ||
-      currentPatient?.UCS_CARD === 'Y' ||
-      treatmentData?.patient?.UCS_CARD === 'Y';
-    const isUcsExceeded = ucsUsageInfo?.isExceeded;
-
-    // ✅ shouldBeFree เชื่อ API (isExceeded) เป็นหลักเสมอ
-    const shouldBeFree = isGoldCard && !isUcsExceeded;
+    const shouldBeFree = getGoldCardShouldBeFree();
 
     const allItems = [
       ...editablePrices.labs.map(item => ({
         name: item.LABNAME || item.LABCODE || "การตรวจ",
         quantity: 1,
         unit: "ครั้ง",
-        price: item.editablePrice || 0
+        price: Number(item.editablePrice) || 0
       })),
-      ...editablePrices.procedures.map(item => ({
-        name: item.MED_PRO_NAME_THAI || item.PROCEDURE_NAME || item.MEDICAL_PROCEDURE_CODE || "หัตถการ",
-        quantity: 1,
-        unit: "ครั้ง",
-        price: item.editablePrice || 0
-      })),
-      // Drugs - ✅ Filter ตาม Gold Card logic (Safeguarded)
-      ...editablePrices.drugs.map(item => {
-        const ep = parseFloat(item.editablePrice) || 0;
+      ...editablePrices.procedures.map(item => {
+        const ep = Number(item.editablePrice) || 0;
         let price = ep;
-
-        // บัตรทอง (ยังอยู่ในสิทธิ์): ยา UCS=Y ที่ยังไม่ได้ตั้งราคา → 0; ถ้าแก้ราคาแล้วใช้ราคาที่แก้
+        const procUcs = item.PROC_UCS_CARD || item.UCS_CARD || 'N';
+        if (shouldBeFree && procUcs === 'Y' && !(ep > 0)) {
+          price = 0;
+        }
+        return {
+          name: item.MED_PRO_NAME_THAI || item.PROCEDURE_NAME || item.MEDICAL_PROCEDURE_CODE || "หัตถการ",
+          quantity: 1,
+          unit: "ครั้ง",
+          price
+        };
+      }),
+      ...editablePrices.drugs.map(item => {
+        const ep = Number(item.editablePrice) || 0;
+        let price = ep;
         if (shouldBeFree) {
           if (item.DRUG_UCS_CARD === 'Y' && !(ep > 0)) {
             price = 0;
           }
         }
-
         return {
           name: [item.GENERIC_NAME, item.TRADE_NAME].filter(Boolean).join(' / ') || item.GENERIC_NAME || item.TRADE_NAME || item.DRUG_CODE || "ยา",
           quantity: item.QTY || 1,
           unit: item.DISPLAY_UNIT_NAME || item.UNIT_NAME || item.UNIT_CODE || "เม็ด",
-          price: price
+          price
         };
       })
     ];
@@ -1829,6 +1832,17 @@ const Paymentanddispensingmedicine = () => {
                       </Box>
                     )}
 
+                    {currentPatient && getGoldCardShouldBeFree() && (
+                      <Alert severity="info" sx={{ mb: 2, borderRadius: '12px' }}>
+                        <strong>สิทธิ์บัตรทอง (ครั้งที่ 1–2 ในเดือน)</strong>
+                        {' — '}ค่ารักษาเริ่มที่ <strong>0</strong> บาท (แก้เป็นตัวเลขอื่นได้เมื่อชำระเงิน)
+                        {ucsUsageInfo?.usageCount != null && ucsUsageInfo?.maxUsage != null && (
+                          <> · ใช้สิทธิ์ไปแล้ว {ucsUsageInfo.usageCount}/{ucsUsageInfo.maxUsage} ครั้งในเดือนนี้</>
+                        )}
+                        {' · '}ยา/หัตถการแยกตามคอลัมน์สิทธิ์ — แก้ราคาในตารางแล้วยอดชำระและใบเสร็จจะอัปเดตทันที
+                      </Alert>
+                    )}
+
                     {/* Treatment Details */}
                     {loadingTreatment ? (
                       <Box sx={{ textAlign: 'center', py: 8 }}>
@@ -1851,6 +1865,7 @@ const Paymentanddispensingmedicine = () => {
                                 onEditPrice={handleEditPrice}
                                 onSavePrice={handleSavePrice}
                                 onCancelEdit={handleCancelEdit}
+                                shouldBeFreeGoldCard={getGoldCardShouldBeFree()}
                               />
                             </Box>
 
@@ -1862,6 +1877,7 @@ const Paymentanddispensingmedicine = () => {
                                 onEditPrice={handleEditPrice}
                                 onSavePrice={handleSavePrice}
                                 onCancelEdit={handleCancelEdit}
+                                payableDrugTotal={calculateDrugTotalForPayment()}
                               />
                             </Box>
 

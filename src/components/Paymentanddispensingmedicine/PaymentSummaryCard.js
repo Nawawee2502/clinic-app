@@ -215,7 +215,7 @@ const PaymentSummaryCard = ({
                             inputProps={{ step: "0.01", min: "0" }}
                             disabled={false} // ✅ Fix: Always enable editing
                             helperText={(patient?.PATIENT_UCS_CARD === 'Y' || patient?.UCS_CARD === 'Y' || patient?.treatment?.UCS_CARD === 'Y') && !ucsUsageInfo?.isExceeded
-                                ? 'บัตรทอง: เริ่มต้น 0 — แก้เป็นตัวเลขใดก็ได้ (เช่น 100) ยอดชำระและบันทึกจะตามค่าที่กรอก'
+                                ? 'สิทธิ์ครั้งที่ 1–2 ในเดือน: ค่ารักษาเริ่ม 0 บาท (แก้ได้) · ยา/หัตถการดูคอลัมน์สิทธิ์ — แก้ราคาในตารางแล้วยอดชำระ/ใบเสร็จอัปเดตทันที'
                                 : 'สามารถแก้ไขได้ (กรอก 0.00 ได้)'}
                             sx={{
                                 '& .MuiOutlinedInput-root': {

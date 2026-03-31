@@ -11,6 +11,7 @@ import {
     TableRow,
     Box,
     Grid,
+    Chip,
     IconButton,
     TextField
 } from "@mui/material";
@@ -20,12 +21,17 @@ import {
     Close as CloseIcon
 } from "@mui/icons-material";
 
+const procUcsLabel = (ucs) =>
+    ucs === 'Y' ? 'บัตรทอง (สปสช.)' : 'เก็บเงิน';
+
 const LabProceduresTable = ({
     editablePrices,
     editingItem,
     onEditPrice,
     onSavePrice,
-    onCancelEdit
+    onCancelEdit,
+    /** บัตรทองครั้งที่ 1–2 — แสดงสิทธิ์หัตถการ */
+    shouldBeFreeGoldCard = false
 }) => {
     const [tempPrice, setTempPrice] = React.useState('');
 
@@ -254,6 +260,7 @@ const LabProceduresTable = ({
                                 <TableHead>
                                     <TableRow>
                                         <TableCell sx={{ fontWeight: 'bold', bgcolor: '#f8f9fa' }}>รายการ</TableCell>
+                                        <TableCell align="center" sx={{ fontWeight: 'bold', bgcolor: '#f8f9fa' }}>สิทธิ์</TableCell>
                                         <TableCell align="right" sx={{ fontWeight: 'bold', bgcolor: '#f8f9fa' }}>ราคา</TableCell>
                                     </TableRow>
                                 </TableHead>
@@ -271,6 +278,20 @@ const LabProceduresTable = ({
                                                         </Typography>
                                                     )}
                                                 </TableCell>
+                                                <TableCell align="center">
+                                                    <Chip
+                                                        size="small"
+                                                        label={procUcsLabel(proc.PROC_UCS_CARD || proc.UCS_CARD || 'N')}
+                                                        color={(proc.PROC_UCS_CARD || proc.UCS_CARD) === 'Y' ? 'success' : 'default'}
+                                                        variant={(proc.PROC_UCS_CARD || proc.UCS_CARD) === 'Y' ? 'filled' : 'outlined'}
+                                                        sx={{ fontWeight: 600 }}
+                                                    />
+                                                    {shouldBeFreeGoldCard && (proc.PROC_UCS_CARD || proc.UCS_CARD) === 'Y' && (
+                                                        <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
+                                                            แก้ราคาได้ → นับในยอดชำระ
+                                                        </Typography>
+                                                    )}
+                                                </TableCell>
                                                 <TableCell align="right">
                                                     <EditablePriceCell
                                                         type="procedures"
@@ -282,7 +303,7 @@ const LabProceduresTable = ({
                                         ))
                                     ) : (
                                         <TableRow>
-                                            <TableCell colSpan={2} align="center" sx={{ py: 3 }}>
+                                            <TableCell colSpan={3} align="center" sx={{ py: 3 }}>
                                                 <Typography color="text.secondary">ไม่มีรายการหัตถการ</Typography>
                                             </TableCell>
                                         </TableRow>
@@ -291,8 +312,9 @@ const LabProceduresTable = ({
                                     {editablePrices.procedures.length > 0 && (
                                         <TableRow sx={{ bgcolor: '#e8f5e8' }}>
                                             <TableCell sx={{ fontWeight: 'bold' }}>รวมหัตถการ</TableCell>
+                                            <TableCell />
                                             <TableCell align="right" sx={{ fontWeight: 'bold', color: '#2e7d32' }}>
-                                                ฿{editablePrices.procedures.reduce((sum, item) => sum + item.editablePrice, 0).toFixed(2)}
+                                                ฿{editablePrices.procedures.reduce((sum, item) => sum + (Number(item.editablePrice) || 0), 0).toFixed(2)}
                                             </TableCell>
                                         </TableRow>
                                     )}
