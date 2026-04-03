@@ -338,7 +338,7 @@ const MonthlyIncome = () => {
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={12} md={4}>
+            <Grid item xs={12} md={2}>
               <TextField
                 fullWidth
                 label="ค้นหา (เลขที่, รับจาก, เลขบัญชี)"
@@ -359,6 +359,18 @@ const MonthlyIncome = () => {
                 }}
                 size="small"
               />
+            </Grid>
+            <Grid item xs={12} sm={6} md={2}>
+              <Button
+                variant="contained"
+                fullWidth
+                onClick={loadIncomeRecords}
+                disabled={loading}
+                startIcon={<RefreshIcon />}
+                sx={{ borderRadius: "10px", height: "40px" }}
+              >
+                โหลดข้อมูล
+              </Button>
             </Grid>
           </Grid>
         </CardContent>

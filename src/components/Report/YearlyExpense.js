@@ -282,7 +282,7 @@ const YearlyExpense = () => {
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={12} md={4}>
+            <Grid item xs={12} md={2}>
               <TextField
                 fullWidth
                 label="ค้นหา (เลขที่, จ่ายให้, เลขบัญชี)"
@@ -303,6 +303,18 @@ const YearlyExpense = () => {
                 }}
                 size="small"
               />
+            </Grid>
+            <Grid item xs={12} sm={6} md={2}>
+              <Button
+                variant="contained"
+                fullWidth
+                onClick={loadPayRecords}
+                disabled={loading}
+                startIcon={<RefreshIcon />}
+                sx={{ borderRadius: "10px", height: "40px" }}
+              >
+                โหลดข้อมูล
+              </Button>
             </Grid>
           </Grid>
         </CardContent>

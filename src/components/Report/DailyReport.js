@@ -450,6 +450,18 @@ const DailyReport = () => {
 
                         <Grid item xs={12} sm={6} md={2}>
                             <Button
+                                variant="contained"
+                                fullWidth
+                                onClick={loadReportData}
+                                disabled={loading}
+                                startIcon={<RefreshIcon />}
+                                sx={{ borderRadius: "10px", mb: { xs: 1, sm: 0 } }}
+                            >
+                                โหลดข้อมูล
+                            </Button>
+                        </Grid>
+                        <Grid item xs={12} sm={6} md={2}>
+                            <Button
                                 variant="outlined"
                                 fullWidth
                                 onClick={handleClearFilters}

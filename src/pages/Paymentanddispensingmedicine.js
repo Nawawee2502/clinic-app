@@ -1116,12 +1116,12 @@ const Paymentanddispensingmedicine = () => {
           } else if (hasSavedFee) {
             // ✅ ไม่ใช่บัตรทอง (หรือเกินสิทธิ์แล้ว): ใช้ค่าจาก DB
             const dbFee = parseFloat(savedTreatmentFee);
-            // ✅ FIX: ถ้าเกินสิทธิ์บัตรทอง (ucsUsageExceeded=true) และ DB เก็บ 0 ไว้ (อาจ save ผิดครั้งก่อน)
+            // ✅ FIX: ถ้าเกินสิทธิ์บัตรทอง (ucsUsageExceeded=true) และ DB เก็บ 0 หรือค่าว่าง/ติดลบไว้ (อาจ save ผิดครั้งก่อน)
             // → ใช้ 100 เป็น default แทน เพื่อไม่ให้แสดงค่ารักษาฟรีสำหรับผู้ที่ต้องชำระเงิน
-            if (ucsUsageExceeded && dbFee === 0) {
+            if (ucsUsageExceeded && (dbFee === 0 || Number.isNaN(dbFee))) {
               treatmentFee = 100.00;
             } else {
-              treatmentFee = dbFee;
+              treatmentFee = Number.isNaN(dbFee) ? 100.00 : dbFee;
             }
           } else {
             // ✅ Default
