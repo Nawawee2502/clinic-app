@@ -25,6 +25,7 @@ import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import dayjs from 'dayjs';
+import 'dayjs/locale/en-gb';
 
 // ✅ Import Reusable Components
 import MonthYearFilter from "../components/common/MonthYearFilter";
@@ -907,7 +908,7 @@ const Return1Management = () => {
         const qtyFieldError = modalErrors.QTY || qtyError;
 
         return (
-            <LocalizationProvider dateAdapter={AdapterDayjs}>
+            <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
                 <Container maxWidth="lg" sx={{ mt: 2 }}>
                     <Card>
                         <CardContent>
@@ -932,7 +933,7 @@ const Return1Management = () => {
                                     />
                                 </Grid>
                                 <Grid item xs={12} md={6}>
-                                    <LocalizationProvider dateAdapter={AdapterDayjs}>
+                                    <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
                                         <DatePicker
                                             label="วันที่"
                                             format="DD/MM/YYYY"
@@ -970,7 +971,7 @@ const Return1Management = () => {
                                     />
                                 </Grid>
                                 <Grid item xs={12} md={6}>
-                                    <LocalizationProvider dateAdapter={AdapterDayjs}>
+                                    <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
                                         <DatePicker
                                             label="วันครบกำหนด"
                                             format="DD/MM/YYYY"
@@ -1217,7 +1218,7 @@ const Return1Management = () => {
                                     />
                                 </Grid>
                                 <Grid item xs={12} md={6}>
-                                    <LocalizationProvider dateAdapter={AdapterDayjs}>
+                                    <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
                                         <DatePicker
                                             label="วันหมดอายุ"
                                             format="DD/MM/YYYY"
@@ -1332,7 +1333,7 @@ const Return1Management = () => {
     }
 
     return (
-        <LocalizationProvider dateAdapter={AdapterDayjs}>
+        <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
             <Container maxWidth="lg" sx={{ mt: 2 }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
                     <Typography variant="h6" fontWeight="bold">ใบคืนสินค้า ({filteredList.length} รายการ)</Typography>

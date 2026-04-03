@@ -18,6 +18,7 @@ import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import dayjs from 'dayjs';
+import 'dayjs/locale/en-gb';
 
 import Receipt1Service from "../services/receipt1Service";
 import SupplierService from "../services/supplierService";
@@ -767,7 +768,7 @@ const Receipt1Management = () => {
         const totals = calculateTotals();
 
         return (
-            <LocalizationProvider dateAdapter={AdapterDayjs}>
+            <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
                 <Container maxWidth="lg" sx={{ mt: 2 }}>
                     <Card>
                         <CardContent>
@@ -808,7 +809,7 @@ const Receipt1Management = () => {
                                     />
                                 </Grid>
                                 <Grid item xs={12} md={6}>
-                                    <LocalizationProvider dateAdapter={AdapterDayjs}>
+                                    <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
                                         <DatePicker
                                             label="วันที่"
                                             format="DD/MM/YYYY"
@@ -846,7 +847,7 @@ const Receipt1Management = () => {
                                     />
                                 </Grid>
                                 <Grid item xs={12} md={6}>
-                                    <LocalizationProvider dateAdapter={AdapterDayjs}>
+                                    <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
                                         <DatePicker
                                             label="วันครบกำหนด"
                                             format="DD/MM/YYYY"
@@ -1125,7 +1126,7 @@ const Receipt1Management = () => {
                                     />
                                 </Grid>
                                 <Grid item xs={12} md={6}>
-                                    <LocalizationProvider dateAdapter={AdapterDayjs}>
+                                    <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
                                         <DatePicker
                                             label="วันหมดอายุ"
                                             format="DD/MM/YYYY"
@@ -1164,7 +1165,7 @@ const Receipt1Management = () => {
     }
 
     return (
-        <LocalizationProvider dateAdapter={AdapterDayjs}>
+        <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
             <Container maxWidth="lg" sx={{ mt: 2 }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
                     <Typography variant="h6" fontWeight="bold">ใบรับสินค้า ({filteredList.length} รายการ)</Typography>

@@ -44,6 +44,7 @@ const DrugLabelsPrint = ({ patient, drugs }) => {
             flex-direction: column;
             justify-content: flex-start;
             overflow: hidden; 
+            transform: rotate(180deg); /* หมุนกระดาษ 180 องศาเพื่อแก้ปัญหาพิมพ์กลับหัว */
           }
           
           /* Spacer สำหรับเว้นหัวกระดาษ 0.9cm (เผื่อเป็น 1.2cm/12mm ให้ปลอดภัย) */

@@ -1166,7 +1166,21 @@ class TreatmentService {
             // สร้างข้อมูลการชำระเงิน
             const paymentData = this.createPaymentDataFromEditablePrices(editablePrices, paymentInfo);
 
-            console.log('💰 Payment data created:', paymentData);
+            // ✅ ต้องแทรกรายการยาและหัตถการเข้าไปใน payload ด้วย เพื่อให้ค่าที่ถูกแก้ (AMT) บันทึกลง database จริงๆ
+            if (editablePrices && editablePrices.drugs) {
+                paymentData.drugs = editablePrices.drugs.map(drug => ({
+                    ...drug,
+                    AMT: parseFloat(drug.editablePrice || 0)
+                }));
+            }
+            if (editablePrices && editablePrices.procedures) {
+                paymentData.procedures = editablePrices.procedures.map(proc => ({
+                    ...proc,
+                    AMT: parseFloat(proc.editablePrice || 0)
+                }));
+            }
+
+            console.log('💰 Payment data created (with drugs and procedures):', paymentData);
 
             // อัปเดต treatment record พร้อมข้อมูลการชำระเงิน
             return await this.updateTreatment(vno, paymentData);

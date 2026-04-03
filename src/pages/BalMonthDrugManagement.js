@@ -17,6 +17,7 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import dayjs from 'dayjs';
+import 'dayjs/locale/en-gb';
 
 import BalMonthDrugService from "../services/balMonthDrugService";
 import DrugService from "../services/drugService";
@@ -449,7 +450,7 @@ const BalMonthDrugManagement = () => {
 
     if (currentView === "add" || currentView === "edit") {
         return (
-            <LocalizationProvider dateAdapter={AdapterDayjs}>
+            <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
                 <Container maxWidth="md" sx={{ mt: 2 }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
                         <Typography variant="h5" fontWeight="bold">
@@ -539,7 +540,7 @@ const BalMonthDrugManagement = () => {
 
                                 <Grid item xs={12} md={6}>
                                     <Typography sx={{ fontWeight: 400, fontSize: 16, mb: 1 }}>วันหมดอายุ</Typography>
-                                    <LocalizationProvider dateAdapter={AdapterDayjs}>
+                                    <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
                                         <DatePicker
                                             format="DD/MM/YYYY"
                                             value={formData.EXPIRE_DATE ? dayjs(formData.EXPIRE_DATE) : null}
@@ -641,7 +642,7 @@ const BalMonthDrugManagement = () => {
     const summary = calculateSummary();
 
     return (
-        <LocalizationProvider dateAdapter={AdapterDayjs}>
+        <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
             <Container maxWidth="lg" sx={{ mt: 2 }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
                     <Typography variant="h6" fontWeight="bold">

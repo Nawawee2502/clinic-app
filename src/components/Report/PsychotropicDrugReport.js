@@ -9,9 +9,12 @@ import {
 import {
     Refresh as RefreshIcon, Download as DownloadIcon,
     Search as SearchIcon, Clear as ClearIcon,
-    Medication as MedIcon, People as PeopleIcon, Inventory as InventoryIcon
+    Medication as MedIcon, People as PeopleIcon, Inventory as InventoryIcon,
+    Print as PrintIcon
 } from '@mui/icons-material';
 import MonthYearFilter from '../common/MonthYearFilter';
+import { printPsychotropicForm } from './PsychotropicFormPrint';
+import { printPsychotropicFormRY8 } from './PsychotropicFormPrintRY8';
 import { formatThaiDateShort } from '../../utils/dateTimeUtils';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
@@ -133,6 +136,12 @@ const PsychotropicDrugReport = () => {
                 <Box sx={{ display: 'flex', gap: 1.5 }}>
                     <Button variant="outlined" startIcon={<RefreshIcon />} onClick={loadData} disabled={loading}>
                         รีเฟรช
+                    </Button>
+                    <Button variant="contained" color="secondary" startIcon={<PrintIcon />} onClick={() => printPsychotropicForm(records, endMonth, endYear)} disabled={loading || records.length === 0}>
+                        พิมพ์ บ.จ.-๒
+                    </Button>
+                    <Button variant="contained" color="info" startIcon={<PrintIcon />} onClick={() => printPsychotropicFormRY8(records, endMonth, endYear)} disabled={loading || records.length === 0}>
+                        พิมพ์ ร.ย.-๘
                     </Button>
                     <Button variant="contained" startIcon={<DownloadIcon />} onClick={handleExportCSV} disabled={loading || records.length === 0}>
                         ส่งออก CSV

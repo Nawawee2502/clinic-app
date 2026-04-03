@@ -23,6 +23,7 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import dayjs from 'dayjs';
+import 'dayjs/locale/en-gb';
 
 const CheckStockManagement = () => {
     const getYearOptionsBE = (yearsBack = 5) => {
@@ -734,7 +735,7 @@ const CheckStockManagement = () => {
 
     if (currentView === "add" || currentView === "edit") {
         return (
-            <LocalizationProvider dateAdapter={AdapterDayjs}>
+            <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
                 <Container maxWidth="lg" sx={{ mt: 2 }}>
                     <Card>
                         <CardContent>
@@ -956,7 +957,7 @@ const CheckStockManagement = () => {
                                 </Grid>
 
                                 <Grid item xs={12} md={6}>
-                                    <LocalizationProvider dateAdapter={AdapterDayjs}>
+                                    <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
                                         <DatePicker
                                             label="วันหมดอายุ"
                                             format="DD/MM/YYYY"
@@ -1091,7 +1092,7 @@ const CheckStockManagement = () => {
     }
 
     return (
-        <LocalizationProvider dateAdapter={AdapterDayjs}>
+        <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
             <Container maxWidth="lg" sx={{ mt: 2 }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
                     <Typography variant="h6" fontWeight="bold">ใบตรวจนับสต๊อก ({filteredList.length} รายการ)</Typography>

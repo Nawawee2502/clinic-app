@@ -24,6 +24,7 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import dayjs from 'dayjs';
+import 'dayjs/locale/en-gb';
 
 const Borrow1Management = () => {
     // Helper functions สำหรับจัดการปี พ.ศ.
@@ -802,7 +803,7 @@ const Borrow1Management = () => {
         const unitLabel = modalData.UNIT_NAME1 || currentLotInfo?.UNIT_CODE1 || '';
 
         return (
-            <LocalizationProvider dateAdapter={AdapterDayjs}>
+            <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
                 <Container maxWidth="lg" sx={{ mt: 2 }}>
                     <Card>
                         <CardContent>
@@ -1021,7 +1022,7 @@ const Borrow1Management = () => {
                                     />
                                 </Grid>
                                 <Grid item xs={12} md={6}>
-                                    <LocalizationProvider dateAdapter={AdapterDayjs}>
+                                    <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
                                         <DatePicker
                                             label="วันหมดอายุ"
                                             format="DD/MM/YYYY"
@@ -1117,7 +1118,7 @@ const Borrow1Management = () => {
     }
 
     return (
-        <LocalizationProvider dateAdapter={AdapterDayjs}>
+        <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
             <Container maxWidth="lg" sx={{ mt: 2 }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
                     <Typography variant="h6" fontWeight="bold">ใบเบิกสินค้า ({filteredList.length} รายการ)</Typography>
